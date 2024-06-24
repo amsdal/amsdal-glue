@@ -11,11 +11,6 @@ class DataMutationNode:
     mutations: list[DataMutation]
     result: list[list[Data] | None] | None = None
 
-    def __post_init__(self):
-        if not self.mutations:
-            msg = 'The "mutations" list cannot be empty'
-            raise ValueError(msg)
-
     def __repr__(self) -> str:
         return f'DataMutationNode<{self.mutations}>'
 

@@ -8,8 +8,9 @@ from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
-from amsdal_glue_core.queries.sql_builders.operator_constructor import default_operator_constructor
-from amsdal_glue_core.queries.sql_builders.query_builder import build_conditions
+
+from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_conditions
 
 
 def build_sql_data_command(
