@@ -24,8 +24,13 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal_glue_core",
+    "amsdal_glue_core==0.0.*",
     "polars>=0.20"
+]
+
+[project.optional-dependencies]
+connections = [
+    "amsdal-glue-connections==0.0.*",
 ]
 
 [project.urls]
@@ -47,6 +52,7 @@ extra-dependencies = [
 ]
 pre-install-commands = [
   "pip install -e ../core/",
+  "pip install -e ../connections/",
 ]
 
 [tool.hatch.envs.default.scripts]

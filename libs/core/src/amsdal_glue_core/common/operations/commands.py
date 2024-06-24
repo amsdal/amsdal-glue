@@ -15,11 +15,6 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 class SchemaCommand(Operation):
     mutations: list[SchemaMutation]
 
-    def __post_init__(self):
-        if not self.mutations:
-            msg = 'The "mutations" list cannot be empty'
-            raise ValueError(msg)
-
 
 @dataclass(kw_only=True)
 class DataCommand(Operation):
