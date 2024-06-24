@@ -1,0 +1,28 @@
+from abc import ABC
+from abc import abstractmethod
+
+from amsdal_glue_core.common.operations.commands import DataCommand
+from amsdal_glue_core.common.operations.commands import SchemaCommand
+from amsdal_glue_core.common.workflows.chain import ChainTask
+
+
+class DataCommandPlanner(ABC):
+    """
+    Base class for command planner.
+    """
+
+    @abstractmethod
+    def plan_data_command(self, command: DataCommand) -> ChainTask:
+        """
+        Split command into chain of execution (plan).
+        """
+        ...
+
+
+class SchemaCommandPlanner(ABC):
+    @abstractmethod
+    def plan_schema_command(self, command: SchemaCommand) -> ChainTask:
+        """
+        Split schema command into chain of execution (plan).
+        """
+        ...

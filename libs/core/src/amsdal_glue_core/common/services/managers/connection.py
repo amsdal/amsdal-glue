@@ -1,0 +1,33 @@
+from amsdal_glue_core.common.enums import ConnectionAlias
+from amsdal_glue_core.common.helpers.singleton import Singleton
+from amsdal_glue_core.common.interfaces.connection import ConnectionBase
+from amsdal_glue_core.common.interfaces.lock import LockBase
+
+
+class ConnectionManager(metaclass=Singleton):
+    def __init__(self) -> None:
+        self.connections: dict[str, ConnectionBase] = {}
+        self.lock: LockBase | None = None
+
+    def register_connection(self, connection: ConnectionBase, schema_name: str | None = None) -> None:
+        self.connections[schema_name or ConnectionAlias.DEFAULT] = connection
+
+    def register_lock(self, lock: LockBase) -> None:
+        self.lock = lock
+
+    def has_multiple_models_connections(self, connection_alias: ConnectionAlias) -> bool:
+        return connection_alias == ConnectionAlias.DEFAULT and len(self.connections) > 1
+
+    def get_connection(self, schema_name: str) -> ConnectionBase:
+        return self.connections.get(schema_name) or self.connections[ConnectionAlias.DEFAULT]
+
+    def disconnect_all(self) -> None:
+        for connection in self.connections.values():
+            if connection.is_connected:
+                connection.disconnect()
+
+        self.connections.clear()
+
+        if self.lock:
+            self.lock.disconnect()
+            self.lock = None
