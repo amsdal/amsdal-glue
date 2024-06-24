@@ -7,11 +7,13 @@ from amsdal_glue_core.common.executors.interfaces import ParallelExecutor
 from amsdal_glue_core.common.executors.interfaces import SequentialExecutor
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
+from amsdal_glue_core.queries.planner.query_planner.base import SchemaQueryPlanner
 
 from amsdal_glue.commands.planner.data_planner import DefaultDataCommandPlanner
 from amsdal_glue.commands.planner.lock_planner import DefaultLockCommandPlanner
 from amsdal_glue.commands.planner.schema_planner import DefaultSchemaCommandPlanner
 from amsdal_glue.commands.planner.transaction_planner import DefaultTransactionCommandPlanner
+from amsdal_glue.queries.planner.schema_query_planner import DefaultSchemaQueryPlanner
 from amsdal_glue.task_executors.parallel_thread_executor import ThreadParallelExecutor
 from amsdal_glue.task_executors.sequential_sync_executor import SequentialSyncExecutor
 
@@ -24,7 +26,7 @@ def init_default_containers() -> None:
     # Register default services, managers and executors for Queries
     # Container.services.register(QueryService, DefaultQueryService)  # noqa: ERA001
     # Container.planners.register(DataQueryPlanner, DefaultDataQueryPlanner)  # noqa: ERA001
-    # Container.planners.register(SchemaQueryPlanner, DefaultSchemaQueryPlanner)  # noqa: ERA001
+    Container.planners.register(SchemaQueryPlanner, DefaultSchemaQueryPlanner)
     # Container.executors.register(FinalExecutor, PolarsFinalQueryExecutor)  # noqa: ERA001
 
     # Register default services, managers and executors for Commands
