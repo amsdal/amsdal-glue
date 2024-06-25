@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from typing import Any
 
-from amsdal_glue_core.commands.executors.schema_query_executor import SchemaQueryNodeExecutor
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.workflows.task import Task
-from amsdal_glue_core.queries.query_nodes import SchemaQueryNode
+from amsdal_glue_core.queries.executors.schema_query_executor import SchemaQueryNodeExecutor
+from amsdal_glue_core.queries.schema_query_nodes import SchemaQueryNode
 
 
 @dataclass(kw_only=True)

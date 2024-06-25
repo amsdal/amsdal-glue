@@ -4,7 +4,7 @@ from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 
 if TYPE_CHECKING:
-    from amsdal_glue_core.queries.query_nodes import SchemaQueryNode
+    from amsdal_glue_core.queries.schema_query_nodes import SchemaQueryNode
 
 
 class SchemaQueryNodeExecutor(metaclass=Singleton):

@@ -3,6 +3,7 @@ from abc import abstractmethod
 from typing import Any
 
 from amsdal_glue_core.common.workflows.task import Task
+from amsdal_glue_core.queries.data_query_nodes import FinalDataQueryNode
 
 
 class SequentialExecutor(ABC):
@@ -30,10 +31,10 @@ class ParallelExecutor(ABC):
     ): ...
 
 
-class FinalExecutor(ABC):
+class FinalDataQueryExecutor(ABC):
     """
-    Interface for final query executor.
+    Interface for final data query executor.
     """
 
     @abstractmethod
-    def execute(self, task: Task) -> None: ...
+    def execute(self, query_node: FinalDataQueryNode) -> None: ...

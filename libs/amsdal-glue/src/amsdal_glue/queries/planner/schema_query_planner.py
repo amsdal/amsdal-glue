@@ -3,7 +3,7 @@ from amsdal_glue_core.common.services.managers.connection import ConnectionManag
 from amsdal_glue_core.common.workflows.chain import ChainTask
 from amsdal_glue_core.common.workflows.group import GroupTask
 from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPlanner
-from amsdal_glue_core.queries.query_nodes import SchemaQueryNode
+from amsdal_glue_core.queries.schema_query_nodes import SchemaQueryNode
 
 from amsdal_glue.queries.tasks.schema_tasks import FinalSchemaQueryTask
 from amsdal_glue.queries.tasks.schema_tasks import SchemaQueryTask
