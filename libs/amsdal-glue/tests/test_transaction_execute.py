@@ -36,9 +36,10 @@ def _register_default_connection() -> Generator[None, None, None]:
         shipping_connection.execute('CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)')
         shipping_connection.execute('CREATE TABLE IF NOT EXISTS customers (id TEXT, name TEXT)')
 
-        yield
-
-        shipping_connection.disconnect()
+        try:
+            yield
+        finally:
+            shipping_connection.disconnect()
 
     Singleton.invalidate_all_instances()
 
