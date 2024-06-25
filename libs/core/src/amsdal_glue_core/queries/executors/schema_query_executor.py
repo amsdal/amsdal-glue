@@ -8,9 +8,11 @@ if TYPE_CHECKING:
 
 
 class SchemaQueryNodeExecutor(metaclass=Singleton):
-    def execute(self, query_node: 'SchemaQueryNode') -> None:
+    def execute(self, query_node: 'SchemaQueryNode', transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
         from amsdal_glue_core.containers import Container
 
         connection_manager = Container.managers.get(ConnectionManager)
-        connection = connection_manager.get_connection(query_node.schema_name_connection)
+        connection = connection_manager.get_connection_pool(query_node.schema_name_connection).get_connection(
+            transaction_id
+        )
         query_node.result = connection.query_schema(query_node.filters)

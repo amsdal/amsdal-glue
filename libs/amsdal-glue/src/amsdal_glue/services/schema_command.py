@@ -12,7 +12,7 @@ class DefaultSchemaCommandService(SchemaCommandService):
         plan = query_planner.plan_schema_command(command)
 
         try:
-            plan.execute()
+            plan.execute(transaction_id=command.transaction_id, lock_id=command.lock_id)
         except Exception as e:  # noqa: BLE001
             return SchemaResult(success=False, message=str(e))
         else:

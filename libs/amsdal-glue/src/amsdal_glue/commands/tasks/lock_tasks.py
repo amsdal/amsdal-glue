@@ -9,11 +9,11 @@ from amsdal_glue_core.common.workflows.task import Task
 class LockCommandTask(Task):
     lock_command: ExecutionLockCommand
 
-    def execute(self) -> None:
+    def execute(self, transaction_id: str | None, lock_id: str | None) -> None:
         from amsdal_glue_core.commands.executors.lock_command_executor import LockCommandNodeExecutor
 
         _command_executor = LockCommandNodeExecutor()
-        _command_executor.execute(self.lock_command)
+        _command_executor.execute(self.lock_command, transaction_id=transaction_id, lock_id=lock_id)
 
     @property
     def item(self) -> Any:

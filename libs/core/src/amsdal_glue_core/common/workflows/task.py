@@ -5,7 +5,7 @@ from typing import Any
 
 class Task(ABC):
     @abstractmethod
-    def execute(self) -> None:
+    def execute(self, transaction_id: str | None, lock_id: str | None) -> None:
         """
         Execute task.
         """

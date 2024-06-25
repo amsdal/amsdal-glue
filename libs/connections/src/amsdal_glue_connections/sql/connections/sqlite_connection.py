@@ -236,29 +236,29 @@ class SqliteConnection(ConnectionBase):
 
         return True
 
-    def commit_transaction(self, transaction: TransactionCommand) -> Any:
-        if transaction.parent_transaction_id:
+    def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             return None
 
         self.connection.execute('COMMIT')
         return True
 
-    def rollback_transaction(self, transaction: TransactionCommand) -> Any:
-        if transaction.parent_transaction_id:
+    def rollback_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             return None
 
         self.connection.execute('ROLLBACK')
         return True
 
-    def begin_transaction(self, transaction: TransactionCommand) -> Any:  # pragma: no cover
-        if transaction.parent_transaction_id:
+    def begin_transaction(self, transaction: TransactionCommand | str | None) -> Any:  # pragma: no cover
+        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             return None
 
         self.connection.execute('BEGIN')
         return True
 
-    def revert_transaction(self, transaction: TransactionCommand) -> Any:  # pragma: no cover
-        if transaction.parent_transaction_id:
+    def revert_transaction(self, transaction: TransactionCommand | str | None) -> Any:  # pragma: no cover
+        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             return None
 
         self.connection.execute('ROLLBACK')

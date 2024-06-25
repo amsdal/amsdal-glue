@@ -4,6 +4,7 @@ import tempfile
 from collections.abc import Generator
 
 import pytest
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
@@ -32,23 +33,27 @@ def _register_default_connection() -> Generator[None, None, None]:
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = f'{temp_dir}/data.sqlite'
 
-        shipping_connection = SqliteConnection()
-        customers_connection = SqliteConnection()
-        connection_mng.register_connection(shipping_connection, schema_name='shippings')
-        connection_mng.register_connection(customers_connection, schema_name='customers')
+        connection_mng.register_connection(
+            DefaultConnectionPool(SqliteConnection, db_path=db_path, check_same_thread=False, timeout=0.3),
+            schema_name='shippings',
+        )
+        connection_mng.register_connection(
+            DefaultConnectionPool(SqliteConnection, db_path=db_path, check_same_thread=False, timeout=0.3),
+            schema_name='customers',
+        )
 
-        shipping_connection.connect(db_path=db_path, check_same_thread=False)
-        customers_connection.connect(db_path=db_path, check_same_thread=False)
-        shipping_connection.execute('CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)')
-        customers_connection.execute('CREATE TABLE IF NOT EXISTS customers (id TEXT, name TEXT)')
+        connection_mng.get_connection_pool('shippings').get_connection().execute(
+            'CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)'
+        )
+        connection_mng.get_connection_pool('customers').get_connection().execute(
+            'CREATE TABLE IF NOT EXISTS customers (id TEXT, name TEXT)'
+        )
 
         try:
             yield
         finally:
-            shipping_connection.execute('DROP TABLE shippings')
-            customers_connection.execute('DROP TABLE customers')
-            shipping_connection.disconnect()
-            customers_connection.disconnect()
+            connection_mng.get_connection_pool('shippings').get_connection().execute('DROP TABLE shippings')
+            connection_mng.get_connection_pool('customers').get_connection().execute('DROP TABLE customers')
 
     Singleton.invalidate_all_instances()
 
@@ -65,7 +70,7 @@ def test_lock() -> None:
             locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
         )
     )
-    lock_plan.execute()
+    lock_plan.execute(transaction_id=None, lock_id=None)
 
     query = DataCommand(
         lock_id=None,
@@ -91,7 +96,7 @@ def test_lock() -> None:
     plan = planner.plan_data_command(query)
 
     try:
-        plan.execute()
+        plan.execute(transaction_id=None, lock_id=None)
     except ConnectionError as e:
         assert 'Error executing mutation:' in str(e)
         assert str(e.__cause__.__cause__) == 'database is locked'  # type: ignore[union-attr]
@@ -104,7 +109,8 @@ def test_lock() -> None:
     with pytest.raises(ConnectionError):
         (
             ConnectionManager()  # type: ignore[attr-defined]
-            .get_connection('shippings')
+            .get_connection_pool('shippings')
+            .get_connection()
             .execute('SELECT id, customer_id, status FROM shippings')
             .fetchall()
         )
@@ -120,13 +126,14 @@ def test_lock() -> None:
             locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
         )
     )
-    lock_plan.execute()
+    lock_plan.execute(transaction_id=None, lock_id=None)
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     assert (
         [('111', '1', 'shipped')]
         == ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection('shippings')
+        .get_connection_pool('shippings')
+        .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
     )

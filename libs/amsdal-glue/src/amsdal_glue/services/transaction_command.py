@@ -12,7 +12,7 @@ class DefaultTransactionCommandService(TransactionCommandService):
         plan = query_planner.plan_transaction(command)
 
         try:
-            plan.execute()
+            plan.execute(transaction_id=command.transaction_id, lock_id=command.lock_id)
         except Exception as e:  # noqa: BLE001
             return TransactionResult(success=False, message=str(e))
 

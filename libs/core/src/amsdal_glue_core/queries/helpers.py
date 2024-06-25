@@ -10,7 +10,7 @@ def has_multiple_connections(query: QueryStatement) -> bool:
     _tables = query.get_related_tables()
 
     for table_name in _tables:
-        connection_name = _connection_manager.get_connection(table_name)
+        connection_name = _connection_manager.get_connection_pool(table_name)
         _connections.add(connection_name)
 
     return len(_connections) > 1

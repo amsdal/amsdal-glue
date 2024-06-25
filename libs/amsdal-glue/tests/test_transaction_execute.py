@@ -1,9 +1,9 @@
 # mypy: disable-error-code="type-abstract"
 import tempfile
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
@@ -24,24 +24,31 @@ from amsdal_glue_core.containers import Container
 @pytest.fixture(autouse=True)
 def _register_default_connection() -> Generator[None, None, None]:
     init_default_containers()
-    shipping_connection = SqliteConnection()
     connection_mng = Container.managers.get(ConnectionManager)
-    connection_mng.register_connection(shipping_connection, schema_name='shippings')
-    connection_mng.register_connection(shipping_connection, schema_name='customers')
 
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = f'{temp_dir}/data.sqlite'
-        shipping_connection.connect(db_path=Path(db_path), check_same_thread=False)
+        connection_pool = DefaultConnectionPool(SqliteConnection, db_path=db_path, check_same_thread=False, timeout=0.3)
+        connection_mng.register_connection(
+            connection_pool,
+            schema_name='shippings',
+        )
+        connection_mng.register_connection(
+            connection_pool,
+            schema_name='customers',
+        )
 
-        shipping_connection.execute('CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)')
-        shipping_connection.execute('CREATE TABLE IF NOT EXISTS customers (id TEXT, name TEXT)')
+        connection_mng.get_connection_pool('shippings').get_connection().execute(
+            'CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)'
+        )
+        connection_mng.get_connection_pool('customers').get_connection().execute(
+            'CREATE TABLE IF NOT EXISTS customers (id TEXT, name TEXT)'
+        )
 
         try:
             yield
         finally:
-            shipping_connection.disconnect()
-
-    Singleton.invalidate_all_instances()
+            Singleton.invalidate_all_instances()
 
 
 def test_transaction() -> None:
@@ -54,7 +61,7 @@ def test_transaction() -> None:
             schema=SchemaReference(name='shippings', version=Version.LATEST),
             action=TransactionAction.BEGIN,
         )
-    ).execute()
+    ).execute(transaction_id='transaction_id', lock_id=None)
 
     command_planner.plan_data_command(
         DataCommand(
@@ -91,7 +98,7 @@ def test_transaction() -> None:
                 ),
             ],
         )
-    ).execute()
+    ).execute(transaction_id='transaction_id', lock_id=None)
 
     transaction_planner.plan_transaction(
         TransactionCommand(
@@ -99,18 +106,20 @@ def test_transaction() -> None:
             schema=SchemaReference(name='shippings', version=Version.LATEST),
             action=TransactionAction.COMMIT,
         )
-    ).execute()
+    ).execute(transaction_id='transaction_id', lock_id=None)
 
     assert (
         [('111', '1', 'shipped')]
         == ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection('shippings')
+        .get_connection_pool('shippings')
+        .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
     )
     assert [('1', 'customer')] == (
         ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection('customers')
+        .get_connection_pool('customers')
+        .get_connection()
         .execute('SELECT id, name FROM customers')
         .fetchall()
     )
@@ -126,12 +135,12 @@ def test_transaction_rollback() -> None:
             schema=SchemaReference(name='shippings', version=Version.LATEST),
             action=TransactionAction.BEGIN,
         )
-    ).execute()
+    ).execute(transaction_id='transaction_id', lock_id=None)
 
     command_planner.plan_data_command(
         DataCommand(
             lock_id=None,
-            transaction_id=None,
+            transaction_id='transaction_id',
             mutations=[
                 InsertData(
                     schema=SchemaReference(name='shippings', version=Version.LATEST),
@@ -163,7 +172,7 @@ def test_transaction_rollback() -> None:
                 ),
             ],
         )
-    ).execute()
+    ).execute(transaction_id='transaction_id', lock_id=None)
 
     transaction_planner.plan_transaction(
         TransactionCommand(
@@ -171,17 +180,19 @@ def test_transaction_rollback() -> None:
             schema=SchemaReference(name='shippings', version=Version.LATEST),
             action=TransactionAction.ROLLBACK,
         )
-    ).execute()
+    ).execute(transaction_id='transaction_id', lock_id=None)
 
     assert [] == (
         ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection('shippings')
+        .get_connection_pool('shippings')
+        .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
     )
     assert [] == (
         ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection('customers')
+        .get_connection_pool('customers')
+        .get_connection()
         .execute('SELECT id, name FROM customers')
         .fetchall()
     )

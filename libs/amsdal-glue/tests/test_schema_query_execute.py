@@ -3,6 +3,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.common.helpers.singleton import Singleton
@@ -18,10 +19,9 @@ def _register_default_connection() -> Generator[None, None, None]:
     init_default_containers()
     connection_mng = Container.managers.get(ConnectionManager)
 
-    connection = SqliteConnection()
-    connection_mng.register_connection(connection)
-
-    connection.connect(db_path=FIXTURES_PATH / 'customers.sqlite', check_same_thread=False)
+    connection_mng.register_connection(
+        DefaultConnectionPool(SqliteConnection, db_path=FIXTURES_PATH / 'customers.sqlite', check_same_thread=False)
+    )
 
     try:
         yield
@@ -33,16 +33,16 @@ def _register_default_connection() -> Generator[None, None, None]:
 def _add_shipping_connection():
     connection_mng = Container.managers.get(ConnectionManager)
 
-    shipping_connection = SqliteConnection()
-    connection_mng.register_connection(shipping_connection, schema_name='shippings')
-
-    shipping_connection.connect(db_path=FIXTURES_PATH / 'shippings.sqlite', check_same_thread=False)
+    connection_mng.register_connection(
+        DefaultConnectionPool(SqliteConnection, db_path=FIXTURES_PATH / 'shippings.sqlite', check_same_thread=False),
+        schema_name='shippings',
+    )
 
 
 def test_query_schemas_for_one_connection() -> None:
     query_planner = Container.planners.get(SchemaQueryPlanner)
     plan = query_planner.plan_schema_query()
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
 
     result = plan.result
     assert len(result) == 4
@@ -59,7 +59,7 @@ def test_query_schemas_for_multiple_connections() -> None:
     _add_shipping_connection()
     query_planner = Container.planners.get(SchemaQueryPlanner)
     plan = query_planner.plan_schema_query()
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
 
     result = plan.result
     assert len(result) == 5

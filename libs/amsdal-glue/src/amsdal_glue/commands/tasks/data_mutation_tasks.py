@@ -10,9 +10,9 @@ from amsdal_glue_core.common.workflows.task import Task
 class DataMutationTask(Task):
     data_mutation_node: DataMutationNode
 
-    def execute(self) -> None:
+    def execute(self, transaction_id: str | None, lock_id: str | None) -> None:
         _query_executor = DataCommandNodeExecutor()
-        _query_executor.execute(self.data_mutation_node)
+        _query_executor.execute(self.data_mutation_node, transaction_id=transaction_id, lock_id=lock_id)
 
     @property
     def item(self) -> Any:

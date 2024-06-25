@@ -14,8 +14,8 @@ class SchemaCommandTask(Task):
     def __post_init__(self) -> None:
         self._executor = SchemaCommandNodeExecutor()
 
-    def execute(self) -> None:
-        self._executor.execute(self.command_node)
+    def execute(self, transaction_id: str | None, lock_id: str | None) -> None:
+        self._executor.execute(self.command_node, transaction_id=transaction_id, lock_id=lock_id)
 
     @property
     def item(self) -> Any:
@@ -33,7 +33,7 @@ class FinalSchemaCommandTask(Task):
     def __post_init__(self) -> None:
         self._result: SchemaCommandNode | None = None
 
-    def execute(self) -> None:
+    def execute(self, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
         if not self.tasks:
             return
 

@@ -11,15 +11,17 @@ class SchemaCommandNodeExecutor(metaclass=Singleton):
 
         self.connection_manager = Container.managers.get(ConnectionManager)
 
-    def execute(self, command_node: SchemaCommandNode) -> None:
+    def execute(self, command_node: SchemaCommandNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
         _command = command_node.command
-        _connection = self.resolve_connection(_command.mutations)
+        _connection = self.resolve_connection(_command.mutations, transaction_id)
 
         _connection.run_schema_command(_command)
 
-    def resolve_connection(self, mutations: list[SchemaMutation]) -> ConnectionBase:
+    def resolve_connection(self, mutations: list[SchemaMutation], transaction_id: str | None) -> ConnectionBase:
         if not mutations:
             msg = 'No mutations to resolve connection for'
             raise ValueError(msg)
 
-        return self.connection_manager.get_connection(mutations[0].get_schema_name())
+        return self.connection_manager.get_connection_pool(mutations[0].get_schema_name()).get_connection(
+            transaction_id
+        )
