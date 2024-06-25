@@ -8,7 +8,7 @@ from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConn
 from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
-from amsdal_glue_core.queries.planner.query_planner.base import SchemaQueryPlanner
+from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPlanner
 
 FIXTURES_PATH = Path(__file__).parent / 'fixtures'
 
@@ -21,15 +21,13 @@ def _register_default_connection() -> Generator[None, None, None]:
     connection = SqliteConnection()
     connection_mng.register_connection(connection)
 
-    shipping_connection = SqliteConnection()
-    connection_mng.register_connection(shipping_connection, schema_name='shippings')
-
     connection.connect(db_path=FIXTURES_PATH / 'customers.sqlite', check_same_thread=False)
 
-    yield
-
-    connection_mng.disconnect_all()
-    Singleton.invalidate_all_instances()
+    try:
+        yield
+    finally:
+        connection_mng.disconnect_all()
+        Singleton.invalidate_all_instances()
 
 
 def _add_shipping_connection():

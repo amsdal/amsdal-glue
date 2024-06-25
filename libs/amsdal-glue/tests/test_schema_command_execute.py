@@ -39,9 +39,11 @@ def _register_default_connection() -> Generator[None, None, None]:
         db_path = f'{temp_dir}/data.sqlite'
         connection.connect(db_path=Path(db_path), check_same_thread=False)
 
-        yield
+        try:
+            yield
+        finally:
+            connection.disconnect()
 
-        connection.disconnect()
         Singleton.invalidate_all_instances()
 
 

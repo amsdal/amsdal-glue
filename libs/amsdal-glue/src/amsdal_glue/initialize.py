@@ -7,7 +7,7 @@ from amsdal_glue_core.common.executors.interfaces import ParallelExecutor
 from amsdal_glue_core.common.executors.interfaces import SequentialExecutor
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
-from amsdal_glue_core.queries.planner.query_planner.base import SchemaQueryPlanner
+from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPlanner
 
 from amsdal_glue.commands.planner.data_planner import DefaultDataCommandPlanner
 from amsdal_glue.commands.planner.lock_planner import DefaultLockCommandPlanner

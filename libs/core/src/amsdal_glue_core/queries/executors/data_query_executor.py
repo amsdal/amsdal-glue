@@ -3,10 +3,10 @@ from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
-from amsdal_glue_core.queries.planner.query_nodes import DataQueryNode
+from amsdal_glue_core.queries.query_nodes import DataQueryNode
 
 
-class QueryNodeExecutor(metaclass=Singleton):
+class DataQueryNodeExecutor(metaclass=Singleton):
     def __init__(self) -> None:
         from amsdal_glue_core.containers import Container
 
