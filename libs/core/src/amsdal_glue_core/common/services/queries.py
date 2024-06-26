@@ -17,7 +17,7 @@ class AsyncSchemaQueryService(ABC):
     async def execute(self, query_op: SchemaQueryOperation) -> SchemaResult: ...
 
 
-class QueryDataService(ABC):
+class DataQueryService(ABC):
     @abstractmethod
     def execute(self, query_op: DataQueryOperation) -> DataResult: ...
 
