@@ -21,7 +21,7 @@ class TransactionCommandTask(Task):
 
     @property
     def result(self) -> Any:
-        return self.result
+        return self.transaction_command.result
 
     def __repr__(self) -> str:
         return f'TransactionCommandTask<{self.transaction_command}>'

@@ -17,6 +17,9 @@ class ConnectionPoolBase(ABC):
     @abstractmethod
     def get_connection(self, transaction_id: str | None = None) -> ConnectionBase: ...
 
+    @abstractmethod
+    def disconnect(self) -> None: ...
+
 
 class ConnectionManager(metaclass=Singleton):
     def __init__(self) -> None:

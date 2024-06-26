@@ -16,6 +16,6 @@ class DefaultSchemaCommandService(SchemaCommandService):
         except Exception as e:  # noqa: BLE001
             return SchemaResult(success=False, message=str(e))
         else:
-            _schema = plan.final_task.result if plan.final_task else plan.tasks[-1].result
+            _schemas = plan.final_task.result if plan.final_task else plan.tasks[-1].result
 
-        return SchemaResult(success=True, schema=_schema)
+        return SchemaResult(success=True, schemas=_schemas)

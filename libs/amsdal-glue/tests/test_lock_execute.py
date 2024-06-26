@@ -2,6 +2,7 @@
 import sqlite3
 import tempfile
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
@@ -31,7 +32,7 @@ def _register_default_connection() -> Generator[None, None, None]:
     connection_mng = Container.managers.get(ConnectionManager)
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        db_path = f'{temp_dir}/data.sqlite'
+        db_path = Path(f'{temp_dir}/data.sqlite')
 
         connection_mng.register_connection(
             DefaultConnectionPool(SqliteConnection, db_path=db_path, check_same_thread=False, timeout=0.3),
@@ -52,10 +53,8 @@ def _register_default_connection() -> Generator[None, None, None]:
         try:
             yield
         finally:
-            connection_mng.get_connection_pool('shippings').get_connection().execute('DROP TABLE shippings')
-            connection_mng.get_connection_pool('customers').get_connection().execute('DROP TABLE customers')
-
-    Singleton.invalidate_all_instances()
+            connection_mng.disconnect_all()
+            Singleton.invalidate_all_instances()
 
 
 def test_lock() -> None:
