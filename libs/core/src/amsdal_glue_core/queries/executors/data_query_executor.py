@@ -27,7 +27,7 @@ class DataQueryNodeExecutor(metaclass=Singleton):
             return self.connection_manager.get_connection_pool(table.name).get_connection(transaction_id)
 
         if isinstance(table, SubQueryStatement):
-            return self.resolve_connection(table.query.table)
+            return self.resolve_connection(table.query.table, transaction_id)
 
         msg = f'QueryNodeExecutor does not support queries with {type(table)} as table.'
         raise RuntimeError(msg)

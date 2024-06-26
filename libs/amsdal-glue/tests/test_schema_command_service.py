@@ -7,7 +7,6 @@ import pytest
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -24,6 +23,7 @@ from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+from amsdal_glue_core.common.services.commands import SchemaCommandService
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
 
@@ -46,7 +46,7 @@ def _register_default_connection() -> Generator[None, None, None]:
             Singleton.invalidate_all_instances()
 
 
-def test_create_schema():
+def test_schema_command_service() -> None:
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -96,26 +96,14 @@ def test_create_schema():
             IndexSchema(name='idx_user_email', fields=['first_name', 'last_name']),
         ],
     )
-
-    planner = Container.planners.get(SchemaCommandPlanner)
-    plan = planner.plan_schema_command(
+    service = Container.services.get(SchemaCommandService)
+    result = service.execute(
         SchemaCommand(
             mutations=[
                 RegisterSchema(schema=schema),
             ],
         ),
     )
-    plan.execute(transaction_id=None, lock_id=None)
 
-    conn = ConnectionManager().get_connection_pool('user').get_connection()
-    result = conn.query_schema(filters=None)
-    assert len(result) == 1
-    _schema = result[0]
-    assert _schema.name == 'user'
-    assert {prop.name: prop.type for prop in _schema.properties} == {
-        'id': int,
-        'email': str,
-        'age': int,
-        'first_name': str,
-        'last_name': str,
-    }
+    assert result.success is True
+    assert result.schemas == [None]

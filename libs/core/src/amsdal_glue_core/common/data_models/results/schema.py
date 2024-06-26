@@ -6,4 +6,4 @@ from amsdal_glue_core.common.data_models.schema import Schema
 
 @dataclass(kw_only=True)
 class SchemaResult(ResultBase):
-    schema: Schema | None = None
+    schemas: list[Schema | None] = None

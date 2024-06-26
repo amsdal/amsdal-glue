@@ -46,6 +46,7 @@ def _register_default_connection() -> Generator[None, None, None]:
         try:
             yield
         finally:
+            connection_mng.disconnect_all()
             Singleton.invalidate_all_instances()
 
 
