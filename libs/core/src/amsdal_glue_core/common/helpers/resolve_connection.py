@@ -5,7 +5,10 @@ from amsdal_glue_core.common.services.managers.connection import ConnectionManag
 from amsdal_glue_core.containers import Container
 
 
-def resolve_connection(table: SchemaReference | SubQueryStatement) -> ConnectionBase:
+def resolve_connection(
+    table: SchemaReference | SubQueryStatement,
+    transaction_id: str | None,
+) -> ConnectionBase:
     if isinstance(table, SchemaReference):
         _table_name = table.name
     elif isinstance(table, SubQueryStatement):
@@ -16,4 +19,4 @@ def resolve_connection(table: SchemaReference | SubQueryStatement) -> Connection
 
     connection_manager = Container.managers.get(ConnectionManager)
 
-    return connection_manager.get_connection(_table_name)
+    return connection_manager.get_connection_pool(_table_name).get_connection(transaction_id)

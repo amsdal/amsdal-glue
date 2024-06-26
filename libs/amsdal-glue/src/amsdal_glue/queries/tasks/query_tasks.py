@@ -16,8 +16,8 @@ class DataQueryTask(Task):
         self.query_node = query_node
         self.executor = DataQueryNodeExecutor()
 
-    def execute(self):
-        self.executor.execute(self.query_node)
+    def execute(self, transaction_id: str | None, lock_id: str | None):
+        self.executor.execute(self.query_node, transaction_id=transaction_id, lock_id=lock_id)
 
     @property
     def item(self) -> Any:
@@ -35,8 +35,8 @@ class FinalDataQueryTask(Task):
         self.query_node = query_node
         self.executor = Container.executors.get(FinalDataQueryExecutor)
 
-    def execute(self) -> None:
-        self.executor.execute(self.query_node)
+    def execute(self, transaction_id: str | None, lock_id: str | None) -> None:
+        self.executor.execute(self.query_node, transaction_id=transaction_id, lock_id=lock_id)
 
     @property
     def item(self) -> Any:

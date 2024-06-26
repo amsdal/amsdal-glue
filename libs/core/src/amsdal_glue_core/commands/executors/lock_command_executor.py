@@ -9,9 +9,9 @@ if TYPE_CHECKING:
 
 
 class LockCommandNodeExecutor(metaclass=Singleton):
-    def execute(self, command: 'ExecutionLockCommand') -> None:
+    def execute(self, command: 'ExecutionLockCommand', transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
         lock_object = command.locked_object
-        _connection = resolve_connection(lock_object.schema)
+        _connection = resolve_connection(lock_object.schema, transaction_id)
 
         if command.action == LockAction.ACQUIRE:
             command.result = _connection.acquire_lock(command)

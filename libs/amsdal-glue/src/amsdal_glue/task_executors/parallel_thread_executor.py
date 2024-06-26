@@ -12,20 +12,24 @@ class ThreadParallelExecutor(ParallelExecutor):
     def execute_parallel(
         self,
         tasks: list[Task],
+        transaction_id: str | None,
+        lock_id: str | None,
     ):
         with ThreadPoolExecutor() as pool_executor:
-            pool_executor.map(lambda task: self.map_fn(task), tasks)
+            pool_executor.map(lambda task: self.map_fn(task, transaction_id=transaction_id, lock_id=lock_id), tasks)
 
     def map_fn(
         self,
         task: Task,
+        transaction_id: str | None,
+        lock_id: str | None,
     ) -> None:
         from amsdal_glue_core.containers import Container
 
         if isinstance(task, ChainTask):
             executor = Container.executors.get(SequentialExecutor)
-            executor.execute_sequential(task.tasks, task.final_task)
+            executor.execute_sequential(task.tasks, task.final_task, transaction_id=transaction_id, lock_id=lock_id)
         elif isinstance(task, GroupTask):
-            self.execute_parallel(task.tasks)
+            self.execute_parallel(task.tasks, transaction_id=transaction_id, lock_id=lock_id)
         else:
-            task.execute()
+            task.execute(transaction_id=transaction_id, lock_id=lock_id)

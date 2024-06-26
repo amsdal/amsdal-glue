@@ -12,7 +12,7 @@ class DefaultSchemaQueryService(SchemaQueryService):
         plan = _schema_query_planner.plan_schema_query(query_op.filters)
 
         try:
-            plan.execute()
+            plan.execute(transaction_id=query_op.transaction_id, lock_id=query_op.lock_id)
         except Exception as exc:  # noqa: BLE001
             return SchemaResult(success=False, message=str(exc), exception=exc)
 

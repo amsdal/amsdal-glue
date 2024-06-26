@@ -4,6 +4,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
@@ -32,19 +33,16 @@ def _register_default_connection() -> Generator[None, None, None]:
     init_default_containers()
     connection_mng = Container.managers.get(ConnectionManager)
 
-    connection = SqliteConnection()
-    connection_mng.register_connection(connection)
-
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = f'{temp_dir}/data.sqlite'
-        connection.connect(db_path=Path(db_path), check_same_thread=False)
+        connection_mng.register_connection(
+            DefaultConnectionPool(SqliteConnection, db_path=Path(db_path), check_same_thread=False),
+        )
 
         try:
             yield
         finally:
-            connection.disconnect()
-
-        Singleton.invalidate_all_instances()
+            Singleton.invalidate_all_instances()
 
 
 def test_create_schema():
@@ -106,9 +104,9 @@ def test_create_schema():
             ],
         ),
     )
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
 
-    conn = ConnectionManager().get_connection('user')
+    conn = ConnectionManager().get_connection_pool('user').get_connection()
     result = conn.query_schema(filters=None)
     assert len(result) == 1
     _schema = result[0]

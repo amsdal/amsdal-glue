@@ -3,6 +3,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
@@ -35,20 +36,18 @@ def _register_default_connection() -> Generator[None, None, None]:
     init_default_containers()
     connection_mng = Container.managers.get(ConnectionManager)
 
-    connection = SqliteConnection()
-    connection_mng.register_connection(connection)
+    connection_mng.register_connection(
+        DefaultConnectionPool(SqliteConnection, db_path=FIXTURES_PATH / 'customers.sqlite', check_same_thread=False)
+    )
 
-    shipping_connection = SqliteConnection()
-    connection_mng.register_connection(shipping_connection, schema_name='shippings')
-
-    connection.connect(db_path=FIXTURES_PATH / 'customers.sqlite', check_same_thread=False)
-    shipping_connection.connect(db_path=FIXTURES_PATH / 'shippings.sqlite', check_same_thread=False)
+    connection_mng.register_connection(
+        DefaultConnectionPool(SqliteConnection, db_path=FIXTURES_PATH / 'shippings.sqlite', check_same_thread=False),
+        schema_name='shippings',
+    )
 
     try:
         yield
     finally:
-        connection.disconnect()
-        shipping_connection.disconnect()
         Singleton.invalidate_all_instances()
 
 
@@ -70,7 +69,7 @@ def test_query_execute_query_to_single_model() -> None:
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     result = plan.tasks[-1].result
     assert [item.data for item in result] == [
         {'id': 1, 'first_name': 'John'},
@@ -97,7 +96,7 @@ def test_query_execute_query_aggregation() -> None:
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     result = plan.tasks[-1].result
     assert [item.data for item in result] == [
         {'total_amount': 13600},
@@ -140,7 +139,7 @@ def test_query_execute_query_to_single_connection() -> None:
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     result = plan.tasks[-1].result
     assert [item.data for item in result] == [
         {'id': 1, 'first_name': 'John', 'amount': 400},
@@ -183,7 +182,7 @@ def test_query_execute_query_to_single_connection_fail_due_to_duplicated_selecti
     assert plan.final_task is None
 
     with pytest.raises(ValueError, match=r'Column name id is duplicated'):
-        plan.execute()
+        plan.execute(transaction_id=None, lock_id=None)
 
 
 def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
@@ -229,7 +228,7 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     result = plan.tasks[-1].result
     assert [item.data for item in result] == [
         {'customer_id': 1, 'total_amount': 400},
@@ -277,7 +276,7 @@ def test_query_execute_query_to_multiple_connections() -> None:
     plan = planner.plan_data_query(query)
     assert plan.final_task is not None
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     result = plan.final_task.result
 
     assert [item.data for item in result] == [
@@ -329,7 +328,7 @@ def test_query_execute_query_with_subquery_in_from_to_multiple_connections() -> 
     plan = planner.plan_data_query(query)
     assert plan.final_task is not None
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     result = plan.final_task.result
 
     assert [item.data for item in result] == [
@@ -381,7 +380,7 @@ def test_query_execute_query_with_subquery_in_join_to_multiple_connections() -> 
     plan = planner.plan_data_query(query)
     assert plan.final_task is not None
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     result = plan.final_task.result
 
     assert [item.data for item in result] == [
@@ -437,4 +436,4 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
     assert plan.final_task is not None
 
     with pytest.raises(RuntimeError, match='PolarsFinalQueryExecutor does not support subquery annotations'):
-        plan.execute()
+        plan.execute(transaction_id=None, lock_id=None)

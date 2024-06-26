@@ -16,6 +16,8 @@ class SequentialExecutor(ABC):
         self,
         tasks: list[Task],
         final_task: Task | None,
+        transaction_id: str | None,
+        lock_id: str | None,
     ) -> Any: ...
 
 
@@ -25,10 +27,7 @@ class ParallelExecutor(ABC):
     """
 
     @abstractmethod
-    def execute_parallel(
-        self,
-        tasks: list[Task],
-    ): ...
+    def execute_parallel(self, tasks: list[Task], transaction_id: str | None, lock_id: str | None): ...
 
 
 class FinalDataQueryExecutor(ABC):
@@ -37,4 +36,4 @@ class FinalDataQueryExecutor(ABC):
     """
 
     @abstractmethod
-    def execute(self, query_node: FinalDataQueryNode) -> None: ...
+    def execute(self, query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None: ...

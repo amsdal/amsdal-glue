@@ -9,8 +9,13 @@ if TYPE_CHECKING:
 
 
 class TransactionNodeExecutor(metaclass=Singleton):
-    def execute(self, command_node: 'ExecutionTransactionCommandNode') -> None:
-        _connection = resolve_connection(command_node.command.schema)
+    def execute(
+        self,
+        command_node: 'ExecutionTransactionCommandNode',
+        transaction_id: str | None,
+        lock_id: str | None,  # noqa: ARG002
+    ) -> None:
+        _connection = resolve_connection(command_node.command.schema, transaction_id)
 
         if command_node.command.action == TransactionAction.COMMIT:
             command_node.result = _connection.commit_transaction(command_node.command)

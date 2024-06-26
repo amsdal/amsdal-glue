@@ -8,8 +8,8 @@ if TYPE_CHECKING:
 
 
 class DataCommandNodeExecutor(metaclass=Singleton):
-    def execute(self, mutation: 'DataMutationNode') -> None:
+    def execute(self, mutation: 'DataMutationNode', transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
         _query = mutation.mutations[0]
-        _connection = resolve_connection(_query.schema)
+        _connection = resolve_connection(_query.schema, transaction_id=transaction_id)
 
         mutation.result = _connection.run_mutations(mutation.mutations)

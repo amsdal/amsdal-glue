@@ -19,7 +19,7 @@ class DefaultSchemaCommandPlanner(SchemaCommandPlanner):
 
         for mutation in command.mutations:
             _schema_name = mutation.get_schema_name()
-            _connection = connection_manager.get_connection(_schema_name)
+            _connection = connection_manager.get_connection_pool(_schema_name)
             mutations_per_connection[_connection].append(mutation)
 
         if len(mutations_per_connection) > 1:

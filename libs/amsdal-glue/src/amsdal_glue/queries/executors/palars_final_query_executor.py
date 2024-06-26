@@ -23,7 +23,7 @@ from amsdal_glue.queries.polars_operator_constructor import polars_operator_cons
 
 
 class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
-    def execute(self, query_node: FinalDataQueryNode) -> None:
+    def execute(self, query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
         if query_node.result is not None:
             return
 

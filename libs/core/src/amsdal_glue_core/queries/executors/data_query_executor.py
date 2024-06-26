@@ -12,15 +12,19 @@ class DataQueryNodeExecutor(metaclass=Singleton):
 
         self.connection_manager = Container.managers.get(ConnectionManager)
 
-    def execute(self, query: DataQueryNode) -> None:
+    def execute(self, query: DataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
         _query = query.query
-        _connection = self.resolve_connection(_query.table)
+        _connection = self.resolve_connection(_query.table, transaction_id)
 
         query.result = _connection.query(_query)
 
-    def resolve_connection(self, table: SchemaReference | SubQueryStatement) -> ConnectionBase:
+    def resolve_connection(
+        self,
+        table: SchemaReference | SubQueryStatement,
+        transaction_id: str | None,
+    ) -> ConnectionBase:
         if isinstance(table, SchemaReference):
-            return self.connection_manager.get_connection(table.name)
+            return self.connection_manager.get_connection_pool(table.name).get_connection(transaction_id)
 
         if isinstance(table, SubQueryStatement):
             return self.resolve_connection(table.query.table)

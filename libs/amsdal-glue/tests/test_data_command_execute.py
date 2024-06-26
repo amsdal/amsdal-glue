@@ -4,6 +4,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
@@ -31,20 +32,21 @@ def _register_default_connection() -> Generator[None, None, None]:
     init_default_containers()
     connection_mng = Container.managers.get(ConnectionManager)
 
-    shipping_connection = SqliteConnection()
-    connection_mng.register_connection(shipping_connection, schema_name='shippings')
-
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = f'{temp_dir}/data.sqlite'
-        shipping_connection.connect(db_path=Path(db_path), check_same_thread=False)
-        shipping_connection.execute('CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)')
+        connection_mng.register_connection(
+            DefaultConnectionPool(SqliteConnection, db_path=Path(db_path), check_same_thread=False),
+            schema_name='shippings',
+        )
+
+        connection_mng.get_connection_pool('shippings').get_connection().execute(
+            'CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)'
+        )
 
         try:
             yield
         finally:
-            shipping_connection.disconnect()
-
-    Singleton.invalidate_all_instances()
+            Singleton.invalidate_all_instances()
 
 
 def test_insert_data_single_element() -> None:
@@ -71,7 +73,7 @@ def test_insert_data_single_element() -> None:
     planner = Container.planners.get(DataCommandPlanner)
     plan = planner.plan_data_command(query)
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     assert len(plan.tasks) == 1
     assert plan.tasks[0].item.mutations == [query.mutations[0]]
 
@@ -80,14 +82,15 @@ def test_insert_data_single_element() -> None:
     assert (
         [('111', '1', 'shipped')]
         == ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection('shippings')
+        .get_connection_pool('shippings')
+        .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
     )
 
 
 def test_update_data_single_element() -> None:
-    ConnectionManager().get_connection('shippings').execute(  # type: ignore[attr-defined]
+    ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'INSERT INTO shippings (id, customer_id, status) '
         'VALUES ("111", "1", "shipped"), ("222", "2", "shipped"), ("333", "3", "shipped")'
     )
@@ -122,7 +125,7 @@ def test_update_data_single_element() -> None:
     planner = Container.planners.get(DataCommandPlanner)
     plan = planner.plan_data_command(query)
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     assert len(plan.tasks) == 1
     assert plan.tasks[0].item.mutations == [query.mutations[0]]
 
@@ -132,13 +135,13 @@ def test_update_data_single_element() -> None:
         ('111', '1', 'cancelled'),
         ('222', '2', 'shipped'),
         ('333', '3', 'shipped'),
-    ] == ConnectionManager().get_connection('shippings').execute(  # type: ignore[attr-defined]
+    ] == ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings ORDER BY id'
     ).fetchall()
 
 
 def test_delete_data_single_element() -> None:
-    ConnectionManager().get_connection('shippings').execute(  # type: ignore[attr-defined]
+    ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'INSERT INTO shippings (id, customer_id, status) '
         'VALUES ("111", "1", "shipped"), ("222", "2", "shipped"), ("333", "3", "shipped")'
     )
@@ -162,7 +165,7 @@ def test_delete_data_single_element() -> None:
     planner = Container.planners.get(DataCommandPlanner)
     plan = planner.plan_data_command(query)
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     assert len(plan.tasks) == 1
     assert plan.tasks[0].item.mutations == [query.mutations[0]]
 
@@ -171,7 +174,7 @@ def test_delete_data_single_element() -> None:
     assert [
         ('222', '2', 'shipped'),
         ('333', '3', 'shipped'),
-    ] == ConnectionManager().get_connection('shippings').execute(  # type: ignore[attr-defined]
+    ] == ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings ORDER BY id'
     ).fetchall()
 
@@ -222,7 +225,7 @@ def test_create_and_update_data_single_element() -> None:
     planner = Container.planners.get(DataCommandPlanner)
     plan = planner.plan_data_command(query)
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     assert len(plan.tasks) == 1
     assert plan.tasks[0].item.mutations == [query.mutations[0], query.mutations[1]]
 
@@ -230,7 +233,7 @@ def test_create_and_update_data_single_element() -> None:
 
     assert [
         ('111', '1', 'cancelled'),
-    ] == ConnectionManager().get_connection('shippings').execute(  # type: ignore[attr-defined]
+    ] == ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings'
     ).fetchall()
 
@@ -270,7 +273,7 @@ def test_create_and_delete_data_single_element() -> None:
     planner = Container.planners.get(DataCommandPlanner)
     plan = planner.plan_data_command(query)
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     assert len(plan.tasks) == 1
     assert plan.tasks[0].item.mutations == [query.mutations[0], query.mutations[1]]
 
@@ -279,7 +282,8 @@ def test_create_and_delete_data_single_element() -> None:
     assert (
         []
         == ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection('shippings')
+        .get_connection_pool('shippings')
+        .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
     )
@@ -327,7 +331,7 @@ def test_create_multiple_data_elements() -> None:
     planner = Container.planners.get(DataCommandPlanner)
     plan = planner.plan_data_command(query)
 
-    plan.execute()
+    plan.execute(transaction_id=None, lock_id=None)
     assert len(plan.tasks) == 1
     assert plan.tasks[0].item.mutations == [query.mutations[0]]
 
@@ -337,6 +341,6 @@ def test_create_multiple_data_elements() -> None:
         ('111', '1', 'shipped'),
         ('222', '2', 'shipped'),
         ('333', '3', 'shipped'),
-    ] == ConnectionManager().get_connection('shippings').execute(  # type: ignore[attr-defined]
+    ] == ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings ORDER BY id'
     ).fetchall()

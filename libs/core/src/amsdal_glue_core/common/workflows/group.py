@@ -10,11 +10,11 @@ from amsdal_glue_core.common.workflows.task import Task
 class GroupTask(Task):
     tasks: list[Task]
 
-    def execute(self):
+    def execute(self, transaction_id: str | None, lock_id: str | None):
         from amsdal_glue_core.containers import Container
 
         parallel_executor = Container.executors.get(ParallelExecutor)
-        parallel_executor.execute_parallel(self.tasks)
+        parallel_executor.execute_parallel(self.tasks, transaction_id=transaction_id, lock_id=lock_id)
 
     @property
     def item(self) -> Any:
