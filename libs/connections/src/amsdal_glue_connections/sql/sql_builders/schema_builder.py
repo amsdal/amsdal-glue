@@ -1,8 +1,6 @@
 from collections.abc import Callable
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
@@ -24,6 +22,9 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
+
+from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
 
 def build_schema_mutation(mutation: SchemaMutation, type_transform: Callable[[Any], str]) -> list[str]:
@@ -111,10 +112,7 @@ def build_create_table(schema: Schema, type_transform: Callable[[Any], str]) -> 
 
 
 def build_create_indexes(schema_name: str, indexes: list[IndexSchema]) -> list[str]:
-    return [
-        build_index(schema_name, index)
-        for index in indexes
-    ]
+    return [build_index(schema_name, index) for index in indexes]
 
 
 def build_index(schema_name: str, index: IndexSchema) -> str:
@@ -190,7 +188,7 @@ def build_full_constraint_stmt(schema_reference: SchemaReference, constraint: Ba
     raise NotImplementedError(msg)
 
 
-def build_drop_constraint(schema_reference: SchemaReference, constraint_name: str) -> str:  # noqa: ARG002
+def build_drop_constraint(schema_reference: SchemaReference, constraint_name: str) -> str:
     msg = 'SQLite does not support dropping constraints from existing tables. Recreate table instead.'
     raise NotImplementedError(msg)
 
