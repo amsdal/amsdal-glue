@@ -71,7 +71,7 @@ jobs:
 
       - name: Publish
         run: |
-          hatch publish --user ${{ secrets.PYPI_USERNAME }} --auth ${{ secrets.PYPI_TOKEN }}
+          cd libs/core && hatch publish --user ${{ secrets.PYPI_USERNAME }} --auth ${{ secrets.PYPI_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
