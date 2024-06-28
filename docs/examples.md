@@ -155,7 +155,6 @@ In order to fetch available schemas, you need to define a schema query operation
 [SchemaQueryOperation](../libs/core/src/amsdal_glue_core/common/operations/queries.py#L14)
 and put it to the corresponding service:
 
-
 ```python
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 from amsdal_glue_core.common.services.queries import SchemaQueryService
@@ -181,10 +180,36 @@ from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 operation = SchemaQueryOperation(
     filters=Conditions(
         Condition(
-            field=FieldReference(field=Field(name='name')),
+            field=FieldReference(field=Field(name='name'), table_name=''),
             lookup=FieldLookup.STARTSWITH,
             value=Value('user'),
         )
     ),
 )
 ```
+
+## Running Schema Mutation Commands
+
+The SchemaCommand class is used to execute schema mutation operations in the AMSDAL Glue project. It is a part of the
+command pattern used in the project, where each command represents an operation to be performed. 
+
+Here's an example of how to use SchemaCommand to run schema mutation commands:
+
+```python
+from amsdal_glue_core.common.data_models.results.schema import SchemaResult
+from amsdal_glue_core.common.operations.commands import SchemaCommand
+from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
+from amsdal_glue_core.common.services.commands import SchemaCommandService
+from amsdal_glue_core.containers import Container
+
+mutation = SchemaMutation(
+    # Fill in the necessary parameters here
+)
+
+command = SchemaCommand(
+    mutations=[mutation]  # You can pass in multiple mutations in this list
+)
+service = Container.services.get(SchemaCommandService)
+schema_result: SchemaResult = service.execute(command=command)
+```
+

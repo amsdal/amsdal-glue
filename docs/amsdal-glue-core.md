@@ -1,2 +1,0 @@
-# `amsdal-glue-core` package
-

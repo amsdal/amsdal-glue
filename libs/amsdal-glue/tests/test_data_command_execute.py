@@ -101,17 +101,15 @@ def test_update_data_single_element() -> None:
         mutations=[
             UpdateData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
-                data=[
-                    Data(
-                        data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
-                    )
-                ],
+                data=Data(
+                    data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
+                    metadata=Metadata(
+                        object_id='1',
+                        object_version='1',
+                        created_at='2021-01-01T00:00:00Z',
+                        updated_at='2021-01-01T00:00:00Z',
+                    ),
+                ),
                 query=Conditions(
                     Condition(
                         field=FieldReference(field=Field(name='customer_id'), table_name='s'),
@@ -201,17 +199,15 @@ def test_create_and_update_data_single_element() -> None:
             ),
             UpdateData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
-                data=[
-                    Data(
-                        data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
-                    )
-                ],
+                data=Data(
+                    data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
+                    metadata=Metadata(
+                        object_id='1',
+                        object_version='1',
+                        created_at='2021-01-01T00:00:00Z',
+                        updated_at='2021-01-01T00:00:00Z',
+                    ),
+                ),
                 query=Conditions(
                     Condition(
                         field=FieldReference(field=Field(name='customer_id'), table_name='s'),

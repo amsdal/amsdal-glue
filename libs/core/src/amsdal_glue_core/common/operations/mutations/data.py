@@ -17,7 +17,7 @@ class InsertData(DataMutation):
 
 @dataclass(kw_only=True)
 class UpdateData(DataMutation):
-    data: list[Data]
+    data: Data
     query: Conditions | None = None
 
 
