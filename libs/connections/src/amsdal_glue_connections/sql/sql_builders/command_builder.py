@@ -14,7 +14,7 @@ from amsdal_glue_connections.sql.sql_builders.query_builder import build_conditi
 
 
 def build_sql_data_command(
-    command: DataMutation,
+    mutation: DataMutation,
     value_placeholder: str = '?',
     field_separator: str = '__',
     table_separator: str = '.',
@@ -23,22 +23,22 @@ def build_sql_data_command(
         tuple[str, list[Any]],
     ] = default_operator_constructor,
 ) -> tuple[str, list[Any]]:
-    if isinstance(command, InsertData):
+    if isinstance(mutation, InsertData):
         return _build_sql_insert_data(
-            command, value_placeholder, field_separator, table_separator, operator_constructor
+            mutation, value_placeholder, field_separator, table_separator, operator_constructor
         )
 
-    if isinstance(command, UpdateData):
+    if isinstance(mutation, UpdateData):
         return _build_sql_update_data(
-            command, value_placeholder, field_separator, table_separator, operator_constructor
+            mutation, value_placeholder, field_separator, table_separator, operator_constructor
         )
 
-    if isinstance(command, DeleteData):
+    if isinstance(mutation, DeleteData):
         return _build_sql_delete_data(
-            command, value_placeholder, field_separator, table_separator, operator_constructor
+            mutation, value_placeholder, field_separator, table_separator, operator_constructor
         )
 
-    msg = f'Unsupported command type: {type(command)}'
+    msg = f'Unsupported command type: {type(mutation)}'
     raise NotImplementedError(msg)
 
 
@@ -94,12 +94,12 @@ def _build_sql_update_data(
 
     values: list[Any] = []
 
-    keys = sorted({key for data in command.data for key in data.data})
+    keys = sorted({key for key in command.data.data})
 
     if command.data:
         stmt += ' SET '
         stmt += ', '.join(f'{key} = {value_placeholder}' for key in keys)
-        values.extend(data.data.get(key) for data in command.data for key in keys)
+        values.extend(command.data.data.get(key) for key in keys)
 
     if command.query:
         where, where_values = build_conditions(

@@ -80,17 +80,15 @@ def build_sql_query(
 
     values.extend(_values)
 
-    stmt_parts.extend(
-        [
-            'FROM',
-            _from,
-            _joins,
-            _where,
-            build_group_by(query.group_by, field_separator=field_separator, table_separator=table_separator),
-            build_order_by(query.order_by, field_separator=field_separator, table_separator=table_separator),
-            build_limit(query.limit),
-        ]
-    )
+    stmt_parts.extend([
+        'FROM',
+        _from,
+        _joins,
+        _where,
+        build_group_by(query.group_by, field_separator=field_separator, table_separator=table_separator),
+        build_order_by(query.order_by, field_separator=field_separator, table_separator=table_separator),
+        build_limit(query.limit),
+    ])
 
     return ' '.join(filter(None, stmt_parts)), values
 
