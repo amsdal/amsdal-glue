@@ -50,7 +50,6 @@ def test_schema_command_service() -> None:
     schema = Schema(
         name='user',
         version=Version.LATEST,
-        type='object',
         properties=[
             PropertySchema(
                 name='id',

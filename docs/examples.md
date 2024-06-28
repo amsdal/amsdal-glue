@@ -202,9 +202,7 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.services.commands import SchemaCommandService
 from amsdal_glue_core.containers import Container
 
-mutation = SchemaMutation(
-    # Fill in the necessary parameters here
-)
+mutation: SchemaMutation = ... # Initialize the mutation object
 
 command = SchemaCommand(
     mutations=[mutation]  # You can pass in multiple mutations in this list
@@ -213,3 +211,31 @@ service = Container.services.get(SchemaCommandService)
 schema_result: SchemaResult = service.execute(command=command)
 ```
 
+Here is an example of creating a new schema:
+
+```python
+from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
+from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.schema import PropertySchema
+from amsdal_glue_core.common.data_models.schema import Schema
+from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+
+mutation = RegisterSchema(
+    schema=Schema(
+        name='Person',
+        version=Version.LATEST,
+        properties=[
+            PropertySchema(name='id', type=int, required=True),
+            PropertySchema(name='name', type=str, required=True),
+            PropertySchema(name='age', type=int, required=False, default=18),
+        ],
+        constraints=[
+            PrimaryKeyConstraint(name='pk_person', fields=['id']),
+        ],
+        indexes=[
+            IndexSchema(name='idx_person_name', fields=['name']),
+        ],
+    ),
+)
+```

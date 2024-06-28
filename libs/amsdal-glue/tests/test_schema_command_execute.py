@@ -50,7 +50,6 @@ def test_create_schema():
     schema = Schema(
         name='user',
         version=Version.LATEST,
-        type='object',
         properties=[
             PropertySchema(
                 name='id',

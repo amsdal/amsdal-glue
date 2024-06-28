@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
+from typing import Optional
 from typing import Union
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
@@ -11,7 +12,7 @@ from amsdal_glue_core.common.enums import Version
 class Schema:
     name: str
     version: str | Version
-    type: str
+    extends: Optional['SchemaReference'] = None
     properties: list['PropertySchema']
     constraints: list[BaseConstraint] | None = None
     indexes: list[IndexSchema] | None = None
