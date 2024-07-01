@@ -24,13 +24,9 @@ class ConnectionPoolBase(ABC):
 class ConnectionManager(metaclass=Singleton):
     def __init__(self) -> None:
         self.connections: dict[str, ConnectionPoolBase] = {}
-        self.lock: LockBase | None = None
 
-    def register_connection(self, connection: ConnectionPoolBase, schema_name: str | None = None) -> None:
+    def register_connection_pool(self, connection: ConnectionPoolBase, schema_name: str | None = None) -> None:
         self.connections[schema_name or ConnectionAlias.DEFAULT] = connection
-
-    def register_lock(self, lock: LockBase) -> None:
-        self.lock = lock
 
     def has_multiple_models_connections(self, connection_alias: ConnectionAlias) -> bool:
         return connection_alias == ConnectionAlias.DEFAULT and len(self.connections) > 1
@@ -43,10 +39,6 @@ class ConnectionManager(metaclass=Singleton):
             connection.disconnect()
 
         self.connections.clear()
-
-        if self.lock:
-            self.lock.disconnect()
-            self.lock = None
 
     def __del__(self) -> None:
         self.disconnect_all()

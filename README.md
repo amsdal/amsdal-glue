@@ -88,7 +88,7 @@ def main() -> None:
 
     # Register a connection to a SQLite database
     connection_mng = Container.managers.get(ConnectionManager)
-    connection_mng.register_connection(
+    connection_mng.register_connection_pool(
         DefaultConnectionPool(
             SqliteConnection,
             db_path='customers.sqlite',

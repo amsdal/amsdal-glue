@@ -5,6 +5,7 @@
 - [Packages overview](#packages-overview)
 - [Repository structure](#repository-structure)
 - [Architecture overview](#architecture-overview)
+- [Quick start](#quick-start)
 
 ## Packages overview
 
@@ -102,4 +103,46 @@ The similar architecture is applied to the Commands in the AMSDAL Glue project:
 
 As we can see, there are more services for commands, that includes services for locking, transactions, schema and data
 management commands.
+
+# Quick start
+
+To get started with the AMSDAL Glue project, you need to:
+
+1. Register all managers, services, executors.
+2. Register all connection pools via ConnectionManager.
+
+The `amsdal-glue` package provides a convenient way to get started with the AMSDAL Glue project. It includes default
+implementations of all interfaces from the core package, allowing you to quickly set up and start using the project
+without having to write any custom code.
+
+Here is an example of how to get started with the AMSDAL Glue project using the `amsdal-glue` package:
+
+```python
+from amsdal_glue.initialize import init_default_containers
+
+init_default_containers()
+```
+
+This code initializes the default containers, which register all managers, services, and executors needed to start
+working with the AMSDAL Glue project. Once you have initialized the containers, you can start registering connection
+pools via the ConnectionManager and begin interacting with databases using the high-level interfaces provided by the
+`amsdal-glue` package:
+
+```python
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
+from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
+from amsdal_glue_core.containers import Container
+from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+
+sql_connection_pool = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
+connection_mng = Container.managers.get(ConnectionManager)
+
+# Register the connection pool as default one (not related to any schema)
+connection_mng.register_connection_pool(sql_connection_pool)
+```
+
+Read more about connection manager, pools and multiple databases connections in
+the [Multiple connections](multiple-connections.md) section.
+
+More examples of queries and commands can be found in the [Examples](examples.md) section.
 

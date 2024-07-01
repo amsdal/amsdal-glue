@@ -30,11 +30,11 @@ def _register_default_connection() -> Generator[None, None, None]:
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = Path(f'{temp_dir}/data.sqlite')
         connection_pool = DefaultConnectionPool(SqliteConnection, db_path=db_path, check_same_thread=False, timeout=0.3)
-        connection_mng.register_connection(
+        connection_mng.register_connection_pool(
             connection_pool,
             schema_name='shippings',
         )
-        connection_mng.register_connection(
+        connection_mng.register_connection_pool(
             connection_pool,
             schema_name='customers',
         )
