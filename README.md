@@ -13,14 +13,15 @@ for interacting with multiple databases simultaneously, simplifying the developm
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Roadmap](#roadmap)
 - [Contributing](docs/contributing.md)
 - [License](#license)
 
 ## Introduction
 
 The AMSDAL Glue project is a Python interface that provides a high-level abstraction for interacting with multiple
-databases simultaneously. It is designed to simplify the development and maintenance process of database-related tasks
-in Python applications.
+databases or any other data sources simultaneously. It is designed to simplify the development and maintenance process
+of database-related tasks in Python applications.
 
 The project aims to solve several challenges:
 
@@ -131,6 +132,21 @@ def main() -> None:
 
 This example demonstrates how to connect to a SQLite database, build a query, and execute it using the AMSDAL Glue.
 For more examples and detailed documentation, please refer to the [Examples](docs/examples.md) section.
+
+## Roadmap
+
+The AMSDAL Glue project is under active development, and we have plans to add more features and improvements in the
+future. Some of the planned features include:
+
+- Support for more database types:
+    - ✅SQLite
+    - ✅PostgreSQL
+    - ⬜MySQL
+    - ⬜MongoDB
+    - ⬜Iceberg support
+- Implement SQL to AMSDAL Glue query & command translator to have an ability to integrate with any existing SQL ORM
+  library
+- Add support for more complex queries and commands
 
 ## License
 
