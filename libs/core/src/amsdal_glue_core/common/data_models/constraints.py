@@ -27,7 +27,7 @@ class ForeignKeySchema(BaseConstraint):
 @dataclass(kw_only=True)
 class UniqueConstraint(BaseConstraint):
     fields: list[str]
-    condition: Conditions | None
+    condition: Conditions | None = None
 
 
 @dataclass(kw_only=True)

@@ -31,11 +31,11 @@ def _register_default_connection() -> Generator[None, None, None]:
     init_default_containers()
     connection_mng = Container.managers.get(ConnectionManager)
 
-    connection_mng.register_connection(
+    connection_mng.register_connection_pool(
         DefaultConnectionPool(SqliteConnection, db_path=FIXTURES_PATH / 'customers.sqlite', check_same_thread=False)
     )
 
-    connection_mng.register_connection(
+    connection_mng.register_connection_pool(
         DefaultConnectionPool(SqliteConnection, db_path=FIXTURES_PATH / 'shippings.sqlite', check_same_thread=False),
         schema_name='shippings',
     )

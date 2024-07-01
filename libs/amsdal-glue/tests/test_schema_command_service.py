@@ -35,7 +35,7 @@ def _register_default_connection() -> Generator[None, None, None]:
 
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = f'{temp_dir}/data.sqlite'
-        connection_mng.register_connection(
+        connection_mng.register_connection_pool(
             DefaultConnectionPool(SqliteConnection, db_path=Path(db_path), check_same_thread=False),
         )
 
