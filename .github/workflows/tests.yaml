@@ -86,7 +86,3 @@ jobs:
         run: |
           cd libs/core
           hatch run test
-
-    
-
-
