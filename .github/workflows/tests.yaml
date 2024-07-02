@@ -7,7 +7,7 @@ on:
 
 jobs:
   setup:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Set up python
@@ -22,7 +22,7 @@ jobs:
       
 
   amsdal_glue:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: setup
 
     steps:
@@ -41,7 +41,7 @@ jobs:
           hatch run test
 
   connections:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: setup
 
     steps:
@@ -60,7 +60,7 @@ jobs:
           hatch run test
 
   core:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: setup
 
     steps:
