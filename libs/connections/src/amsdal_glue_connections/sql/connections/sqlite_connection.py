@@ -263,15 +263,15 @@ class SqliteConnection(ConnectionBase):
 
     @staticmethod
     def to_sql_type(property_type: Schema | SchemaReference | type[Any]) -> str:  # noqa: PLR0911
-        if property_type == str:
+        if property_type is str:
             return 'TEXT'
-        if property_type == int:
+        if property_type is int:
             return 'INTEGER'
-        if property_type == float:
+        if property_type is float:
             return 'REAL'
-        if property_type == bool:
+        if property_type is bool:
             return 'BOOLEAN'
-        if property_type == dict:
+        if property_type is dict:
             return 'JSON'
         if property_type in (bytes, bytearray):
             return 'BLOB'

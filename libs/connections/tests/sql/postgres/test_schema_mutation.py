@@ -135,7 +135,7 @@ def test_create_schema(database_connection: PostgresConnection) -> None:
         "SELECT * FROM information_schema.tables WHERE table_name = 'user';"
     ).fetchall()
 
-    assert [
+    assert result == [
         (
             ANY,
             'public',
@@ -150,15 +150,15 @@ def test_create_schema(database_connection: PostgresConnection) -> None:
             'NO',
             None,
         )
-    ] == result
+    ]
 
-    assert [
+    assert _describe_table(database_connection, 'user') == [
         ('id', 'bigint'),
         ('age', 'bigint'),
         ('email', 'text'),
         ('first_name', 'text'),
         ('last_name', 'text'),
-    ] == _describe_table(database_connection, 'user')
+    ]
 
 
 def test_rename_schema(database_connection: PostgresConnection) -> None:
@@ -170,11 +170,11 @@ def test_rename_schema(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [
+    assert _describe_table(database_connection, 'user') == [
         ('id', 'bigint'),
         ('age', 'bigint'),
         ('email', 'text'),
-    ] == _describe_table(database_connection, 'user')
+    ]
 
     schema = Schema(
         name='user',
@@ -211,13 +211,13 @@ def test_rename_schema(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == []
 
-    assert [
+    assert _describe_table(database_connection, 'customer') == [
         ('id', 'bigint'),
         ('age', 'bigint'),
         ('email', 'text'),
-    ] == _describe_table(database_connection, 'customer')
+    ]
 
 
 def test_delete_schema(database_connection: PostgresConnection) -> None:
@@ -229,7 +229,7 @@ def test_delete_schema(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
     schema = Schema(
         name='user',
@@ -266,7 +266,7 @@ def test_delete_schema(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == []
 
 
 def test_add_property(database_connection: PostgresConnection) -> None:
@@ -278,7 +278,7 @@ def test_add_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
     schema = Schema(
         name='user',
@@ -318,9 +318,12 @@ def test_add_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text'), ('last_name', 'text')] == _describe_table(
-        database_connection, 'user'
-    )
+    assert _describe_table(database_connection, 'user') == [
+        ('id', 'bigint'),
+        ('age', 'bigint'),
+        ('email', 'text'),
+        ('last_name', 'text'),
+    ]
 
 
 def test_delete_property(database_connection: PostgresConnection) -> None:
@@ -332,7 +335,7 @@ def test_delete_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
     schema = Schema(
         name='user',
@@ -369,7 +372,7 @@ def test_delete_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('email', 'text')]
 
 
 def test_update_property(database_connection: PostgresConnection) -> None:
@@ -381,7 +384,7 @@ def test_update_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
     schema = Schema(
         name='user',
@@ -416,7 +419,7 @@ def test_update_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('email', 'text'), ('age', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('email', 'text'), ('age', 'text')]
 
 
 def test_add_constraint(database_connection: PostgresConnection) -> None:
@@ -428,7 +431,7 @@ def test_add_constraint(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
     schema = Schema(
         name='user',
@@ -452,7 +455,7 @@ def test_add_constraint(database_connection: PostgresConnection) -> None:
         ],
     )
 
-    assert [] == _get_contstraints(database_connection, 'user')
+    assert _get_contstraints(database_connection, 'user') == []
 
     database_connection.run_schema_command(
         SchemaCommand(
@@ -469,9 +472,9 @@ def test_add_constraint(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert [('uk_user_email_unique',)] == _get_contstraints(database_connection, 'user')
+    assert _get_contstraints(database_connection, 'user') == [('uk_user_email_unique',)]
 
 
 def test_drop_constraint(database_connection: PostgresConnection) -> None:
@@ -497,9 +500,9 @@ def test_drop_constraint(database_connection: PostgresConnection) -> None:
             ],
         ),
     )
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert [('uk_user_email_unique',)] == _get_contstraints(database_connection, 'user')
+    assert _get_contstraints(database_connection, 'user') == [('uk_user_email_unique',)]
 
     database_connection.run_schema_command(
         SchemaCommand(
@@ -512,9 +515,9 @@ def test_drop_constraint(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert [] == _get_contstraints(database_connection, 'user')
+    assert _get_contstraints(database_connection, 'user') == []
 
 
 def test_add_index(database_connection: PostgresConnection) -> None:
@@ -525,9 +528,9 @@ def test_add_index(database_connection: PostgresConnection) -> None:
             ],
         ),
     )
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert [] == _get_indexes(database_connection, 'user')
+    assert _get_indexes(database_connection, 'user') == []
 
     database_connection.run_schema_command(
         SchemaCommand(
@@ -540,11 +543,11 @@ def test_add_index(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert [
+    assert _get_indexes(database_connection, 'user') == [
         ('idx_user_email', 'CREATE INDEX idx_user_email ON public."user" USING btree (email, age)')
-    ] == _get_indexes(database_connection, 'user')
+    ]
 
 
 def test_delete_index(database_connection: PostgresConnection) -> None:
@@ -567,11 +570,11 @@ def test_delete_index(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')] == _describe_table(database_connection, 'user')
+    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert [
+    assert _get_indexes(database_connection, 'user') == [
         ('idx_user_email', 'CREATE INDEX idx_user_email ON public."user" USING btree (email, age)')
-    ] == _get_indexes(database_connection, 'user')
+    ]
 
     database_connection.run_schema_command(
         SchemaCommand(
@@ -584,4 +587,4 @@ def test_delete_index(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert [] == _get_indexes(database_connection, 'user')
+    assert _get_indexes(database_connection, 'user') == []

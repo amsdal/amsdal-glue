@@ -111,20 +111,20 @@ def test_transaction() -> None:
     ).execute(transaction_id='transaction_id', lock_id=None)
 
     assert (
-        [('111', '1', 'shipped')]
-        == ConnectionManager()  # type: ignore[attr-defined]
+        ConnectionManager()  # type: ignore[attr-defined]
         .get_connection_pool('shippings')
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
+        == [('111', '1', 'shipped')]
     )
-    assert [('1', 'customer')] == (
+    assert (
         ConnectionManager()  # type: ignore[attr-defined]
         .get_connection_pool('customers')
         .get_connection()
         .execute('SELECT id, name FROM customers')
         .fetchall()
-    )
+    ) == [('1', 'customer')]
 
 
 def test_transaction_rollback() -> None:
@@ -184,17 +184,17 @@ def test_transaction_rollback() -> None:
         )
     ).execute(transaction_id='transaction_id', lock_id=None)
 
-    assert [] == (
+    assert (
         ConnectionManager()  # type: ignore[attr-defined]
         .get_connection_pool('shippings')
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
-    )
-    assert [] == (
+    ) == []
+    assert (
         ConnectionManager()  # type: ignore[attr-defined]
         .get_connection_pool('customers')
         .get_connection()
         .execute('SELECT id, name FROM customers')
         .fetchall()
-    )
+    ) == []
