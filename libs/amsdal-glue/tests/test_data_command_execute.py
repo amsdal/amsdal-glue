@@ -81,12 +81,12 @@ def test_insert_data_single_element() -> None:
     assert plan.tasks[0].result == [None]
 
     assert (
-        [('111', '1', 'shipped')]
-        == ConnectionManager()  # type: ignore[attr-defined]
+        ConnectionManager()  # type: ignore[attr-defined]
         .get_connection_pool('shippings')
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
+        == [('111', '1', 'shipped')]
     )
 
 
@@ -130,13 +130,13 @@ def test_update_data_single_element() -> None:
 
     assert plan.tasks[0].result == [None]
 
-    assert [
+    assert ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+        'SELECT id, customer_id, status FROM shippings ORDER BY id'
+    ).fetchall() == [
         ('111', '1', 'cancelled'),
         ('222', '2', 'shipped'),
         ('333', '3', 'shipped'),
-    ] == ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
-        'SELECT id, customer_id, status FROM shippings ORDER BY id'
-    ).fetchall()
+    ]
 
 
 def test_delete_data_single_element() -> None:
@@ -170,12 +170,12 @@ def test_delete_data_single_element() -> None:
 
     assert plan.tasks[0].result == [None]
 
-    assert [
+    assert ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+        'SELECT id, customer_id, status FROM shippings ORDER BY id'
+    ).fetchall() == [
         ('222', '2', 'shipped'),
         ('333', '3', 'shipped'),
-    ] == ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
-        'SELECT id, customer_id, status FROM shippings ORDER BY id'
-    ).fetchall()
+    ]
 
 
 def test_create_and_update_data_single_element() -> None:
@@ -228,11 +228,11 @@ def test_create_and_update_data_single_element() -> None:
 
     assert plan.tasks[0].result == [None, None]
 
-    assert [
-        ('111', '1', 'cancelled'),
-    ] == ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+    assert ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings'
-    ).fetchall()
+    ).fetchall() == [
+        ('111', '1', 'cancelled'),
+    ]
 
 
 def test_create_and_delete_data_single_element() -> None:
@@ -277,12 +277,12 @@ def test_create_and_delete_data_single_element() -> None:
     assert plan.tasks[0].result == [None, None]
 
     assert (
-        []
-        == ConnectionManager()  # type: ignore[attr-defined]
+        ConnectionManager()  # type: ignore[attr-defined]
         .get_connection_pool('shippings')
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
+        == []
     )
 
 
@@ -334,10 +334,10 @@ def test_create_multiple_data_elements() -> None:
 
     assert plan.tasks[0].result == [None]
 
-    assert [
+    assert ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+        'SELECT id, customer_id, status FROM shippings ORDER BY id'
+    ).fetchall() == [
         ('111', '1', 'shipped'),
         ('222', '2', 'shipped'),
         ('333', '3', 'shipped'),
-    ] == ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
-        'SELECT id, customer_id, status FROM shippings ORDER BY id'
-    ).fetchall()
+    ]

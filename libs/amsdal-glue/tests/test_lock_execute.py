@@ -129,10 +129,10 @@ def test_lock() -> None:
 
     plan.execute(transaction_id=None, lock_id=None)
     assert (
-        [('111', '1', 'shipped')]
-        == ConnectionManager()  # type: ignore[attr-defined]
+        ConnectionManager()  # type: ignore[attr-defined]
         .get_connection_pool('shippings')
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
+        == [('111', '1', 'shipped')]
     )

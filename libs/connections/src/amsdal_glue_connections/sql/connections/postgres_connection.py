@@ -485,15 +485,15 @@ class PostgresConnection(ConnectionBase):
         return _index
 
     def _to_sql_type(self, property_type: Schema | SchemaReference | type[Any]) -> str:  # noqa: PLR0911
-        if property_type == str:
+        if property_type is str:
             return 'TEXT'
-        if property_type == int:
+        if property_type is int:
             return 'BIGINT'
-        if property_type == float:
+        if property_type is float:
             return 'DOUBLE PRECISION'
-        if property_type == bool:
+        if property_type is bool:
             return 'BOOLEAN'
-        if property_type == dict:
+        if property_type is dict:
             return 'JSON'
         if property_type in (bytes, bytearray):
             return 'BYTEA'
