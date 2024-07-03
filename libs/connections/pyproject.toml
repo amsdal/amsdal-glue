@@ -27,6 +27,11 @@ dependencies = [
     "amsdal_glue_core==0.0.*",
 ]
 
+[project.optional-dependencies]
+postgres = [
+    "psycopg2-binary==2.9.9",
+]
+
 [project.urls]
 Documentation = "https://pypi.org/project/amsdal_glue_connections/#readme"
 Issues = "https://pypi.org/project/amsdal_glue_connections/"
@@ -43,6 +48,7 @@ extra-dependencies = [
     "pytest>=8.2.1",
     "pytest-mock>=3.14.0",
     "ruff>=0.4.5",
+    "psycopg2-binary==2.9.9",
 ]
 pre-install-commands = [
   "pip install -e ../core/",
