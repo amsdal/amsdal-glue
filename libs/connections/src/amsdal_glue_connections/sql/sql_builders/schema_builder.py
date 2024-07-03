@@ -27,7 +27,6 @@ from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_o
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
 
-
 def build_schema_mutation(  # noqa: C901, PLR0911
     mutation: SchemaMutation,
     type_transform: Callable[[Any], str],

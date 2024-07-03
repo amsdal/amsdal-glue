@@ -19,7 +19,7 @@ def build_sql_data_command(  # noqa: PLR0913
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     table_quote: str = '',
@@ -68,7 +68,7 @@ def _build_sql_insert_data(  # noqa: PLR0913
     field_separator: str,  # noqa: ARG001
     table_separator: str,  # noqa: ARG001
     operator_constructor: Callable[  # noqa: ARG001
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ],
     table_quote: str = '',
@@ -101,7 +101,7 @@ def _build_sql_update_data(  # noqa: PLR0913
     field_separator: str,
     table_separator: str,
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ],
     table_quote: str = '',
@@ -148,7 +148,7 @@ def _build_sql_delete_data(  # noqa: PLR0913
     field_separator: str,
     table_separator: str,
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ],
     table_quote: str = '',
