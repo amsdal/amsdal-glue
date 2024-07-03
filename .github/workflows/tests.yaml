@@ -4,9 +4,7 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    branches:
-      - tests_ci_cd
+
 
 jobs:
   amsdal_glue:
