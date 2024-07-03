@@ -25,7 +25,7 @@ def build_sql_query(  # noqa: PLR0913
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     table_quote: str = '',
@@ -108,29 +108,27 @@ def build_sql_query(  # noqa: PLR0913
 
     values.extend(_values)
 
-    stmt_parts.extend(
-        [
-            'FROM',
-            _from,
-            _joins,
-            _where,
-            build_group_by(
-                query.group_by,
-                field_separator=field_separator,
-                table_separator=table_separator,
-                table_quote=table_quote,
-                field_quote=field_quote,
-            ),
-            build_order_by(
-                query.order_by,
-                field_separator=field_separator,
-                table_separator=table_separator,
-                table_quote=table_quote,
-                field_quote=field_quote,
-            ),
-            build_limit(query.limit),
-        ]
-    )
+    stmt_parts.extend([
+        'FROM',
+        _from,
+        _joins,
+        _where,
+        build_group_by(
+            query.group_by,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        ),
+        build_order_by(
+            query.order_by,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        ),
+        build_limit(query.limit),
+    ])
 
     return ' '.join(filter(None, stmt_parts)), values
 
@@ -165,7 +163,7 @@ def build_annotations(  # noqa: PLR0913
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     table_quote: str = '',
@@ -255,7 +253,7 @@ def build_from(  # noqa: PLR0913
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     table_quote: str = '',
@@ -284,7 +282,7 @@ def build_joins(  # noqa: PLR0913
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     table_quote: str = '',
@@ -325,7 +323,7 @@ def build_joins(  # noqa: PLR0913
 def build_conditions(  # noqa: PLR0913
     conditions: Conditions | None,
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ],
     value_placeholder: str = '?',
@@ -388,7 +386,7 @@ def build_conditions(  # noqa: PLR0913
 def build_where(  # noqa: PLR0913
     where: Conditions | None,
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     value_placeholder: str = '?',

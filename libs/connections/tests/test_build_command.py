@@ -47,7 +47,7 @@ def test_build_data_command__update() -> None:
                 Condition(
                     field=FieldReference(field=Field(name='is_active'), table_name='users'),
                     lookup=FieldLookup.EXACT,
-                    value=Value(True),
+                    value=Value(True),  # noqa: FBT003
                 ),
             ),
         ),
@@ -65,7 +65,7 @@ def test_build_data_command__delete() -> None:
                 Condition(
                     field=FieldReference(field=Field(name='is_active'), table_name='users'),
                     lookup=FieldLookup.EXACT,
-                    value=Value(False),
+                    value=Value(False),  # noqa: FBT003
                 ),
             ),
         ),

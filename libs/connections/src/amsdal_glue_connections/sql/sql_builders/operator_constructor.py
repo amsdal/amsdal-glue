@@ -130,7 +130,7 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     return f'{field} {_statement}', values
 
 
-def repr_operator_constructor(  # noqa: PLR0913
+def repr_operator_constructor(  # noqa: PLR0913, PLR0912, C901, PLR0915
     field: str,
     lookup: FieldLookup,
     value: FieldReference | Value,

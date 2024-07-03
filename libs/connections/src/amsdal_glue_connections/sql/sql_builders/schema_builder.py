@@ -27,7 +27,10 @@ from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_o
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
 
-def build_schema_mutation(mutation: SchemaMutation, type_transform: Callable[[Any], str]) -> list[str]:
+def build_schema_mutation(  # noqa: C901, PLR0911
+    mutation: SchemaMutation,
+    type_transform: Callable[[Any], str],
+) -> list[str]:
     if isinstance(mutation, RegisterSchema):
         return [
             build_create_table(mutation.schema, type_transform=type_transform),
@@ -183,12 +186,12 @@ def build_update_column(
     return f'ALTER TABLE {schema_reference.name} ALTER COLUMN {_column}'
 
 
-def build_full_constraint_stmt(schema_reference: SchemaReference, constraint: BaseConstraint) -> str:
+def build_full_constraint_stmt(schema_reference: SchemaReference, constraint: BaseConstraint) -> str:  # noqa: ARG001
     msg = 'SQLite does not support adding constraints to existing tables. Recreate table instead.'
     raise NotImplementedError(msg)
 
 
-def build_drop_constraint(schema_reference: SchemaReference, constraint_name: str) -> str:
+def build_drop_constraint(schema_reference: SchemaReference, constraint_name: str) -> str:  # noqa: ARG001
     msg = 'SQLite does not support dropping constraints from existing tables. Recreate table instead.'
     raise NotImplementedError(msg)
 

@@ -6,8 +6,7 @@ from amsdal_glue_core.common.operations.base import Operation
 
 
 @dataclass(kw_only=True)
-class QueryOperationBase(Operation):
-    ...
+class QueryOperationBase(Operation): ...
 
 
 @dataclass(kw_only=True)
