@@ -19,15 +19,17 @@ from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
 
 
-def build_sql_query(
+def build_sql_query(  # noqa: PLR0913
     query: QueryStatement,
     value_placeholder: str = '?',
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> tuple[str, list[Any]]:
     values = []
     stmt_parts: list[str | None] = [
@@ -36,8 +38,20 @@ def build_sql_query(
 
     # Only & Aggregations
     smtp_selection: list[str | None] = [
-        build_only(query.only, field_separator=field_separator, table_separator=table_separator),
-        build_aggregations(query.aggregations, field_separator=field_separator, table_separator=table_separator),
+        build_only(
+            query.only,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        ),
+        build_aggregations(
+            query.aggregations,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        ),
     ]
 
     # Annotations
@@ -47,6 +61,8 @@ def build_sql_query(
         field_separator=field_separator,
         table_separator=table_separator,
         operator_constructor=operator_constructor,
+        table_quote=table_quote,
+        field_quote=field_quote,
     )
     values.extend(_values)
 
@@ -61,6 +77,8 @@ def build_sql_query(
         field_separator=field_separator,
         table_separator=table_separator,
         operator_constructor=operator_constructor,
+        table_quote=table_quote,
+        field_quote=field_quote,
     )
     values.extend(_values)
 
@@ -71,9 +89,19 @@ def build_sql_query(
         field_separator=field_separator,
         table_separator=table_separator,
         operator_constructor=default_operator_constructor,
+        table_quote=table_quote,
+        field_quote=field_quote,
     )
     values.extend(_values)
-    _where, _values = build_where(query.where)
+    _where, _values = build_where(
+        query.where,
+        operator_constructor=operator_constructor,
+        value_placeholder=value_placeholder,
+        field_separator=field_separator,
+        table_separator=table_separator,
+        table_quote=table_quote,
+        field_quote=field_quote,
+    )
 
     if _where:
         _where = f'WHERE {_where}'
@@ -85,8 +113,20 @@ def build_sql_query(
         _from,
         _joins,
         _where,
-        build_group_by(query.group_by, field_separator=field_separator, table_separator=table_separator),
-        build_order_by(query.order_by, field_separator=field_separator, table_separator=table_separator),
+        build_group_by(
+            query.group_by,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        ),
+        build_order_by(
+            query.order_by,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        ),
         build_limit(query.limit),
     ])
 
@@ -97,24 +137,37 @@ def build_only(
     only: list[FieldReference | FieldReferenceAliased] | None,
     field_separator: str = '__',
     table_separator: str = '.',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> str | None:
     if not only:
         return None
 
-    items = [build_field(_only, field_separator=field_separator, table_separator=table_separator) for _only in only]
+    items = [
+        build_field(
+            _only,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        )
+        for _only in only
+    ]
 
     return ', '.join(items)
 
 
-def build_annotations(
+def build_annotations(  # noqa: PLR0913
     annotations: list[AnnotationQuery] | None,
     value_placeholder: str = '?',
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> tuple[str | None, list[Any]]:
     if not annotations:
         return None, []
@@ -130,6 +183,8 @@ def build_annotations(
                 field_separator=field_separator,
                 table_separator=table_separator,
                 operator_constructor=operator_constructor,
+                table_quote=table_quote,
+                field_quote=field_quote,
             )
             items.append(f'({_query}) AS {annotation.value.alias}')
             values.extend(_values)
@@ -144,6 +199,8 @@ def build_aggregations(
     aggregations: list[AggregationQuery] | None,
     field_separator: str = '__',
     table_separator: str = '.',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> str | None:
     if not aggregations:
         return None
@@ -155,6 +212,8 @@ def build_aggregations(
             aggregation.expression.field,
             field_separator=field_separator,
             table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
         )
         items.append(f'{aggregation.expression.name}({_field}) AS {aggregation.alias}')
 
@@ -165,6 +224,8 @@ def build_field(
     field: FieldReference | FieldReferenceAliased,
     field_separator: str = '__',
     table_separator: str = '.',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> str:
     _item = []
     _field = field.field
@@ -176,23 +237,27 @@ def build_field(
     _field_stm = field_separator.join(_item)
 
     if field.table_name:
-        _field_stm = f'{field.table_name}{table_separator}{_field_stm}'
+        _field_stm = (
+            f'{table_quote}{field.table_name}{table_quote}{table_separator}{field_quote}{_field_stm}{field_quote}'
+        )
 
     if isinstance(field, FieldReferenceAliased) and field.alias:
-        _field_stm = f'{_field_stm} AS {field.alias}'
+        _field_stm = f'{_field_stm} AS {field_quote}{field.alias}{field_quote}'
 
     return _field_stm
 
 
-def build_from(
+def build_from(  # noqa: PLR0913
     table: SchemaReference | SubQueryStatement,
     value_placeholder: str = '?',
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> tuple[str, list[Any]]:
     if isinstance(table, SubQueryStatement):
         _query, _values = build_sql_query(
@@ -201,6 +266,8 @@ def build_from(
             field_separator=field_separator,
             table_separator=table_separator,
             operator_constructor=operator_constructor,
+            table_quote=table_quote,
+            field_quote=field_quote,
         )
         return f'({_query}) AS {table.alias}', _values
 
@@ -209,15 +276,17 @@ def build_from(
     return table.name, []
 
 
-def build_joins(
+def build_joins(  # noqa: PLR0913
     joins: list[JoinQuery] | None,
     value_placeholder: str = '?',
     field_separator: str = '__',
     table_separator: str = '.',
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> tuple[str, list[Any]]:
     if not joins:
         return '', []
@@ -232,6 +301,8 @@ def build_joins(
             field_separator=field_separator,
             table_separator=table_separator,
             operator_constructor=operator_constructor,
+            table_quote=table_quote,
+            field_quote=field_quote,
         )
         values.extend(_values)
 
@@ -249,16 +320,18 @@ def build_joins(
     return ' '.join(items), values
 
 
-def build_conditions(
+def build_conditions(  # noqa: PLR0913
     conditions: Conditions | None,
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ],
     value_placeholder: str = '?',
     field_separator: str = '__',
     table_separator: str = '.',
     null_value: str = 'NULL',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> tuple[str, list[Any]]:
     items = []
     values = []
@@ -274,6 +347,8 @@ def build_conditions(
                 value_placeholder=value_placeholder,
                 field_separator=field_separator,
                 table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
             )
             items.append(f'({_condition})')
             values.extend(_values)
@@ -283,6 +358,8 @@ def build_conditions(
             condition.field,
             field_separator=field_separator,
             table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
         )
 
         _statement, _values = operator_constructor(
@@ -293,6 +370,8 @@ def build_conditions(
             field_separator,
             table_separator,
             null_value,
+            table_quote,
+            field_quote,
         )
 
         if condition.negate:
@@ -304,16 +383,18 @@ def build_conditions(
     return f' {conditions.connector.value} '.join(items), values
 
 
-def build_where(
+def build_where(  # noqa: PLR0913
     where: Conditions | None,
     operator_constructor: Callable[
-        [str, FieldLookup, FieldReference | Value, str, str, str, str],
+        [str, FieldLookup, FieldReference | Value, str, str, str, str, str, str],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     value_placeholder: str = '?',
     field_separator: str = '__',
     table_separator: str = '.',
     null_value: str = 'NULL',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> tuple[str, list[Any]]:
     if not where:
         return '', []
@@ -325,6 +406,8 @@ def build_where(
         field_separator=field_separator,
         table_separator=table_separator,
         null_value=null_value,
+        table_quote=table_quote,
+        field_quote=field_quote,
     )
 
 
@@ -332,12 +415,20 @@ def build_group_by(
     group_by: list[GroupByQuery] | None,
     field_separator: str = '__',
     table_separator: str = '.',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> str | None:
     if not group_by:
         return None
 
     items: list[str] = [
-        build_field(_group_by.field, field_separator=field_separator, table_separator=table_separator)
+        build_field(
+            _group_by.field,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        )
         for _group_by in group_by
     ]
 
@@ -348,6 +439,8 @@ def build_order_by(
     order_by: list[OrderByQuery] | None,
     field_separator: str = '__',
     table_separator: str = '.',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> str | None:
     if not order_by:
         return None
@@ -355,7 +448,13 @@ def build_order_by(
     items = []
 
     for _order_by in order_by:
-        _field = build_field(_order_by.field, field_separator=field_separator, table_separator=table_separator)
+        _field = build_field(
+            _order_by.field,
+            field_separator=field_separator,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+        )
         items.append(f'{_field} {_order_by.direction.value}')
 
     return f'ORDER BY {", ".join(items)}'

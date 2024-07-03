@@ -12,7 +12,7 @@ def resolve_connection(
     if isinstance(table, SchemaReference):
         _table_name = table.name
     elif isinstance(table, SubQueryStatement):
-        _table_name = resolve_connection(table.query.table)  # type: ignore[assignment]
+        _table_name = resolve_connection(table.query.table, transaction_id=transaction_id)  # type: ignore[assignment]
     else:
         msg = 'Table must be either a SchemaReference or a SubQueryStatement.'
         raise RuntimeError(msg)  # noqa: TRY004

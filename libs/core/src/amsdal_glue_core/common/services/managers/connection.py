@@ -5,7 +5,6 @@ from typing import Any
 from amsdal_glue_core.common.enums import ConnectionAlias
 from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
-from amsdal_glue_core.common.interfaces.lock import LockBase
 
 
 class ConnectionPoolBase(ABC):

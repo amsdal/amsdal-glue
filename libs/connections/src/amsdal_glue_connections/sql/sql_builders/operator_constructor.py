@@ -13,6 +13,8 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     field_separator: str,
     table_separator: str,
     null_value: str = 'NULL',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> tuple[str, list[Any]]:
     from amsdal_glue_connections.sql.sql_builders.query_builder import build_field
 
@@ -24,6 +26,8 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
             value,
             field_separator=field_separator,
             table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
         )
     elif isinstance(value, Value):
         _value = value_placeholder
@@ -126,7 +130,7 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     return f'{field} {_statement}', values
 
 
-def repr_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
+def repr_operator_constructor(  # noqa: PLR0913, PLR0912, C901, PLR0915
     field: str,
     lookup: FieldLookup,
     value: FieldReference | Value,
@@ -134,6 +138,8 @@ def repr_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     field_separator: str,
     table_separator: str,
     null_value: str = 'NULL',
+    table_quote: str = '',
+    field_quote: str = '',
 ) -> tuple[str, list[Any]]:
     from amsdal_glue_connections.sql.sql_builders.query_builder import build_field
 
@@ -142,6 +148,8 @@ def repr_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
             value,
             field_separator=field_separator,
             table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
         )
     elif isinstance(value, Value):
         if isinstance(value.value, str):

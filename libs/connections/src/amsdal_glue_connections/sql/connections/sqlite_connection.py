@@ -5,10 +5,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
@@ -26,6 +22,11 @@ from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
+
+from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +250,7 @@ class SqliteConnection(ConnectionBase):
         self.connection.execute('ROLLBACK')
         return True
 
-    def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:  # noqa: PLR0911, C901
+    def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:
         statements = build_schema_mutation(mutation, type_transform=self.to_sql_type)
 
         for stmt in statements:
@@ -262,15 +263,15 @@ class SqliteConnection(ConnectionBase):
 
     @staticmethod
     def to_sql_type(property_type: Schema | SchemaReference | type[Any]) -> str:  # noqa: PLR0911
-        if property_type == str:
+        if property_type is str:
             return 'TEXT'
-        if property_type == int:
+        if property_type is int:
             return 'INTEGER'
-        if property_type == float:
+        if property_type is float:
             return 'REAL'
-        if property_type == bool:
+        if property_type is bool:
             return 'BOOLEAN'
-        if property_type == dict:
+        if property_type is dict:
             return 'JSON'
         if property_type in (bytes, bytearray):
             return 'BLOB'
