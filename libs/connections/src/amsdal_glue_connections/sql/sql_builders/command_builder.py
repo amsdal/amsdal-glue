@@ -94,7 +94,7 @@ def _build_sql_update_data(
 
     values: list[Any] = []
 
-    keys = sorted({key for key in command.data.data})
+    keys = sorted(key for key in command.data.data)
 
     if command.data:
         stmt += ' SET '
