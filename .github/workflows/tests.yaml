@@ -33,7 +33,7 @@ jobs:
 
       - name: Hatch run test
         run: |
-          cd libs/connections
+          cd libs/amsdal-glue
           hatch run test
 
   connections:
@@ -98,9 +98,4 @@ jobs:
           cd libs/core
           hatch env prune
           hatch run all
-
-      - name: Hatch run test
-        run: |
-          cd libs/core
-          hatch run test
  
