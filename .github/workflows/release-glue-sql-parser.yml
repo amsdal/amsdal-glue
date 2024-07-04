@@ -1,9 +1,9 @@
-name: Release - Connections
+name: Release - SQL Parser
 
 on:
   push:
     tags:
-      - 'connections/v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'sql-parser/v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
   build:
@@ -30,13 +30,13 @@ jobs:
           python -m pip install hatch
 
       - name: Build
-        run: cd libs/connections && hatch build
+        run: cd libs/amsdal-glue && hatch build
 
       - name: Store the distribution packages
         uses: actions/upload-artifact@v3
         with:
           name: python-package-distributions
-          path: libs/connections/dist/
+          path: libs/amsdal-glue/dist/
 
   publish:
     name: Publish to PyPi
@@ -60,7 +60,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: python-package-distributions
-          path: libs/connections/dist/
+          path: libs/sql-parser/dist/
 
       - name: Branch info
         id: branch_info
@@ -73,7 +73,7 @@ jobs:
 
       - name: Publish
         run: |
-          cd libs/connections && hatch publish --user ${{ secrets.PYPI_USERNAME }} --auth ${{ secrets.PYPI_TOKEN }}
+          cd libs/sql-parser && hatch publish --user ${{ secrets.PYPI_USERNAME }} --auth ${{ secrets.PYPI_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1

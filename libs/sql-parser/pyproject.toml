@@ -1,0 +1,199 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/amsdal_glue_sql_parser"]
+
+[project]
+name = "amsdal-glue-sql-parser"
+dynamic = ["version"]
+description = 'AMSDAL Glue is a Python interface providing high-level abstraction for interacting with multiple databases simultaneously, simplifying the development and maintenance process.'
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE.txt" }
+keywords = []
+authors = []
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "amsdal_glue_core==0.0.*",
+    "amsdal_glue==0.0.*",
+]
+
+[project.urls]
+Documentation = "https://pypi.org/project/amsdal_glue_sql_parser/#readme"
+Issues = "https://pypi.org/project/amsdal_glue_sql_parser/"
+Source = "https://pypi.org/project/amsdal_glue_sql_parser/"
+
+[tool.hatch.version]
+path = "src/amsdal_glue_sql_parser/__about__.py"
+
+[tool.hatch.envs.default]
+path = "../../.venv/sql-parser"
+extra-dependencies = [
+    "mypy>=1.0.0",
+    "coverage[toml]>=7.4",
+    "pytest>=8.2.1",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.4.5",
+    "sqloxide==0.1.47",
+]
+pre-install-commands = [
+  "pip install -e ../core/",
+  "pip install -e ../connections/",
+  "pip install -e ../amsdal-glue/",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+    "- coverage combine",
+    "coverage report",
+]
+cov = [
+    "test-cov",
+    "cov-report",
+]
+typing = "mypy --install-types --non-interactive {args:src/amsdal_glue_sql_parser tests}"
+style = [
+    "ruff check {args:.}",
+    "ruff format --preview {args:.}",
+]
+fmt = [
+    "ruff format {args:.}",
+    "ruff check --fix {args:.}",
+    "style",
+]
+all = [
+    "style",
+    "typing",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "ARG",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C",
+    "C4",
+    "C90",
+    "COM",
+    "DJ",
+    "DTZ",
+    "E",
+    "EM",
+    "ERA",
+    "F",
+    "FBT",
+    "FIX",
+    "FLY",
+    "FURB",
+    "G",
+    "I",
+    "ICN",
+    "INT",
+    "ISC",
+    "LOG",
+    "N",
+    "PERF",
+    "PIE",
+    "PL",
+    "PTH",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SIM",
+    "SLF",
+    "SLOT",
+    "T",
+    "T10",
+    "T20",
+    "TCH",
+    "TD",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+]
+ignore = [
+    "COM812",
+    "ISC001",
+]
+unfixable = [
+    # Don't touch unused imports
+    "F401",
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+order-by-type = false
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**.py" = ["PLR2004", "S101", "TID252"]
+
+[tool.ruff.lint.flake8-bandit]
+check-typed-exception = true
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.lint.mccabe]
+# Flag errors (`C901`) whenever the complexity level exceeds 10.
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 6
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[tool.coverage.run]
+source_pkgs = ["amsdal_glue_sql_parser", "tests"]
+branch = true
+parallel = true
+omit = [
+    "src/amsdal_glue_sql_parser/__about__.py",
+]
+
+[tool.coverage.paths]
+amsdal_glue_sql_parser = ["src/amsdal_glue_sql_parser"]
+tests = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
