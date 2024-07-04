@@ -48,6 +48,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ "3.10" ]
+    env:
+      PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     steps:
       - name: Set up python
         uses: actions/setup-python@v3
@@ -65,13 +67,9 @@ jobs:
         run: |
           echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
 
-      - name: Install additional dependencies
-        run: |
-          sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev
-
       - name: Install hatch
         run: |
-          python -m pip install hatch secretstorage dbus-python keyring
+          python -m pip install hatch
 
       - name: Publish
         run: |
