@@ -512,9 +512,9 @@ class PostgresConnection(ConnectionBase):
 
         if sql_type in ['TEXT', 'CHARACTER VARYING'] or sql_type.startswith('VARCHAR'):
             return str
-        if sql_type in ('BIGINT', 'INT', 'INTEGER'):
+        if sql_type in ('BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
             return int
-        if sql_type == 'DOUBLE PRECISION':
+        if sql_type in ('DOUBLE PRECISION', 'REAL', 'NUMERIC', 'DECIMAL'):
             return float
         if sql_type == 'BOOLEAN':
             return bool
