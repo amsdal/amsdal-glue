@@ -30,13 +30,13 @@ jobs:
           python -m pip install hatch
 
       - name: Build
-        run: cd libs/amsdal-glue && hatch build
+        run: cd libs/sql-parser && hatch build
 
       - name: Store the distribution packages
         uses: actions/upload-artifact@v3
         with:
           name: python-package-distributions
-          path: libs/amsdal-glue/dist/
+          path: libs/sql-parser/dist/
 
   publish:
     name: Publish to PyPi
