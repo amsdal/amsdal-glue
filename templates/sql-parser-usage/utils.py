@@ -1,6 +1,5 @@
 from amsdal_glue_core.common.data_models.schema import Schema
 
-from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -9,12 +8,7 @@ from amsdal_glue_core.common.services.commands import SchemaCommandService
 from amsdal_glue_core.containers import Container
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue_connections.sql.connections.postgres_connection import (
-    PostgresConnection,
-)
 
-from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
-from amsdal_glue_core.common.services.queries import SchemaQueryService
 
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -26,6 +20,9 @@ from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_connections.sql.connections.postgres_connection import (
+    PostgresConnection,
+)
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
@@ -36,45 +33,46 @@ from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.services.queries import DataQueryService
 
+from amsdal_glue_sql_parser.parsers.base import SqlParserBase
+from amsdal_glue_sql_parser.parsers.sqloxide_parser import SqlOxideParser
+
 
 def register_connections() -> None:
-    existing_db_pool = DefaultConnectionPool(
+    customers_db_pool = DefaultConnectionPool(
         PostgresConnection,
         dsn="postgres://db_user:db_password@localhost:5432/db_name_1",
     )
-    new_db_pool = DefaultConnectionPool(
+    orders_db_pool = DefaultConnectionPool(
         PostgresConnection,
         dsn="postgres://db_user:db_password@localhost:5433/db_name_2",
     )
-
     connection_mng = Container.managers.get(ConnectionManager)
-    connection_mng.register_connection_pool(existing_db_pool)
-    connection_mng.register_connection_pool(new_db_pool, schema_name="shipping")
+    connection_mng.register_connection_pool(customers_db_pool, schema_name="customers")
+    connection_mng.register_connection_pool(orders_db_pool, schema_name="orders")
 
 
-def create_schema_in_new_db() -> None:
-    shipping_schema = Schema(
-        name="shipping",
+def register_parser() -> None:
+    Container.services.register(SqlParserBase, SqlOxideParser)
+
+
+def create_schemas() -> None:
+    customers_schema = Schema(
+        name="customers",
         version=Version.LATEST,
         properties=[
-            PropertySchema(
-                name="shipping_id",
-                type=int,
-                required=True,
-            ),
-            PropertySchema(
-                name="status",
-                type=str,
-                required=True,
-            ),
-            PropertySchema(
-                name="customer_id",
-                type=int,
-                required=True,
-            ),
+            PropertySchema(name="id", type=int, required=True),
+            PropertySchema(name="first_name", type=str, required=True),
+            PropertySchema(name="last_name", type=str, required=True),
         ],
-        constraints=[
-            PrimaryKeyConstraint(name="pk_shipping", fields=["shipping_id"]),
+    )
+    orders_schema = Schema(
+        name="orders",
+        version=Version.LATEST,
+        properties=[
+            PropertySchema(name="id", type=int, required=True),
+            PropertySchema(name="customer_id", type=int, required=True),
+            PropertySchema(name="product", type=str, required=True),
+            PropertySchema(name="price", type=float, required=True),
         ],
     )
 
@@ -82,23 +80,19 @@ def create_schema_in_new_db() -> None:
     result = service.execute(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=shipping_schema),
+                RegisterSchema(schema=customers_schema),
+            ],
+        ),
+    )
+    result = service.execute(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=orders_schema),
             ],
         ),
     )
 
     assert result.success is True, result.message
-
-
-def fetch_schemas() -> list[Schema]:
-    query_service = Container.services.get(SchemaQueryService)
-    result = query_service.execute(
-        SchemaQueryOperation(filters=None),
-    )
-    assert result.success is True, result.message
-    assert result.schemas is not None
-
-    return result.schemas
 
 
 def create_new_records() -> None:
@@ -107,41 +101,71 @@ def create_new_records() -> None:
         command=DataCommand(
             mutations=[
                 InsertData(
-                    schema=SchemaReference(name="shipping", version=Version.LATEST),
+                    schema=SchemaReference(name="customers", version=Version.LATEST),
                     data=[
                         Data(
                             data={
-                                "shipping_id": 1,
-                                "status": "Pending",
-                                "customer_id": 2,
+                                "id": 1,
+                                "first_name": "John",
+                                "last_name": "Doe",
                             }
                         ),
                         Data(
                             data={
-                                "shipping_id": 2,
-                                "status": "Pending",
-                                "customer_id": 4,
+                                "id": 2,
+                                "first_name": "Jane",
+                                "last_name": "Smith",
                             }
                         ),
                         Data(
                             data={
-                                "shipping_id": 3,
-                                "status": "Delivered",
-                                "customer_id": 3,
+                                "id": 3,
+                                "first_name": "Alice",
+                                "last_name": "Johnson",
                             }
                         ),
                         Data(
                             data={
-                                "shipping_id": 4,
-                                "status": "Pending",
-                                "customer_id": 5,
+                                "id": 4,
+                                "first_name": "Bob",
+                                "last_name": "Brown",
                             }
                         ),
+                    ],
+                ),
+                InsertData(
+                    schema=SchemaReference(name="orders", version=Version.LATEST),
+                    data=[
                         Data(
                             data={
-                                "shipping_id": 5,
-                                "status": "Delivered",
+                                "id": 1,
                                 "customer_id": 1,
+                                "product": "Laptop",
+                                "price": 1000.0,
+                            }
+                        ),
+                        Data(
+                            data={
+                                "id": 2,
+                                "customer_id": 2,
+                                "product": "Phone",
+                                "price": 500.0,
+                            }
+                        ),
+                        Data(
+                            data={
+                                "id": 3,
+                                "customer_id": 3,
+                                "product": "Tablet",
+                                "price": 800.0,
+                            }
+                        ),
+                        Data(
+                            data={
+                                "id": 4,
+                                "customer_id": 3,
+                                "product": "Headphones",
+                                "price": 200.0,
                             }
                         ),
                     ],

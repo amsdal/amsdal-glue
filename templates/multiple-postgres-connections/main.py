@@ -1,5 +1,5 @@
 from pprint import pprint
-
+from amsdal_glue.initialize import init_default_containers
 from utils import *
 
 
@@ -13,7 +13,7 @@ def main() -> None:
     # Fetch existing schemas (tables)
     all_schemas = fetch_schemas()
 
-    print(f'All schemas from both databases (total: {len(all_schemas)}):')
+    print(f"All schemas from both databases (total: {len(all_schemas)}):")
 
     for schema in all_schemas:
         pprint(schema)
@@ -24,11 +24,13 @@ def main() -> None:
     # Fetch existing records (rows)
     data = fetch_customers_and_their_shipping_status()
 
-    print('Customers report:')
+    print("Customers report:")
 
     for row in data:
-        print(f'{row.data["first_name"]} (ID: {row.data["customer_id"]}) - Shipping status: {row.data["status"]}')
+        print(
+            f'{row.data["first_name"]} (ID: {row.data["customer_id"]}) - Shipping status: {row.data["status"]}'
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

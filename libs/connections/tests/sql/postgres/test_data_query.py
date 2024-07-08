@@ -8,6 +8,7 @@ from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
@@ -25,12 +26,12 @@ from amsdal_glue_core.common.expressions.value import Value
 def fixture_connection(database_connection: PostgresConnection) -> Generator[PostgresConnection, None, None]:
     database_connection.execute('CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), age INT)')
     database_connection.execute('CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INT, amount INT, date DATE)')
-    database_connection.execute('INSERT INTO customers (name, age) VALUES (%s, %s)', 'Alice', 25)
-    database_connection.execute('INSERT INTO customers (name, age) VALUES (%s, %s)', 'Bob', 30)
-    database_connection.execute('INSERT INTO customers (name, age) VALUES (%s, %s)', 'Charlie', 35)
-    database_connection.execute('INSERT INTO orders (customer_id, amount) VALUES (%s, %s)', 1, 100)
-    database_connection.execute('INSERT INTO orders (customer_id, amount) VALUES (%s, %s)', 1, 200)
-    database_connection.execute('INSERT INTO orders (customer_id, amount) VALUES (%s, %s)', 2, 400)
+    database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 1, 'Alice', 25)
+    database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 2, 'Bob', 30)
+    database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 3, 'Charlie', 35)
+    database_connection.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 1, 1, 100)
+    database_connection.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 2, 1, 200)
+    database_connection.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 3, 2, 400)
 
     yield database_connection
 
@@ -213,4 +214,81 @@ def test_annotation_query(fixture_connection: PostgresConnection) -> None:
         {'id': 1, 'total_amount': 300},
         {'id': 2, 'total_amount': 400},
         {'id': 3, 'total_amount': None},
+    ]
+
+
+def test_aggregation_query(fixture_connection: PostgresConnection) -> None:
+    result_data = fixture_connection.query(
+        query=QueryStatement(
+            only=[
+                FieldReference(field=Field(name='customer_id'), table_name='o'),
+            ],
+            aggregations=[
+                AggregationQuery(
+                    expression=Sum(
+                        field=FieldReference(field=Field(name='amount'), table_name='o'),
+                    ),
+                    alias='total_amount',
+                ),
+            ],
+            table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
+            group_by=[
+                GroupByQuery(field=FieldReference(field=Field(name='customer_id'), table_name='o')),
+            ],
+            order_by=[
+                OrderByQuery(
+                    field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                    direction=OrderDirection.ASC,
+                ),
+            ],
+        ),
+    )
+    assert [d.data for d in result_data] == [
+        {'customer_id': 1, 'total_amount': 300},
+        {'customer_id': 2, 'total_amount': 400},
+    ]
+
+
+def test_aggregation_query_joins(fixture_connection: PostgresConnection) -> None:
+    result_data = fixture_connection.query(
+        query=QueryStatement(
+            table=SchemaReference(name='orders', version=Version.LATEST),
+            only=[
+                FieldReference(field=Field(name='id'), table_name='customers'),
+                FieldReference(field=Field(name='name'), table_name='customers'),
+            ],
+            joins=[
+                JoinQuery(
+                    table=SchemaReference(name='customers', version=Version.LATEST),
+                    on=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='id'), table_name='customers'),
+                            lookup=FieldLookup.EQ,
+                            value=FieldReference(field=Field(name='customer_id'), table_name='orders'),
+                        ),
+                    ),
+                    join_type=JoinType.INNER,
+                ),
+            ],
+            aggregations=[
+                AggregationQuery(
+                    expression=Sum(field=FieldReference(field=Field(name='amount'), table_name='orders')),
+                    alias='sum_amount',
+                ),
+            ],
+            group_by=[
+                GroupByQuery(field=FieldReference(field=Field(name='id'), table_name='customers')),
+                GroupByQuery(field=FieldReference(field=Field(name='name'), table_name='customers')),
+            ],
+            order_by=[
+                OrderByQuery(
+                    field=FieldReference(field=Field(name='id'), table_name='customers'),
+                    direction=OrderDirection.ASC,
+                ),
+            ],
+        ),
+    )
+    assert [d.data for d in result_data] == [
+        {'id': 1, 'name': 'Alice', 'sum_amount': 300},
+        {'id': 2, 'name': 'Bob', 'sum_amount': 400},
     ]
