@@ -146,19 +146,6 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
 
         return '__'.join(parts)
 
-    def _extract_value(self, field_key: str, data: Any) -> Any:
-        if not data:
-            return None
-
-        if isinstance(data, list):
-            msg = f'Cannot extract value from list: {data}'
-            raise RuntimeError(msg)  # noqa: TRY004
-
-        if isinstance(data, dict):
-            return data.get(field_key)
-
-        return data
-
     def _build_field_reference_stmt(
         self,
         field: FieldReference | FieldReferenceAliased,
