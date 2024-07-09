@@ -3,7 +3,15 @@ from datetime import date
 from datetime import datetime
 from typing import Any
 
-import psycopg2
+try:
+    import psycopg2
+except ImportError:
+    msg = (
+        '"psycopg2" package is required for PostgresConnection. '
+        'Use "pip install amsdal-glue-connections[postgres]" to install it.'
+    )
+    raise ImportError(msg) from None
+
 import psycopg2._psycopg
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -199,7 +207,9 @@ class PostgresConnection(ConnectionBase):
         for raw_constrain in raw_constrains:
             if raw_constrain[1] == 'f':
                 f_table_id = raw_constrain[2]
-                cursor = self.execute(f'SELECT relname FROM pg_catalog.pg_class WHERE oid = {f_table_id};')  # noqa: S608
+                cursor = self.execute(
+                    f'SELECT relname FROM pg_catalog.pg_class WHERE oid = {f_table_id};'  # noqa: S608
+                )
                 f_table_name = cursor.fetchall()[0][0]
                 cursor = self.execute(
                     'SELECT ordinal_position, column_name '  # noqa: S608
