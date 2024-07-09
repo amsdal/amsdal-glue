@@ -480,3 +480,19 @@ def test_simple_annotation() -> None:
             ),
         )
     ]
+
+
+def test_select_distinct() -> None:
+    parser = Container.services.get(SqlParserBase)
+    assert parser.parse_sql('SELECT DISTINCT first_name, last_name FROM users;') == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', version=Version.LATEST),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='users'),
+                    FieldReference(field=Field(name='last_name'), table_name='users'),
+                ],
+                distinct=True,
+            ),
+        )
+    ]

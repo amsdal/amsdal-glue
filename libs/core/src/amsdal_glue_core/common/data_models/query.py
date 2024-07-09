@@ -17,6 +17,7 @@ from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 class QueryStatement:
     table: SchemaReference | SubQueryStatement
     only: list[FieldReference | FieldReferenceAliased] | None = None
+    distinct: bool = False
     annotations: list[AnnotationQuery] | None = None
     aggregations: list[AggregationQuery] | None = None
     joins: list[JoinQuery] | None = None
