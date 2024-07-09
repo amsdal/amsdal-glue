@@ -28,6 +28,11 @@ dependencies = [
     "amsdal_glue==0.0.*",
 ]
 
+[project.optional-dependencies]
+sqloxide = [
+    "sqloxide==0.1.47",
+]
+
 [project.urls]
 Documentation = "https://pypi.org/project/amsdal_glue_sql_parser/#readme"
 Issues = "https://pypi.org/project/amsdal_glue_sql_parser/"

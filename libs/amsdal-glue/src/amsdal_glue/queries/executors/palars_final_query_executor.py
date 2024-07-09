@@ -132,7 +132,7 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
             _stmt.append(f'{_val} AS {annotation.value.alias}')
 
         for aggregation in aggregations or []:
-            _aggr_field = self._build_field_reference_stmt(aggregation.field)
+            _aggr_field = self._build_field_reference_stmt(aggregation.expression.field)
             _stmt.append(f'{aggregation.expression.name}({_aggr_field}) AS {aggregation.alias}')
 
         return ', '.join(filter(None, _stmt))

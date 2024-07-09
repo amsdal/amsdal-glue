@@ -342,7 +342,7 @@ def test_simple_group_by() -> None:
 def test_simple_aggregate() -> None:
     parser = Container.services.get(SqlParserBase)
     assert parser.parse_sql(
-        'SELECT COUNT(*) as total, AVG(age) as average, MAX(age) as max_age, MIN(age) as min_age, SUM(age) '
+        'SELECT COUNT(*) as total, AVG(age) as average, MAX(age) as max_age, MIN(age) as age_min, SUM(age) '
         'FROM users '
         'WHERE age > 18 '
         'GROUP BY first_name, last_name;'
@@ -365,11 +365,11 @@ def test_simple_aggregate() -> None:
                     ),
                     AggregationQuery(
                         expression=Min(field=FieldReference(field=Field(name='age'), table_name='users')),
-                        alias='min_age',
+                        alias='age_min',
                     ),
                     AggregationQuery(
                         expression=Sum(field=FieldReference(field=Field(name='age'), table_name='users')),
-                        alias='sum(age)',
+                        alias='sum_age',
                     ),
                 ],
                 group_by=[
@@ -386,6 +386,55 @@ def test_simple_aggregate() -> None:
                 ),
             ),
         )
+    ]
+
+
+def test_aggregation_with_joins() -> None:
+    parser = Container.services.get(SqlParserBase)
+    assert parser.parse_sql(
+        'SELECT customers.first_name, customers.last_name, SUM(price) '
+        'FROM orders JOIN customers ON customers.id = orders.customer_id '
+        'GROUP BY customers.first_name, customers.last_name '
+        'ORDER BY customers.id ASC '
+    ) == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='orders', version=Version.LATEST),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='customers'),
+                    FieldReference(field=Field(name='last_name'), table_name='customers'),
+                ],
+                joins=[
+                    JoinQuery(
+                        table=SchemaReference(name='customers', version=Version.LATEST),
+                        on=Conditions(
+                            Condition(
+                                field=FieldReference(field=Field(name='id'), table_name='customers'),
+                                lookup=FieldLookup.EQ,
+                                value=FieldReference(field=Field(name='customer_id'), table_name='orders'),
+                            ),
+                        ),
+                        join_type=JoinType.INNER,
+                    ),
+                ],
+                aggregations=[
+                    AggregationQuery(
+                        expression=Sum(field=FieldReference(field=Field(name='price'), table_name='orders')),
+                        alias='sum_price',
+                    ),
+                ],
+                group_by=[
+                    GroupByQuery(field=FieldReference(field=Field(name='first_name'), table_name='customers')),
+                    GroupByQuery(field=FieldReference(field=Field(name='last_name'), table_name='customers')),
+                ],
+                order_by=[
+                    OrderByQuery(
+                        field=FieldReference(field=Field(name='id'), table_name='customers'),
+                        direction=OrderDirection.ASC,
+                    ),
+                ],
+            ),
+        ),
     ]
 
 
@@ -412,7 +461,7 @@ def test_simple_annotation() -> None:
                                         expression=Count(
                                             field=FieldReference(field=Field(name='*'), table_name='orders')
                                         ),
-                                        alias='count(*)',
+                                        alias='count_total',
                                     ),
                                 ],
                                 where=Conditions(

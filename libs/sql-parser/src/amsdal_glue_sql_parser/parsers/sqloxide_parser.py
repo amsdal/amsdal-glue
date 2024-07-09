@@ -5,6 +5,7 @@ from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -27,6 +28,9 @@ from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
+from amsdal_glue_core.common.operations.mutations.data import DeleteData
+from amsdal_glue_core.common.operations.mutations.data import InsertData
+from amsdal_glue_core.common.operations.mutations.data import UpdateData
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
@@ -43,8 +47,70 @@ class SqlOxideParser(SqlParserBase):
         if 'Query' in parsed_sql:
             return DataQueryOperation(query=self._parsed_sql_query_to_operation(parsed_sql['Query']))
 
+        if 'Insert' in parsed_sql:
+            return self._parse_insert_sql_operation(parsed_sql['Insert'])
+
+        if 'Update' in parsed_sql:
+            return self._parse_update_sql_operation(parsed_sql['Update'])
+
+        if 'Delete' in parsed_sql:
+            return self._parse_delete_sql_operation(parsed_sql['Delete'])
+
         msg = 'Unsupported SQL operation'
         raise ValueError(msg)
+
+    def _parse_delete_sql_operation(self, parsed_sql: dict[str, Any]) -> DeleteData:
+        table_name = parsed_sql['from']['WithFromKeyword'][0]['relation']['Table']['name'][0]['value']
+        schema = SchemaReference(name=table_name, version=Version.LATEST)
+
+        where = self._process_selection(parsed_sql['selection'], table_name)
+
+        if isinstance(where, Condition):
+            where = Conditions(where)
+
+        return DeleteData(schema=schema, query=where)
+
+    def _parse_update_sql_operation(self, parsed_sql: dict[str, Any]) -> UpdateData:
+        table_name = parsed_sql['table']['relation']['Table']['name'][0]['value']
+        schema = SchemaReference(name=table_name, version=Version.LATEST)
+
+        assignments = {}
+        for assignment in parsed_sql['assignments']:
+            field = assignment['id'][0]['value']
+            value = assignment['value']
+            _value = self._identifier_to_field(value, table_name)
+            assignments[field] = _value.value if isinstance(_value, Value) else _value.field.name
+
+        where = self._process_selection(parsed_sql['selection'], table_name)
+
+        if isinstance(where, Condition):
+            where = Conditions(where)
+
+        return UpdateData(
+            schema=schema,
+            data=[Data(data=assignments, metadata=None)],
+            query=where,
+        )
+
+    def _parse_insert_sql_operation(self, parsed_sql: dict[str, Any]) -> InsertData:
+        columns = [column['value'] for column in parsed_sql['columns']]
+        table_name = parsed_sql['table_name'][0]['value']
+
+        data_rows = []
+
+        for row in parsed_sql['source']['body']['Values']['rows']:
+            data_row = {}
+
+            for column, value in zip(columns, row, strict=False):
+                _value = self._identifier_to_field(value, table_name)
+                data_row[column] = _value.value if isinstance(_value, Value) else _value.field.name
+
+            data_rows.append(data_row)
+
+        return InsertData(
+            schema=SchemaReference(name=table_name, version=Version.LATEST),
+            data=[Data(data=row, metadata=None) for row in data_rows],
+        )
 
     def _identifier_to_field(self, identifier: dict[str, Any], table_name: str) -> FieldReference | Value:
         if 'Identifier' in identifier:
@@ -249,10 +315,11 @@ class SqlOxideParser(SqlParserBase):
                     expression = aff_function(
                         field=self._identifier_to_field(function['args']['List']['args'][0], table_name)
                     )
+                    field_alias_name = expression.field.field.name if expression.field.field.name != '*' else 'total'
                     aggregation_queries.append(
                         AggregationQuery(
                             expression=expression,
-                            alias=alias if alias else (f'{aff_function.name.lower()}({expression.field.field.name})'),
+                            alias=alias if alias else f'{aff_function.name.lower()}_{field_alias_name}',
                         )
                     )
                 else:
