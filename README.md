@@ -55,11 +55,13 @@ You can install the AMSDAL Glue project using `pip`:
 pip install amsdal-glue
 ```
 
-Or install the individual packages:
+This command automatically installs `amsdal-glue-core` and `amsdal-glue-connections` packages as dependencies.
+Note, the `amsdal-glue-connections` will be installed without extra dependencies.
+If you want to use `PostgresConnection` in order to connect to postgres database, you need explicitly install the
+`amsdal-glue-connections` with the `postgres` extra dependency:
 
 ```bash
-pip install amsdal-glue-core
-pip install amsdal-glue-connections
+pip install amsdal-glue-connections[postgres]
 ```
 
 ## Usage
