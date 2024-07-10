@@ -8,7 +8,7 @@ on:
 
 jobs:
   amsdal_glue:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
@@ -35,7 +35,7 @@ jobs:
           hatch run test
 
   connections:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     services:
       postgres:
         image: postgres:latest
@@ -76,7 +76,7 @@ jobs:
           hatch run test
 
   core:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
@@ -99,7 +99,7 @@ jobs:
  
 
   sql_parser:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository

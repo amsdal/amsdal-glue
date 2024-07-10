@@ -44,6 +44,7 @@ def build_sql_query(  # noqa: PLR0913
             table_separator=table_separator,
             table_quote=table_quote,
             field_quote=field_quote,
+            distinct=query.distinct,
         ),
         build_aggregations(
             query.aggregations,
@@ -108,27 +109,29 @@ def build_sql_query(  # noqa: PLR0913
 
     values.extend(_values)
 
-    stmt_parts.extend([
-        'FROM',
-        _from,
-        _joins,
-        _where,
-        build_group_by(
-            query.group_by,
-            field_separator=field_separator,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-        ),
-        build_order_by(
-            query.order_by,
-            field_separator=field_separator,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-        ),
-        build_limit(query.limit),
-    ])
+    stmt_parts.extend(
+        [
+            'FROM',
+            _from,
+            _joins,
+            _where,
+            build_group_by(
+                query.group_by,
+                field_separator=field_separator,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+            ),
+            build_order_by(
+                query.order_by,
+                field_separator=field_separator,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+            ),
+            build_limit(query.limit),
+        ]
+    )
 
     return ' '.join(filter(None, stmt_parts)), values
 
@@ -139,6 +142,8 @@ def build_only(
     table_separator: str = '.',
     table_quote: str = '',
     field_quote: str = '',
+    *,
+    distinct: bool = False,
 ) -> str | None:
     if not only:
         return None
@@ -154,7 +159,12 @@ def build_only(
         for _only in only
     ]
 
-    return ', '.join(items)
+    fields = ', '.join(items)
+
+    if distinct:
+        return f'DISTINCT {fields}'
+
+    return fields
 
 
 def build_annotations(  # noqa: PLR0913

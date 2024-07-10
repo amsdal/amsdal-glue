@@ -27,7 +27,7 @@ def fixture_connection(database_connection: PostgresConnection) -> Generator[Pos
     database_connection.execute('CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), age INT)')
     database_connection.execute('CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INT, amount INT, date DATE)')
     database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 1, 'Alice', 25)
-    database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 2, 'Bob', 30)
+    database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 2, 'Bob', 25)
     database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 3, 'Charlie', 35)
     database_connection.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 1, 1, 100)
     database_connection.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 2, 1, 200)
@@ -51,7 +51,7 @@ def test_simple_query_data(fixture_connection: PostgresConnection) -> None:
 
     assert [d.data for d in result_data] == [
         {'id': 1, 'name': 'Alice', 'age': 25},
-        {'id': 2, 'name': 'Bob', 'age': 30},
+        {'id': 2, 'name': 'Bob', 'age': 25},
         {'id': 3, 'name': 'Charlie', 'age': 35},
     ]
 
@@ -91,7 +91,37 @@ def test_join_query_data(fixture_connection: PostgresConnection) -> None:
     assert [d.data for d in result_data] == [
         {'id': 1, 'amount': 100, 'customer_id': 1, 'name': 'Alice', 'age': 25},
         {'id': 2, 'amount': 200, 'customer_id': 1, 'name': 'Alice', 'age': 25},
-        {'id': 3, 'amount': 400, 'customer_id': 2, 'name': 'Bob', 'age': 30},
+        {'id': 3, 'amount': 400, 'customer_id': 2, 'name': 'Bob', 'age': 25},
+    ]
+
+
+def test_select_distinct(fixture_connection: PostgresConnection) -> None:
+    query = QueryStatement(
+        table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+        only=[
+            FieldReference(field=Field(name='age'), table_name='c'),
+        ],
+        order_by=[
+            OrderByQuery(
+                field=FieldReference(field=Field(name='age'), table_name='c'),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+    result_data = fixture_connection.query(query)
+
+    assert [d.data for d in result_data] == [
+        {'age': 25},
+        {'age': 25},
+        {'age': 35},
+    ]
+
+    query.distinct = True
+    result_data = fixture_connection.query(query)
+
+    assert [d.data for d in result_data] == [
+        {'age': 25},
+        {'age': 35},
     ]
 
 

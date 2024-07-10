@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 import sqloxide
@@ -5,21 +6,30 @@ from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.constraints import BaseConstraint
+from amsdal_glue_core.common.data_models.constraints import CheckConstraint
+from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
+from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
+from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import PropertySchema
+from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Avg
 from amsdal_glue_core.common.expressions.aggregation import Count
@@ -28,12 +38,25 @@ from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
+from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
+from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
+from amsdal_glue_core.common.operations.mutations.schema import AddIndex
+from amsdal_glue_core.common.operations.mutations.schema import AddProperty
+from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
+from amsdal_glue_core.common.operations.mutations.schema import DeleteProperty
+from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
+from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
+from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
+from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
+
+SCHEMA_REGISTRY_TABLE = 'amsdal_schema_registry'
 
 
 class SqlOxideParser(SqlParserBase):
@@ -43,9 +66,14 @@ class SqlOxideParser(SqlParserBase):
 
         return [self._parsed_sql_to_operation(parsed_sql) for parsed_sql in parsed_sqls]
 
-    def _parsed_sql_to_operation(self, parsed_sql: dict[str, Any]) -> Operation:
+    def _parsed_sql_to_operation(self, parsed_sql: dict[str, Any]) -> Operation:  # noqa: PLR0911, C901, PLR0912
         if 'Query' in parsed_sql:
-            return DataQueryOperation(query=self._parsed_sql_query_to_operation(parsed_sql['Query']))
+            query = self._parsed_sql_query_to_operation(parsed_sql['Query'])
+
+            if query.table.name == SCHEMA_REGISTRY_TABLE:
+                return SchemaQueryOperation(filters=query.where)
+
+            return DataQueryOperation(query=query)
 
         if 'Insert' in parsed_sql:
             return self._parse_insert_sql_operation(parsed_sql['Insert'])
@@ -56,8 +84,246 @@ class SqlOxideParser(SqlParserBase):
         if 'Delete' in parsed_sql:
             return self._parse_delete_sql_operation(parsed_sql['Delete'])
 
+        if 'CreateTable' in parsed_sql:
+            return self._create_table_sql_operation(parsed_sql['CreateTable'])
+
+        if 'CreateIndex' in parsed_sql:
+            return self._create_index(parsed_sql['CreateIndex'])
+
+        if 'AlterTable' in parsed_sql:
+            return self._alter_table(parsed_sql['AlterTable'])
+
+        if 'Drop' in parsed_sql:
+            return self._drop_operation(parsed_sql['Drop'])
+
+        if 'StartTransaction' in parsed_sql:
+            return TransactionCommand(
+                transaction_id=None,
+                schema=SchemaReference(name='', version=Version.LATEST),
+                action=TransactionAction.BEGIN,
+            )
+
+        if 'Savepoint' in parsed_sql:
+            return TransactionCommand(
+                transaction_id=parsed_sql['Savepoint']['name']['value'],
+                schema=SchemaReference(name='', version=Version.LATEST),
+                action=TransactionAction.BEGIN,
+            )
+
+        if 'Rollback' in parsed_sql:
+            transaction_id = None
+
+            if parsed_sql['Rollback'].get('savepoint'):
+                transaction_id = parsed_sql['Rollback']['savepoint']['value']
+
+            return TransactionCommand(
+                transaction_id=transaction_id,
+                schema=SchemaReference(name='', version=Version.LATEST),
+                action=TransactionAction.ROLLBACK,
+            )
+
+        if 'Commit' in parsed_sql:
+            return TransactionCommand(
+                transaction_id=None,
+                schema=SchemaReference(name='', version=Version.LATEST),
+                action=TransactionAction.COMMIT,
+            )
+
         msg = 'Unsupported SQL operation'
         raise ValueError(msg)
+
+    def _drop_operation(self, parsed_sql: dict[str, Any]) -> Operation:
+        if parsed_sql['object_type'] == 'Table':
+            return DeleteSchema(
+                schema_reference=SchemaReference(name=parsed_sql['names'][0][0]['value'], version=Version.LATEST)
+            )
+
+        msg = 'Unsupported drop operation'
+        raise ValueError(msg)
+
+    def _constraint_name(self, constraint: dict[str, Any]) -> str:
+        if constraint.get('name'):
+            return constraint['name']['value']
+        return ''
+
+    def _alter_table(self, parsed_sql: dict[str, Any]) -> Operation:
+        table_name = parsed_sql['name'][0]['value']
+        schema = SchemaReference(name=table_name, version=Version.LATEST)
+
+        operations = []
+        for operation in parsed_sql['operations']:
+            if 'AddColumn' in operation:
+                column = operation['AddColumn']['column_def']
+                column_name = column['name']['value']
+                column_type = self._process_column_type(column['data_type'])
+                _property = PropertySchema(
+                    name=column_name, type=column_type, required=False, description=None, default=None
+                )
+
+                operations.append(AddProperty(schema_reference=schema, property=_property))
+            elif 'DropColumn' in operation:
+                column_name = operation['DropColumn']['column_name']['value']
+                operations.append(DeleteProperty(schema_reference=schema, property_name=column_name))
+            elif 'RenameColumn' in operation:
+                old_column_name = operation['RenameColumn']['old_column_name']['value']
+                new_column_name = operation['RenameColumn']['new_column_name']['value']
+                operations.append(
+                    RenameProperty(schema_reference=schema, old_name=old_column_name, new_name=new_column_name)
+                )
+            elif 'RenameTable' in operation:
+                new_table_name = operation['RenameTable']['table_name'][0]['value']
+                operations.append(RenameSchema(schema_reference=schema, new_schema_name=new_table_name))
+
+            elif 'AddConstraint' in operation:
+                constraint = operation['AddConstraint']
+                if 'PrimaryKey' in constraint:
+                    fields = [column['value'] for column in constraint['PrimaryKey']['columns']]
+                    operations.append(
+                        AddConstraint(
+                            schema_reference=schema,
+                            constraint=PrimaryKeyConstraint(
+                                name=self._constraint_name(constraint['PrimaryKey']), fields=fields
+                            ),
+                        )
+                    )
+                else:
+                    msg = 'Unsupported alter table operation'
+                    raise ValueError(msg)
+
+            elif 'DropConstraint' in operation:
+                constraint = operation['DropConstraint']
+                operations.append(
+                    DeleteConstraint(schema_reference=schema, constraint_name=self._constraint_name(constraint))
+                )
+            else:
+                msg = 'Unsupported alter table operation'
+                raise ValueError(msg)
+
+        return operations[0]
+
+    def _create_index(self, parsed_sql: dict[str, Any]) -> AddIndex:
+        table_name = parsed_sql['table_name'][0]['value']
+        schema = SchemaReference(name=table_name, version=Version.LATEST)
+
+        fields = [column['expr']['Identifier']['value'] for column in parsed_sql['columns']]
+        condition = None
+        if parsed_sql['predicate']:
+            condition = Conditions(self._process_selection(parsed_sql['predicate'], table_name))
+
+        return AddIndex(
+            schema_reference=schema,
+            index=IndexSchema(
+                name=parsed_sql['name'][0]['value'],
+                fields=fields,
+                condition=condition,
+            ),
+        )
+
+    def _process_column_type(self, column_type: str | dict[str, Any]) -> type:
+        if column_type == 'Text' or 'Varchar' in column_type:
+            return str
+
+        if 'Integer' in column_type or 'Int' in column_type:
+            return int
+
+        if 'Timestamp' in column_type:
+            return datetime
+
+        if 'JSON' in column_type or 'JSONB' in column_type:
+            return dict
+
+        if 'Boolean' in column_type:
+            return bool
+
+        if 'Real' in column_type or 'Float4' in column_type or 'Float8' in column_type:
+            return float
+
+        msg = 'Unsupported column type'
+        raise ValueError(msg)
+
+    def _create_table_sql_operation(self, parsed_sql: dict[str, Any]) -> RegisterSchema:
+        table_name = parsed_sql['name'][0]['value']
+        schema = Schema(name=table_name, version=Version.LATEST, properties=[])
+
+        properties = []
+        constraints = self._process_constraints_on_table(parsed_sql['constraints'], table_name)
+        for column in parsed_sql['columns']:
+            column_name = column['name']['value']
+            column_type = self._process_column_type(column['data_type'])
+            _property = PropertySchema(
+                name=column_name, type=column_type, required=False, description=None, default=None
+            )
+
+            for option in column['options']:
+                if 'Unique' in option['option']:
+                    if option['option']['Unique']['is_primary']:
+                        constraints.append(PrimaryKeyConstraint(name=column_name, fields=[column_name]))
+                        _property.required = True
+                    else:
+                        constraints.append(UniqueConstraint(name=column_name, fields=[column_name]))
+
+                elif option['option'] == 'NotNull':
+                    _property.required = True
+
+                else:
+                    msg = 'Unsupported column option'
+                    raise ValueError(msg)
+
+            properties.append(_property)
+
+        schema.properties = properties
+        schema.constraints = constraints or None
+
+        return RegisterSchema(schema=schema)
+
+    def _process_constraints_on_table(self, constraints: list[dict[str, Any]], table_name: str) -> list[BaseConstraint]:
+        if not constraints:
+            return []
+
+        constraints_list = []
+        for constraint in constraints:
+            if 'PrimaryKey' in constraint:
+                fields = [field['value'] for field in constraint['PrimaryKey']['columns']]
+
+                constraints_list.append(
+                    PrimaryKeyConstraint(name=self._constraint_name(constraint['PrimaryKey']), fields=fields)
+                )
+
+            elif 'Unique' in constraint:
+                fields = [field['value'] for field in constraint['Unique']['columns']]
+
+                constraints_list.append(
+                    UniqueConstraint(name=self._constraint_name(constraint['Unique']), fields=fields)
+                )
+
+            elif 'Check' in constraint:
+                condition = self._process_selection(constraint['Check']['expr'], table_name)
+
+                constraints_list.append(
+                    CheckConstraint(name=self._constraint_name(constraint['Check']), condition=Conditions(condition))
+                )
+
+            elif 'ForeignKey' in constraint:
+                fields = [field['value'] for field in constraint['ForeignKey']['columns']]
+                reference_schema = SchemaReference(
+                    name=constraint['ForeignKey']['foreign_table'][0]['value'], version=Version.LATEST
+                )
+                reference_fields = [field['value'] for field in constraint['ForeignKey']['referred_columns']]
+
+                constraints_list.append(
+                    ForeignKeySchema(
+                        name=self._constraint_name(constraint['ForeignKey']),
+                        fields=fields,
+                        reference_schema=reference_schema,
+                        reference_fields=reference_fields,
+                    )
+                )
+
+            else:
+                msg = 'Unsupported constraint'
+                raise ValueError(msg)
+
+        return constraints_list
 
     def _parse_delete_sql_operation(self, parsed_sql: dict[str, Any]) -> DeleteData:
         table_name = parsed_sql['from']['WithFromKeyword'][0]['relation']['Table']['name'][0]['value']
@@ -373,6 +639,9 @@ class SqlOxideParser(SqlParserBase):
         if table_description['alias']:
             schema.alias = table_description['alias']['name']['value']
         query = QueryStatement(table=schema)
+
+        if parsed_sql['body']['Select']['distinct'] == 'Distinct':
+            query.distinct = True
 
         query.only = self._process_projections(
             parsed_sql['body']['Select']['projection'],

@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build and compile
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
@@ -40,7 +40,7 @@ jobs:
 
   publish:
     name: Publish to PyPi
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build
     permissions:
       contents: write
