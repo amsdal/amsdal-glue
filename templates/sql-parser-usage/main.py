@@ -6,6 +6,7 @@ from utils import (
     create_new_records,
 )
 
+from amsdal_glue_core.common.services.queries import SchemaQueryService
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 from amsdal_glue_core.common.services.queries import DataQueryService
@@ -27,6 +28,22 @@ def main() -> None:
     # Fetch existing records (rows)
     service = Container.services.get(DataQueryService)
     parser = Container.services.get(SqlParserBase)
+    schema_query_service = Container.services.get(SchemaQueryService)
+
+    schema_result = schema_query_service.execute(
+        query_op=parser.parse_sql("SELECT * FROM amsdal_schema_registry")[0]
+    )
+    assert schema_result.success is True, schema_result
+    print("Schema Registry:")
+    for schema in schema_result.schemas:
+        print(f" Table: {schema.name}")
+        for property in schema.properties:
+            print(f"  - {property.name} ({property.type})")
+        print()
+
+    print()
+    print()
+
     data_result = service.execute(
         query_op=parser.parse_sql(
             "SELECT id, product, price, customers.first_name, customers.last_name "
