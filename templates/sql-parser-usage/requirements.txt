@@ -1,4 +1,4 @@
-amsdal-glue-connections[postgres]>=0.0.2
-amsdal-glue>=0.0.2
-amsdal-glue-sql-parser[sqloxide]>=0.0.2
-
+amsdal-glue-connections[postgres]>=0.0.5
+amsdal-glue>=0.0.4
+amsdal-glue-sql-parser[sqloxide]>=0.0.3
+amsdal-glue-core>=0.0.3
