@@ -30,7 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 connections = [
-    "amsdal-glue-connections>=0.0.2",
+    "amsdal-glue-connections>=0.0.3",
 ]
 
 [project.urls]
