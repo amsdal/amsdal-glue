@@ -1,7 +1,10 @@
 from amsdal_glue_core.commands.planner.transaction_command_planner import TransactionCommandPlanner
 from amsdal_glue_core.commands.transaction_node import ExecutionTransactionCommandNode
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue_core.common.services.managers.connection import ConnectionPoolBase
 from amsdal_glue_core.common.workflows.chain import ChainTask
 from amsdal_glue_core.common.workflows.group import GroupTask
 
@@ -25,7 +28,7 @@ class DefaultTransactionCommandPlanner(TransactionCommandPlanner):
             )
 
         connection_manager = Container.managers.get(ConnectionManager)
-        schemas_per_connection = {}
+        schemas_per_connection: dict[ConnectionPoolBase, str] = {}
         group_tasks = []
 
         for _schema_name, _connection in connection_manager.connections.items():
@@ -36,7 +39,10 @@ class DefaultTransactionCommandPlanner(TransactionCommandPlanner):
                 lock_id=command.lock_id,
                 transaction_id=command.transaction_id,
                 parent_transaction_id=command.parent_transaction_id,
-                schema=_schema_name,
+                schema=SchemaReference(
+                    name=_schema_name,
+                    version=Version.LATEST,
+                ),
                 action=command.action,
             )
 
