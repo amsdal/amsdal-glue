@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal_glue_core==0.0.*",
+    "amsdal-glue-core>=0.0.3",
 ]
 
 [project.optional-dependencies]
@@ -51,7 +51,7 @@ extra-dependencies = [
     "psycopg2-binary==2.9.9",
 ]
 pre-install-commands = [
-  "pip install -e ../core/",
+    "pip install -e ../core/",
 ]
 
 [tool.hatch.envs.default.scripts]
