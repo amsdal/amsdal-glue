@@ -15,6 +15,10 @@ class TransactionNodeExecutor(metaclass=Singleton):
         transaction_id: str | None,
         lock_id: str | None,  # noqa: ARG002
     ) -> None:
+        if not command_node.command.schema:
+            msg = 'Schema is required for transaction command'
+            raise ValueError(msg)
+
         _connection = resolve_connection(command_node.command.schema, transaction_id)
 
         if command_node.command.action == TransactionAction.COMMIT:

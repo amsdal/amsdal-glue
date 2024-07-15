@@ -28,8 +28,8 @@ class DataCommand(Operation):
 
 @dataclass(kw_only=True)
 class TransactionCommand(Operation):
-    schema: SchemaReference
     action: TransactionAction
+    schema: SchemaReference | None = None
     parent_transaction_id: str | None = None
 
 
