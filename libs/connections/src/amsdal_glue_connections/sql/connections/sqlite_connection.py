@@ -75,7 +75,7 @@ class SqliteConnection(ConnectionBase):
 
         if filters:
             where, values = build_where(filters)
-            stmt += f' WHERE {where}'
+            stmt += f' AND {where}'
         else:
             values = []
 
@@ -145,7 +145,8 @@ class SqliteConnection(ConnectionBase):
         try:
             cursor.execute(query, args)
         except sqlite3.Error as exc:
-            msg = f'Error executing query: {query} with args: {args}'
+            msg = f'Error executing query: {query} with args: {args}. Exception: {exc}'
+            logger.exception(msg, exc_info=True)
             raise ConnectionError(msg) from exc
 
         return cursor
