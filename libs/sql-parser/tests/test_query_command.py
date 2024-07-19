@@ -22,21 +22,34 @@ from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.containers import Container
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 
-def test_simple_query_command() -> None:
+def test_simple_query_command(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('SELECT * FROM "users"') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT * FROM "users"')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(query=QueryStatement(table=SchemaReference(name='users', version=Version.LATEST)))
     ]
 
 
-def test_only_select_query_command() -> None:
+def test_only_select_query_command(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('SELECT first_name, users.last_name FROM users;') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT first_name, users.last_name FROM users;')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),
@@ -49,13 +62,19 @@ def test_only_select_query_command() -> None:
     ]
 
 
-def test_conditions() -> None:
+def test_conditions(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'SELECT first_name, last_name '
-        'FROM users '
-        'WHERE first_name = \'John\' AND ("users"."last_name" = \'Doe\' OR "first_name" = "last_name");'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT first_name, last_name '
+            'FROM users '
+            'WHERE first_name = \'John\' AND ("users"."last_name" = \'Doe\' OR "first_name" = "last_name");'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),
@@ -89,9 +108,15 @@ def test_conditions() -> None:
     ]
 
 
-def test_simple_alias() -> None:
+def test_simple_alias(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('SELECT "u".first_name, u.last_name ' 'FROM users u WHERE u."last_name" = \'Doe\';') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT "u".first_name, u.last_name ' 'FROM users u WHERE u."last_name" = \'Doe\';')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
@@ -112,14 +137,20 @@ def test_simple_alias() -> None:
     ]
 
 
-def test_simple_join() -> None:
+def test_simple_join(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'SELECT u.first_name, u.last_name, s.* '
-        'FROM users u '
-        'JOIN shippings s ON u.id = s.customer_id '
-        "WHERE u.last_name = 'Doe';"
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT u.first_name, u.last_name, s.* '
+            'FROM users u '
+            'JOIN shippings s ON u.id = s.customer_id '
+            "WHERE u.last_name = 'Doe';"
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
@@ -155,15 +186,21 @@ def test_simple_join() -> None:
     ]
 
 
-def test_multiple_joins() -> None:
+def test_multiple_joins(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'SELECT u.first_name, u.last_name, s.status, a.address '
-        'FROM users u '
-        'JOIN shippings s ON u.id = s.customer_id '
-        'JOIN addresses a ON u.id = a.customer_id '
-        "WHERE u.last_name = 'Doe';"
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT u.first_name, u.last_name, s.status, a.address '
+            'FROM users u '
+            'JOIN shippings s ON u.id = s.customer_id '
+            'JOIN addresses a ON u.id = a.customer_id '
+            "WHERE u.last_name = 'Doe';"
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
@@ -212,16 +249,22 @@ def test_multiple_joins() -> None:
     ]
 
 
-def test_query_ordering() -> None:
+def test_query_ordering(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'SELECT u.first_name, u.last_name, s.status, a.address '
-        'FROM users u '
-        'JOIN shippings s ON u.id = s.customer_id '
-        'JOIN addresses a ON u.id = a.customer_id '
-        "WHERE u.last_name = 'Doe' "
-        'ORDER BY u.first_name ASC, u.last_name DESC, s.status ASC, a.address DESC;'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT u.first_name, u.last_name, s.status, a.address '
+            'FROM users u '
+            'JOIN shippings s ON u.id = s.customer_id '
+            'JOIN addresses a ON u.id = a.customer_id '
+            "WHERE u.last_name = 'Doe' "
+            'ORDER BY u.first_name ASC, u.last_name DESC, s.status ASC, a.address DESC;'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
@@ -288,9 +331,15 @@ def test_query_ordering() -> None:
     ]
 
 
-def test_simple_query_limit_offeset() -> None:
+def test_simple_query_limit(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('SELECT * FROM "users" LIMIT 10;') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT * FROM "users" LIMIT 10;')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),
@@ -299,7 +348,16 @@ def test_simple_query_limit_offeset() -> None:
         )
     ]
 
-    assert parser.parse_sql('SELECT * FROM "users" LIMIT 10 OFFSET 10;') == [
+
+def test_simple_query_limit_offset(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT * FROM "users" LIMIT 10 OFFSET 10;')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),
@@ -309,11 +367,17 @@ def test_simple_query_limit_offeset() -> None:
     ]
 
 
-def test_simple_group_by() -> None:
+def test_simple_group_by(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'SELECT first_name, last_name, age FROM users  WHERE age > 18 GROUP BY first_name, last_name;'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT first_name, last_name, age FROM users WHERE age > 18 GROUP BY first_name, last_name;'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),
@@ -339,14 +403,20 @@ def test_simple_group_by() -> None:
     ]
 
 
-def test_simple_aggregate() -> None:
+def test_simple_aggregate(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'SELECT COUNT(*) as total, AVG(age) as average, MAX(age) as max_age, MIN(age) as age_min, SUM(age) '
-        'FROM users '
-        'WHERE age > 18 '
-        'GROUP BY first_name, last_name;'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT COUNT(*) as total, AVG(age) as average, MAX(age) as max_age, MIN(age) as age_min, SUM(age) '
+            'FROM users '
+            'WHERE age > 18 '
+            'GROUP BY first_name, last_name;'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),
@@ -389,14 +459,20 @@ def test_simple_aggregate() -> None:
     ]
 
 
-def test_aggregation_with_joins() -> None:
+def test_aggregation_with_joins(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'SELECT customers.first_name, customers.last_name, SUM(price) '
-        'FROM orders JOIN customers ON customers.id = orders.customer_id '
-        'GROUP BY customers.first_name, customers.last_name '
-        'ORDER BY customers.id ASC '
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT customers.first_name, customers.last_name, SUM(price) '
+            'FROM orders JOIN customers ON customers.id = orders.customer_id '
+            'GROUP BY customers.first_name, customers.last_name '
+            'ORDER BY customers.id ASC '
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='orders', version=Version.LATEST),
@@ -438,12 +514,19 @@ def test_aggregation_with_joins() -> None:
     ]
 
 
-def test_simple_annotation() -> None:
+def test_simple_annotation(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'SELECT first_name, last_name, (SELECT COUNT(*) FROM orders WHERE orders.user_id = users.id) as orders_count '
-        'FROM users;'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT first_name, last_name, '
+            '(SELECT COUNT(*) FROM orders WHERE orders.user_id = users.id) as orders_count '
+            'FROM users;'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),
@@ -482,9 +565,15 @@ def test_simple_annotation() -> None:
     ]
 
 
-def test_select_distinct() -> None:
+def test_select_distinct(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('SELECT DISTINCT first_name, last_name FROM users;') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT DISTINCT first_name, last_name FROM users;')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),

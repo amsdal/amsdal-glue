@@ -36,6 +36,7 @@ class DefaultSchemaCommandPlanner(SchemaCommandPlanner):
                 command_node=SchemaCommandNode(
                     command=SchemaCommand(
                         lock_id=command.lock_id,
+                        root_transaction_id=command.root_transaction_id,
                         transaction_id=command.transaction_id,
                         mutations=mutations,
                     ),

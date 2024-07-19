@@ -13,6 +13,7 @@ class DefaultLockCommandPlanner(LockCommandPlanner):
                 LockCommandTask(
                     lock_command=ExecutionLockCommand(
                         lock_id=command.lock_id,
+                        root_transaction_id=command.root_transaction_id,
                         transaction_id=command.transaction_id,
                         action=command.action,
                         mode=command.mode,

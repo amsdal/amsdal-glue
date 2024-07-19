@@ -18,7 +18,7 @@ def fixture_connection(database_connection: PostgresConnection) -> Generator[Pos
     yield database_connection
 
 
-def test_successfull_transaction(fixture_connection: PostgresConnection) -> None:
+def test_successful_transaction(fixture_connection: PostgresConnection) -> None:
     assert fixture_connection.begin_transaction(
         transaction=TransactionCommand(
             transaction_id='test_transaction',
@@ -48,7 +48,7 @@ def test_successfull_transaction(fixture_connection: PostgresConnection) -> None
     ] == fixture_connection.execute('SELECT id, customer_id, amount, date FROM orders').fetchall()
 
 
-def test_successfull_transaction_rollback(fixture_connection: PostgresConnection) -> None:
+def test_successful_transaction_rollback(fixture_connection: PostgresConnection) -> None:
     assert fixture_connection.begin_transaction(
         transaction=TransactionCommand(
             transaction_id='test_transaction',
@@ -74,7 +74,7 @@ def test_successfull_transaction_rollback(fixture_connection: PostgresConnection
     assert fixture_connection.execute('SELECT id, customer_id, amount, date FROM orders').fetchall() == []
 
 
-def test_successfull_nested_transaction(fixture_connection: PostgresConnection) -> None:
+def test_successful_nested_transaction(fixture_connection: PostgresConnection) -> None:
     assert fixture_connection.begin_transaction(
         transaction=TransactionCommand(
             transaction_id='test_transaction',
@@ -113,7 +113,7 @@ def test_successfull_nested_transaction(fixture_connection: PostgresConnection) 
     ] == fixture_connection.execute('SELECT id, customer_id, amount, date FROM orders').fetchall()
 
 
-def test_successfull_nested_transaction_revert(fixture_connection: PostgresConnection) -> None:
+def test_successful_nested_transaction_revert(fixture_connection: PostgresConnection) -> None:
     assert fixture_connection.begin_transaction(
         transaction=TransactionCommand(
             transaction_id='test_transaction',
@@ -159,7 +159,7 @@ def test_successfull_nested_transaction_revert(fixture_connection: PostgresConne
     assert fixture_connection.execute('SELECT id, customer_id, amount, date FROM orders').fetchall() == []
 
 
-def test_successfull_nested_transaction_revert_outer(fixture_connection: PostgresConnection) -> None:
+def test_successful_nested_transaction_revert_outer(fixture_connection: PostgresConnection) -> None:
     assert fixture_connection.begin_transaction(
         transaction=TransactionCommand(
             transaction_id='test_transaction',

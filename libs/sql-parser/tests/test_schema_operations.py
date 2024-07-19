@@ -15,6 +15,7 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
 from amsdal_glue_core.common.operations.mutations.schema import AddProperty
@@ -29,13 +30,19 @@ from amsdal_glue_core.containers import Container
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 
-def test_simple_create_table_command() -> None:
+def test_simple_create_table_command(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'CREATE TABLE users '
-        '(id INTEGER, name TEXT, age INT, created_at TIMESTAMP, '
-        '"_metadata" JSON, is_active BOOLEAN, height REAL)'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'CREATE TABLE users '
+            '(id INTEGER, name TEXT, age INT, created_at TIMESTAMP, '
+            '"_metadata" JSON, is_active BOOLEAN, height REAL)'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         RegisterSchema(
             schema=Schema(
                 name='users',
@@ -54,11 +61,18 @@ def test_simple_create_table_command() -> None:
     ]
 
 
-def test_simple_create_table_primary_key() -> None:
+def test_simple_create_table_primary_key(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, full_name VARCHAR(123) NOT NULL)'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'CREATE TABLE users '
+            '(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, full_name VARCHAR(123) NOT NULL)'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         RegisterSchema(
             schema=Schema(
                 name='users',
@@ -77,19 +91,25 @@ def test_simple_create_table_primary_key() -> None:
     ]
 
 
-def test_simple_create_table_explicit_constraints() -> None:
+def test_simple_create_table_explicit_constraints(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'CREATE TABLE users ('
-        'id INTEGER, '
-        'username TEXT, '
-        'full_name VARCHAR(123), '
-        'PRIMARY KEY (id), '
-        'UNIQUE (username), '
-        'CHECK (id > 0), '
-        'FOREIGN KEY (username) REFERENCES other_table (other_field)'
-        ')'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'CREATE TABLE users ('
+            'id INTEGER, '
+            'username TEXT, '
+            'full_name VARCHAR(123), '
+            'PRIMARY KEY (id), '
+            'UNIQUE (username), '
+            'CHECK (id > 0), '
+            'FOREIGN KEY (username) REFERENCES other_table (other_field)'
+            ')'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         RegisterSchema(
             schema=Schema(
                 name='users',
@@ -124,19 +144,25 @@ def test_simple_create_table_explicit_constraints() -> None:
     ]
 
 
-def test_simple_create_table_explicit_named_constraints() -> None:
+def test_simple_create_table_explicit_named_constraints(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql(
-        'CREATE TABLE users ('
-        'id INTEGER, '
-        'username TEXT, '
-        'full_name VARCHAR(123), '
-        'CONSTRAINT id_pk PRIMARY KEY (id), '
-        'CONSTRAINT username_unique UNIQUE (username), '
-        'CONSTRAINT check_id CHECK (id > 0), '
-        'CONSTRAINT username_fk FOREIGN KEY (username) REFERENCES other_table (other_field)'
-        ')'
-    ) == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'CREATE TABLE users ('
+            'id INTEGER, '
+            'username TEXT, '
+            'full_name VARCHAR(123), '
+            'CONSTRAINT id_pk PRIMARY KEY (id), '
+            'CONSTRAINT username_unique UNIQUE (username), '
+            'CONSTRAINT check_id CHECK (id > 0), '
+            'CONSTRAINT username_fk FOREIGN KEY (username) REFERENCES other_table (other_field)'
+            ')'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         RegisterSchema(
             schema=Schema(
                 name='users',
@@ -171,9 +197,15 @@ def test_simple_create_table_explicit_named_constraints() -> None:
     ]
 
 
-def test_create_index() -> None:
+def test_create_index(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('CREATE INDEX idx_name ON users (name)') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('CREATE INDEX idx_name ON users (name)')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         AddIndex(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
             index=IndexSchema(name='idx_name', fields=['name']),
@@ -181,9 +213,15 @@ def test_create_index() -> None:
     ]
 
 
-def test_create_index_multi_column() -> None:
+def test_create_index_multi_column(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('CREATE UNIQUE INDEX idx_name ON users (name, username)') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('CREATE UNIQUE INDEX idx_name ON users (name, username)')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         AddIndex(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
             index=IndexSchema(name='idx_name', fields=['name', 'username']),
@@ -191,9 +229,15 @@ def test_create_index_multi_column() -> None:
     ]
 
 
-def test_update_schema_add_property() -> None:
+def test_update_schema_add_property(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('ALTER TABLE users ADD COLUMN age INT') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('ALTER TABLE users ADD COLUMN age INT')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         AddProperty(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
             property=PropertySchema(name='age', type=int, required=False, description=None, default=None),
@@ -201,9 +245,15 @@ def test_update_schema_add_property() -> None:
     ]
 
 
-def test_update_schema_drop_property() -> None:
+def test_update_schema_drop_property(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('ALTER TABLE users DROP COLUMN age') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('ALTER TABLE users DROP COLUMN age')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DeleteProperty(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
             property_name='age',
@@ -211,9 +261,15 @@ def test_update_schema_drop_property() -> None:
     ]
 
 
-def test_update_schema_rename_property() -> None:
+def test_update_schema_rename_property(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('ALTER TABLE users RENAME COLUMN age TO years') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('ALTER TABLE users RENAME COLUMN age TO years')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         RenameProperty(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
             old_name='age',
@@ -222,9 +278,15 @@ def test_update_schema_rename_property() -> None:
     ]
 
 
-def test_update_schema_rename_table() -> None:
+def test_update_schema_rename_table(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('ALTER TABLE users RENAME TO people') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('ALTER TABLE users RENAME TO people')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         RenameSchema(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
             new_schema_name='people',
@@ -232,18 +294,30 @@ def test_update_schema_rename_table() -> None:
     ]
 
 
-def test_delete_schema() -> None:
+def test_delete_schema(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('DROP TABLE users') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('DROP TABLE users')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DeleteSchema(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
         )
     ]
 
 
-def test_add_pk_constraint() -> None:
+def test_add_pk_constraint(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('ALTER TABLE users ADD CONSTRAINT id_pk PRIMARY KEY (id)') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('ALTER TABLE users ADD CONSTRAINT id_pk PRIMARY KEY (id)')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         AddConstraint(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
             constraint=PrimaryKeyConstraint(name='id_pk', fields=['id']),
@@ -258,9 +332,15 @@ def test_add_pk_constraint() -> None:
     ]
 
 
-def test_delete_constraint() -> None:
+def test_delete_constraint(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('ALTER TABLE users DROP CONSTRAINT id_pk') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('ALTER TABLE users DROP CONSTRAINT id_pk')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DeleteConstraint(
             schema_reference=SchemaReference(name='users', version=Version.LATEST),
             constraint_name='id_pk',
@@ -268,10 +348,26 @@ def test_delete_constraint() -> None:
     ]
 
 
-def test_fetch_schemas() -> None:
+def test_fetch_schemas(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('SELECT * FROM amsdal_schema_registry') == [SchemaQueryOperation(filters=None)]
-    assert parser.parse_sql("SELECT * FROM amsdal_schema_registry WHERE name = 'users'") == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT * FROM amsdal_schema_registry')
+
+    result = benchmark(parse_sql)
+
+    assert result == [SchemaQueryOperation(filters=None)]
+
+
+def test_fetch_schemas_conditions(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql("SELECT * FROM amsdal_schema_registry WHERE name = 'users'")
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         SchemaQueryOperation(
             filters=Conditions(
                 Condition(
