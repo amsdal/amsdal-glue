@@ -43,11 +43,12 @@ path = "src/amsdal_glue_connections/__about__.py"
 [tool.hatch.envs.default]
 path = "../../.venv/connections"
 extra-dependencies = [
-    "mypy>=1.0.0",
-    "coverage[toml]>=7.4",
-    "pytest>=8.2.1",
+    "mypy>=1.10.1",
+    "coverage[toml]>=7.6",
+    "pytest>=8.2.2",
     "pytest-mock>=3.14.0",
-    "ruff>=0.4.5",
+    "pytest-benchmark>=4.0.0",
+    "ruff>=0.5.2",
     "psycopg2-binary==2.9.9",
 ]
 pre-install-commands = [
@@ -55,8 +56,9 @@ pre-install-commands = [
 ]
 
 [tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
+test = "pytest --benchmark-skip {args:tests}"
+benchmark = "pytest --benchmark-only {args:tests}"
+test-cov = "coverage run -m pytest --benchmark-skip {args:tests}"
 cov-report = [
     "- coverage combine",
     "coverage report",

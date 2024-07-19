@@ -18,7 +18,7 @@ class DefaultDataCommandPlanner(DataCommandPlanner):
         prev_connection = None
 
         for mutation in command.mutations:
-            connection = resolve_connection(mutation.schema, command.transaction_id)
+            connection = resolve_connection(mutation.schema, command.root_transaction_id)
 
             if connection != prev_connection:
                 task_batches.append(

@@ -12,7 +12,7 @@ class DefaultDataQueryService(DataQueryService):
         plan = _query_planner.plan_data_query(query_op.query)
 
         try:
-            plan.execute(transaction_id=query_op.transaction_id, lock_id=query_op.lock_id)
+            plan.execute(transaction_id=query_op.root_transaction_id, lock_id=query_op.lock_id)
         except Exception as exc:  # noqa: BLE001
             return DataResult(success=False, message=str(exc), exception=exc)
 

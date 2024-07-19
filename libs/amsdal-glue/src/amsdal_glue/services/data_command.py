@@ -12,7 +12,7 @@ class DefaultDataCommandService(DataCommandService):
         plan = query_planner.plan_data_command(command)
 
         try:
-            plan.execute(transaction_id=command.transaction_id, lock_id=command.lock_id)
+            plan.execute(transaction_id=command.root_transaction_id, lock_id=command.lock_id)
         except Exception as e:  # noqa: BLE001
             return DataResult(success=False, message=str(e))
         else:

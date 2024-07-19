@@ -1,5 +1,3 @@
-from unittest.mock import ANY
-
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -49,31 +47,7 @@ DEFAULT_SCHEMA = Schema(
 )
 
 
-def _get_indexes(database_connection: PostgresConnection, table_name: str) -> list[tuple[str, str]]:
-    return database_connection.execute(
-        f"SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '{table_name}'"  # noqa: S608
-    ).fetchall()
-
-
-def _describe_table(database_connection: PostgresConnection, table_name: str) -> list[tuple[str, str]]:
-    return database_connection.execute(
-        'SELECT column_name, data_type '  # noqa: S608
-        'FROM information_schema.columns '
-        f"WHERE table_name = '{table_name}';"
-    ).fetchall()
-
-
-def _get_contstraints(database_connection: PostgresConnection, table_name: str) -> list[tuple[str]]:
-    return database_connection.execute(
-        'SELECT con.conname '  # noqa: S608
-        'FROM pg_catalog.pg_constraint con '
-        'INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid '
-        'INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace '
-        f"WHERE rel.relname = '{table_name}';"
-    ).fetchall()
-
-
-def test_create_schema(database_connection: PostgresConnection) -> None:
+def create_user_schema(database_connection: PostgresConnection) -> list[Schema | None]:
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -123,7 +97,7 @@ def test_create_schema(database_connection: PostgresConnection) -> None:
         ],
     )
 
-    database_connection.run_schema_command(
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 RegisterSchema(schema=schema),
@@ -131,51 +105,8 @@ def test_create_schema(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    result = database_connection.execute(
-        "SELECT * FROM information_schema.tables WHERE table_name = 'user';"
-    ).fetchall()
 
-    assert result == [
-        (
-            ANY,
-            'public',
-            'user',
-            'BASE TABLE',
-            None,
-            None,
-            None,
-            None,
-            None,
-            'YES',
-            'NO',
-            None,
-        )
-    ]
-
-    assert _describe_table(database_connection, 'user') == [
-        ('id', 'bigint'),
-        ('age', 'bigint'),
-        ('email', 'text'),
-        ('first_name', 'text'),
-        ('last_name', 'text'),
-    ]
-
-
-def test_rename_schema(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-
-    assert _describe_table(database_connection, 'user') == [
-        ('id', 'bigint'),
-        ('age', 'bigint'),
-        ('email', 'text'),
-    ]
-
+def rename_user_schema(database_connection: PostgresConnection) -> list[Schema | None]:
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -203,7 +134,7 @@ def test_rename_schema(database_connection: PostgresConnection) -> None:
         ],
     )
 
-    database_connection.run_schema_command(
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 RenameSchema(schema_reference=schema, new_schema_name='customer'),
@@ -211,26 +142,8 @@ def test_rename_schema(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert _describe_table(database_connection, 'user') == []
 
-    assert _describe_table(database_connection, 'customer') == [
-        ('id', 'bigint'),
-        ('age', 'bigint'),
-        ('email', 'text'),
-    ]
-
-
-def test_delete_schema(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
-
+def delete_user_schema(database_connection: PostgresConnection) -> list[Schema | None]:
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -258,7 +171,7 @@ def test_delete_schema(database_connection: PostgresConnection) -> None:
         ],
     )
 
-    database_connection.run_schema_command(
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 DeleteSchema(schema_reference=schema),
@@ -266,20 +179,8 @@ def test_delete_schema(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert _describe_table(database_connection, 'user') == []
 
-
-def test_add_property(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
-
+def add_last_name_property(database_connection: PostgresConnection) -> list[Schema | None]:
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -307,7 +208,7 @@ def test_add_property(database_connection: PostgresConnection) -> None:
         ],
     )
 
-    database_connection.run_schema_command(
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 AddProperty(
@@ -318,25 +219,8 @@ def test_add_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert _describe_table(database_connection, 'user') == [
-        ('id', 'bigint'),
-        ('age', 'bigint'),
-        ('email', 'text'),
-        ('last_name', 'text'),
-    ]
 
-
-def test_delete_property(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
-
+def delete_age_property(database_connection: PostgresConnection) -> list[Schema | None]:
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -364,7 +248,7 @@ def test_delete_property(database_connection: PostgresConnection) -> None:
         ],
     )
 
-    database_connection.run_schema_command(
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 DeleteProperty(schema_reference=schema, property_name='age'),
@@ -372,20 +256,8 @@ def test_delete_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('email', 'text')]
 
-
-def test_update_property(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
-
+def update_age_property(database_connection: PostgresConnection) -> list[Schema | None]:
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -408,7 +280,7 @@ def test_update_property(database_connection: PostgresConnection) -> None:
         ],
     )
 
-    database_connection.run_schema_command(
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 UpdateProperty(
@@ -419,20 +291,8 @@ def test_update_property(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('email', 'text'), ('age', 'text')]
 
-
-def test_add_constraint(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
-
+def add_unique_constraint(database_connection: PostgresConnection) -> list[Schema | None]:
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -454,10 +314,7 @@ def test_add_constraint(database_connection: PostgresConnection) -> None:
             ),
         ],
     )
-
-    assert _get_contstraints(database_connection, 'user') == []
-
-    database_connection.run_schema_command(
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 AddConstraint(
@@ -472,39 +329,9 @@ def test_add_constraint(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert _get_contstraints(database_connection, 'user') == [('uk_user_email_unique',)]
-
-
-def test_drop_constraint(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                AddConstraint(
-                    schema_reference=DEFAULT_SCHEMA,
-                    constraint=UniqueConstraint(
-                        name='uk_user_email_unique',
-                        fields=['email', 'age'],
-                        condition=None,
-                    ),
-                ),
-            ],
-        ),
-    )
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
-
-    assert _get_contstraints(database_connection, 'user') == [('uk_user_email_unique',)]
-
-    database_connection.run_schema_command(
+def delete_unique_constraint(database_connection: PostgresConnection) -> list[Schema | None]:
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 DeleteConstraint(
@@ -515,24 +342,9 @@ def test_drop_constraint(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert _get_contstraints(database_connection, 'user') == []
-
-
-def test_add_index(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
-
-    assert _get_indexes(database_connection, 'user') == []
-
-    database_connection.run_schema_command(
+def add_index(database_connection: PostgresConnection) -> list[Schema | None]:
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 AddIndex(
@@ -543,40 +355,9 @@ def test_add_index(database_connection: PostgresConnection) -> None:
         ),
     )
 
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
 
-    assert _get_indexes(database_connection, 'user') == [
-        ('idx_user_email', 'CREATE INDEX idx_user_email ON public."user" USING btree (email, age)')
-    ]
-
-
-def test_delete_index(database_connection: PostgresConnection) -> None:
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
-            ],
-        ),
-    )
-
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                AddIndex(
-                    schema_reference=DEFAULT_SCHEMA,
-                    index=IndexSchema(name='idx_user_email', fields=['email', 'age'], condition=None),
-                ),
-            ],
-        ),
-    )
-
-    assert _describe_table(database_connection, 'user') == [('id', 'bigint'), ('age', 'bigint'), ('email', 'text')]
-
-    assert _get_indexes(database_connection, 'user') == [
-        ('idx_user_email', 'CREATE INDEX idx_user_email ON public."user" USING btree (email, age)')
-    ]
-
-    database_connection.run_schema_command(
+def delete_index(database_connection: PostgresConnection) -> list[Schema | None]:
+    return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 DeleteIndex(
@@ -586,5 +367,3 @@ def test_delete_index(database_connection: PostgresConnection) -> None:
             ],
         ),
     )
-
-    assert _get_indexes(database_connection, 'user') == []
