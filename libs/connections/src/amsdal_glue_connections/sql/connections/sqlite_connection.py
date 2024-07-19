@@ -1,3 +1,4 @@
+import json
 import logging
 import sqlite3
 from datetime import date
@@ -9,6 +10,8 @@ from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
+from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
@@ -31,6 +34,43 @@ from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema
 logger = logging.getLogger(__name__)
 
 
+def sqlite_value_json_transform(value: Any) -> Any:
+    if isinstance(value, dict | list):
+        return json.dumps(value)
+
+    return value
+
+
+def sqlite_field_json_transform(  # noqa: PLR0913
+    table_alias: str,
+    field: str,
+    fields: list[str],
+    value_type: Any = str,
+    table_separator: str = '.',
+    table_quote: str = "'",
+    field_quote: str = "'",
+) -> str:
+    nested_fields_selection = '.'.join([
+        '$',
+        *fields,
+    ])
+
+    if value_type in (int, bool):
+        _cast_type = 'integer'
+    elif value_type is float:
+        _cast_type = 'real'
+    else:
+        _cast_type = 'text'
+
+    _table_reference = f'{table_quote}{table_alias}{table_quote}{table_separator}' if table_alias else ''
+    _stmt = f"cast(json_extract({_table_reference}{field_quote}{field}{field_quote}, '{nested_fields_selection}')"
+
+    if _cast_type:
+        _stmt += f' as {_cast_type})'
+
+    return _stmt
+
+
 class SqliteConnection(ConnectionBase):
     def __init__(self) -> None:
         self._connection: sqlite3.Connection | None = None
@@ -48,7 +88,13 @@ class SqliteConnection(ConnectionBase):
         return self._connection
 
     def query(self, query: QueryStatement) -> list[Data]:
-        _stmt, _params = build_sql_query(query)
+        _stmt, _params = build_sql_query(
+            query,
+            table_quote="'",
+            field_quote="'",
+            value_transform=sqlite_value_json_transform,
+            nested_field_transform=sqlite_field_json_transform,
+        )
 
         try:
             cursor = self.execute(_stmt, *_params)
@@ -102,7 +148,12 @@ class SqliteConnection(ConnectionBase):
         return [self._run_mutation(mutation) for mutation in mutations]
 
     def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
-        _stmt, _params = build_sql_data_command(mutation)
+        _stmt, _params = build_sql_data_command(
+            mutation,
+            table_quote="'",
+            field_quote="'",
+            value_transform=sqlite_value_json_transform,
+        )
 
         try:
             self.execute(_stmt, *_params)
@@ -146,7 +197,7 @@ class SqliteConnection(ConnectionBase):
             cursor.execute(query, args)
         except sqlite3.Error as exc:
             msg = f'Error executing query: {query} with args: {args}. Exception: {exc}'
-            logger.exception(msg, exc_info=True)
+            logger.exception(msg)
             raise ConnectionError(msg) from exc
 
         return cursor
@@ -170,23 +221,36 @@ class SqliteConnection(ConnectionBase):
             for column in columns
         ]
 
+        # Get primary keys
+        constraints: list[BaseConstraint] = []
+        pk_columns = [column[1] for column in columns if column[5]]
+        if pk_columns:
+            constraints.append(
+                PrimaryKeyConstraint(
+                    name=f'pk_{table_name}',
+                    fields=pk_columns,
+                )
+            )
+
         # Get constraints info
         cursor = self.execute(f'PRAGMA foreign_key_list({table_name})')
         foreign_keys = cursor.fetchall()
         cursor.close()
 
-        constraints: list[BaseConstraint] = [
-            ForeignKeySchema(
-                name=fk[0],
-                fields=[fk[3]],
-                reference_schema=SchemaReference(
-                    name=fk[2],
-                    version=Version.LATEST,
-                ),
-                reference_fields=[fk[4]],
-            )
-            for fk in foreign_keys
-        ]
+        constraints.extend(
+            [
+                ForeignKeySchema(
+                    name=fk[0],
+                    fields=[fk[3]],
+                    reference_schema=SchemaReference(
+                        name=fk[2],
+                        version=Version.LATEST,
+                    ),
+                    reference_fields=[fk[4]],
+                )
+                for fk in foreign_keys
+            ],
+        )
 
         # Get indexes info
         cursor = self.execute(f'PRAGMA index_list({table_name})')
@@ -201,6 +265,18 @@ class SqliteConnection(ConnectionBase):
             cursor.close()
 
             index_fields = [field[2] for field in index_info]
+            _has_constraint = False
+
+            for constraint in constraints:
+                if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeySchema | UniqueConstraint):
+                    continue
+                if index_fields == constraint.fields:
+                    _has_constraint = True
+                    break
+
+            if _has_constraint:
+                continue
+
             indexes.append(
                 IndexSchema(
                     name=index[1],

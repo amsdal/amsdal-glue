@@ -124,7 +124,10 @@ class Conditions:
             self.connector = FilterConnector.AND
 
         for child in self.children:
-            child._negate()  # type: ignore[union-attr] # noqa: SLF001
+            if isinstance(child, Conditions):
+                child._negate()  # noqa: SLF001
+            else:
+                child.negate = not child.negate
 
         self.__split_by_or()
 

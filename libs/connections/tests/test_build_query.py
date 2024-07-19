@@ -300,7 +300,7 @@ def test_build_sql_query_complex_joins() -> None:
     assert sql == (
         'SELECT * FROM '
         '(SELECT * FROM users AS u WHERE u.age >= ?) AS sub '
-        'LEFT JOIN (SELECT ur.role FROM user_roles AS ur WHERE ur.role LIKE ?) AS ur '
+        'LEFT JOIN (SELECT ur.role FROM user_roles AS ur WHERE ur.role GLOB ?) AS ur '
         'ON ur.user_id = u.id'
     )
-    assert value == [18, 'staff_%']
+    assert value == [18, 'staff_*']

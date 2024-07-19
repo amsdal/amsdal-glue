@@ -29,7 +29,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = [
-    "psycopg2-binary>=2.9.9",
+    "psycopg[pool]>=3.2.1",
 ]
 
 [project.urls]
@@ -41,7 +41,7 @@ Source = "https://pypi.org/project/amsdal_glue_connections/"
 path = "src/amsdal_glue_connections/__about__.py"
 
 [tool.hatch.envs.default]
-path = "../../.venv/connections"
+path = "../../../.venv/connections"
 extra-dependencies = [
     "mypy>=1.10.1",
     "coverage[toml]>=7.6",
@@ -49,7 +49,8 @@ extra-dependencies = [
     "pytest-mock>=3.14.0",
     "pytest-benchmark>=4.0.0",
     "ruff>=0.5.2",
-    "psycopg2-binary==2.9.9",
+    "psycopg[binary,pool]>=3.2.1",
+    "docker>=7.1.0"
 ]
 pre-install-commands = [
     "pip install -e ../core/",

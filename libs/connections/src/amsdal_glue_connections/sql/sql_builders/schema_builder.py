@@ -102,7 +102,7 @@ def build_create_table(schema: Schema, type_transform: Callable[[Any], str]) -> 
         _constraint_stmt = build_constraint(_constraint)
         _constraint_stmts.append(_constraint_stmt)
 
-    stmt = f'CREATE TABLE {schema.name} ('
+    stmt = f"CREATE TABLE '{schema.name}' ("
     stmt += ', '.join(build_column(column, type_transform=type_transform) for column in schema.properties)
 
     if _constraint_stmts:
@@ -119,7 +119,8 @@ def build_create_indexes(schema_name: str, indexes: list[IndexSchema]) -> list[s
 
 
 def build_index(schema_name: str, index: IndexSchema) -> str:
-    _index = f'CREATE INDEX {index.name} ON {schema_name} ({", ".join(index.fields)})'
+    fields_str = ', '.join(f"'{field}'" for field in index.fields)
+    _index = f"CREATE INDEX '{index.name}' ON '{schema_name}' ({fields_str})"
 
     if index.condition:
         where, _ = build_where(index.condition, operator_constructor=repr_operator_constructor)
@@ -130,34 +131,40 @@ def build_index(schema_name: str, index: IndexSchema) -> str:
 
 def build_constraint(constraint: BaseConstraint) -> str:
     if isinstance(constraint, PrimaryKeyConstraint):
-        return f'CONSTRAINT {constraint.name} ' f'PRIMARY KEY ({", ".join(constraint.fields)}) '
+        fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
+
+        return f"CONSTRAINT '{constraint.name}' PRIMARY KEY ({fields_str})"
     if isinstance(constraint, ForeignKeySchema):
+        fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
+
         return (
-            f'CONSTRAINT {constraint.name} '
-            f'FOREIGN KEY ({", ".join(constraint.fields)}) '
+            f"CONSTRAINT '{constraint.name}' "
+            f'FOREIGN KEY ({fields_str}) '
             f'REFERENCES {constraint.reference_schema.name} ({", ".join(constraint.reference_fields)})'
         )
     if isinstance(constraint, UniqueConstraint):
-        return f'CONSTRAINT {constraint.name} ' f'UNIQUE ({", ".join(constraint.fields)})'
+        fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
+
+        return f"CONSTRAINT '{constraint.name}' UNIQUE ({fields_str})"
     if isinstance(constraint, CheckConstraint):
         _where, _ = build_where(constraint.condition, operator_constructor=repr_operator_constructor)
 
-        return f'CONSTRAINT {constraint.name} ' f'CHECK ({_where})'
+        return f"CONSTRAINT '{constraint.name}' CHECK ({_where})"
 
     msg = f'Unsupported constraint: {type(constraint)}'
     raise ValueError(msg)
 
 
 def build_column(column: PropertySchema, type_transform: Callable[[Any], str]) -> str:
-    return f'{column.name} {type_transform(column.type)}{" NOT NULL" if column.required else ""}'
+    return f"'{column.name}' {type_transform(column.type)}{' NOT NULL' if column.required else ''}"
 
 
 def build_drop_table(schema_reference: SchemaReference) -> str:
-    return f'DROP TABLE {schema_reference.name}'
+    return f"DROP TABLE '{schema_reference.name}'"
 
 
 def build_rename_table(schema_reference: SchemaReference, new_schema_name: str) -> str:
-    return f'ALTER TABLE {schema_reference.name} RENAME TO {new_schema_name}'
+    return f"ALTER TABLE '{schema_reference.name}' RENAME TO '{new_schema_name}'"
 
 
 def build_add_column(
@@ -166,15 +173,15 @@ def build_add_column(
     type_transform: Callable[[Any], str],
 ) -> str:
     _column = build_column(property_obj, type_transform=type_transform)
-    return f'ALTER TABLE {schema_reference.name} ADD COLUMN {_column}'
+    return f"ALTER TABLE '{schema_reference.name}' ADD COLUMN {_column}"
 
 
 def build_drop_column(schema_reference: SchemaReference, property_name: str) -> str:
-    return f'ALTER TABLE {schema_reference.name} DROP COLUMN {property_name}'
+    return f"ALTER TABLE '{schema_reference.name}' DROP COLUMN '{property_name}'"
 
 
 def build_rename_column(schema_reference: SchemaReference, old_name: str, new_name: str) -> str:
-    return f'ALTER TABLE {schema_reference.name} RENAME COLUMN {old_name} TO {new_name}'
+    return f"ALTER TABLE '{schema_reference.name}' RENAME COLUMN '{old_name}' TO '{new_name}'"
 
 
 def build_update_column(
@@ -183,7 +190,7 @@ def build_update_column(
     type_transform: Callable[[Any], str],
 ) -> str:
     _column = build_column(property_obj, type_transform=type_transform)
-    return f'ALTER TABLE {schema_reference.name} ALTER COLUMN {_column}'
+    return f"ALTER TABLE '{schema_reference.name}' ALTER COLUMN {_column}"
 
 
 def build_full_constraint_stmt(schema_reference: SchemaReference, constraint: BaseConstraint) -> str:  # noqa: ARG001
@@ -196,5 +203,5 @@ def build_drop_constraint(schema_reference: SchemaReference, constraint_name: st
     raise NotImplementedError(msg)
 
 
-def build_drop_index(schema_reference: SchemaReference, index_name: str) -> str:
-    return f'DROP INDEX {index_name} ON {schema_reference.name}'
+def build_drop_index(schema_reference: SchemaReference, index_name: str) -> str:  # noqa: ARG001
+    return f"DROP INDEX '{index_name}'"

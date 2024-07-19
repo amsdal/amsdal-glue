@@ -4,15 +4,14 @@ from datetime import datetime
 from typing import Any
 
 try:
-    import psycopg2
+    import psycopg
 except ImportError:
-    msg = (
-        '"psycopg2" package is required for PostgresConnection. '
+    _msg = (
+        '"psycopg" package is required for PostgresConnection. '
         'Use "pip install amsdal-glue-connections[postgres]" to install it.'
     )
-    raise ImportError(msg) from None
+    raise ImportError(_msg) from None
 
-import psycopg2._psycopg
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
@@ -54,26 +53,26 @@ logger = logging.getLogger(__name__)
 
 class PostgresConnection(ConnectionBase):
     def __init__(self) -> None:
-        self._connection: psycopg2._psycopg.connection | None = None
+        self._connection: psycopg.Connection | None = None
 
     @property
     def is_connected(self) -> bool:
         return self._connection is not None
 
     @property
-    def connection(self) -> psycopg2._psycopg.connection:
+    def connection(self) -> psycopg.Connection:
         if self._connection is None:
             msg = 'Connection not established'
             raise ConnectionError(msg)
 
         return self._connection
 
-    def connect(self, dsn: str | None = None, **kwargs: Any) -> None:
+    def connect(self, dsn: str = '', **kwargs: Any) -> None:
         if self._connection is not None:
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
-        self._connection = psycopg2.connect(dsn, **kwargs)
+        self._connection = psycopg.connect(dsn, **kwargs)
 
     def disconnect(self) -> None:
         self.connection.close()
@@ -91,7 +90,7 @@ class PostgresConnection(ConnectionBase):
 
         fields = []
 
-        for column in cursor.description:
+        for column in cursor.description or []:
             if column[0] in fields:
                 msg = f'Column name {column[0]} is duplicated'
                 raise ValueError(msg)
@@ -157,12 +156,12 @@ class PostgresConnection(ConnectionBase):
     def build_data(data: dict[str, Any]) -> Data:
         return Data(data=data)
 
-    def execute(self, query: str, *args: Any) -> psycopg2._psycopg.cursor:
+    def execute(self, query: str, *args: Any) -> psycopg.Cursor:
         cursor = self.connection.cursor()
 
         try:
             cursor.execute(query, args)
-        except psycopg2.Error as exc:
+        except psycopg.Error as exc:
             msg = f'Error executing query: {query} with args: {args}'
             raise ConnectionError(msg) from exc
 

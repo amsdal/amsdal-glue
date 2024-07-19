@@ -42,7 +42,7 @@ Source = "https://pypi.org/project/amsdal_glue_sql_parser/"
 path = "src/amsdal_glue_sql_parser/__about__.py"
 
 [tool.hatch.envs.default]
-path = "../../.venv/sql-parser"
+path = "../../../.venv/sql-parser"
 extra-dependencies = [
     "mypy>=1.10.1",
     "coverage[toml]>=7.6",

@@ -37,13 +37,14 @@ Source = "https://pypi.org/project/amsdal_glue/"
 path = "src/amsdal_glue/__about__.py"
 
 [tool.hatch.envs.default]
-path = "../../.venv/glue"
+path = "../../../.venv/glue"
 extra-dependencies = [
     "mypy>=1.0.0",
     "coverage[toml]>=7.4",
     "pytest>=8.2.1",
     "pytest-mock>=3.14.0",
     "ruff>=0.4.5",
+    "amsdal-glue-connections[postgres]",
 ]
 pre-install-commands = [
   "pip install -e ../core/",

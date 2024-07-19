@@ -28,11 +28,10 @@ class DefaultTransactionCommandPlanner(TransactionCommandPlanner):
             )
 
         connection_manager = Container.managers.get(ConnectionManager)
-        schemas_per_connection: dict[ConnectionPoolBase, str] = {}
         group_tasks = []
-
-        for _schema_name, _connection in connection_manager.connections.items():
-            schemas_per_connection[_connection] = _schema_name
+        schemas_per_connection: dict[ConnectionPoolBase, str] = {
+            _connection: _schema_name for _schema_name, _connection in connection_manager.connections.items()
+        }
 
         for _schema_name in schemas_per_connection.values():
             _command = TransactionCommand(

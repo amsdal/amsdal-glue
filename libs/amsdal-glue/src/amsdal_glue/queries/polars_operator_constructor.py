@@ -14,7 +14,6 @@ def polars_operator_constructor(
         lookup=lookup,
         value=value,
         value_placeholder='',
-        field_separator='__',
         table_separator='.',
     )
 
