@@ -8,6 +8,7 @@ from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
@@ -15,9 +16,15 @@ from amsdal_glue_core.containers import Container
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 
-def test_simple_insert_command() -> None:
+def test_simple_insert_command(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql("INSERT INTO users (name, age) VALUES ('John', 30)") == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql("INSERT INTO users (name, age) VALUES ('John', 30)")
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         InsertData(
             schema=SchemaReference(name='users', version=Version.LATEST),
             data=[
@@ -30,9 +37,15 @@ def test_simple_insert_command() -> None:
     ]
 
 
-def test_multiple_inserts() -> None:
+def test_multiple_inserts(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql("INSERT INTO users (name, age) VALUES ('John', 30), ('Jane', 25)") == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql("INSERT INTO users (name, age) VALUES ('John', 30), ('Jane', 25)")
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         InsertData(
             schema=SchemaReference(name='users', version=Version.LATEST),
             data=[
@@ -49,9 +62,15 @@ def test_multiple_inserts() -> None:
     ]
 
 
-def test_simple_update_command() -> None:
+def test_simple_update_command(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql("UPDATE users SET name = 'Jane', age = 25") == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql("UPDATE users SET name = 'Jane', age = 25")
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         UpdateData(
             schema=SchemaReference(name='users', version=Version.LATEST),
             data=[
@@ -64,9 +83,15 @@ def test_simple_update_command() -> None:
     ]
 
 
-def test_simple_update_command_condition() -> None:
+def test_simple_update_command_condition(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql("UPDATE users SET name = 'Jane', age = 25 WHERE id = 1") == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql("UPDATE users SET name = 'Jane', age = 25 WHERE id = 1")
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         UpdateData(
             schema=SchemaReference(name='users', version=Version.LATEST),
             data=[
@@ -87,18 +112,30 @@ def test_simple_update_command_condition() -> None:
     ]
 
 
-def test_simple_delete_command() -> None:
+def test_simple_delete_command(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('DELETE FROM users') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('DELETE FROM users')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DeleteData(
             schema=SchemaReference(name='users', version=Version.LATEST),
         )
     ]
 
 
-def test_simple_delete_command_condition() -> None:
+def test_simple_delete_command_condition(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
-    assert parser.parse_sql('DELETE FROM users WHERE id = 1') == [
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('DELETE FROM users WHERE id = 1')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
         DeleteData(
             schema=SchemaReference(name='users', version=Version.LATEST),
             query=Conditions(

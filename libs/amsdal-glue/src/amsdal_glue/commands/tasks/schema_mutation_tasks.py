@@ -39,6 +39,7 @@ class FinalSchemaCommandTask(Task):
 
         _command = SchemaCommand(
             lock_id=self.tasks[0].item.lock_id,
+            root_transaction_id=self.tasks[0].item.root_transaction_id,
             transaction_id=self.tasks[0].item.transaction_id,
             mutations=[],
         )
