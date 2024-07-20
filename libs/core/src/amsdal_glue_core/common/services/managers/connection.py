@@ -17,6 +17,9 @@ class ConnectionPoolBase(ABC):
     def get_connection(self, transaction_id: str | None = None) -> ConnectionBase: ...
 
     @abstractmethod
+    def disconnect_connection(self, transaction_id: str | None = None) -> None: ...
+
+    @abstractmethod
     def disconnect(self) -> None: ...
 
 

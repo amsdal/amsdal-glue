@@ -58,6 +58,13 @@ class DefaultConnectionPool(ConnectionPoolBase):
 
         return connection
 
+    def disconnect_connection(self, transaction_id: str | None = None) -> None:
+        if transaction_id in self.connections:
+            connection, _ = self.connections.pop(transaction_id)
+
+            if connection.is_connected:
+                connection.disconnect()
+
     def disconnect(self) -> None:
         for connection, _ in self.connections.values():
             if connection.is_connected:
