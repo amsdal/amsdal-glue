@@ -43,10 +43,10 @@ class TransactionCommandFinalTask(Task):
             return
 
         _command = TransactionCommand(
-            lock_id=self.tasks[0].item.lock_id,
-            transaction_id=self.tasks[0].item.transaction_id,
-            action=self.tasks[0].item.action,
-            parent_transaction_id=self.tasks[0].item.parent_transaction_id,
+            lock_id=self.tasks[0].item.command.lock_id,
+            transaction_id=self.tasks[0].item.command.transaction_id,
+            action=self.tasks[0].item.command.action,
+            parent_transaction_id=self.tasks[0].item.command.parent_transaction_id,
         )
         _result = None
 

@@ -301,30 +301,30 @@ class SqliteConnection(ConnectionBase):
 
     def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            return None
-
-        self.connection.execute('COMMIT')
+            self.connection.execute(f"RELEASE SAVEPOINT '{transaction.parent_transaction_id}'")
+        else:
+            self.connection.execute('COMMIT')
         return True
 
     def rollback_transaction(self, transaction: TransactionCommand | str | None) -> Any:
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            return None
-
-        self.connection.execute('ROLLBACK')
+            self.connection.execute(f"ROLLBACK TO SAVEPOINT '{transaction.parent_transaction_id}'")
+        else:
+            self.connection.execute('ROLLBACK')
         return True
 
     def begin_transaction(self, transaction: TransactionCommand | str | None) -> Any:  # pragma: no cover
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            return None
-
-        self.connection.execute('BEGIN')
+            self.connection.execute(f"SAVEPOINT '{transaction.parent_transaction_id}'")
+        else:
+            self.connection.execute('BEGIN')
         return True
 
     def revert_transaction(self, transaction: TransactionCommand | str | None) -> Any:  # pragma: no cover
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            return None
-
-        self.connection.execute('ROLLBACK')
+            self.connection.execute(f"ROLLBACK TO SAVEPOINT '{transaction.parent_transaction_id}'")
+        else:
+            self.connection.execute('ROLLBACK')
         return True
 
     def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:

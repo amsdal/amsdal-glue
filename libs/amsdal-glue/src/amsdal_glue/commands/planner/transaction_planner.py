@@ -37,6 +37,7 @@ class DefaultTransactionCommandPlanner(TransactionCommandPlanner):
             _command = TransactionCommand(
                 lock_id=command.lock_id,
                 transaction_id=command.transaction_id,
+                root_transaction_id=command.root_transaction_id,
                 parent_transaction_id=command.parent_transaction_id,
                 schema=SchemaReference(
                     name=_schema_name,
@@ -48,7 +49,7 @@ class DefaultTransactionCommandPlanner(TransactionCommandPlanner):
             group_tasks.append(
                 TransactionCommandTask(
                     transaction_command=ExecutionTransactionCommandNode(
-                        command=command,
+                        command=_command,
                     ),
                 ),
             )

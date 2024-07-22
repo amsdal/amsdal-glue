@@ -146,13 +146,11 @@ def _postgres_server_run() -> Generator[None, None, None]:
         while retry_count := 5:
             try:
                 with get_postgres_connection_info():
-                    yield
-            except psycopg.OperationalError:  # noqa: PERF203
+                    is_connected = True
+                    break
+            except psycopg.OperationalError:
                 sleep(5)
                 retry_count -= 1
-            else:
-                is_connected = True
-                break
 
         if not is_connected:
             msg = 'Failed to start postgres server'
