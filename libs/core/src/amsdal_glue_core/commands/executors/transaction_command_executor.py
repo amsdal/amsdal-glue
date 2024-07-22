@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.enums import TransactionAction
-from amsdal_glue_core.common.helpers.resolve_connection import resolve_connection
+from amsdal_glue_core.common.helpers.resolve_connection import resolve_connection_pool
 from amsdal_glue_core.common.helpers.singleton import Singleton
 
 if TYPE_CHECKING:
@@ -19,7 +19,8 @@ class TransactionNodeExecutor(metaclass=Singleton):
             msg = 'Schema is required for transaction command'
             raise ValueError(msg)
 
-        _connection = resolve_connection(command_node.command.schema, transaction_id)
+        connection_pool = resolve_connection_pool(table=command_node.command.schema)
+        _connection = connection_pool.get_connection(transaction_id=transaction_id)
 
         if command_node.command.action == TransactionAction.COMMIT:
             command_node.result = _connection.commit_transaction(command_node.command)
@@ -32,3 +33,9 @@ class TransactionNodeExecutor(metaclass=Singleton):
 
         elif command_node.command.action == TransactionAction.REVERT:
             command_node.result = _connection.revert_transaction(command_node.command)
+
+        if (
+            command_node.command.action
+            in [TransactionAction.COMMIT, TransactionAction.ROLLBACK, TransactionAction.REVERT]
+        ) and command_node.command.parent_transaction_id is None:
+            connection_pool.disconnect_connection(transaction_id=transaction_id)
