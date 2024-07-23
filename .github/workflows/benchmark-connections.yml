@@ -39,7 +39,7 @@ jobs:
         with:
           name: Connections Benchmark
           tool: pytest
-          output-file-path: connections-output.json
+          output-file-path: libs/connections/connections-output.json
           gh-pages-branch: gh-pages
           github-token: ${{ secrets.GITHUB_TOKEN }}
           benchmark-data-dir-path: "connections_benchmark"
@@ -81,7 +81,7 @@ jobs:
         with:
           name: SQL Parser Benchmark
           tool: pytest
-          output-file-path: sql-parser-output.json
+          output-file-path: libs/sql-parser/sql-parser-output.json
           gh-pages-branch: gh-pages
           github-token: ${{ secrets.GITHUB_TOKEN }}
           benchmark-data-dir-path: "sql_parser_benchmark"
