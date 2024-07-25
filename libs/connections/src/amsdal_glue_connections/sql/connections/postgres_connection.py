@@ -3,6 +3,8 @@ from datetime import date
 from datetime import datetime
 from typing import Any
 
+from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
+
 try:
     import psycopg
 except ImportError:
@@ -47,8 +49,45 @@ from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_d
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
+from psycopg.types.json import Jsonb, Json
 
 logger = logging.getLogger(__name__)
+
+
+def pg_value_json_transform(value: Any) -> Any:
+    if isinstance(value, dict | list):
+        return Jsonb(value)
+    elif isinstance(value, str) and value.startswith('"') and value.endswith('"'):
+        return Json(value[1:-1])
+
+    return value
+
+
+def pg_field_json_transform(  # noqa: PLR0913
+    table_alias: str,
+    field: str,
+    fields: list[str],
+    value_type: Any = str,
+    table_separator: str = '.',
+    table_quote: str = "'",
+    field_quote: str = "'",
+) -> str:
+    if value_type is int:
+        _cast_type = 'integer'
+    elif value_type is bool:
+        _cast_type = 'boolean'
+    elif value_type is float:
+        _cast_type = 'real'
+    else:
+        _cast_type = 'text'
+
+    nested_fields_selection = '->>'.join(f"'{_field}'" for _field in fields)
+    _stmt = f'cast(({table_quote}{table_alias}{table_quote}{table_separator}{field_quote}{field}{field_quote}::json->{nested_fields_selection})::text as {_cast_type})'
+
+    if _cast_type == 'text':
+        _stmt = f"trim('\"' FROM {_stmt})"
+
+    return _stmt
 
 
 class PostgresConnection(ConnectionBase):
@@ -73,15 +112,26 @@ class PostgresConnection(ConnectionBase):
             raise ConnectionError(msg)
 
         self._connection = psycopg.connect(dsn, **kwargs)
+        self._connection.execute("SELECT set_config('TimeZone', %s, false)", [kwargs.get('timexone', 'UTC')])
 
     def disconnect(self) -> None:
         self.connection.close()
         self._connection = None
 
     def query(self, query: QueryStatement) -> list[Data]:
-        _stmt, _params = build_sql_query(query, value_placeholder='%s')
+        _stmt, _params = build_sql_query(
+            query,
+            operator_constructor=pg_operator_constructor,
+            value_transform=pg_value_json_transform,
+            nested_field_transform=pg_field_json_transform,
+            value_placeholder='%s',
+            table_quote='"',
+            field_quote='"',
+        )
 
         try:
+            if _stmt == 'SELECT * FROM Object WHERE Object.partition_key = %s':
+                pass
             cursor = self.execute(_stmt, *_params)
         except Exception as exc:
             logger.exception('Error executing query: %s with params: %s', _stmt, _params)
@@ -101,11 +151,37 @@ class PostgresConnection(ConnectionBase):
 
         return result
 
+    @classmethod
+    def _adjust_schema_filters(cls, filters: Conditions | None):
+        """
+        Transform "name" attribute of the filters to the correct column name: "table_name"
+        """
+
+        if filters is None:
+            return None
+
+        for filter in filters.children:
+            if isinstance(filter, Conditions):
+                cls._adjust_schema_filters(filter)
+
+            if filter.field.field.name == 'name':
+                filter.field.field.name = 'table_name'
+
     def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+        self._adjust_schema_filters(filters)
+
         stmt = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
 
         if filters:
-            where, values = build_where(filters)
+            where, values = build_where(
+                filters,
+                operator_constructor=pg_operator_constructor,
+                value_transform=pg_value_json_transform,
+                nested_field_transform=pg_field_json_transform,
+                value_placeholder='%s',
+                table_quote='"',
+                field_quote='"',
+            )
             stmt += f' AND ({where})'
         else:
             values = []
@@ -133,7 +209,15 @@ class PostgresConnection(ConnectionBase):
         return [self._run_mutation(mutation) for mutation in mutations]
 
     def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
-        _stmt, _params = build_sql_data_command(mutation, value_placeholder='%s')
+        _stmt, _params = build_sql_data_command(
+            mutation,
+            operator_constructor=pg_operator_constructor,
+            value_transform=pg_value_json_transform,
+            nested_field_transform=pg_field_json_transform,
+            value_placeholder='%s',
+            table_quote='"',
+            field_quote='"',
+        )
 
         try:
             self.execute(_stmt, *_params)
@@ -157,14 +241,19 @@ class PostgresConnection(ConnectionBase):
         return Data(data=data)
 
     def execute(self, query: str, *args: Any) -> psycopg.Cursor:
-        cursor = self.connection.cursor()
-
         try:
-            cursor.execute(query, args)
+            if 'CREATE TABLE' in query:
+                pass
+            cursor = self.connection.execute(query, args)
+            if 'ERR' in str(cursor.connection.pgconn):
+                pass
+            pass
         except psycopg.Error as exc:
             msg = f'Error executing query: {query} with args: {args}'
             raise ConnectionError(msg) from exc
-
+        except Exception as exc:
+            print(f'Error executing query: {query} with args: {args}', exc)
+            raise
         return cursor
 
     def get_table_info(
@@ -183,7 +272,7 @@ class PostgresConnection(ConnectionBase):
             PropertySchema(
                 name=column[1],
                 type=self._to_python_type(column[2]),
-                required=column[3] == 1,
+                required=column[3].lower() == 'no',  # means is nullable
                 description=None,
                 default=column[4],
             )
@@ -210,6 +299,7 @@ class PostgresConnection(ConnectionBase):
                     f'SELECT relname FROM pg_catalog.pg_class WHERE oid = {f_table_id};'  # noqa: S608
                 )
                 f_table_name = cursor.fetchall()[0][0]
+                cursor.close()
                 cursor = self.execute(
                     'SELECT ordinal_position, column_name '  # noqa: S608
                     'FROM information_schema.columns '
@@ -256,9 +346,17 @@ class PostgresConnection(ConnectionBase):
                 condition=None,
             )
             for index_name, index_fields in indexes_list
+            if not self._is_primary_key_index(index_name, constraints)
         ]
 
         return properties, constraints, indexes
+
+    def _is_primary_key_index(self, index_name: str, constraints: list[BaseConstraint]) -> bool:
+        for constraint in constraints:
+            if isinstance(constraint, PrimaryKeyConstraint) and constraint.name == index_name:
+                return True
+
+        return False
 
     def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
         if lock.mode == 'EXCLUSIVE':
@@ -413,7 +511,7 @@ class PostgresConnection(ConnectionBase):
         self.execute(stmt)
 
     def _add_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
-        _column = self._build_column(_property)
+        _column = self._build_column(_property, force_nullable=True)
         stmt = f'ALTER TABLE "{schema_reference.name}" ADD COLUMN {_column}'
         self.execute(stmt)
 
@@ -448,8 +546,11 @@ class PostgresConnection(ConnectionBase):
         stmt = f'DROP INDEX "{index_name}"'
         self.execute(stmt)
 
-    def _build_column(self, column: PropertySchema) -> str:
-        return f'"{column.name}" {self._to_sql_type(column.type)}{" NOT NULL" if column.required else ""}'
+    def _build_column(self, column: PropertySchema, *, force_nullable: bool = False) -> str:
+        return (
+            f'"{column.name}" {self._to_sql_type(column.type)}'
+            f'{" NOT NULL" if column.required and not force_nullable else ""}'
+        )
 
     def _build_column_update(self, column: PropertySchema) -> str:
         return f'"{column.name}" TYPE {self._to_sql_type(column.type)}{" NOT NULL" if column.required else ""}'
@@ -509,7 +610,7 @@ class PostgresConnection(ConnectionBase):
         if isinstance(property_type, Schema | SchemaReference):
             return 'TEXT'
         if property_type == datetime:
-            return 'TIMESTAMP'
+            return 'TIMESTAMP WITH TIME ZONE'
         if property_type == date:
             return 'DATE'
 
@@ -531,7 +632,7 @@ class PostgresConnection(ConnectionBase):
             return dict
         if sql_type == 'BYTEA':
             return bytes
-        if sql_type == 'TIMESTAMP':
+        if sql_type == 'TIMESTAMP' or sql_type.startswith('TIMESTAMP'):
             return datetime
         if sql_type == 'DATE':
             return date

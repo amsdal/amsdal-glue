@@ -127,10 +127,10 @@ def _build_sql_update_data(  # noqa: PLR0913
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: Callable[[str, str, list[str], Any, str, str, str], str] = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
-    stmt = f'UPDATE {command.schema.name}'
+    stmt = f'UPDATE {table_quote}{command.schema.name}{table_quote}'
 
     if command.schema.alias:
-        stmt += f' AS {command.schema.alias}'
+        stmt += f' AS {table_quote}{command.schema.alias}{table_quote}'
 
     if not command.data:
         msg = 'No data provided for update operation'
@@ -190,7 +190,7 @@ def _build_sql_delete_data(  # noqa: PLR0913
     stmt = f'DELETE FROM {table_quote}{command.schema.name}{table_quote}'  # noqa: S608
 
     if command.schema.alias:
-        stmt += f' AS {command.schema.alias}'
+        stmt += f' AS {table_quote}{command.schema.alias}{table_quote}'
 
     values = []
 
