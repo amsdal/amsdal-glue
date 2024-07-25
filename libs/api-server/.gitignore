@@ -1,0 +1,16 @@
+/.idea
+/.vscode
+/.env*
+/.venv
+coverage.*
+.coverage*
+.mypy_cache
+.pytest_cache
+.ruff_cache
+__pycache__
+pyrightconfig.json
+.DS_Store
+/dist
+/build
+/cython_build
+*.egg-info

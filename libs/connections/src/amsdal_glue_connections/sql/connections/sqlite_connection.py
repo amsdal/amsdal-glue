@@ -51,10 +51,12 @@ def sqlite_field_json_transform(  # noqa: PLR0913
     table_quote: str = "'",
     field_quote: str = "'",
 ) -> str:
-    nested_fields_selection = '.'.join([
-        '$',
-        *fields,
-    ])
+    nested_fields_selection = '.'.join(
+        [
+            '$',
+            *fields,
+        ]
+    )
 
     if value_type in (int, bool):
         _cast_type = 'integer'
@@ -162,7 +164,7 @@ class SqliteConnection(ConnectionBase):
         """
         stmt = 'SELECT name FROM sqlite_master WHERE type="table"'
 
-        if filters:
+        if filters and filters.children:
             where, values = build_where(filters)
             stmt += f' AND {where}'
         else:

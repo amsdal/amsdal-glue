@@ -36,10 +36,10 @@ def _register_default_connection() -> Generator[None, None, None]:
             DefaultConnectionPool(SqliteConnection, db_path=db_path, check_same_thread=False, timeout=0.3),
             schema_name='customers',
         )
-        connection_mng.get_connection_pool('shippings').get_connection().execute(
+        connection_mng.get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
             'CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)',
         )
-        connection_mng.get_connection_pool('customers').get_connection().execute(
+        connection_mng.get_connection_pool('customers').get_connection().execute(  # type: ignore[attr-defined]
             'CREATE TABLE IF NOT EXISTS customers (id TEXT, name TEXT)',
         )
 

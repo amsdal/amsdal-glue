@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
@@ -31,11 +32,11 @@ def _register_default_connection() -> Generator[None, None, None]:
             schema_name='Customer',
         )
 
-        connection_mng.get_connection_pool('Shipping').get_connection().execute(
+        connection_mng.get_connection_pool('Shipping').get_connection().execute(  # type: ignore[attr-defined]
             'CREATE TABLE IF NOT EXISTS Shipping (id TEXT, customer_id TEXT, status TEXT)',
         )
 
-        connection_mng.get_connection_pool('Customer').get_connection().execute(
+        connection_mng.get_connection_pool('Customer').get_connection().execute(  # type: ignore[attr-defined]
             'CREATE TABLE IF NOT EXISTS Customer (id TEXT, name TEXT)',
         )
 
@@ -64,7 +65,7 @@ def test_data_command_service() -> None:
     )
     connection_mng = Container.managers.get(ConnectionManager)
     connection = connection_mng.get_connection_pool('Shipping').get_connection()
-    cursor = connection.execute('SELECT * FROM Shipping')
+    cursor = connection.execute('SELECT * FROM Shipping')  # type: ignore[attr-defined]
     assert cursor.fetchall() == [('id-1', 'customer-1', 'shipped')]
 
 
@@ -94,9 +95,9 @@ def test_data_command_service_multiple_databases() -> None:
     )
     connection_mng = Container.managers.get(ConnectionManager)
     connection = connection_mng.get_connection_pool('Shipping').get_connection()
-    cursor = connection.execute('SELECT * FROM Shipping')
+    cursor = connection.execute('SELECT * FROM Shipping')  # type: ignore[attr-defined]
     assert cursor.fetchall() == [('id-1', 'customer-1', 'shipped')]
 
     connection = connection_mng.get_connection_pool('Customer').get_connection()
-    cursor = connection.execute('SELECT * FROM Customer')
+    cursor = connection.execute('SELECT * FROM Customer')  # type: ignore[attr-defined]
     assert cursor.fetchall() == [('customer-1', 'John Doe')]

@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.data_models.results.schema import SchemaResult
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 from amsdal_glue_core.common.services.queries import SchemaQueryService

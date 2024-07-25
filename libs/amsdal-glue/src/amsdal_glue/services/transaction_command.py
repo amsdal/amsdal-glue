@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.commands.planner.transaction_command_planner import TransactionCommandPlanner
 from amsdal_glue_core.common.data_models.results.data import TransactionResult
 from amsdal_glue_core.common.operations.commands import TransactionCommand

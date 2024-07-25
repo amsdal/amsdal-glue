@@ -89,7 +89,7 @@ def build_schema_mutation(  # noqa: C901, PLR0911
 
     if isinstance(mutation, AddIndex):
         return [
-            build_index(mutation.schema_reference.name, mutation.schema_reference.namespace, mutation.index),
+            build_index(mutation.schema_reference.name, mutation.schema_reference.namespace or '', mutation.index),
         ]
 
     if isinstance(mutation, DeleteIndex):

@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version

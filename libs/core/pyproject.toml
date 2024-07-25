@@ -23,9 +23,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = [
-    "towncrier==23.11.0"
-]
 
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
@@ -43,6 +40,7 @@ extra-dependencies = [
     "pytest>=8.2.1",
     "pytest-mock>=3.14.0",
     "ruff>=0.4.5",
+    "towncrier==23.11.0"
 ]
 
 [tool.hatch.envs.default.scripts]

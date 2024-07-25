@@ -46,6 +46,7 @@ def test_schema_query_service_single_connection() -> None:
         SchemaQueryOperation(filters=None),
     )
     assert result.success is True
+    assert result.schemas
     assert len(result.schemas) == 4
 
 
@@ -56,8 +57,9 @@ def test_schema_query_service_multiple_connection() -> None:
         SchemaQueryOperation(filters=None),
     )
     assert result.success is True
+    assert result.schemas
     assert len(result.schemas) == 5
-    table_names = {item.name for item in result.schemas}
+    table_names = {item.name if item else None for item in result.schemas}
     assert table_names == {
         'customers',
         'orders',
