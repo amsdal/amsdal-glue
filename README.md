@@ -140,6 +140,7 @@ For more examples and detailed documentation, please refer to the [Examples](doc
 The AMSDAL Glue project is under active development, and we have plans to add more features and improvements in the
 future. Some of the planned features include:
 
+- Support for data transformation/hooks
 - Support for more database types:
     - ✅SQLite
     - ✅PostgreSQL
