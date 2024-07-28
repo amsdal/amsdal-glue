@@ -1,7 +1,6 @@
 # AMSDAL Glue project
 
-This repository contains the AMSDAL Glue project's python packages, a Python interface providing high-level abstraction
-for interacting with multiple databases simultaneously, simplifying the development and maintenance process.
+This repository contains the AMSDAL Glue project's python packages, a flexible, lightweight, yet powerful, Python ETL interface designed to separate your analytics, application, or ORM from its data; simplifying your development and maintenance process by allowing you to operate on multiple databases or other data stores simultaneiously through a single interface, with a single query or command.
 
 [![PyPI - Version](https://img.shields.io/pypi/v/amsdal-glue.svg)](https://pypi.org/project/amsdal-glue)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/amsdal-glue.svg)](https://pypi.org/project/amsdal-glue)
@@ -37,7 +36,7 @@ The project aims to solve several challenges:
 4. **Maintenance**: It simplifies the maintenance process by providing a consistent interface for database interactions,
    making it easier to update or replace database systems without significant changes to the application code.
 
-In summary, the AMSDAL Glue project is a tool designed to make working with databases in Python applications easier and
+The AMSDAL Glue project is a tool designed to make working with databases in Python applications easier and
 more efficient. It is particularly useful for applications that need to interact with multiple databases or those that
 require a high level of abstraction for their database interactions.
 
@@ -66,8 +65,7 @@ pip install amsdal-glue-connections[postgres]
 
 ## Usage
 
-The AMSDAL Glue project provides a high-level interface for interacting with databases in Python applications. Here is a
-simple example of how to use the `amsdal-glue` package to connect to a SQLite database and execute a query:
+Here is a simple example of how to use the `amsdal-glue` package to connect to a SQLite database and execute a query:
 
 ```python
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
@@ -133,22 +131,22 @@ def main() -> None:
 ```
 
 This example demonstrates how to connect to a SQLite database, build a query, and execute it using the AMSDAL Glue.
-For more examples and detailed documentation, please refer to the [Examples](docs/examples.md) section.
+For more examples and detailed documentation, please see the [Examples](docs/examples.md) and [Templates](templates/) sections.
 
 ## Roadmap
 
 The AMSDAL Glue project is under active development, and we have plans to add more features and improvements in the
 future. Some of the planned features include:
 
-- Support for data transformation/hooks
+- Support for data transformation/hooks (coming soon)
 - Support for more database types:
     - ✅SQLite
     - ✅PostgreSQL
     - ⬜MySQL
     - ⬜MongoDB
     - ⬜Iceberg support
-- Implement SQL to AMSDAL Glue query & command translator to have an ability to integrate with any existing SQL ORM
-  library
+- ✅ SQL to AMSDAL Glue query & command translator to have an ability to integrate with any existing SQL ORM
+  library [Usage](templates/sql-parser-usage/README.md)
 - Add support for more complex queries and commands
 
 ## License
