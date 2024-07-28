@@ -1,6 +1,6 @@
 # AMSDAL Glue project
 
-This repository contains the AMSDAL Glue project's python packages, a flexible, lightweight, yet powerful, Python ETL interface designed to separate your analytics, application, or ORM from its data; simplifying your development and maintenance process by allowing you to operate on multiple databases or other data stores simultaneiously through a single interface, with a single query or command.
+AMSDAL Glue is a flexible, lightweight, yet powerful, Python ETL interface designed to separate your analytics, application, or ORM from its data; simplifying your development and maintenance process by allowing you to operate on multiple databases or other data stores simultaneiously through a common interface, with a single query or command.
 
 [![PyPI - Version](https://img.shields.io/pypi/v/amsdal-glue.svg)](https://pypi.org/project/amsdal-glue)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/amsdal-glue.svg)](https://pypi.org/project/amsdal-glue)
@@ -146,7 +146,7 @@ future. Some of the planned features include:
     - ⬜MongoDB
     - ⬜Iceberg support
 - ✅ SQL to AMSDAL Glue query & command translator to have an ability to integrate with any existing SQL ORM
-  library [Usage](templates/sql-parser-usage/README.md)
+  library ([sql-parser-usage](templates/sql-parser-usage/README.md))
 - Add support for more complex queries and commands
 
 ## License
