@@ -341,16 +341,19 @@ class PostgresConnection(ConnectionBase):
                 condition=None,
             )
             for index_name, index_fields in indexes_list
-            if not self._is_primary_key_index(index_name, constraints)
+            if not self._is_constraint(index_fields, constraints)
         ]
 
         return properties, constraints, indexes
 
-    def _is_primary_key_index(self, index_name: str, constraints: list[BaseConstraint]) -> bool:
+    @staticmethod
+    def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
         for constraint in constraints:
-            if isinstance(constraint, PrimaryKeyConstraint) and constraint.name == index_name:
-                return True
+            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeySchema | UniqueConstraint):
+                continue
 
+            if index_fields == constraint.fields:
+                return True
         return False
 
     def acquire_lock(self, lock: ExecutionLockCommand) -> Any:

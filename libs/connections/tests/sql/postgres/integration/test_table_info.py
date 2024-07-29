@@ -3,7 +3,6 @@ import datetime
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -46,9 +45,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
                 reference_fields=['id'],
             ),
         ],
-        [
-            IndexSchema(name='orders_customer_id_idx', fields=['customer_id'], condition=None),
-        ],
+        [],
     ) == database_connection.get_table_info('orders')
 
     assert [
@@ -91,8 +88,6 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
                     reference_fields=['id'],
                 ),
             ],
-            indexes=[
-                IndexSchema(name='orders_customer_id_idx', fields=['customer_id'], condition=None),
-            ],
+            indexes=[],
         ),
     ] == database_connection.query_schema()

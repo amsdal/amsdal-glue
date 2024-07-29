@@ -265,27 +265,27 @@ class SqliteConnection(ConnectionBase):
             cursor.close()
 
             index_fields = [field[2] for field in index_info]
-            _has_constraint = False
 
-            for constraint in constraints:
-                if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeySchema | UniqueConstraint):
-                    continue
-                if index_fields == constraint.fields:
-                    _has_constraint = True
-                    break
-
-            if _has_constraint:
-                continue
-
-            indexes.append(
-                IndexSchema(
-                    name=index[1],
-                    fields=index_fields,
-                    condition=None,
-                ),
-            )
+            if not self._is_constraint(index_fields, constraints):
+                indexes.append(
+                    IndexSchema(
+                        name=index[1],
+                        fields=index_fields,
+                        condition=None,
+                    ),
+                )
 
         return properties, constraints, indexes
+
+    @staticmethod
+    def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
+        for constraint in constraints:
+            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeySchema | UniqueConstraint):
+                continue
+
+            if index_fields == constraint.fields:
+                return True
+        return False
 
     def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
         if lock.mode == 'EXCLUSIVE':
