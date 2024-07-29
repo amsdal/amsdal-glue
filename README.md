@@ -1,6 +1,6 @@
 # AMSDAL Glue project
 
-AMSDAL Glue is a flexible, lightweight, yet powerful, Python ETL interface designed to separate your analytics, application, or ORM from its data; simplifying your development and maintenance process by allowing you to operate on multiple databases or other data stores simultaneiously through a common interface, with a single query or command.
+AMSDAL Glue is a flexible, lightweight, yet powerful, Python ETL interface designed to separate your analytics, application, or ORM from its data, allowing you to operate on multiple databases or other data stores simultaneously through a common interface, using CQRS query and command object patterns.
 
 [![PyPI - Version](https://img.shields.io/pypi/v/amsdal-glue.svg)](https://pypi.org/project/amsdal-glue)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/amsdal-glue.svg)](https://pypi.org/project/amsdal-glue)
@@ -12,33 +12,29 @@ AMSDAL Glue is a flexible, lightweight, yet powerful, Python ETL interface desig
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Performance](#performance)
 - [Roadmap](#roadmap)
 - [Contributing](docs/contributing.md)
 - [License](#license)
 
 ## Introduction
 
-The AMSDAL Glue project is a Python interface that provides a high-level abstraction for interacting with multiple
-databases or any other data sources simultaneously. It is designed to simplify the development and maintenance process
-of database-related tasks in Python applications.
+AMSDAL Glue is a simple yet critical data technology that can be utilized in almost all data applications.
+
+In it's most basic sense, AMSDAL Glue provides users a low-level abstraction for their data commands and queries, without limiting the feature-set and funcionality of the underlying database itself. 
+
+This unified, flexible, all-important ETL technology serves as a powerful tool to simplify the development and maintenance process of database-related tasks in Python applications, reducing cost and increasing scalability.
 
 The project aims to solve several challenges:
 
-1. **Database Interactions**: It provides a unified way to interact with different types of databases, abstracting the
+1. **Data Interactions**: It provides a unified way to interact with all data (SQL, NoSQL, unstructured, integrations, etc) abstracting the
    specifics of each database type and allowing developers to focus on their application logic.
 
-2. **Simultaneous Connections**: It enables applications to connect to multiple databases simultaneously, which can be
-   crucial for applications that need to work with data stored in different databases.
+2. **Simultaneous Connections**: It enables applications to connect with or integrate to multiple data sources simultaneously, critical in all but the most basic applications, allowing your analytics or application to be agnostic to where it's data is physically located (now or in the future).
 
-3. **Simplified Development**: By providing a high-level interface, it simplifies the process of writing and maintaining
-   database-related code. This can lead to increased productivity and reduced chances of errors.
+3. **Performance**: At it's core [amsdal-glue-core](libs/core/) simply provides you a common interface to interact with data, allowing you to delegate as much of the workload to the underlying database technology as possible. 
 
-4. **Maintenance**: It simplifies the maintenance process by providing a consistent interface for database interactions,
-   making it easier to update or replace database systems without significant changes to the application code.
-
-The AMSDAL Glue project is a tool designed to make working with databases in Python applications easier and
-more efficient. It is particularly useful for applications that need to interact with multiple databases or those that
-require a high level of abstraction for their database interactions.
+In essensce, by detaching your applicaiton from its data, AMSDAL Glue simplifies the process of writing and maintaining database-related code with a minimal sacrifice of flexibility or perfmance. 
 
 For more information, please refer to the [Overview](docs/overview.md).
 
@@ -132,6 +128,14 @@ def main() -> None:
 
 This example demonstrates how to connect to a SQLite database, build a query, and execute it using the AMSDAL Glue.
 For more examples and detailed documentation, please see the [Examples](docs/examples.md) and [Templates](templates/) sections.
+
+## Performance
+
+AMSDAL Glue is designed to be highly performant. At it's core [amsdal-glue-core](libs/core/) is simply an interface, allowing you to delegate as much of the workload to the underlying database technology as possible. 
+
+In practice, AMSDAL Glue comes at relatively little cost as seen in our benchmarking [results](https://amsdal.github.io/amsdal-glue/connections_benchmark/index.html)
+
+You can find more benchmarking results [here](docs/benchmarking.md) 
 
 ## Roadmap
 
