@@ -9,6 +9,11 @@ from amsdal_glue_core.common.workflows.task import Task
 
 
 class SequentialSyncExecutor(SequentialExecutor):
+    """
+    SequentialSyncExecutor is responsible for executing tasks sequentially.
+    It extends the SequentialExecutor class.
+    """
+
     def execute_sequential(
         self,
         tasks: list[Task],
@@ -16,6 +21,18 @@ class SequentialSyncExecutor(SequentialExecutor):
         transaction_id: str | None,
         lock_id: str | None,
     ) -> Any:
+        """
+        Executes the given list of tasks sequentially.
+
+        Args:
+            tasks (list[Task]): The list of tasks to be executed sequentially.
+            final_task (Task | None): The final task to be executed after all tasks.
+            transaction_id (str | None): The transaction ID to be used during execution.
+            lock_id (str | None): The lock ID to be used during execution.
+
+        Returns:
+            Any: The result of the final task execution.
+        """
         from amsdal_glue_core.containers import Container
 
         for task in tasks:

@@ -11,7 +11,7 @@ def test_insert(database_connection: MockPostgresConnection) -> None:
     simple_customer_insert(database_connection)
 
     database_connection.execute_mock.assert_called_once_with(
-        'INSERT INTO customers (id, name) VALUES (%s, %s)',
+        'INSERT INTO "customers" ("id", "name") VALUES (%s, %s)',
         ('1', 'customer'),
     )
 
@@ -27,9 +27,9 @@ def test_insert_multiple(database_connection: MockPostgresConnection) -> None:
     insert_customers_and_orders(database_connection)
 
     database_connection.execute_mock.assert_has_calls([
-        mock.call('INSERT INTO customers (id, name) VALUES (%s, %s)', ('1', 'customer')),
-        mock.call('INSERT INTO customers (age, id, name) VALUES (%s, %s, %s)', (25, '2', 'customer')),
-        mock.call('INSERT INTO orders (amount, customer_id, id) VALUES (%s, %s, %s)', (100, '1', '1')),
+        mock.call('INSERT INTO "customers" ("id", "name") VALUES (%s, %s)', ('1', 'customer')),
+        mock.call('INSERT INTO "customers" ("age", "id", "name") VALUES (%s, %s, %s)', (25, '2', 'customer')),
+        mock.call('INSERT INTO "orders" ("amount", "customer_id", "id") VALUES (%s, %s, %s)', (100, '1', '1')),
     ])
 
 
@@ -44,7 +44,7 @@ def test_update(database_connection: MockPostgresConnection) -> None:
     update_two_customers(database_connection)
 
     database_connection.execute_mock.assert_has_calls([
-        mock.call('UPDATE customers SET id = %s, name = %s', ('1', 'new_customer')),
+        mock.call('UPDATE "customers" SET "id" = %s, "name" = %s', ('1', 'new_customer')),
     ])
 
 
@@ -59,7 +59,7 @@ def test_delete(database_connection: MockPostgresConnection) -> None:
     delete_customer(database_connection)
 
     database_connection.execute_mock.assert_called_once_with(
-        'DELETE FROM customers WHERE age < %s',
+        'DELETE FROM "customers" WHERE "age" < %s',
         (27,),
     )
 

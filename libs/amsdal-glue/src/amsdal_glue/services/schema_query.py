@@ -5,7 +5,21 @@ from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPla
 
 
 class DefaultSchemaQueryService(SchemaQueryService):
+    """
+    DefaultSchemaQueryService is responsible for executing schema query operations.
+    It extends the SchemaQueryService class.
+    """
+
     def execute(self, query_op: SchemaQueryOperation) -> SchemaResult:
+        """
+        Executes the given schema query operation.
+
+        Args:
+            query_op (SchemaQueryOperation): The schema query operation to be executed.
+
+        Returns:
+            SchemaResult: The result of the schema query operation execution.
+        """
         from amsdal_glue_core.containers import Container
 
         _schema_query_planner = Container.planners.get(SchemaQueryPlanner)

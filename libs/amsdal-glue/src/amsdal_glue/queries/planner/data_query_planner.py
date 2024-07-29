@@ -17,7 +17,21 @@ from amsdal_glue.queries.tasks.query_tasks import FinalDataQueryTask
 
 
 class DefaultDataQueryPlanner(DataQueryPlanner):
+    """
+    DefaultDataQueryPlanner is responsible for planning data queries by creating a chain of tasks
+    that execute data queries. It extends the DataQueryPlanner class.
+    """
+
     def plan_data_query(self, query: QueryStatement) -> ChainTask:
+        """
+        Plans the execution of a data query by creating a chain of tasks.
+
+        Args:
+            query (QueryStatement): The data query statement to be executed.
+
+        Returns:
+            ChainTask: A chain of tasks that execute the data query.
+        """
         plan = ChainTask(tasks=[])
 
         if has_multiple_connections(query):
@@ -95,6 +109,15 @@ class DefaultDataQueryPlanner(DataQueryPlanner):
         self,
         table: SchemaReference | SubQueryStatement,
     ) -> tuple[str, DataQueryNode | FinalDataQueryNode, ChainTask]:
+        """
+        Constructs a query node and a chain of tasks for the given table.
+
+        Args:
+            table (SchemaReference | SubQueryStatement): The table or subquery statement.
+
+        Returns:
+            tuple[str, DataQueryNode | FinalDataQueryNode, ChainTask]: The alias, query node, and chain of tasks.
+        """
         if isinstance(table, SubQueryStatement):
             _query = table.query
 

@@ -32,12 +32,12 @@ def test_build_schema_mutation__register_schema() -> None:
 
     assert stmts == [
         (
-            'CREATE TABLE Person ('
-            'id INTEGER NOT NULL, '
-            'name TEXT NOT NULL, '
-            'age INTEGER, '
-            'CONSTRAINT pk_person PRIMARY KEY (id) '
+            "CREATE TABLE 'Person' ("
+            "'id' INTEGER NOT NULL, "
+            "'name' TEXT NOT NULL, "
+            "'age' INTEGER, "
+            "CONSTRAINT 'pk_person' PRIMARY KEY ('id')"
             ')'
         ),
-        'CREATE INDEX idx_person_name ON Person (name)',
+        "CREATE INDEX 'idx_person_name' ON 'Person' ('name')",
     ]

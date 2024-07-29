@@ -5,7 +5,21 @@ from amsdal_glue_core.common.services.commands import LockCommandService
 
 
 class DefaultLockCommandService(LockCommandService):
+    """
+    DefaultLockCommandService is responsible for executing lock commands.
+    It extends the LockCommandService class.
+    """
+
     def execute(self, command: LockCommand) -> LockResult:
+        """
+        Executes the given lock command.
+
+        Args:
+            command (LockCommand): The lock command to be executed.
+
+        Returns:
+            LockResult: The result of the lock command execution.
+        """
         from amsdal_glue_core.containers import Container
 
         query_planner = Container.planners.get(LockCommandPlanner)

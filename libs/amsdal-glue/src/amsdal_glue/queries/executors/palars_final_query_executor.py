@@ -23,7 +23,20 @@ from amsdal_glue.queries.polars_operator_constructor import polars_operator_cons
 
 
 class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
+    """
+    PolarsFinalQueryDataExecutor is responsible for executing final data queries using Polars.
+    It extends the FinalDataQueryExecutor class.
+    """
+
     def execute(self, query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
+        """
+        Executes the final data query using Polars.
+
+        Args:
+            query_node (FinalDataQueryNode): The node representing the final data query.
+            transaction_id (str | None): The ID of the transaction.
+            lock_id (str | None): The ID of the lock.
+        """
         if query_node.result is not None:
             return
 
@@ -38,9 +51,27 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         )
 
     def has_subquery_annotations(self, query: FinalQueryStatement) -> bool:
+        """
+        Checks if the query has subquery annotations.
+
+        Args:
+            query (FinalQueryStatement): The final query statement.
+
+        Returns:
+            bool: True if the query has subquery annotations, False otherwise.
+        """
         return any(isinstance(annotation.value, QueryStatementNode) for annotation in (query.annotations or []))
 
     def process_results(self, data: list[dict[str, Any]]) -> list[Data]:
+        """
+        Processes the results of the query execution.
+
+        Args:
+            data (list[dict[str, Any]]): The data returned from the query execution.
+
+        Returns:
+            list[Data]: The processed data.
+        """
         _first_item = data[0] if data else {}
 
         # check columns duplications
@@ -53,6 +84,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         return [Data(data=_item) for _item in data] if data is not None else []
 
     def _build_sql_context(self, query: FinalQueryStatement) -> pl.SQLContext:
+        """
+        Builds the SQL context for the query.
+
+        Args:
+            query (FinalQueryStatement): The final query statement.
+
+        Returns:
+            pl.SQLContext: The SQL context for the query.
+        """
         _frames: dict[str, pl.LazyFrame] = {}
 
         _name, _frame = self._get_frame_from_table(query.table)
@@ -74,6 +114,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         return pl.SQLContext(frames=_frames)
 
     def _build_sql(self, query: FinalQueryStatement) -> str:
+        """
+        Builds the SQL query string.
+
+        Args:
+            query (FinalQueryStatement): The final query statement.
+
+        Returns:
+            str: The SQL query string.
+        """
         _sql = [
             'SELECT',
         ]
@@ -97,12 +146,33 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         self,
         table: QueryStatementNode,
     ) -> tuple[str, pl.LazyFrame]:
+        """
+        Retrieves the frame from the table.
+
+        Args:
+            table (QueryStatementNode): The query statement node representing the table.
+
+        Returns:
+            tuple[str, pl.LazyFrame]: The name and the frame of the table.
+        """
         return (
             table.alias,
             self._build_frame_from_result(table.query_node.result),
         )
 
     def _build_frame_from_result(self, result: Any) -> pl.LazyFrame:
+        """
+        Builds the frame from the result.
+
+        Args:
+            result (Any): The result of the query execution.
+
+        Returns:
+            pl.LazyFrame: The frame built from the result.
+
+        Raises:
+            RuntimeError: If the result is None.
+        """
         if result is None:
             msg = 'QueryNode has no result'
             raise RuntimeError(msg)
@@ -121,6 +191,17 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         annotations: list[AnnotationQueryNode] | None,
         aggregations: list[AggregationQuery] | None,
     ) -> str:
+        """
+        Builds the SQL selection statement.
+
+        Args:
+            only (list[FieldReference | FieldReferenceAliased] | None): The fields to be selected.
+            annotations (list[AnnotationQueryNode] | None): The annotations for the query.
+            aggregations (list[AggregationQuery] | None): The aggregations for the query.
+
+        Returns:
+            str: The SQL selection statement.
+        """
         _stmt = [self._build_field_reference_stmt(_item) for _item in only or []]
 
         for annotation in annotations or []:
@@ -138,6 +219,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         return ', '.join(filter(None, _stmt))
 
     def _build_field(self, field: Field) -> str:
+        """
+        Builds the field string.
+
+        Args:
+            field (Field): The field to be built.
+
+        Returns:
+            str: The field string.
+        """
         parts = []
 
         while field:
@@ -150,6 +240,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         self,
         field: FieldReference | FieldReferenceAliased,
     ) -> str:
+        """
+        Builds the field reference statement.
+
+        Args:
+            field (FieldReference | FieldReferenceAliased): The field reference.
+
+        Returns:
+            str: The field reference statement.
+        """
         _item_stmt = f'{field.table_name}.{self._build_field(field.field)}'
 
         if isinstance(field, FieldReferenceAliased):
@@ -161,6 +260,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         self,
         joins: list[JoinQueryNode] | None,
     ) -> str:
+        """
+        Builds the SQL join statement.
+
+        Args:
+            joins (list[JoinQueryNode] | None): The join nodes.
+
+        Returns:
+            str: The SQL join statement.
+        """
         if not joins:
             return ''
 
@@ -176,6 +284,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         self,
         conditions: Conditions,
     ) -> str:
+        """
+        Builds the SQL conditions statement.
+
+        Args:
+            conditions (Conditions): The conditions for the query.
+
+        Returns:
+            str: The SQL conditions statement.
+        """
         _stmt = []
 
         for condition in conditions.children:
@@ -198,6 +315,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         self,
         where: Conditions | None,
     ) -> str:
+        """
+        Builds the SQL where statement.
+
+        Args:
+            where (Conditions | None): The where conditions.
+
+        Returns:
+            str: The SQL where statement.
+        """
         if not where:
             return ''
 
@@ -207,6 +333,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         self,
         group_by: list[GroupByQuery] | None,
     ) -> str:
+        """
+        Builds the SQL group by statement.
+
+        Args:
+            group_by (list[GroupByQuery] | None): The group by queries.
+
+        Returns:
+            str: The SQL group by statement.
+        """
         if not group_by:
             return ''
 
@@ -218,6 +353,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         self,
         order_by: list[OrderByQuery] | None,
     ) -> str:
+        """
+        Builds the SQL order by statement.
+
+        Args:
+            order_by (list[OrderByQuery] | None): The order by queries.
+
+        Returns:
+            str: The SQL order by statement.
+        """
         if not order_by:
             return ''
 
@@ -233,6 +377,15 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
         self,
         limit: LimitQuery | None,
     ) -> str:
+        """
+        Builds the SQL limit statement.
+
+        Args:
+            limit (LimitQuery | None): The limit query.
+
+        Returns:
+            str: The SQL limit statement.
+        """
         if not limit:
             return ''
 

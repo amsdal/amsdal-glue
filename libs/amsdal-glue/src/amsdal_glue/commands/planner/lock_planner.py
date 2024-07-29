@@ -7,7 +7,21 @@ from amsdal_glue.commands.tasks.lock_tasks import LockCommandTask
 
 
 class DefaultLockCommandPlanner(LockCommandPlanner):
+    """
+    DefaultLockCommandPlanner is responsible for planning lock commands by creating a chain of tasks
+    that execute lock operations. It extends the LockCommandPlanner class.
+    """
+
     def plan_lock(self, command: LockCommand) -> ChainTask:
+        """
+        Plans the execution of a lock command by creating a chain of tasks.
+
+        Args:
+            command (LockCommand): The lock command containing lock operations to be executed.
+
+        Returns:
+            ChainTask: A chain of tasks that execute the lock operations.
+        """
         return ChainTask(
             tasks=[
                 LockCommandTask(

@@ -7,9 +7,24 @@ from amsdal_glue_core.common.workflows.task import Task
 
 @dataclass(kw_only=True)
 class LockCommandTask(Task):
+    """
+    LockCommandTask is responsible for executing lock command tasks.
+    It extends the Task class.
+
+    Attributes:
+        lock_command (ExecutionLockCommand): The lock command to be executed.
+    """
+
     lock_command: ExecutionLockCommand
 
     def execute(self, transaction_id: str | None, lock_id: str | None) -> None:
+        """
+        Executes the lock command task.
+
+        Args:
+            transaction_id (str | None): The ID of the transaction.
+            lock_id (str | None): The ID of the lock.
+        """
         from amsdal_glue_core.commands.executors.lock_command_executor import LockCommandNodeExecutor
 
         _command_executor = LockCommandNodeExecutor()
@@ -17,14 +32,38 @@ class LockCommandTask(Task):
 
     @property
     def item(self) -> Any:
+        """
+        Returns the lock command.
+
+        Returns:
+            Any: The lock command.
+        """
         return self.lock_command
 
     @property
     def result(self) -> Any:
+        """
+        Returns the result of the lock command.
+
+        Returns:
+            Any: The result of the lock command.
+        """
         return self.lock_command.result
 
     def __repr__(self) -> str:
+        """
+        Returns a string representation of the LockCommandTask.
+
+        Returns:
+            str: A string representation of the LockCommandTask.
+        """
         return f'LockCommandTask<{self.lock_command}>'
 
     def __hash__(self) -> int:
+        """
+        Returns the hash of the LockCommandTask.
+
+        Returns:
+            int: The hash of the LockCommandTask.
+        """
         return hash(id(self))

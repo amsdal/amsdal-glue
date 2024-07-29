@@ -9,12 +9,22 @@ def polars_operator_constructor(
     lookup: FieldLookup,
     value: Value | FieldReference,
 ) -> str:
+    """
+    Constructs a Polars operator statement based on the given field, lookup, and value.
+
+    Args:
+        field (str): The field to be used in the operator.
+        lookup (FieldLookup): The lookup type for the field.
+        value (Value | FieldReference): The value or field reference to be used in the operator.
+
+    Returns:
+        str: The constructed Polars operator statement.
+    """
     _stmt, _ = repr_operator_constructor(
         field=field,
         lookup=lookup,
         value=value,
         value_placeholder='',
-        field_separator='__',
         table_separator='.',
     )
 
