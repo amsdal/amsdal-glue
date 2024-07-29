@@ -1,11 +1,12 @@
 from collections.abc import Callable
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.exceptions import BinaryValuesNotSupportedError
-from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.expressions.value import Value
+
+from amsdal_glue_connections.sql.sql_builders.exceptions import BinaryValuesNotSupportedError
+from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
 
 
 def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913

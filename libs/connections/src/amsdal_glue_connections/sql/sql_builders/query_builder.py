@@ -224,10 +224,10 @@ def build_annotations(  # noqa: PLR0913
                 value_transform=value_transform,
                 nested_field_transform=nested_field_transform,
             )
-            items.append(f'({_query}) AS {annotation.value.alias}')
+            items.append(f'({_query}) AS {field_quote}{annotation.value.alias}{field_quote}')
             values.extend(_values)
         else:
-            items.append(f'{value_placeholder} AS {annotation.value.alias}')
+            items.append(f'{value_placeholder} AS {field_quote}{annotation.value.alias}{field_quote}')
             values.append(annotation.value.value.value)
 
     return ', '.join(items), values
@@ -253,7 +253,7 @@ def build_aggregations(
             field_quote=field_quote,
             nested_field_transform=nested_field_transform,
         )
-        items.append(f'{aggregation.expression.name}({_field}) AS {aggregation.alias}')
+        items.append(f'{aggregation.expression.name}({_field}) AS {field_quote}{aggregation.alias}{field_quote}')
 
     return ', '.join(items)
 
@@ -280,6 +280,8 @@ def build_field(
             _field_stm = (
                 f'{table_quote}{field.table_name}{table_quote}{table_separator}{field_quote}{_field_stm}{field_quote}'
             )
+        else:
+            _field_stm = f'{field_quote}{_field_stm}{field_quote}'
     else:
         _field_stm = nested_field_transform(
             field.table_name,

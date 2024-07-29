@@ -26,7 +26,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
     assert (
         [
             PropertySchema(
-                name='id', type=int, required=False, description=None, default="nextval('orders_id_seq'::regclass)"
+                name='id', type=int, required=True, description=None, default="nextval('orders_id_seq'::regclass)"
             ),
             PropertySchema(name='customer_id', type=int, required=False, description=None, default=None),
             PropertySchema(name='amount', type=int, required=False, description=None, default=None),
@@ -48,7 +48,6 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
         ],
         [
             IndexSchema(name='orders_customer_id_idx', fields=['customer_id'], condition=None),
-            IndexSchema(name='orders_pkey', fields=['id'], condition=None),
         ],
     ) == database_connection.get_table_info('orders')
 
@@ -61,7 +60,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
                 PropertySchema(
                     name='id',
                     type=int,
-                    required=False,
+                    required=True,
                     description=None,
                     default="nextval('customers_id_seq'::regclass)",
                 ),
@@ -69,7 +68,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
                 PropertySchema(name='name', type=str, required=False, description=None, default=None),
             ],
             constraints=[PrimaryKeyConstraint(name='customers_pkey', fields=['id'])],
-            indexes=[IndexSchema(name='customers_pkey', fields=['id'], condition=None)],
+            indexes=[],
         ),
         Schema(
             name='orders',
@@ -77,7 +76,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
             extends=None,
             properties=[
                 PropertySchema(
-                    name='id', type=int, required=False, description=None, default="nextval('orders_id_seq'::regclass)"
+                    name='id', type=int, required=True, description=None, default="nextval('orders_id_seq'::regclass)"
                 ),
                 PropertySchema(name='customer_id', type=int, required=False, description=None, default=None),
                 PropertySchema(name='amount', type=int, required=False, description=None, default=None),
@@ -94,7 +93,6 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
             ],
             indexes=[
                 IndexSchema(name='orders_customer_id_idx', fields=['customer_id'], condition=None),
-                IndexSchema(name='orders_pkey', fields=['id'], condition=None),
             ],
         ),
     ] == database_connection.query_schema()

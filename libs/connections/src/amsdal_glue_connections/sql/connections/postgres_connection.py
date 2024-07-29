@@ -44,12 +44,13 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
+from psycopg.types.json import Json
+from psycopg.types.json import Jsonb
 
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
-from psycopg.types.json import Jsonb, Json
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,8 @@ logger = logging.getLogger(__name__)
 def pg_value_json_transform(value: Any) -> Any:
     if isinstance(value, dict | list):
         return Jsonb(value)
-    elif isinstance(value, str) and value.startswith('"') and value.endswith('"'):
+
+    if isinstance(value, str) and value.startswith('"') and value.endswith('"'):
         return Json(value[1:-1])
 
     return value
@@ -82,7 +84,10 @@ def pg_field_json_transform(  # noqa: PLR0913
         _cast_type = 'text'
 
     nested_fields_selection = '->>'.join(f"'{_field}'" for _field in fields)
-    _stmt = f'cast(({table_quote}{table_alias}{table_quote}{table_separator}{field_quote}{field}{field_quote}::json->{nested_fields_selection})::text as {_cast_type})'
+    _stmt = (
+        f'cast(({table_quote}{table_alias}{table_quote}{table_separator}{field_quote}{field}{field_quote}::json->'
+        f'{nested_fields_selection})::text as {_cast_type})'
+    )
 
     if _cast_type == 'text':
         _stmt = f"trim('\"' FROM {_stmt})"
@@ -130,8 +135,6 @@ class PostgresConnection(ConnectionBase):
         )
 
         try:
-            if _stmt == 'SELECT * FROM Object WHERE Object.partition_key = %s':
-                pass
             cursor = self.execute(_stmt, *_params)
         except Exception as exc:
             logger.exception('Error executing query: %s with params: %s', _stmt, _params)
@@ -158,14 +161,14 @@ class PostgresConnection(ConnectionBase):
         """
 
         if filters is None:
-            return None
+            return
 
-        for filter in filters.children:
-            if isinstance(filter, Conditions):
-                cls._adjust_schema_filters(filter)
+        for _filter in filters.children:
+            if isinstance(_filter, Conditions):
+                cls._adjust_schema_filters(_filter)
 
-            if filter.field.field.name == 'name':
-                filter.field.field.name = 'table_name'
+            if _filter.field.field.name == 'name':
+                _filter.field.field.name = 'table_name'
 
     def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
         self._adjust_schema_filters(filters)
@@ -242,18 +245,10 @@ class PostgresConnection(ConnectionBase):
 
     def execute(self, query: str, *args: Any) -> psycopg.Cursor:
         try:
-            if 'CREATE TABLE' in query:
-                pass
             cursor = self.connection.execute(query, args)
-            if 'ERR' in str(cursor.connection.pgconn):
-                pass
-            pass
         except psycopg.Error as exc:
             msg = f'Error executing query: {query} with args: {args}'
             raise ConnectionError(msg) from exc
-        except Exception as exc:
-            print(f'Error executing query: {query} with args: {args}', exc)
-            raise
         return cursor
 
     def get_table_info(
