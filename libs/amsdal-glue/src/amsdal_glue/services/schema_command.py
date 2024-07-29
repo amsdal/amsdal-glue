@@ -5,7 +5,21 @@ from amsdal_glue_core.common.services.commands import SchemaCommandService
 
 
 class DefaultSchemaCommandService(SchemaCommandService):
+    """
+    DefaultSchemaCommandService is responsible for executing schema commands.
+    It extends the SchemaCommandService class.
+    """
+
     def execute(self, command: SchemaCommand) -> SchemaResult:
+        """
+        Executes the given schema command.
+
+        Args:
+            command (SchemaCommand): The schema command to be executed.
+
+        Returns:
+            SchemaResult: The result of the schema command execution.
+        """
         from amsdal_glue_core.containers import Container
 
         query_planner = Container.planners.get(SchemaCommandPlanner)

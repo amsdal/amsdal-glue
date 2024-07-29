@@ -5,7 +5,21 @@ from amsdal_glue_core.queries.planner.data_query_planner import DataQueryPlanner
 
 
 class DefaultDataQueryService(DataQueryService):
+    """
+    DefaultDataQueryService is responsible for executing data query operations.
+    It extends the DataQueryService class.
+    """
+
     def execute(self, query_op: DataQueryOperation) -> DataResult:
+        """
+        Executes the given data query operation.
+
+        Args:
+            query_op (DataQueryOperation): The data query operation to be executed.
+
+        Returns:
+            DataResult: The result of the data query operation execution.
+        """
         from amsdal_glue_core.containers import Container
 
         _query_planner = Container.planners.get(DataQueryPlanner)

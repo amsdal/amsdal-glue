@@ -35,6 +35,10 @@ from amsdal_glue.task_executors.sequential_sync_executor import SequentialSyncEx
 
 
 def init_default_containers() -> None:
+    """
+    Initializes and registers the default containers for services, managers, and executors.
+    """
+
     Container.managers.register(ConnectionManager, ConnectionManager)
     Container.executors.register(SequentialExecutor, SequentialSyncExecutor)
     Container.executors.register(ParallelExecutor, ThreadParallelExecutor)

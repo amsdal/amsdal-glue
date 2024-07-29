@@ -13,7 +13,21 @@ if TYPE_CHECKING:
 
 
 class DefaultDataCommandPlanner(DataCommandPlanner):
+    """
+    DefaultDataCommandPlanner is responsible for planning data commands by creating a chain of tasks
+    that execute data mutations. It extends the DataCommandPlanner class.
+    """
+
     def plan_data_command(self, command: DataCommand) -> ChainTask:
+        """
+        Plans the execution of a data command by creating a chain of tasks.
+
+        Args:
+            command (DataCommand): The data command containing mutations to be executed.
+
+        Returns:
+            ChainTask: A chain of tasks that execute the data mutations.
+        """
         task_batches: list[Task] = []
         prev_connection = None
 

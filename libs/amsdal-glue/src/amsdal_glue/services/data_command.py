@@ -5,7 +5,21 @@ from amsdal_glue_core.common.services.commands import DataCommandService
 
 
 class DefaultDataCommandService(DataCommandService):
+    """
+    DefaultDataCommandService is responsible for executing data commands.
+    It extends the DataCommandService class.
+    """
+
     def execute(self, command: DataCommand) -> DataResult:
+        """
+        Executes the given data command.
+
+        Args:
+            command (DataCommand): The data command to be executed.
+
+        Returns:
+            DataResult: The result of the data command execution.
+        """
         from amsdal_glue_core.containers import Container
 
         query_planner = Container.planners.get(DataCommandPlanner)

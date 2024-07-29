@@ -38,6 +38,24 @@ def build_sql_data_command(  # noqa: PLR0913
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: Callable[[str, str, list[str], Any, str, str, str], str] = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
+    """
+    Builds an SQL command for the given data mutation.
+
+    Args:
+        mutation (DataMutation): The data mutation to be converted to an SQL command.
+        value_placeholder (str, optional): The placeholder for values in the SQL command. Defaults to '?'.
+        table_separator (str, optional): The separator for table names. Defaults to '.'.
+        operator_constructor (Callable, optional): The function to construct operators.
+                                                   Defaults to default_operator_constructor.
+        table_quote (str, optional): The quote character for table names. Defaults to ''.
+        field_quote (str, optional): The quote character for field names. Defaults to ''.
+        value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
+        nested_field_transform (Callable, optional): The function to transform nested fields.
+                                                     Defaults to default_nested_field_transform.
+
+    Returns:
+        tuple[str, list[Any]]: The SQL command and the list of values.
+    """
     if isinstance(mutation, InsertData):
         return _build_sql_insert_data(
             mutation,

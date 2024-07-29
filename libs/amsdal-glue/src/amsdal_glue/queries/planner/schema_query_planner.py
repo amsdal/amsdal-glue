@@ -10,7 +10,21 @@ from amsdal_glue.queries.tasks.schema_tasks import SchemaQueryTask
 
 
 class DefaultSchemaQueryPlanner(SchemaQueryPlanner):
+    """
+    DefaultSchemaQueryPlanner is responsible for planning schema queries by creating a chain of tasks
+    that execute schema queries. It extends the SchemaQueryPlanner class.
+    """
+
     def plan_schema_query(self, filters: Conditions | None = None) -> ChainTask:
+        """
+        Plans the execution of a schema query by creating a chain of tasks.
+
+        Args:
+            filters (Conditions | None): The conditions to filter the schema query.
+
+        Returns:
+            ChainTask: A chain of tasks that execute the schema query.
+        """
         from amsdal_glue_core.containers import Container
 
         connection_manager = Container.managers.get(ConnectionManager)

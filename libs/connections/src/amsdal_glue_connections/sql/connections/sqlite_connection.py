@@ -72,15 +72,35 @@ def sqlite_field_json_transform(  # noqa: PLR0913
 
 
 class SqliteConnection(ConnectionBase):
+    """
+    SqliteConnection is responsible for managing connections and executing queries and commands on a SQLite database.
+    It extends the ConnectionBase class.
+    """
+
     def __init__(self) -> None:
         self._connection: sqlite3.Connection | None = None
 
     @property
     def is_connected(self) -> bool:
+        """
+        Checks if the connection to the SQLite database is established.
+
+        Returns:
+            bool: True if connected, False otherwise.
+        """
         return self._connection is not None
 
     @property
     def connection(self) -> sqlite3.Connection:
+        """
+        Gets the current SQLite connection.
+
+        Returns:
+            sqlite3.Connection: The current SQLite connection.
+
+        Raises:
+            ConnectionError: If the connection is not established.
+        """
         if self._connection is None:
             msg = 'Connection not established'
             raise ConnectionError(msg)
@@ -88,6 +108,19 @@ class SqliteConnection(ConnectionBase):
         return self._connection
 
     def query(self, query: QueryStatement) -> list[Data]:
+        """
+        Executes a query on the SQLite database.
+
+        Args:
+            query (QueryStatement): The query to be executed.
+
+        Returns:
+            list[Data]: The result of the query execution.
+
+        Raises:
+            ConnectionError: If there is an error executing the query.
+            ValueError: If a column name is duplicated.
+        """
         _stmt, _params = build_sql_query(
             query,
             table_quote="'",
@@ -117,6 +150,15 @@ class SqliteConnection(ConnectionBase):
         return result
 
     def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+        """
+        Queries the schema of the SQLite database.
+
+        Args:
+            filters (Conditions, optional): Filters to apply to the schema query. Defaults to None.
+
+        Returns:
+            list[Schema]: The list of schemas matching the filters.
+        """
         stmt = 'SELECT name FROM sqlite_master WHERE type="table"'
 
         if filters:
@@ -145,6 +187,16 @@ class SqliteConnection(ConnectionBase):
         return result
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
+        """
+        Runs a list of data mutations on the SQLite database.
+
+        Args:
+            mutations (list[DataMutation]): The list of data mutations to be executed.
+
+        Returns:
+            list[list[Data] | None]: The result of each mutation execution.
+        """
+
         return [self._run_mutation(mutation) for mutation in mutations]
 
     def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
@@ -164,6 +216,16 @@ class SqliteConnection(ConnectionBase):
         return None
 
     def run_schema_command(self, command: SchemaCommand) -> list[Schema | None]:
+        """
+        Runs a schema command on the SQLite database.
+
+        Args:
+            command (SchemaCommand): The schema command to be executed.
+
+        Returns:
+            list[Schema | None]: The result of each schema mutation.
+        """
+
         result: list[Schema | None] = []
 
         for mutation in command.mutations:
@@ -174,9 +236,28 @@ class SqliteConnection(ConnectionBase):
 
     @staticmethod
     def build_data(data: dict[str, Any]) -> Data:
+        """
+        Builds a Data object from a dictionary.
+
+        Args:
+            data (dict[str, Any]): The data dictionary.
+
+        Returns:
+            Data: The Data object.
+        """
         return Data(data=data)
 
     def connect(self, db_path: Path, **kwargs: Any) -> None:
+        """
+        Establishes a connection to the SQLite database.
+
+        Args:
+            db_path (Path): The path to the SQLite database file.
+            **kwargs (Any): Additional arguments for the SQLite connection.
+
+        Raises:
+            ConnectionError: If the connection is already established.
+        """
         if self._connection is not None:
             msg = 'Connection already established'
             raise ConnectionError(msg)
@@ -187,10 +268,26 @@ class SqliteConnection(ConnectionBase):
         self._connection.isolation_level = None  # disable implicit transaction opening
 
     def disconnect(self) -> None:
+        """
+        Closes the connection to the SQLite database.
+        """
         self.connection.close()
         self._connection = None
 
     def execute(self, query: str, *args: Any) -> sqlite3.Cursor:
+        """
+        Executes a query on the SQLite database.
+
+        Args:
+            query (str): The query to be executed.
+            *args (Any): The arguments for the query.
+
+        Returns:
+            sqlite3.Cursor: The cursor for the executed query.
+
+        Raises:
+            ConnectionError: If there is an error executing the query.
+        """
         cursor = self.connection.cursor()
 
         try:
@@ -206,6 +303,16 @@ class SqliteConnection(ConnectionBase):
         self,
         table_name: str,
     ) -> tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]:
+        """
+        Gets the information of a table in the SQLite database.
+
+        Args:
+            table_name (str): The name of the table.
+
+        Returns:
+            tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]: The properties, constraints,
+                                                                                  and indexes of the table.
+        """
         cursor = self.execute(f'PRAGMA table_info({table_name})')
         columns = cursor.fetchall()
         cursor.close()
@@ -288,18 +395,45 @@ class SqliteConnection(ConnectionBase):
         return False
 
     def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+        """
+        Acquires a lock on the SQLite database.
+
+        Args:
+            lock (ExecutionLockCommand): The lock command.
+
+        Returns:
+            Any: The result of the lock acquisition.
+        """
         if lock.mode == 'EXCLUSIVE':
             self.connection.execute('BEGIN EXCLUSIVE')
 
         return True
 
     def release_lock(self, lock: ExecutionLockCommand) -> Any:
+        """
+        Releases a lock on the SQLite database.
+
+        Args:
+            lock (ExecutionLockCommand): The lock command.
+
+        Returns:
+            Any: The result of the lock release.
+        """
         if lock.mode == 'EXCLUSIVE':
             self.connection.execute('COMMIT')
 
         return True
 
     def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        """
+        Commits a transaction on the SQLite database.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction command or transaction ID.
+
+        Returns:
+            Any: The result of the transaction commit.
+        """
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             self.connection.execute(f"RELEASE SAVEPOINT '{transaction.parent_transaction_id}'")
         else:
@@ -307,6 +441,15 @@ class SqliteConnection(ConnectionBase):
         return True
 
     def rollback_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        """
+        Rolls back a transaction on the SQLite database.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction command or transaction ID.
+
+        Returns:
+            Any: The result of the transaction rollback.
+        """
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             self.connection.execute(f"ROLLBACK TO SAVEPOINT '{transaction.parent_transaction_id}'")
         else:
@@ -314,6 +457,15 @@ class SqliteConnection(ConnectionBase):
         return True
 
     def begin_transaction(self, transaction: TransactionCommand | str | None) -> Any:  # pragma: no cover
+        """
+        Begins a transaction on the SQLite database.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction command or transaction ID.
+
+        Returns:
+            Any: The result of the transaction begin.
+        """
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             self.connection.execute(f"SAVEPOINT '{transaction.parent_transaction_id}'")
         else:
@@ -321,6 +473,15 @@ class SqliteConnection(ConnectionBase):
         return True
 
     def revert_transaction(self, transaction: TransactionCommand | str | None) -> Any:  # pragma: no cover
+        """
+        Reverts a transaction on the SQLite database.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction command or transaction ID.
+
+        Returns:
+            Any: The result of the transaction revert.
+        """
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             self.connection.execute(f"ROLLBACK TO SAVEPOINT '{transaction.parent_transaction_id}'")
         else:

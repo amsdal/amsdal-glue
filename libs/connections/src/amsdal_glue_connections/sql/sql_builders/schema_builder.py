@@ -31,6 +31,16 @@ def build_schema_mutation(  # noqa: C901, PLR0911
     mutation: SchemaMutation,
     type_transform: Callable[[Any], str],
 ) -> list[str]:
+    """
+    Builds SQL statements for the given schema mutation.
+
+    Args:
+        mutation (SchemaMutation): The schema mutation to be converted to SQL statements.
+        type_transform (Callable[[Any], str]): The function to transform types.
+
+    Returns:
+        list[str]: The list of SQL statements.
+    """
     if isinstance(mutation, RegisterSchema):
         return [
             build_create_table(mutation.schema, type_transform=type_transform),

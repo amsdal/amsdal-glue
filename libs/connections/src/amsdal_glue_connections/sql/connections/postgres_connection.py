@@ -96,15 +96,36 @@ def pg_field_json_transform(  # noqa: PLR0913
 
 
 class PostgresConnection(ConnectionBase):
+    """
+    PostgresConnection is responsible for managing connections and executing queries and commands on
+    a PostgreSQL database.
+    It extends the ConnectionBase class.
+    """
+
     def __init__(self) -> None:
         self._connection: psycopg.Connection | None = None
 
     @property
     def is_connected(self) -> bool:
+        """
+        Checks if the connection to the PostgreSQL database is established.
+
+        Returns:
+            bool: True if connected, False otherwise.
+        """
         return self._connection is not None
 
     @property
     def connection(self) -> psycopg.Connection:
+        """
+        Gets the current connection to the PostgreSQL database.
+
+        Returns:
+            psycopg.Connection: The current connection.
+
+        Raises:
+            ConnectionError: If the connection is not established.
+        """
         if self._connection is None:
             msg = 'Connection not established'
             raise ConnectionError(msg)
@@ -112,6 +133,16 @@ class PostgresConnection(ConnectionBase):
         return self._connection
 
     def connect(self, dsn: str = '', **kwargs: Any) -> None:
+        """
+        Establishes a connection to the PostgreSQL database.
+
+        Args:
+            dsn (str): The Data Source Name for the connection.
+            **kwargs: Additional connection parameters.
+
+        Raises:
+            ConnectionError: If the connection is already established.
+        """
         if self._connection is not None:
             msg = 'Connection already established'
             raise ConnectionError(msg)
@@ -120,10 +151,25 @@ class PostgresConnection(ConnectionBase):
         self._connection.execute("SELECT set_config('TimeZone', %s, false)", [kwargs.get('timexone', 'UTC')])
 
     def disconnect(self) -> None:
+        """
+        Closes the connection to the PostgreSQL database.
+        """
         self.connection.close()
         self._connection = None
 
     def query(self, query: QueryStatement) -> list[Data]:
+        """
+        Executes a query on the PostgreSQL database.
+
+        Args:
+            query (QueryStatement): The query to be executed.
+
+        Returns:
+            list[Data]: The result of the query execution.
+
+        Raises:
+            ConnectionError: If there is an error executing the query.
+        """
         _stmt, _params = build_sql_query(
             query,
             operator_constructor=pg_operator_constructor,
@@ -171,6 +217,15 @@ class PostgresConnection(ConnectionBase):
                 _filter.field.field.name = 'table_name'
 
     def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+        """
+        Queries the schema of the PostgreSQL database.
+
+        Args:
+            filters (Conditions | None): The filters to be applied to the schema query.
+
+        Returns:
+            list[Schema]: The result of the schema query.
+        """
         self._adjust_schema_filters(filters)
 
         stmt = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
@@ -209,6 +264,15 @@ class PostgresConnection(ConnectionBase):
         return result
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
+        """
+        Executes a list of data mutations on the PostgreSQL database.
+
+        Args:
+            mutations (list[DataMutation]): The list of data mutations to be executed.
+
+        Returns:
+            list[list[Data] | None]: The result of the data mutations execution.
+        """
         return [self._run_mutation(mutation) for mutation in mutations]
 
     def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
@@ -231,6 +295,15 @@ class PostgresConnection(ConnectionBase):
         return None
 
     def run_schema_command(self, command: SchemaCommand) -> list[Schema | None]:
+        """
+        Executes a schema command on the PostgreSQL database.
+
+        Args:
+            command (SchemaCommand): The schema command to be executed.
+
+        Returns:
+            list[Schema | None]: The result of the schema command execution.
+        """
         result: list[Schema | None] = []
 
         for mutation in command.mutations:
@@ -241,9 +314,31 @@ class PostgresConnection(ConnectionBase):
 
     @staticmethod
     def build_data(data: dict[str, Any]) -> Data:
+        """
+        Builds a Data object from a dictionary.
+
+        Args:
+            data (dict[str, Any]): The data dictionary.
+
+        Returns:
+            Data: The built Data object.
+        """
         return Data(data=data)
 
     def execute(self, query: str, *args: Any) -> psycopg.Cursor:
+        """
+        Executes a query on the PostgreSQL database.
+
+        Args:
+            query (str): The query to be executed.
+            *args (Any): The query parameters.
+
+        Returns:
+            psycopg.Cursor: The cursor for the executed query.
+
+        Raises:
+            ConnectionError: If there is an error executing the query.
+        """
         try:
             cursor = self.connection.execute(query, args)
         except psycopg.Error as exc:
@@ -255,6 +350,16 @@ class PostgresConnection(ConnectionBase):
         self,
         table_name: str,
     ) -> tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]:
+        """
+        Gets the information of a table in the PostgreSQL database.
+
+        Args:
+            table_name (str): The name of the table.
+
+        Returns:
+            tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]: The properties, constraints,
+                                                                                  and indexes of the table.
+        """
         cursor = self.execute(
             'SELECT ordinal_position, column_name, data_type, is_nullable, column_default '  # noqa: S608
             'FROM information_schema.columns '
@@ -357,18 +462,45 @@ class PostgresConnection(ConnectionBase):
         return False
 
     def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+        """
+        Acquires a lock on the PostgreSQL database.
+
+        Args:
+            lock (ExecutionLockCommand): The lock command to be executed.
+
+        Returns:
+            Any: The result of the lock acquisition.
+        """
         if lock.mode == 'EXCLUSIVE':
             self.execute('BEGIN EXCLUSIVE')
 
         return True
 
     def release_lock(self, lock: ExecutionLockCommand) -> Any:
+        """
+        Releases a lock on the PostgreSQL database.
+
+        Args:
+            lock (ExecutionLockCommand): The lock command to be released.
+
+        Returns:
+            Any: The result of the lock release.
+        """
         if lock.mode == 'EXCLUSIVE':
             self.execute('COMMIT')
 
         return True
 
     def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        """
+        Commits a transaction on the PostgreSQL database.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction to be committed.
+
+        Returns:
+            Any: The result of the transaction commit.
+        """
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             return True
 
@@ -376,6 +508,15 @@ class PostgresConnection(ConnectionBase):
         return True
 
     def rollback_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        """
+        Rolls back a transaction on the PostgreSQL database.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction to be rolled back.
+
+        Returns:
+            Any: The result of the transaction rollback.
+        """
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             self.execute(f'ROLLBACK TO SAVEPOINT "{transaction.transaction_id}"')
             return True
@@ -384,6 +525,15 @@ class PostgresConnection(ConnectionBase):
         return True
 
     def begin_transaction(self, transaction: TransactionCommand | str | None) -> Any:  # pragma: no cover
+        """
+        Begins a transaction on the PostgreSQL database.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction to be begun.
+
+        Returns:
+            Any: The result of the transaction begin.
+        """
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             self.execute(f'SAVEPOINT "{transaction.transaction_id}"')
             return True
@@ -392,6 +542,15 @@ class PostgresConnection(ConnectionBase):
         return True
 
     def revert_transaction(self, transaction: TransactionCommand | str | None) -> Any:  # pragma: no cover
+        """
+        Reverts a transaction on the PostgreSQL database.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction to be reverted.
+
+        Returns:
+            Any: The result of the transaction revert.
+        """
         if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
             self.execute(f'ROLLBACK TO SAVEPOINT "{transaction.transaction_id}"')
             return True

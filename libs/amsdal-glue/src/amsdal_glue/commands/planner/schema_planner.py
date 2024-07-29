@@ -11,7 +11,21 @@ from amsdal_glue.commands.tasks.schema_mutation_tasks import SchemaCommandTask
 
 
 class DefaultSchemaCommandPlanner(SchemaCommandPlanner):
+    """
+    DefaultSchemaCommandPlanner is responsible for planning schema commands by creating a chain of tasks
+    that execute schema mutations. It extends the SchemaCommandPlanner class.
+    """
+
     def plan_schema_command(self, command: SchemaCommand) -> ChainTask:
+        """
+        Plans the execution of a schema command by creating a chain of tasks.
+
+        Args:
+            command (SchemaCommand): The schema command containing mutations to be executed.
+
+        Returns:
+            ChainTask: A chain of tasks that execute the schema mutations.
+        """
         from amsdal_glue_core.containers import Container
 
         mutations_per_connection = defaultdict(list)
