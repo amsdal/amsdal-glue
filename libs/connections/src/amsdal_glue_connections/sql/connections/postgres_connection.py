@@ -67,6 +67,7 @@ def pg_value_json_transform(value: Any) -> Any:
 
 def pg_field_json_transform(  # noqa: PLR0913
     table_alias: str,
+    namespace: str,
     field: str,
     fields: list[str],
     value_type: Any = str,
@@ -84,8 +85,11 @@ def pg_field_json_transform(  # noqa: PLR0913
         _cast_type = 'text'
 
     nested_fields_selection = '->>'.join(f"'{_field}'" for _field in fields)
+    _namespace_prefix = f'{table_quote}{namespace}{table_quote}{table_separator}' if namespace else ''
     _stmt = (
-        f'cast(({table_quote}{table_alias}{table_quote}{table_separator}{field_quote}{field}{field_quote}::json->'
+        f'cast(({_namespace_prefix}'
+        f'{table_quote}{table_alias}{table_quote}{table_separator}'
+        f'{field_quote}{field}{field_quote}::json->'
         f'{nested_fields_selection})::text as {_cast_type})'
     )
 
@@ -132,23 +136,43 @@ class PostgresConnection(ConnectionBase):
 
         return self._connection
 
-    def connect(self, dsn: str = '', **kwargs: Any) -> None:
+    def connect(
+        self,
+        dsn: str = '',
+        schema: str | None = None,
+        timezone: str = 'UTC',
+        **kwargs: Any,
+    ) -> None:
         """
         Establishes a connection to the PostgreSQL database.
 
         Args:
             dsn (str): The Data Source Name for the connection.
+            schema (str | None): The default schema to be used for the connection. If None,
+                                 the default schema usually is 'public'.
+            timezone (str): The timezone to be used for the connection.
             **kwargs: Additional connection parameters.
 
         Raises:
             ConnectionError: If the connection is already established.
+
+        Example:
+            connection = PostgresConnection()
+            connection.connect(
+                dsn='postgresql://user:password@localhost:5432/mydatabase',
+                schema='public',
+                timezone='UTC',
+            )
         """
         if self._connection is not None:
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
         self._connection = psycopg.connect(dsn, **kwargs)
-        self._connection.execute("SELECT set_config('TimeZone', %s, false)", [kwargs.get('timexone', 'UTC')])
+        self._connection.execute("SELECT set_config('TimeZone', %s, false)", [timezone])
+
+        if schema:
+            self._connection.execute(f'SET search_path TO {schema}')
 
     def disconnect(self) -> None:
         """

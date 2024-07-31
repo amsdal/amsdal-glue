@@ -12,6 +12,7 @@ from amsdal_glue_core.common.enums import Version
 class Schema:
     name: str
     version: str | Version
+    namespace: str = ''
     extends: Optional['SchemaReference'] = None
     properties: list['PropertySchema']
     constraints: list[BaseConstraint] | None = None
@@ -32,3 +33,4 @@ class SchemaReference:
     name: str
     version: str | Version
     alias: str | None = None
+    namespace: str | None = None

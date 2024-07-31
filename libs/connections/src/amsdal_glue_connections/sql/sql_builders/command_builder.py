@@ -29,14 +29,16 @@ def build_sql_data_command(  # noqa: PLR0913
             str,
             str,
             Callable[[Any], Any],
-            Callable[[str, str, list[str], Any, str, str, str], str],
+            Callable[[str, str, str, list[str], Any, str, str, str], str],
         ],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[[str, str, list[str], Any, str, str, str], str] = default_nested_field_transform,
+    nested_field_transform: Callable[
+        [str, str, str, list[str], Any, str, str, str], str
+    ] = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     """
     Builds an SQL command for the given data mutation.
@@ -136,14 +138,16 @@ def _build_sql_update_data(  # noqa: PLR0913
             str,
             str,
             Callable[[Any], Any],
-            Callable[[str, str, list[str], Any, str, str, str], str],
+            Callable[[str, str, str, list[str], Any, str, str, str], str],
         ],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[[str, str, list[str], Any, str, str, str], str] = default_nested_field_transform,
+    nested_field_transform: Callable[
+        [str, str, str, list[str], Any, str, str, str], str
+    ] = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     stmt = f'UPDATE {table_quote}{command.schema.name}{table_quote}'
 
@@ -196,14 +200,16 @@ def _build_sql_delete_data(  # noqa: PLR0913
             str,
             str,
             Callable[[Any], Any],
-            Callable[[str, str, list[str], Any, str, str, str], str],
+            Callable[[str, str, str, list[str], Any, str, str, str], str],
         ],
         tuple[str, list[Any]],
     ] = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[[str, str, list[str], Any, str, str, str], str] = default_nested_field_transform,
+    nested_field_transform: Callable[
+        [str, str, str, list[str], Any, str, str, str], str
+    ] = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     stmt = f'DELETE FROM {table_quote}{command.schema.name}{table_quote}'  # noqa: S608
 

@@ -52,6 +52,21 @@ def test_build_sql_query_simple__only() -> None:
     assert value == []
 
 
+def test_build_sql_query_simple_with_namespace__only() -> None:
+    sql, value = build_sql_query(
+        query=QueryStatement(
+            table=SchemaReference(name='users', namespace='my_schema', version=Version.LATEST, alias='u'),
+            only=[
+                FieldReference(field=Field(name='full_name'), table_name='u'),
+                FieldReferenceAliased(field=Field(name='age'), table_name='u', alias='user_age'),
+            ],
+        ),
+    )
+
+    assert sql == 'SELECT u.full_name, u.age AS user_age FROM my_schema.users AS u'
+    assert value == []
+
+
 def test_build_sql_query_simple__annotations() -> None:
     sql, value = build_sql_query(
         query=QueryStatement(
@@ -91,6 +106,51 @@ def test_build_sql_query_simple__annotations() -> None:
         '? AS max_age, '
         '? AS custom_greeting '
         'FROM users AS u'
+    )
+    assert value == [100, 'hello']
+
+
+def test_build_sql_query_simple_with_namespace__annotations() -> None:
+    sql, value = build_sql_query(
+        query=QueryStatement(
+            table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST, alias='u'),
+            annotations=[
+                AnnotationQuery(
+                    value=SubQueryStatement(
+                        query=QueryStatement(
+                            table=SchemaReference(
+                                name='user_roles', namespace='ns2', version=Version.LATEST, alias='ur'
+                            ),
+                            only=[
+                                FieldReference(field=Field(name='role'), table_name='ur'),
+                            ],
+                            limit=LimitQuery(limit=1),
+                        ),
+                        alias='role',
+                    ),
+                ),
+                AnnotationQuery(
+                    value=ValueAnnotation(
+                        value=Value(100),
+                        alias='max_age',
+                    ),
+                ),
+                AnnotationQuery(
+                    value=ValueAnnotation(
+                        value=Value('hello'),
+                        alias='custom_greeting',
+                    ),
+                ),
+            ],
+        ),
+    )
+
+    assert sql == (
+        'SELECT '
+        '(SELECT ur.role FROM ns2.user_roles AS ur LIMIT 1) AS role, '
+        '? AS max_age, '
+        '? AS custom_greeting '
+        'FROM ns1.users AS u'
     )
     assert value == [100, 'hello']
 
@@ -195,6 +255,33 @@ def test_build_sql_query_simple__joins(join_type) -> None:
     assert value == []
 
 
+@pytest.mark.parametrize('join_type', [JoinType.INNER, JoinType.LEFT, JoinType.RIGHT, JoinType.FULL])
+def test_build_sql_query_simple_with_namespace__joins(join_type) -> None:
+    sql, value = build_sql_query(
+        query=QueryStatement(
+            table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST, alias='u'),
+            joins=[
+                JoinQuery(
+                    table=SchemaReference(name='user_roles', namespace='ns2', version=Version.LATEST, alias='ur'),
+                    on=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='user_id'), table_name='ur'),
+                            lookup=FieldLookup.EQ,
+                            value=FieldReference(field=Field(name='id'), table_name='u'),
+                        ),
+                    ),
+                    join_type=join_type,
+                ),
+            ],
+        ),
+    )
+
+    assert sql == (
+        f'SELECT * FROM ns1.users AS u {join_type.value} JOIN ns2.user_roles AS ur ON ur.user_id = u.id'  # noqa: S608
+    )
+    assert value == []
+
+
 def test_build_sql_query_simple__group_by() -> None:
     sql, value = build_sql_query(
         query=QueryStatement(
@@ -250,6 +337,29 @@ def test_build_sql_query_complex() -> None:
     assert value == [18]
 
 
+def test_build_sql_query_complex_with_namespace() -> None:
+    sql, value = build_sql_query(
+        query=QueryStatement(
+            table=SubQueryStatement(
+                query=QueryStatement(
+                    table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST, alias='u'),
+                    where=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='age'), table_name='u'),
+                            lookup=FieldLookup.GTE,
+                            value=Value(18),
+                        ),
+                    ),
+                ),
+                alias='sub',
+            ),
+        ),
+    )
+
+    assert sql == 'SELECT * FROM (SELECT * FROM ns1.users AS u WHERE u.age >= ?) AS sub'
+    assert value == [18]
+
+
 def test_build_sql_query_complex_joins() -> None:
     sql, value = build_sql_query(
         query=QueryStatement(
@@ -288,7 +398,7 @@ def test_build_sql_query_complex_joins() -> None:
                         Condition(
                             field=FieldReference(field=Field(name='user_id'), table_name='ur'),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='id'), table_name='u'),
+                            value=FieldReference(field=Field(name='id'), table_name='sub'),
                         ),
                     ),
                     join_type=JoinType.LEFT,
@@ -301,6 +411,127 @@ def test_build_sql_query_complex_joins() -> None:
         'SELECT * FROM '
         '(SELECT * FROM users AS u WHERE u.age >= ?) AS sub '
         'LEFT JOIN (SELECT ur.role FROM user_roles AS ur WHERE ur.role GLOB ?) AS ur '
-        'ON ur.user_id = u.id'
+        'ON ur.user_id = sub.id'
+    )
+    assert value == [18, 'staff_*']
+
+
+def test_build_sql_query_complex_joins_with_namespace() -> None:
+    sql, value = build_sql_query(
+        query=QueryStatement(
+            table=SubQueryStatement(
+                query=QueryStatement(
+                    table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST, alias='u'),
+                    where=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='age'), table_name='u'),
+                            lookup=FieldLookup.GTE,
+                            value=Value(18),
+                        ),
+                    ),
+                ),
+                alias='sub',
+            ),
+            joins=[
+                JoinQuery(
+                    table=SubQueryStatement(
+                        query=QueryStatement(
+                            table=SchemaReference(
+                                name='user_roles',
+                                namespace='ns2',
+                                version=Version.LATEST,
+                                alias='ur',
+                            ),
+                            only=[
+                                FieldReference(field=Field(name='role'), table_name='ur'),
+                            ],
+                            where=Conditions(
+                                Condition(
+                                    field=FieldReference(field=Field(name='role'), table_name='ur'),
+                                    lookup=FieldLookup.STARTSWITH,
+                                    value=Value('staff_'),
+                                ),
+                            ),
+                        ),
+                        alias='ur',
+                    ),
+                    on=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='user_id'), table_name='ur'),
+                            lookup=FieldLookup.EQ,
+                            value=FieldReference(field=Field(name='id'), table_name='sub'),
+                        ),
+                    ),
+                    join_type=JoinType.LEFT,
+                ),
+            ],
+        ),
+    )
+
+    assert sql == (
+        'SELECT * FROM '
+        '(SELECT * FROM ns1.users AS u WHERE u.age >= ?) AS sub '
+        'LEFT JOIN (SELECT ur.role FROM ns2.user_roles AS ur WHERE ur.role GLOB ?) AS ur '
+        'ON ur.user_id = sub.id'
+    )
+    assert value == [18, 'staff_*']
+
+
+def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
+    sql, value = build_sql_query(
+        query=QueryStatement(
+            table=SubQueryStatement(
+                query=QueryStatement(
+                    table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
+                    where=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='age'), table_name='users', namespace='ns1'),
+                            lookup=FieldLookup.GTE,
+                            value=Value(18),
+                        ),
+                    ),
+                ),
+                alias='sub',
+            ),
+            joins=[
+                JoinQuery(
+                    table=SubQueryStatement(
+                        query=QueryStatement(
+                            table=SchemaReference(name='user_roles', namespace='ns2', version=Version.LATEST),
+                            only=[
+                                FieldReference(field=Field(name='role'), table_name='user_roles', namespace='ns2'),
+                            ],
+                            where=Conditions(
+                                Condition(
+                                    field=FieldReference(
+                                        field=Field(name='role'),
+                                        table_name='user_roles',
+                                        namespace='ns2',
+                                    ),
+                                    lookup=FieldLookup.STARTSWITH,
+                                    value=Value('staff_'),
+                                ),
+                            ),
+                        ),
+                        alias='ur',
+                    ),
+                    on=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='user_id'), table_name='ur'),
+                            lookup=FieldLookup.EQ,
+                            value=FieldReference(field=Field(name='id'), table_name='sub'),
+                        ),
+                    ),
+                    join_type=JoinType.LEFT,
+                ),
+            ],
+        ),
+    )
+
+    assert sql == (
+        'SELECT * FROM '
+        '(SELECT * FROM ns1.users WHERE ns1.users.age >= ?) AS sub '
+        'LEFT JOIN (SELECT ns2.user_roles.role FROM ns2.user_roles WHERE ns2.user_roles.role GLOB ?) AS ur '
+        'ON ur.user_id = sub.id'
     )
     assert value == [18, 'staff_*']

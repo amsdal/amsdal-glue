@@ -43,6 +43,7 @@ def sqlite_value_json_transform(value: Any) -> Any:
 
 def sqlite_field_json_transform(  # noqa: PLR0913
     table_alias: str,
+    namespace: str,  # noqa: ARG001
     field: str,
     fields: list[str],
     value_type: Any = str,

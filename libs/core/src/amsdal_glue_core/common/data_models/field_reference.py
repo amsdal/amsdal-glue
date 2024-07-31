@@ -23,6 +23,7 @@ class Field:
 class FieldReference:
     field: Field
     table_name: str
+    namespace: str = ''
 
     def __repr__(self) -> str:
         return f'{self.table_name}.{self.field!r}'
