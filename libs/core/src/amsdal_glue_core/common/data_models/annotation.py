@@ -6,10 +6,23 @@ from amsdal_glue_core.common.expressions.value import Value
 
 @dataclass(kw_only=True)
 class ValueAnnotation:
+    """Represents a value annotation.
+
+    Attributes:
+        value (Value): The value being annotated.
+        alias (str): The alias for the annotation.
+    """
+
     value: Value
     alias: str
 
 
 @dataclass(kw_only=True)
 class AnnotationQuery:
+    """Represents an annotation query.
+
+    Attributes:
+        value (SubQueryStatement | ValueAnnotation): The value or subquery being annotated.
+    """
+
     value: SubQueryStatement | ValueAnnotation

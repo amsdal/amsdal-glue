@@ -9,7 +9,7 @@ from typing import Any
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
@@ -347,7 +347,7 @@ class SqliteConnection(ConnectionBase):
 
         constraints.extend(
             [
-                ForeignKeySchema(
+                ForeignKeyConstraint(
                     name=fk[0],
                     fields=[fk[3]],
                     reference_schema=SchemaReference(
@@ -388,7 +388,7 @@ class SqliteConnection(ConnectionBase):
     @staticmethod
     def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
         for constraint in constraints:
-            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeySchema | UniqueConstraint):
+            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
                 continue
 
             if index_fields == constraint.fields:

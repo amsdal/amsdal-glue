@@ -3,7 +3,7 @@ from typing import Any
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
@@ -144,7 +144,7 @@ def build_constraint(constraint: BaseConstraint) -> str:
         fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
 
         return f"CONSTRAINT '{constraint.name}' PRIMARY KEY ({fields_str})"
-    if isinstance(constraint, ForeignKeySchema):
+    if isinstance(constraint, ForeignKeyConstraint):
         fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
 
         return (

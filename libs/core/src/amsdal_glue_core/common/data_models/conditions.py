@@ -11,6 +11,15 @@ _SKIP_FLATTEN = object()
 
 @dataclass(kw_only=True)
 class Condition:
+    """Represents a condition in a query.
+
+    Attributes:
+        field (FieldReference): The field to which the condition applies.
+        lookup (FieldLookup): The lookup type for the condition.
+        value (Value | FieldReference): The value or field reference for the condition.
+        negate (bool): Whether the condition is negated. Defaults to False.
+    """
+
     field: FieldReference
     lookup: FieldLookup
     value: Value | FieldReference
@@ -18,6 +27,14 @@ class Condition:
 
 
 class Conditions:
+    """Represents a collection of conditions in a query.
+
+    Attributes:
+        children (list[Union[Conditions, Condition]]): The list of child conditions.
+        connector (FilterConnector): The connector type (AND/OR) for the conditions.
+        negated (bool): Whether the conditions are negated. Defaults to False.
+    """
+
     def __init__(
         self,
         *args: Union['Conditions', Condition, object],

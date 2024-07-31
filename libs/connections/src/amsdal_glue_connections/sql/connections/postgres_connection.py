@@ -18,7 +18,7 @@ from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
@@ -433,7 +433,7 @@ class PostgresConnection(ConnectionBase):
                 cursor.close()
 
                 constraints.append(
-                    ForeignKeySchema(
+                    ForeignKeyConstraint(
                         name=raw_constrain[0],
                         fields=[fid_to_name.get(fk) for fk in raw_constrain[3]],
                         reference_schema=SchemaReference(
@@ -478,7 +478,7 @@ class PostgresConnection(ConnectionBase):
     @staticmethod
     def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
         for constraint in constraints:
-            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeySchema | UniqueConstraint):
+            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
                 continue
 
             if index_fields == constraint.fields:
@@ -739,7 +739,7 @@ class PostgresConnection(ConnectionBase):
     def _build_constraint(self, constraint: BaseConstraint) -> str:
         if isinstance(constraint, PrimaryKeyConstraint):
             return f'CONSTRAINT {constraint.name} ' f'PRIMARY KEY ({", ".join(constraint.fields)}) '
-        if isinstance(constraint, ForeignKeySchema):
+        if isinstance(constraint, ForeignKeyConstraint):
             return (
                 f'CONSTRAINT "{constraint.name}" '
                 f'FOREIGN KEY ({", ".join(constraint.fields)}) '
