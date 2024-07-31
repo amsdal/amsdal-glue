@@ -44,7 +44,7 @@ def build_schema_mutation(  # noqa: C901, PLR0911
     if isinstance(mutation, RegisterSchema):
         return [
             build_create_table(mutation.schema, type_transform=type_transform),
-            *build_create_indexes(mutation.schema.name, mutation.schema.indexes or []),
+            *build_create_indexes(mutation.schema.name, mutation.schema.namespace, mutation.schema.indexes or []),
         ]
 
     if isinstance(mutation, DeleteSchema):
@@ -89,7 +89,7 @@ def build_schema_mutation(  # noqa: C901, PLR0911
 
     if isinstance(mutation, AddIndex):
         return [
-            build_index(mutation.schema_reference.name, mutation.index),
+            build_index(mutation.schema_reference.name, mutation.schema_reference.namespace, mutation.index),
         ]
 
     if isinstance(mutation, DeleteIndex):
@@ -112,7 +112,8 @@ def build_create_table(schema: Schema, type_transform: Callable[[Any], str]) -> 
         _constraint_stmt = build_constraint(_constraint)
         _constraint_stmts.append(_constraint_stmt)
 
-    stmt = f"CREATE TABLE '{schema.name}' ("
+    _namespace_prefix = f"'{schema.namespace}'." if schema.namespace else ''
+    stmt = f"CREATE TABLE {_namespace_prefix}'{schema.name}' ("
     stmt += ', '.join(build_column(column, type_transform=type_transform) for column in schema.properties)
 
     if _constraint_stmts:
@@ -124,13 +125,14 @@ def build_create_table(schema: Schema, type_transform: Callable[[Any], str]) -> 
     return stmt
 
 
-def build_create_indexes(schema_name: str, indexes: list[IndexSchema]) -> list[str]:
-    return [build_index(schema_name, index) for index in indexes]
+def build_create_indexes(schema_name: str, namespace: str, indexes: list[IndexSchema]) -> list[str]:
+    return [build_index(schema_name, namespace, index) for index in indexes]
 
 
-def build_index(schema_name: str, index: IndexSchema) -> str:
+def build_index(schema_name: str, namespace: str, index: IndexSchema) -> str:
     fields_str = ', '.join(f"'{field}'" for field in index.fields)
-    _index = f"CREATE INDEX '{index.name}' ON '{schema_name}' ({fields_str})"
+    _namespace_prefix = f"'{namespace}'." if namespace else ''
+    _index = f"CREATE INDEX {_namespace_prefix}'{index.name}' ON {_namespace_prefix}'{schema_name}' ({fields_str})"
 
     if index.condition:
         where, _ = build_where(index.condition, operator_constructor=repr_operator_constructor)
@@ -170,11 +172,15 @@ def build_column(column: PropertySchema, type_transform: Callable[[Any], str]) -
 
 
 def build_drop_table(schema_reference: SchemaReference) -> str:
-    return f"DROP TABLE '{schema_reference.name}'"
+    _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
+
+    return f"DROP TABLE {_namespace_prefix}'{schema_reference.name}'"
 
 
 def build_rename_table(schema_reference: SchemaReference, new_schema_name: str) -> str:
-    return f"ALTER TABLE '{schema_reference.name}' RENAME TO '{new_schema_name}'"
+    _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
+
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' RENAME TO '{new_schema_name}'"
 
 
 def build_add_column(
@@ -183,15 +189,21 @@ def build_add_column(
     type_transform: Callable[[Any], str],
 ) -> str:
     _column = build_column(property_obj, type_transform=type_transform)
-    return f"ALTER TABLE '{schema_reference.name}' ADD COLUMN {_column}"
+    _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
+
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' ADD COLUMN {_column}"
 
 
 def build_drop_column(schema_reference: SchemaReference, property_name: str) -> str:
-    return f"ALTER TABLE '{schema_reference.name}' DROP COLUMN '{property_name}'"
+    _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
+
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' DROP COLUMN '{property_name}'"
 
 
 def build_rename_column(schema_reference: SchemaReference, old_name: str, new_name: str) -> str:
-    return f"ALTER TABLE '{schema_reference.name}' RENAME COLUMN '{old_name}' TO '{new_name}'"
+    _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
+
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' RENAME COLUMN '{old_name}' TO '{new_name}'"
 
 
 def build_update_column(
@@ -200,7 +212,9 @@ def build_update_column(
     type_transform: Callable[[Any], str],
 ) -> str:
     _column = build_column(property_obj, type_transform=type_transform)
-    return f"ALTER TABLE '{schema_reference.name}' ALTER COLUMN {_column}"
+    _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
+
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' ALTER COLUMN {_column}"
 
 
 def build_full_constraint_stmt(schema_reference: SchemaReference, constraint: BaseConstraint) -> str:  # noqa: ARG001
@@ -213,5 +227,6 @@ def build_drop_constraint(schema_reference: SchemaReference, constraint_name: st
     raise NotImplementedError(msg)
 
 
-def build_drop_index(schema_reference: SchemaReference, index_name: str) -> str:  # noqa: ARG001
-    return f"DROP INDEX '{index_name}'"
+def build_drop_index(schema_reference: SchemaReference, index_name: str) -> str:
+    _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
+    return f"DROP INDEX {_namespace_prefix}'{index_name}'"

@@ -668,7 +668,9 @@ class PostgresConnection(ConnectionBase):
             _constraint_stmt = self._build_constraint(_constraint)
             _constraint_stmts.append(_constraint_stmt)
 
-        stmt = f'CREATE TABLE "{schema.name}" ('
+        _namespace_prefix = f'"{schema.namespace}".' if schema.namespace else ''
+
+        stmt = f'CREATE TABLE {_namespace_prefix}"{schema.name}" ('
         stmt += ', '.join(self._build_column(column) for column in schema.properties)
 
         if _constraint_stmts:
@@ -680,51 +682,65 @@ class PostgresConnection(ConnectionBase):
         self.execute(stmt)
 
         for _index in schema.indexes or []:
-            _index_stmt = self._build_index(schema.name, _index)
+            _index_stmt = self._build_index(schema.name, schema.namespace, _index)
             self.execute(_index_stmt)
 
     def _drop_table(self, schema_reference: SchemaReference) -> None:
-        stmt = f'DROP TABLE "{schema_reference.name}"'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+        stmt = f'DROP TABLE {_namespace_prefix}"{schema_reference.name}"'
         self.execute(stmt)
 
     def _rename_table(self, schema_reference: SchemaReference, new_schema_name: str) -> None:
-        stmt = f'ALTER TABLE "{schema_reference.name}" RENAME TO "{new_schema_name}"'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" RENAME TO "{new_schema_name}"'
         self.execute(stmt)
 
     def _add_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
         _column = self._build_column(_property, force_nullable=True)
-        stmt = f'ALTER TABLE "{schema_reference.name}" ADD COLUMN {_column}'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ADD COLUMN {_column}'
         self.execute(stmt)
 
     def _drop_column(self, schema_reference: SchemaReference, property_name: str) -> None:
-        stmt = f'ALTER TABLE "{schema_reference.name}" DROP COLUMN "{property_name}"'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" DROP COLUMN "{property_name}"'
         self.execute(stmt)
 
     def _rename_column(self, schema_reference: SchemaReference, old_name: str, new_name: str) -> None:
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
         stmt = f'ALTER TABLE "{schema_reference.name}" RENAME COLUMN "{old_name}" TO "{new_name}"'
         self.execute(stmt)
 
     def _update_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
         _column = self._build_column_update(_property)
-        stmt = f'ALTER TABLE "{schema_reference.name}" ALTER COLUMN {_column}'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ALTER COLUMN {_column}'
         self.execute(stmt)
 
     def _add_constraint(self, schema_reference: SchemaReference, constraint: BaseConstraint) -> None:
         _constraint_stmt = self._build_constraint(constraint)
-        stmt = f'ALTER TABLE "{schema_reference.name}" ADD {_constraint_stmt}'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ADD {_constraint_stmt}'
         self.execute(stmt)
 
     def _drop_constraint(self, schema_reference: SchemaReference, constraint_name: str) -> None:
-        stmt = f'ALTER TABLE "{schema_reference.name}" DROP CONSTRAINT "{constraint_name}"'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" DROP CONSTRAINT "{constraint_name}"'
         self.execute(stmt)
 
     def _add_index(self, schema_reference: SchemaReference, index: IndexSchema) -> None:
-        _index_stmt = self._build_index(schema_reference.name, index)
+        _index_stmt = self._build_index(schema_reference.name, schema_reference.namespace, index)
 
         self.execute(_index_stmt)
 
-    def _drop_index(self, schema_reference: SchemaReference, index_name: str) -> None:  # noqa: ARG002
-        stmt = f'DROP INDEX "{index_name}"'
+    def _drop_index(self, schema_reference: SchemaReference, index_name: str) -> None:
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+        stmt = f'DROP INDEX {_namespace_prefix}"{index_name}"'
         self.execute(stmt)
 
     def _build_column(self, column: PropertySchema, *, force_nullable: bool = False) -> str:
@@ -761,8 +777,12 @@ class PostgresConnection(ConnectionBase):
         msg = f'Unsupported constraint: {type(constraint)}'
         raise ValueError(msg)
 
-    def _build_index(self, schema_name: str, index: IndexSchema) -> str:
-        _index = f'CREATE INDEX "{index.name}" ON "{schema_name}" ({", ".join(index.fields)})'
+    def _build_index(self, schema_name: str, namespace: str, index: IndexSchema) -> str:
+        _namespace_prefix = f'"{namespace}".' if namespace else ''
+        _index = (
+            f'CREATE INDEX {_namespace_prefix}"{index.name}" '
+            f'ON {_namespace_prefix}"{schema_name}" ({", ".join(index.fields)})'
+        )
 
         if index.condition:
             where, _ = build_where(

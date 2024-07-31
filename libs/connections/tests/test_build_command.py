@@ -38,6 +38,31 @@ def test_build_data_command__insert() -> None:
     assert values == [1, 'Alice', 2, 'Bob']
 
 
+def test_build_data_command_with_namespace__insert() -> None:
+    sql, values = build_sql_data_command(
+        mutation=InsertData(
+            schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
+            data=[
+                Data(
+                    data={
+                        'id': 1,
+                        'name': 'Alice',
+                    },
+                ),
+                Data(
+                    data={
+                        'id': 2,
+                        'name': 'Bob',
+                    },
+                ),
+            ],
+        ),
+    )
+
+    assert sql == 'INSERT INTO ns1.users (id, name) VALUES (?, ?), (?, ?)'
+    assert values == [1, 'Alice', 2, 'Bob']
+
+
 def test_build_data_command__update() -> None:
     sql, values = build_sql_data_command(
         mutation=UpdateData(
@@ -57,6 +82,44 @@ def test_build_data_command__update() -> None:
     assert values == ['staff', True]
 
 
+def test_build_data_command_with_namespace__update() -> None:
+    sql, values = build_sql_data_command(
+        mutation=UpdateData(
+            schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
+            data=Data(data={'role': 'staff'}),
+            query=Conditions(
+                Condition(
+                    field=FieldReference(field=Field(name='is_active'), table_name='users'),
+                    lookup=FieldLookup.EXACT,
+                    value=Value(True),  # noqa: FBT003
+                ),
+            ),
+        ),
+    )
+
+    assert sql == 'UPDATE ns1.users SET role = ? WHERE users.is_active IS ?'
+    assert values == ['staff', True]
+
+
+def test_build_data_command_with_namespaces__update() -> None:
+    sql, values = build_sql_data_command(
+        mutation=UpdateData(
+            schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
+            data=Data(data={'role': 'staff'}),
+            query=Conditions(
+                Condition(
+                    field=FieldReference(field=Field(name='is_active'), table_name='users', namespace='ns1'),
+                    lookup=FieldLookup.EXACT,
+                    value=Value(True),  # noqa: FBT003
+                ),
+            ),
+        ),
+    )
+
+    assert sql == 'UPDATE ns1.users SET role = ? WHERE ns1.users.is_active IS ?'
+    assert values == ['staff', True]
+
+
 def test_build_data_command__delete() -> None:
     sql, values = build_sql_data_command(
         mutation=DeleteData(
@@ -72,4 +135,40 @@ def test_build_data_command__delete() -> None:
     )
 
     assert sql == 'DELETE FROM users WHERE users.is_active IS ?'
+    assert values == [False]
+
+
+def test_build_data_command_with_namespace__delete() -> None:
+    sql, values = build_sql_data_command(
+        mutation=DeleteData(
+            schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
+            query=Conditions(
+                Condition(
+                    field=FieldReference(field=Field(name='is_active'), table_name='users'),
+                    lookup=FieldLookup.EXACT,
+                    value=Value(False),  # noqa: FBT003
+                ),
+            ),
+        ),
+    )
+
+    assert sql == 'DELETE FROM ns1.users WHERE users.is_active IS ?'
+    assert values == [False]
+
+
+def test_build_data_command_with_namespaces__delete() -> None:
+    sql, values = build_sql_data_command(
+        mutation=DeleteData(
+            schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
+            query=Conditions(
+                Condition(
+                    field=FieldReference(field=Field(name='is_active'), table_name='users', namespace='ns1'),
+                    lookup=FieldLookup.EXACT,
+                    value=Value(False),  # noqa: FBT003
+                ),
+            ),
+        ),
+    )
+
+    assert sql == 'DELETE FROM ns1.users WHERE ns1.users.is_active IS ?'
     assert values == [False]

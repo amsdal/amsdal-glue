@@ -98,11 +98,15 @@ def build_sql_data_command(  # noqa: PLR0913
 def _build_sql_insert_data(
     command: InsertData,
     value_placeholder: str,
+    table_separator: str = '.',
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
 ) -> tuple[str, list[Any]]:
-    stmt = f'INSERT INTO {table_quote}{command.schema.name}{table_quote}'
+    _namespace_prefix = (
+        f'{table_quote}{command.schema.namespace}{table_quote}{table_separator}' if command.schema.namespace else ''
+    )
+    stmt = f'INSERT INTO {_namespace_prefix}{table_quote}{command.schema.name}{table_quote}'
 
     if not command.data:
         msg = 'No data provided for insert operation'
@@ -149,7 +153,10 @@ def _build_sql_update_data(  # noqa: PLR0913
         [str, str, str, list[str], Any, str, str, str], str
     ] = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
-    stmt = f'UPDATE {table_quote}{command.schema.name}{table_quote}'
+    _namespace_prefix = (
+        f'{table_quote}{command.schema.namespace}{table_quote}{table_separator}' if command.schema.namespace else ''
+    )
+    stmt = f'UPDATE {_namespace_prefix}{table_quote}{command.schema.name}{table_quote}'
 
     if command.schema.alias:
         stmt += f' AS {table_quote}{command.schema.alias}{table_quote}'
@@ -211,7 +218,10 @@ def _build_sql_delete_data(  # noqa: PLR0913
         [str, str, str, list[str], Any, str, str, str], str
     ] = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
-    stmt = f'DELETE FROM {table_quote}{command.schema.name}{table_quote}'  # noqa: S608
+    _namespace_prefix = (
+        f'{table_quote}{command.schema.namespace}{table_quote}{table_separator}' if command.schema.namespace else ''
+    )
+    stmt = f'DELETE FROM {_namespace_prefix}{table_quote}{command.schema.name}{table_quote}'  # noqa: S608
 
     if command.schema.alias:
         stmt += f' AS {table_quote}{command.schema.alias}{table_quote}'
