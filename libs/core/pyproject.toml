@@ -26,9 +26,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Documentation = "https://pypi.org/project/amsdal_glue_core/#readme"
-Issues = "https://pypi.org/project/amsdal_glue_core/"
-Source = "https://pypi.org/project/amsdal_glue_core/"
+Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
+Issues = "https://github.com/amsdal/amsdal-glue/issues"
+Source = "https://github.com/amsdal/amsdal-glue/"
 
 [tool.hatch.version]
 path = "src/amsdal_glue_core/__about__.py"
