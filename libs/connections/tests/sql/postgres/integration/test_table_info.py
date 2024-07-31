@@ -1,7 +1,7 @@
 import datetime
 
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
-from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -38,7 +38,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
                     'id',
                 ],
             ),
-            ForeignKeySchema(
+            ForeignKeyConstraint(
                 name='orders_customer_id_fkey',
                 fields=['customer_id'],
                 reference_schema=SchemaReference(name='customers', version=Version.LATEST, alias=None),
@@ -81,7 +81,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
             ],
             constraints=[
                 PrimaryKeyConstraint(name='orders_pkey', fields=['id']),
-                ForeignKeySchema(
+                ForeignKeyConstraint(
                     name='orders_customer_id_fkey',
                     fields=['customer_id'],
                     reference_schema=SchemaReference(name='customers', version=Version.LATEST, alias=None),

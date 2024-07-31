@@ -20,10 +20,10 @@ from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.value import Value
 
 
-def query_customers(database_connection: PostgresConnection) -> list[Data]:
+def query_customers(database_connection: PostgresConnection, namespace: str = '') -> list[Data]:
     return database_connection.query(
         QueryStatement(
-            table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+            table=SchemaReference(name='customers', alias='c', namespace=namespace, version=Version.LATEST),
             order_by=[
                 OrderByQuery(
                     field=FieldReference(field=Field(name='id'), table_name='c'),

@@ -3,6 +3,7 @@ from typing import Any
 
 def default_nested_field_transform(  # noqa: PLR0913
     table_alias: str,
+    namespace: str,
     field: str,
     fields: list[str],
     value_type: Any = str,  # noqa: ARG001
@@ -13,6 +14,11 @@ def default_nested_field_transform(  # noqa: PLR0913
     stmt = '__'.join([field, *fields])
 
     if table_alias:
-        stmt = f'{table_quote}{table_alias}{table_quote}{table_separator}{field_quote}{stmt}{field_quote}'
+        _namespace_prefix = f'{table_quote}{namespace}{table_quote}{table_separator}' if namespace else ''
+        stmt = (
+            f'{_namespace_prefix}'
+            f'{table_quote}{table_alias}{table_quote}{table_separator}'
+            f'{field_quote}{stmt}{field_quote}'
+        )
 
     return stmt

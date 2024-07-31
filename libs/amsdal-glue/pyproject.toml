@@ -24,14 +24,22 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue-connections>=0.0.5",
+    "amsdal-glue-connections>=0.0.7",
     "polars>=0.20"
 ]
 
+[project.optional-dependencies]
+postgres = [
+    "amsdal-glue-connections[postgres]",
+]
+postgres-binary = [
+    "amsdal-glue-connections[postgres-binary]",
+]
+
 [project.urls]
-Documentation = "https://pypi.org/project/amsdal_glue/#readme"
-Issues = "https://pypi.org/project/amsdal_glue/"
-Source = "https://pypi.org/project/amsdal_glue/"
+Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
+Issues = "https://github.com/amsdal/amsdal-glue/issues"
+Source = "https://github.com/amsdal/amsdal-glue/"
 
 [tool.hatch.version]
 path = "src/amsdal_glue/__about__.py"
@@ -44,7 +52,7 @@ extra-dependencies = [
     "pytest>=8.2.1",
     "pytest-mock>=3.14.0",
     "ruff>=0.4.5",
-    "amsdal-glue-connections[postgres]",
+    "amsdal-glue[postgres-binary]",
 ]
 pre-install-commands = [
   "pip install -e ../core/",

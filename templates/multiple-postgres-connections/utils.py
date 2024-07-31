@@ -1,53 +1,33 @@
-from amsdal_glue_core.common.data_models.schema import Schema
-
-from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.schema import PropertySchema
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.commands import SchemaCommand
-from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
-from amsdal_glue_core.common.services.commands import SchemaCommandService
-from amsdal_glue_core.containers import Container
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue_connections.sql.connections.postgres_connection import (
-    PostgresConnection,
-)
-
-from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
-from amsdal_glue_core.common.services.queries import SchemaQueryService
-
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.operations.commands import DataCommand
-from amsdal_glue_core.common.operations.mutations.data import InsertData
-from amsdal_glue_core.common.services.commands import DataCommandService
-
-from amsdal_glue_core.common.data_models.data import Data
-
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.join import JoinQuery
-from amsdal_glue_core.common.data_models.order_by import OrderByQuery
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.enums import JoinType
-from amsdal_glue_core.common.enums import OrderDirection
-from amsdal_glue_core.common.operations.queries import DataQueryOperation
-from amsdal_glue_core.common.services.queries import DataQueryService
+import amsdal_glue
+from amsdal_glue import Condition
+from amsdal_glue import Conditions
+from amsdal_glue import Data
+from amsdal_glue import Field
+from amsdal_glue import FieldLookup
+from amsdal_glue import FieldReference
+from amsdal_glue import JoinQuery
+from amsdal_glue import JoinType
+from amsdal_glue import OrderByQuery
+from amsdal_glue import OrderDirection
+from amsdal_glue import PrimaryKeyConstraint
+from amsdal_glue import PropertySchema
+from amsdal_glue import QueryStatement
+from amsdal_glue import Schema
+from amsdal_glue import SchemaReference
+from amsdal_glue import Version
 
 
 def register_connections() -> None:
-    existing_db_pool = DefaultConnectionPool(
-        PostgresConnection,
+    existing_db_pool = amsdal_glue.DefaultConnectionPool(
+        amsdal_glue.PostgresConnection,
         dsn="postgres://db_user:db_password@localhost:5432/db_name_1",
     )
-    new_db_pool = DefaultConnectionPool(
-        PostgresConnection,
+    new_db_pool = amsdal_glue.DefaultConnectionPool(
+        amsdal_glue.PostgresConnection,
         dsn="postgres://db_user:db_password@localhost:5433/db_name_2",
     )
 
-    connection_mng = Container.managers.get(ConnectionManager)
+    connection_mng = amsdal_glue.Container.managers.get(amsdal_glue.ConnectionManager)
     connection_mng.register_connection_pool(existing_db_pool)
     connection_mng.register_connection_pool(new_db_pool, schema_name="shipping")
 
@@ -78,11 +58,11 @@ def create_schema_in_new_db() -> None:
         ],
     )
 
-    service = Container.services.get(SchemaCommandService)
+    service = amsdal_glue.Container.services.get(amsdal_glue.SchemaCommandService)
     result = service.execute(
-        SchemaCommand(
+        amsdal_glue.SchemaCommand(
             mutations=[
-                RegisterSchema(schema=shipping_schema),
+                amsdal_glue.RegisterSchema(schema=shipping_schema),
             ],
         ),
     )
@@ -91,9 +71,9 @@ def create_schema_in_new_db() -> None:
 
 
 def fetch_schemas() -> list[Schema]:
-    query_service = Container.services.get(SchemaQueryService)
+    query_service = amsdal_glue.Container.services.get(amsdal_glue.SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        amsdal_glue.SchemaQueryOperation(filters=None),
     )
     assert result.success is True, result.message
     assert result.schemas is not None
@@ -102,11 +82,11 @@ def fetch_schemas() -> list[Schema]:
 
 
 def create_new_records() -> None:
-    service = Container.services.get(DataCommandService)
+    service = amsdal_glue.Container.services.get(amsdal_glue.DataCommandService)
     result = service.execute(
-        command=DataCommand(
+        command=amsdal_glue.DataCommand(
             mutations=[
-                InsertData(
+                amsdal_glue.InsertData(
                     schema=SchemaReference(name="shipping", version=Version.LATEST),
                     data=[
                         Data(
@@ -192,9 +172,9 @@ def fetch_customers_and_their_shipping_status() -> list[Data]:
         ],
     )
 
-    service = Container.services.get(DataQueryService)
+    service = amsdal_glue.Container.services.get(amsdal_glue.DataQueryService)
     data_result = service.execute(
-        query_op=DataQueryOperation(
+        query_op=amsdal_glue.DataQueryOperation(
             query=query,
         ),
     )

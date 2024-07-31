@@ -34,7 +34,7 @@ The project aims to solve several challenges:
 
 3. **Performance**: At it's core [amsdal-glue-core](libs/core/) simply provides you a common interface to interact with data, allowing you to delegate as much of the workload to the underlying database technology as possible. 
 
-In essensce, by detaching your applicaiton from its data, AMSDAL Glue simplifies the process of writing and maintaining database-related code with a minimal sacrifice of flexibility or perfmance. 
+In essence, by detaching your application from its data, AMSDAL Glue simplifies the process of writing and maintaining database-related code with a minimal sacrifice of flexibility or perfmance. 
 
 For more information, please refer to the [Overview](docs/overview.md).
 
@@ -52,11 +52,16 @@ pip install amsdal-glue
 
 This command automatically installs `amsdal-glue-core` and `amsdal-glue-connections` packages as dependencies.
 Note, the `amsdal-glue-connections` will be installed without extra dependencies.
-If you want to use `PostgresConnection` in order to connect to postgres database, you need explicitly install the
-`amsdal-glue-connections` with the `postgres` extra dependency:
+If you want to use `PostgresConnection` in order to connect to postgres database, you need explicitly install 
+the `postgres` or `postgres-binary` extra dependency:
 
 ```bash
-pip install amsdal-glue-connections[postgres]
+# It will install the `psycopg` package, usually it will build from source, that is slower than the `postgres-binary` 
+# package, but it is recommended for production use.
+pip install amsdal-glue[postgres]
+
+# Or you can install the `psycopg-binary` dependency, it is faster than the `psycopg` package installation.
+pip install amsdal-glue[postgres-binary]
 ```
 
 ## Usage
@@ -64,30 +69,28 @@ pip install amsdal-glue-connections[postgres]
 Here is a simple example of how to use the `amsdal-glue` package to connect to a SQLite database and execute a query:
 
 ```python
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue.initialize import init_default_containers
-from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.order_by import OrderByQuery
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import OrderDirection
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.queries import DataQueryOperation
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
-from amsdal_glue_core.common.services.queries import DataQueryService
-from amsdal_glue_core.containers import Container
+import amsdal_glue
+from amsdal_glue import (
+    init_default_containers,
+    QueryStatement,
+    FieldReference,
+    Field,
+    OrderByQuery,
+    OrderDirection,
+    SchemaReference,
+    Version,
+    DataQueryOperation,
+)
 
 
 def main() -> None:
     init_default_containers()
 
     # Register a connection to a SQLite database
-    connection_mng = Container.managers.get(ConnectionManager)
+    connection_mng = amsdal_glue.Container.managers.get(amsdal_glue.ConnectionManager)
     connection_mng.register_connection_pool(
-        DefaultConnectionPool(
-            SqliteConnection,
+        amsdal_glue.DefaultConnectionPool(
+            amsdal_glue.SqliteConnection,
             db_path='customers.sqlite',
             check_same_thread=False,  # The default parallel executor works on top of threads
         ),
@@ -109,7 +112,7 @@ def main() -> None:
     )
 
     # Execute the query
-    service = Container.services.get(DataQueryService)
+    service = amsdal_glue.Container.services.get(amsdal_glue.DataQueryService)
     data_result = service.execute(
         query_op=DataQueryOperation(
             query=query,

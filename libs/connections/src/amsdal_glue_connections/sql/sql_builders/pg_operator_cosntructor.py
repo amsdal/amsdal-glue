@@ -19,7 +19,9 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[[str, str, list[str], Any, str, str, str], str] = default_nested_field_transform,
+    nested_field_transform: Callable[
+        [str, str, str, list[str], Any, str, str, str], str
+    ] = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     """
     Constructs an SQL operator for the given field and lookup for PostgreSQL.

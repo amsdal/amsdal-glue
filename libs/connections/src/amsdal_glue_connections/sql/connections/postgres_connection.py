@@ -18,7 +18,7 @@ from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
@@ -67,6 +67,7 @@ def pg_value_json_transform(value: Any) -> Any:
 
 def pg_field_json_transform(  # noqa: PLR0913
     table_alias: str,
+    namespace: str,
     field: str,
     fields: list[str],
     value_type: Any = str,
@@ -84,8 +85,11 @@ def pg_field_json_transform(  # noqa: PLR0913
         _cast_type = 'text'
 
     nested_fields_selection = '->>'.join(f"'{_field}'" for _field in fields)
+    _namespace_prefix = f'{table_quote}{namespace}{table_quote}{table_separator}' if namespace else ''
     _stmt = (
-        f'cast(({table_quote}{table_alias}{table_quote}{table_separator}{field_quote}{field}{field_quote}::json->'
+        f'cast(({_namespace_prefix}'
+        f'{table_quote}{table_alias}{table_quote}{table_separator}'
+        f'{field_quote}{field}{field_quote}::json->'
         f'{nested_fields_selection})::text as {_cast_type})'
     )
 
@@ -132,23 +136,43 @@ class PostgresConnection(ConnectionBase):
 
         return self._connection
 
-    def connect(self, dsn: str = '', **kwargs: Any) -> None:
+    def connect(
+        self,
+        dsn: str = '',
+        schema: str | None = None,
+        timezone: str = 'UTC',
+        **kwargs: Any,
+    ) -> None:
         """
         Establishes a connection to the PostgreSQL database.
 
         Args:
             dsn (str): The Data Source Name for the connection.
+            schema (str | None): The default schema to be used for the connection. If None,
+                                 the default schema usually is 'public'.
+            timezone (str): The timezone to be used for the connection.
             **kwargs: Additional connection parameters.
 
         Raises:
             ConnectionError: If the connection is already established.
+
+        Example:
+            connection = PostgresConnection()
+            connection.connect(
+                dsn='postgresql://user:password@localhost:5432/mydatabase',
+                schema='public',
+                timezone='UTC',
+            )
         """
         if self._connection is not None:
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
         self._connection = psycopg.connect(dsn, **kwargs)
-        self._connection.execute("SELECT set_config('TimeZone', %s, false)", [kwargs.get('timexone', 'UTC')])
+        self._connection.execute("SELECT set_config('TimeZone', %s, false)", [timezone])
+
+        if schema:
+            self._connection.execute(f'SET search_path TO {schema}')
 
     def disconnect(self) -> None:
         """
@@ -409,7 +433,7 @@ class PostgresConnection(ConnectionBase):
                 cursor.close()
 
                 constraints.append(
-                    ForeignKeySchema(
+                    ForeignKeyConstraint(
                         name=raw_constrain[0],
                         fields=[fid_to_name.get(fk) for fk in raw_constrain[3]],
                         reference_schema=SchemaReference(
@@ -454,7 +478,7 @@ class PostgresConnection(ConnectionBase):
     @staticmethod
     def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
         for constraint in constraints:
-            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeySchema | UniqueConstraint):
+            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
                 continue
 
             if index_fields == constraint.fields:
@@ -644,7 +668,9 @@ class PostgresConnection(ConnectionBase):
             _constraint_stmt = self._build_constraint(_constraint)
             _constraint_stmts.append(_constraint_stmt)
 
-        stmt = f'CREATE TABLE "{schema.name}" ('
+        _namespace_prefix = f'"{schema.namespace}".' if schema.namespace else ''
+
+        stmt = f'CREATE TABLE {_namespace_prefix}"{schema.name}" ('
         stmt += ', '.join(self._build_column(column) for column in schema.properties)
 
         if _constraint_stmts:
@@ -656,51 +682,65 @@ class PostgresConnection(ConnectionBase):
         self.execute(stmt)
 
         for _index in schema.indexes or []:
-            _index_stmt = self._build_index(schema.name, _index)
+            _index_stmt = self._build_index(schema.name, schema.namespace, _index)
             self.execute(_index_stmt)
 
     def _drop_table(self, schema_reference: SchemaReference) -> None:
-        stmt = f'DROP TABLE "{schema_reference.name}"'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+        stmt = f'DROP TABLE {_namespace_prefix}"{schema_reference.name}"'
         self.execute(stmt)
 
     def _rename_table(self, schema_reference: SchemaReference, new_schema_name: str) -> None:
-        stmt = f'ALTER TABLE "{schema_reference.name}" RENAME TO "{new_schema_name}"'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" RENAME TO "{new_schema_name}"'
         self.execute(stmt)
 
     def _add_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
         _column = self._build_column(_property, force_nullable=True)
-        stmt = f'ALTER TABLE "{schema_reference.name}" ADD COLUMN {_column}'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ADD COLUMN {_column}'
         self.execute(stmt)
 
     def _drop_column(self, schema_reference: SchemaReference, property_name: str) -> None:
-        stmt = f'ALTER TABLE "{schema_reference.name}" DROP COLUMN "{property_name}"'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" DROP COLUMN "{property_name}"'
         self.execute(stmt)
 
     def _rename_column(self, schema_reference: SchemaReference, old_name: str, new_name: str) -> None:
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
         stmt = f'ALTER TABLE "{schema_reference.name}" RENAME COLUMN "{old_name}" TO "{new_name}"'
         self.execute(stmt)
 
     def _update_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
         _column = self._build_column_update(_property)
-        stmt = f'ALTER TABLE "{schema_reference.name}" ALTER COLUMN {_column}'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ALTER COLUMN {_column}'
         self.execute(stmt)
 
     def _add_constraint(self, schema_reference: SchemaReference, constraint: BaseConstraint) -> None:
         _constraint_stmt = self._build_constraint(constraint)
-        stmt = f'ALTER TABLE "{schema_reference.name}" ADD {_constraint_stmt}'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ADD {_constraint_stmt}'
         self.execute(stmt)
 
     def _drop_constraint(self, schema_reference: SchemaReference, constraint_name: str) -> None:
-        stmt = f'ALTER TABLE "{schema_reference.name}" DROP CONSTRAINT "{constraint_name}"'
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" DROP CONSTRAINT "{constraint_name}"'
         self.execute(stmt)
 
     def _add_index(self, schema_reference: SchemaReference, index: IndexSchema) -> None:
-        _index_stmt = self._build_index(schema_reference.name, index)
+        _index_stmt = self._build_index(schema_reference.name, schema_reference.namespace, index)
 
         self.execute(_index_stmt)
 
-    def _drop_index(self, schema_reference: SchemaReference, index_name: str) -> None:  # noqa: ARG002
-        stmt = f'DROP INDEX "{index_name}"'
+    def _drop_index(self, schema_reference: SchemaReference, index_name: str) -> None:
+        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
+        stmt = f'DROP INDEX {_namespace_prefix}"{index_name}"'
         self.execute(stmt)
 
     def _build_column(self, column: PropertySchema, *, force_nullable: bool = False) -> str:
@@ -715,7 +755,7 @@ class PostgresConnection(ConnectionBase):
     def _build_constraint(self, constraint: BaseConstraint) -> str:
         if isinstance(constraint, PrimaryKeyConstraint):
             return f'CONSTRAINT {constraint.name} ' f'PRIMARY KEY ({", ".join(constraint.fields)}) '
-        if isinstance(constraint, ForeignKeySchema):
+        if isinstance(constraint, ForeignKeyConstraint):
             return (
                 f'CONSTRAINT "{constraint.name}" '
                 f'FOREIGN KEY ({", ".join(constraint.fields)}) '
@@ -737,8 +777,12 @@ class PostgresConnection(ConnectionBase):
         msg = f'Unsupported constraint: {type(constraint)}'
         raise ValueError(msg)
 
-    def _build_index(self, schema_name: str, index: IndexSchema) -> str:
-        _index = f'CREATE INDEX "{index.name}" ON "{schema_name}" ({", ".join(index.fields)})'
+    def _build_index(self, schema_name: str, namespace: str, index: IndexSchema) -> str:
+        _namespace_prefix = f'"{namespace}".' if namespace else ''
+        _index = (
+            f'CREATE INDEX {_namespace_prefix}"{index.name}" '
+            f'ON {_namespace_prefix}"{schema_name}" ({", ".join(index.fields)})'
+        )
 
         if index.condition:
             where, _ = build_where(

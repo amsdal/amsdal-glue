@@ -8,7 +8,7 @@ from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
@@ -311,7 +311,7 @@ class SqlOxideParser(SqlParserBase):
                 reference_fields = [field['value'] for field in constraint['ForeignKey']['referred_columns']]
 
                 constraints_list.append(
-                    ForeignKeySchema(
+                    ForeignKeyConstraint(
                         name=self._constraint_name(constraint['ForeignKey']),
                         fields=fields,
                         reference_schema=reference_schema,
