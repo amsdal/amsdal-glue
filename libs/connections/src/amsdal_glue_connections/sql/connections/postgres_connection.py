@@ -3,17 +3,6 @@ from datetime import date
 from datetime import datetime
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
-
-try:
-    import psycopg
-except ImportError:
-    _msg = (
-        '"psycopg" package is required for PostgresConnection. '
-        'Use "pip install amsdal-glue-connections[postgres]" to install it.'
-    )
-    raise ImportError(_msg) from None
-
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
@@ -44,11 +33,10 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
-from psycopg.types.json import Json
-from psycopg.types.json import Jsonb
 
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
@@ -56,6 +44,9 @@ logger = logging.getLogger(__name__)
 
 
 def pg_value_json_transform(value: Any) -> Any:
+    from psycopg.types.json import Json
+    from psycopg.types.json import Jsonb
+
     if isinstance(value, dict | list):
         return Jsonb(value)
 
@@ -107,7 +98,7 @@ class PostgresConnection(ConnectionBase):
     """
 
     def __init__(self) -> None:
-        self._connection: psycopg.Connection | None = None
+        self._connection: Any = None
 
     @property
     def is_connected(self) -> bool:
@@ -120,7 +111,7 @@ class PostgresConnection(ConnectionBase):
         return self._connection is not None
 
     @property
-    def connection(self) -> psycopg.Connection:
+    def connection(self) -> Any:
         """
         Gets the current connection to the PostgreSQL database.
 
@@ -164,6 +155,15 @@ class PostgresConnection(ConnectionBase):
                 timezone='UTC',
             )
         """
+        try:
+            import psycopg
+        except ImportError:
+            _msg = (
+                '"psycopg" package is required for PostgresConnection. '
+                'Use "pip install amsdal-glue-connections[postgres]" to install it.'
+            )
+            raise ImportError(_msg) from None
+
         if self._connection is not None:
             msg = 'Connection already established'
             raise ConnectionError(msg)
@@ -349,7 +349,7 @@ class PostgresConnection(ConnectionBase):
         """
         return Data(data=data)
 
-    def execute(self, query: str, *args: Any) -> psycopg.Cursor:
+    def execute(self, query: str, *args: Any) -> Any:
         """
         Executes a query on the PostgreSQL database.
 
@@ -363,6 +363,8 @@ class PostgresConnection(ConnectionBase):
         Raises:
             ConnectionError: If there is an error executing the query.
         """
+        import psycopg
+
         try:
             cursor = self.connection.execute(query, args)
         except psycopg.Error as exc:
