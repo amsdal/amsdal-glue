@@ -24,8 +24,10 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
+
     "amsdal-glue-core>=0.0.3",
     "towncrier==23.11.0"
+
 ]
 
 [project.optional-dependencies]
@@ -37,9 +39,9 @@ postgres-binary = [
 ]
 
 [project.urls]
-Documentation = "https://pypi.org/project/amsdal_glue_connections/#readme"
-Issues = "https://pypi.org/project/amsdal_glue_connections/"
-Source = "https://pypi.org/project/amsdal_glue_connections/"
+Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
+Issues = "https://github.com/amsdal/amsdal-glue/issues"
+Source = "https://github.com/amsdal/amsdal-glue/"
 
 [tool.hatch.version]
 path = "src/amsdal_glue_connections/__about__.py"

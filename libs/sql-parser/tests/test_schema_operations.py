@@ -3,7 +3,7 @@ from datetime import datetime
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeySchema
+from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -132,7 +132,7 @@ def test_simple_create_table_explicit_constraints(benchmark) -> None:
                             )
                         ),
                     ),
-                    ForeignKeySchema(
+                    ForeignKeyConstraint(
                         name='',
                         fields=['username'],
                         reference_schema=SchemaReference(name='other_table', version=Version.LATEST),
@@ -185,7 +185,7 @@ def test_simple_create_table_explicit_named_constraints(benchmark) -> None:
                             )
                         ),
                     ),
-                    ForeignKeySchema(
+                    ForeignKeyConstraint(
                         name='username_fk',
                         fields=['username'],
                         reference_schema=SchemaReference(name='other_table', version=Version.LATEST),

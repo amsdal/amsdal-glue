@@ -1,4 +1,3 @@
-amsdal-glue-connections[postgres]>=0.0.2
-amsdal-glue>=0.0.2
+amsdal-glue[postgres-binary]>=0.0.7
 
 

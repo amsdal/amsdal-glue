@@ -14,10 +14,10 @@ from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
 
 
-def simple_customer_insert(database_connection: PostgresConnection) -> list[list[Data] | None]:
+def simple_customer_insert(database_connection: PostgresConnection, namespace: str = '') -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
+            schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
                 Data(
                     data={'id': '1', 'name': 'customer'},
@@ -33,10 +33,14 @@ def simple_customer_insert(database_connection: PostgresConnection) -> list[list
     ])
 
 
-def insert_customers_and_orders(database_connection: PostgresConnection) -> list[list[Data] | None]:
+def insert_customers_and_orders(
+    database_connection: PostgresConnection,
+    namespace_1: str = '',
+    namespace_2: str = '',
+) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
+            schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
                 Data(
                     data={'id': '1', 'name': 'customer'},
@@ -50,7 +54,7 @@ def insert_customers_and_orders(database_connection: PostgresConnection) -> list
             ],
         ),
         InsertData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
+            schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
                 Data(
                     data={'id': '2', 'name': 'customer', 'age': 25},
@@ -64,7 +68,7 @@ def insert_customers_and_orders(database_connection: PostgresConnection) -> list
             ],
         ),
         InsertData(
-            schema=SchemaReference(name='orders', version=Version.LATEST),
+            schema=SchemaReference(name='orders', namespace=namespace_2, version=Version.LATEST),
             data=[
                 Data(
                     data={'id': '1', 'customer_id': '1', 'amount': 100},
@@ -80,10 +84,10 @@ def insert_customers_and_orders(database_connection: PostgresConnection) -> list
     ])
 
 
-def update_two_customers(database_connection: PostgresConnection) -> list[list[Data] | None]:
+def update_two_customers(database_connection: PostgresConnection, namespace: str = '') -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
+            schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
                 Data(
                     data={'id': '1', 'name': 'customer'},
@@ -97,7 +101,7 @@ def update_two_customers(database_connection: PostgresConnection) -> list[list[D
             ],
         ),
         UpdateData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
+            schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=Data(
                 data={'id': '1', 'name': 'new_customer'},
                 metadata=Metadata(
@@ -111,10 +115,10 @@ def update_two_customers(database_connection: PostgresConnection) -> list[list[D
     ])
 
 
-def delete_customer(database_connection: PostgresConnection) -> list[list[Data] | None]:
+def delete_customer(database_connection: PostgresConnection, namespace: str = '') -> list[list[Data] | None]:
     return database_connection.run_mutations([
         DeleteData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
+            schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             query=Conditions(
                 Condition(
                     field=FieldReference(field=Field(name='age'), table_name=''),

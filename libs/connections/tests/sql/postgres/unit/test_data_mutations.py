@@ -16,6 +16,15 @@ def test_insert(database_connection: MockPostgresConnection) -> None:
     )
 
 
+def test_insert__with_namespace(database_connection: MockPostgresConnection) -> None:
+    simple_customer_insert(database_connection, namespace='ns1')
+
+    database_connection.execute_mock.assert_called_once_with(
+        'INSERT INTO "ns1"."customers" ("id", "name") VALUES (%s, %s)',
+        ('1', 'customer'),
+    )
+
+
 def test_insert_benchmark(database_connection: MockPostgresConnection, benchmark) -> None:
     def run_mutations():
         simple_customer_insert(database_connection)
@@ -30,6 +39,16 @@ def test_insert_multiple(database_connection: MockPostgresConnection) -> None:
         mock.call('INSERT INTO "customers" ("id", "name") VALUES (%s, %s)', ('1', 'customer')),
         mock.call('INSERT INTO "customers" ("age", "id", "name") VALUES (%s, %s, %s)', (25, '2', 'customer')),
         mock.call('INSERT INTO "orders" ("amount", "customer_id", "id") VALUES (%s, %s, %s)', (100, '1', '1')),
+    ])
+
+
+def test_insert_multiple__with_namespaces(database_connection: MockPostgresConnection) -> None:
+    insert_customers_and_orders(database_connection, namespace_1='ns1', namespace_2='ns2')
+
+    database_connection.execute_mock.assert_has_calls([
+        mock.call('INSERT INTO "ns1"."customers" ("id", "name") VALUES (%s, %s)', ('1', 'customer')),
+        mock.call('INSERT INTO "ns1"."customers" ("age", "id", "name") VALUES (%s, %s, %s)', (25, '2', 'customer')),
+        mock.call('INSERT INTO "ns2"."orders" ("amount", "customer_id", "id") VALUES (%s, %s, %s)', (100, '1', '1')),
     ])
 
 
@@ -48,6 +67,14 @@ def test_update(database_connection: MockPostgresConnection) -> None:
     ])
 
 
+def test_update__with_namespace(database_connection: MockPostgresConnection) -> None:
+    update_two_customers(database_connection, namespace='ns1')
+
+    database_connection.execute_mock.assert_has_calls([
+        mock.call('UPDATE "ns1"."customers" SET "id" = %s, "name" = %s', ('1', 'new_customer')),
+    ])
+
+
 def test_update_benchmark(database_connection: MockPostgresConnection, benchmark) -> None:
     def run_mutations():
         update_two_customers(database_connection)
@@ -60,6 +87,15 @@ def test_delete(database_connection: MockPostgresConnection) -> None:
 
     database_connection.execute_mock.assert_called_once_with(
         'DELETE FROM "customers" WHERE "age" < %s',
+        (27,),
+    )
+
+
+def test_delete__with_namespace(database_connection: MockPostgresConnection) -> None:
+    delete_customer(database_connection, namespace='ns1')
+
+    database_connection.execute_mock.assert_called_once_with(
+        'DELETE FROM "ns1"."customers" WHERE "age" < %s',
         (27,),
     )
 

@@ -13,11 +13,23 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 
 @dataclass(kw_only=True)
 class SchemaCommand(Operation):
+    """Represents a schema command operation.
+
+    Attributes:
+        mutations (list[SchemaMutation]): The list of schema mutations to be applied.
+    """
+
     mutations: list[SchemaMutation]
 
 
 @dataclass(kw_only=True)
 class DataCommand(Operation):
+    """Represents a data command operation.
+
+    Attributes:
+        mutations (list[DataMutation]): The list of data mutations to be applied.
+    """
+
     mutations: list[DataMutation]
 
     def __post_init__(self):
@@ -28,6 +40,14 @@ class DataCommand(Operation):
 
 @dataclass(kw_only=True)
 class TransactionCommand(Operation):
+    """Represents a transaction command operation.
+
+    Attributes:
+        action (TransactionAction): The action to be performed in the transaction.
+        schema (SchemaReference | None): The schema reference associated with the transaction. Defaults to None.
+        parent_transaction_id (str | None): The ID of the parent transaction, if any. Defaults to None.
+    """
+
     action: TransactionAction
     schema: SchemaReference | None = None
     parent_transaction_id: str | None = None
@@ -35,12 +55,28 @@ class TransactionCommand(Operation):
 
 @dataclass(kw_only=True)
 class LockSchemaReference:
+    """Represents a reference to a schema for locking purposes.
+
+    Attributes:
+        schema (SchemaReference): The schema reference to be locked.
+        query (Conditions | None): The conditions for the lock. Defaults to None.
+    """
+
     schema: SchemaReference
     query: Conditions | None = None
 
 
 @dataclass(kw_only=True)
 class LockCommand(Operation):
+    """Represents a lock command operation.
+
+    Attributes:
+        action (LockAction): The action to be performed for the lock.
+        mode (LockMode): The mode of the lock.
+        parameter (LockParameter): The parameter for the lock.
+        locked_objects (list[LockSchemaReference]): The list of schema references to be locked.
+    """
+
     action: LockAction
     mode: LockMode
     parameter: LockParameter

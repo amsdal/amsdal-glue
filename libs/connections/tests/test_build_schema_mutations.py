@@ -41,3 +41,39 @@ def test_build_schema_mutation__register_schema() -> None:
         ),
         "CREATE INDEX 'idx_person_name' ON 'Person' ('name')",
     ]
+
+
+def test_build_schema_mutation_with_namespace__register_schema() -> None:
+    stmts = build_schema_mutation(
+        RegisterSchema(
+            schema=Schema(
+                name='Person',
+                namespace='ns1',
+                version=Version.LATEST,
+                properties=[
+                    PropertySchema(name='id', type=int, required=True),
+                    PropertySchema(name='name', type=str, required=True),
+                    PropertySchema(name='age', type=int, required=False, default=18),
+                ],
+                constraints=[
+                    PrimaryKeyConstraint(name='pk_person', fields=['id']),
+                ],
+                indexes=[
+                    IndexSchema(name='idx_person_name', fields=['name']),
+                ],
+            ),
+        ),
+        type_transform=SqliteConnection.to_sql_type,
+    )
+
+    assert stmts == [
+        (
+            "CREATE TABLE 'ns1'.'Person' ("
+            "'id' INTEGER NOT NULL, "
+            "'name' TEXT NOT NULL, "
+            "'age' INTEGER, "
+            "CONSTRAINT 'pk_person' PRIMARY KEY ('id')"
+            ')'
+        ),
+        "CREATE INDEX 'ns1'.'idx_person_name' ON 'ns1'.'Person' ('name')",
+    ]

@@ -7,5 +7,12 @@ if TYPE_CHECKING:
 
 @dataclass(kw_only=True)
 class SubQueryStatement:
+    """Represents a subquery statement.
+
+    Attributes:
+        query (QueryStatement): The query being used as a subquery.
+        alias (str): The alias for the subquery.
+    """
+
     query: 'QueryStatement'
     alias: str

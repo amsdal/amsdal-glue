@@ -15,6 +15,21 @@ from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 
 @dataclass(kw_only=True)
 class QueryStatement:
+    """Represents a query statement.
+
+    Attributes:
+        table (SchemaReference | SubQueryStatement): The table or subquery being queried.
+        only (list[FieldReference | FieldReferenceAliased] | None): The list of fields to select. Defaults to None.
+        distinct (bool): Whether to select distinct rows. Defaults to False.
+        annotations (list[AnnotationQuery] | None): The list of annotations in the query. Defaults to None.
+        aggregations (list[AggregationQuery] | None): The list of aggregations in the query. Defaults to None.
+        joins (list[JoinQuery] | None): The list of joins in the query. Defaults to None.
+        where (Conditions | None): The conditions for the query. Defaults to None.
+        group_by (list[GroupByQuery] | None): The list of group by clauses in the query. Defaults to None.
+        order_by (list[OrderByQuery] | None): The list of order by clauses in the query. Defaults to None.
+        limit (LimitQuery | None): The limit clause for the query. Defaults to None.
+    """
+
     table: SchemaReference | SubQueryStatement
     only: list[FieldReference | FieldReferenceAliased] | None = None
     distinct: bool = False
