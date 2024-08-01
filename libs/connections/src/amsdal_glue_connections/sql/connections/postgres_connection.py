@@ -132,6 +132,8 @@ class PostgresConnection(ConnectionBase):
         dsn: str = '',
         schema: str | None = None,
         timezone: str = 'UTC',
+        *,
+        autocommit: bool = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -142,10 +144,12 @@ class PostgresConnection(ConnectionBase):
             schema (str | None): The default schema to be used for the connection. If None,
                                  the default schema usually is 'public'.
             timezone (str): The timezone to be used for the connection.
+            autocommit (bool): Whether to enable autocommit mode.
             **kwargs: Additional connection parameters.
 
         Raises:
             ConnectionError: If the connection is already established.
+            ImportError: If the 'psycopg' package is not installed.
 
         Example:
             connection = PostgresConnection()
@@ -168,7 +172,7 @@ class PostgresConnection(ConnectionBase):
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
-        self._connection = psycopg.connect(dsn, **kwargs)
+        self._connection = psycopg.connect(dsn, autocommit=autocommit, **kwargs)
         self._connection.execute("SELECT set_config('TimeZone', %s, false)", [timezone])
 
         if schema:
