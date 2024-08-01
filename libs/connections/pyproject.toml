@@ -25,6 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "amsdal-glue-core>=0.0.3",
+    "towncrier==23.11.0"
 ]
 
 [project.optional-dependencies]

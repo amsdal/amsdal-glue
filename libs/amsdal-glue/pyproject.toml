@@ -25,7 +25,8 @@ classifiers = [
 ]
 dependencies = [
     "amsdal-glue-connections>=0.0.5",
-    "polars>=0.20"
+    "polars>=0.20",
+    "towncrier==23.11.0"
 ]
 
 [project.urls]
