@@ -42,7 +42,7 @@ class DefaultDataQueryPlanner(DataQueryPlanner):
                 only=query.only,
                 table=QueryStatementNode(
                     alias=from_alias,
-                    query_node=from_node,
+                    query_node=from_node,  # type: ignore[arg-type]
                 ),
                 aggregations=query.aggregations,
                 group_by=query.group_by,
@@ -59,7 +59,7 @@ class DefaultDataQueryPlanner(DataQueryPlanner):
                     JoinQueryNode(
                         table=QueryStatementNode(
                             alias=_join_alias,
-                            query_node=_join_node,
+                            query_node=_join_node,  # type: ignore[arg-type]
                         ),
                         on=join.on,
                         join_type=join.join_type,
@@ -76,7 +76,7 @@ class DefaultDataQueryPlanner(DataQueryPlanner):
                         AnnotationQueryNode(
                             value=QueryStatementNode(
                                 alias=_ann_alias,
-                                query_node=_ann_node,
+                                query_node=_ann_node,  # type: ignore[arg-type]
                             ),
                         ),
                     )

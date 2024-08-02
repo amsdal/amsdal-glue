@@ -99,7 +99,7 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
             if is_value:
                 values.append(value_transform(value.value))  # type: ignore[union-attr]
         case FieldLookup.IN:
-            _statement = 'IN (' + ','.join(['?'] * len(value.value)) + ')'
+            _statement = 'IN (' + ','.join(['?'] * len(value.value)) + ')'  # type: ignore[union-attr]
 
             if is_value:
                 if any(isinstance(val, bytes | bytearray) for val in value.value):  # type: ignore[union-attr]
@@ -110,10 +110,10 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
                     for value in value.value  # type: ignore[union-attr]
                 ])
         case FieldLookup.CONTAINS:
-            _statement = f'LIKE {_value}'
+            _statement = f'GLOB {_value}'
 
             if is_value:
-                values.append(f'%{value_transform(value.value)}%')  # type: ignore[union-attr]
+                values.append(f'*{value_transform(value.value)}*')  # type: ignore[union-attr]
         case FieldLookup.ICONTAINS:
             field = f'LOWER({field})'
             _statement = f'LIKE LOWER({_value})'
@@ -215,17 +215,17 @@ def repr_operator_constructor(  # noqa: PLR0913, PLR0912, C901, PLR0915
         case FieldLookup.IN:
             _statement = f'IN ({_value})'
         case FieldLookup.CONTAINS:
-            _statement = f"LIKE '%{value.value}%'"  # type: ignore[union-attr]
+            _statement = f"GLOB '*{value.value}*'"  # type: ignore[union-attr]
         case FieldLookup.ICONTAINS:
             field = f'LOWER({field})'
             _statement = f"LIKE '%{value.value.lower()}%'"  # type: ignore[union-attr]
         case FieldLookup.STARTSWITH:
-            _statement = f"LIKE '{value.value}%'"  # type: ignore[union-attr]
+            _statement = f"GLOB '{value.value}*'"  # type: ignore[union-attr]
         case FieldLookup.ISTARTSWITH:
             field = f'LOWER({field})'
             _statement = f"LIKE '{value.value.lower()}%'"  # type: ignore[union-attr]
         case FieldLookup.ENDSWITH:
-            _statement = f"LIKE '%{value.value}'"  # type: ignore[union-attr]
+            _statement = f"GLOB '*{value.value}'"  # type: ignore[union-attr]
         case FieldLookup.IENDSWITH:
             field = f'LOWER({field})'
             _statement = f"LIKE '%{value.value.lower()}'"  # type: ignore[union-attr]

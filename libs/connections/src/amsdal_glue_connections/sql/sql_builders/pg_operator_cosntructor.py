@@ -72,7 +72,7 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
             _statement = f'IS {_value}'
 
             if is_value:
-                if value.value is not None:
+                if value.value is not None:  # type: ignore[union-attr]
                     _statement = f'= {_value}{"::text" if is_structure_type else ""}'
 
                 values.append(value_transform(value.value))  # type: ignore[union-attr]

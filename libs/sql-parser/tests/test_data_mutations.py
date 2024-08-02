@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -9,6 +10,7 @@ from amsdal_glue_core.common.enums import FilterConnector
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
+from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
@@ -25,14 +27,18 @@ def test_simple_insert_command(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        InsertData(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-            data=[
-                Data(
-                    data={'name': 'John', 'age': '30'},
-                    metadata=None,
+        DataCommand(
+            mutations=[
+                InsertData(
+                    schema=SchemaReference(name='users', version=Version.LATEST),
+                    data=[
+                        Data(
+                            data={'name': 'John', 'age': '30'},
+                            metadata=None,
+                        )
+                    ],
                 )
-            ],
+            ]
         )
     ]
 
@@ -46,18 +52,22 @@ def test_multiple_inserts(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        InsertData(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-            data=[
-                Data(
-                    data={'name': 'John', 'age': '30'},
-                    metadata=None,
-                ),
-                Data(
-                    data={'name': 'Jane', 'age': '25'},
-                    metadata=None,
-                ),
-            ],
+        DataCommand(
+            mutations=[
+                InsertData(
+                    schema=SchemaReference(name='users', version=Version.LATEST),
+                    data=[
+                        Data(
+                            data={'name': 'John', 'age': '30'},
+                            metadata=None,
+                        ),
+                        Data(
+                            data={'name': 'Jane', 'age': '25'},
+                            metadata=None,
+                        ),
+                    ],
+                )
+            ]
         )
     ]
 
@@ -71,14 +81,16 @@ def test_simple_update_command(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        UpdateData(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-            data=[
-                Data(
-                    data={'name': 'Jane', 'age': '25'},
-                    metadata=None,
+        DataCommand(
+            mutations=[
+                UpdateData(
+                    schema=SchemaReference(name='users', version=Version.LATEST),
+                    data=Data(
+                        data={'name': 'Jane', 'age': '25'},
+                        metadata=None,
+                    ),
                 )
-            ],
+            ]
         )
     ]
 
@@ -92,22 +104,24 @@ def test_simple_update_command_condition(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        UpdateData(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-            data=[
-                Data(
-                    data={'name': 'Jane', 'age': '25'},
-                    metadata=None,
+        DataCommand(
+            mutations=[
+                UpdateData(
+                    schema=SchemaReference(name='users', version=Version.LATEST),
+                    data=Data(
+                        data={'name': 'Jane', 'age': '25'},
+                        metadata=None,
+                    ),
+                    query=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='id'), table_name='users'),
+                            lookup=FieldLookup.EQ,
+                            value=Value(value='1'),
+                        ),
+                        connector=FilterConnector.AND,
+                    ),
                 )
-            ],
-            query=Conditions(
-                Condition(
-                    field=FieldReference(field=Field(name='id'), table_name='users'),
-                    lookup=FieldLookup.EQ,
-                    value=Value(value='1'),
-                ),
-                connector=FilterConnector.AND,
-            ),
+            ]
         )
     ]
 
@@ -121,8 +135,12 @@ def test_simple_delete_command(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        DeleteData(
-            schema=SchemaReference(name='users', version=Version.LATEST),
+        DataCommand(
+            mutations=[
+                DeleteData(
+                    schema=SchemaReference(name='users', version=Version.LATEST),
+                )
+            ]
         )
     ]
 
@@ -136,15 +154,19 @@ def test_simple_delete_command_condition(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        DeleteData(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-            query=Conditions(
-                Condition(
-                    field=FieldReference(field=Field(name='id'), table_name='users'),
-                    lookup=FieldLookup.EQ,
-                    value=Value(value='1'),
-                ),
-                connector=FilterConnector.AND,
-            ),
+        DataCommand(
+            mutations=[
+                DeleteData(
+                    schema=SchemaReference(name='users', version=Version.LATEST),
+                    query=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='id'), table_name='users'),
+                            lookup=FieldLookup.EQ,
+                            value=Value(value='1'),
+                        ),
+                        connector=FilterConnector.AND,
+                    ),
+                )
+            ]
         )
     ]

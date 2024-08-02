@@ -1,5 +1,11 @@
 from unittest import mock
 
+from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.metadata import Metadata
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.operations.mutations.data import InsertData
+
 from tests.sql.postgres.testcases.data_mutations import delete_customer
 from tests.sql.postgres.testcases.data_mutations import insert_customers_and_orders
 from tests.sql.postgres.testcases.data_mutations import simple_customer_insert
@@ -28,6 +34,81 @@ def test_insert__with_namespace(database_connection: MockPostgresConnection) -> 
 def test_insert_benchmark(database_connection: MockPostgresConnection, benchmark) -> None:
     def run_mutations():
         simple_customer_insert(database_connection)
+
+    benchmark(run_mutations)
+
+
+def test_insert_benchmark_100(database_connection: MockPostgresConnection, benchmark) -> None:
+    _data = [
+        Data(
+            data={'id': i, 'name': 'customer'},
+            metadata=Metadata(
+                object_id=str(i),
+                object_version=str(i),
+                created_at='2021-01-01T00:00:00Z',
+                updated_at='2021-01-01T00:00:00Z',
+            ),
+        )
+        for i in range(100)
+    ]
+
+    def run_mutations():
+        database_connection.run_mutations([
+            InsertData(
+                schema=SchemaReference(name='customers', version=Version.LATEST),
+                data=_data,
+            ),
+        ])
+
+    benchmark(run_mutations)
+
+
+def test_insert_benchmark_1000(database_connection: MockPostgresConnection, benchmark) -> None:
+    _data = [
+        Data(
+            data={'id': i, 'name': 'customer'},
+            metadata=Metadata(
+                object_id=str(i),
+                object_version=str(i),
+                created_at='2021-01-01T00:00:00Z',
+                updated_at='2021-01-01T00:00:00Z',
+            ),
+        )
+        for i in range(1000)
+    ]
+
+    def run_mutations():
+        database_connection.run_mutations([
+            InsertData(
+                schema=SchemaReference(name='customers', version=Version.LATEST),
+                data=_data,
+            ),
+        ])
+
+    benchmark(run_mutations)
+
+
+def test_insert_benchmark_10000(database_connection: MockPostgresConnection, benchmark) -> None:
+    _data = [
+        Data(
+            data={'id': i, 'name': 'customer'},
+            metadata=Metadata(
+                object_id=str(i),
+                object_version=str(i),
+                created_at='2021-01-01T00:00:00Z',
+                updated_at='2021-01-01T00:00:00Z',
+            ),
+        )
+        for i in range(10000)
+    ]
+
+    def run_mutations():
+        database_connection.run_mutations([
+            InsertData(
+                schema=SchemaReference(name='customers', version=Version.LATEST),
+                data=_data,
+            ),
+        ])
 
     benchmark(run_mutations)
 

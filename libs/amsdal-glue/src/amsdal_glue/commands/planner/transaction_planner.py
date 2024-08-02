@@ -42,7 +42,7 @@ class DefaultTransactionCommandPlanner(TransactionCommandPlanner):
             )
 
         connection_manager = Container.managers.get(ConnectionManager)
-        group_tasks = []
+        group_tasks: list[TransactionCommandTask] = []
         schemas_per_connection: dict[ConnectionPoolBase, str] = {
             _connection: _schema_name for _schema_name, _connection in connection_manager.connections.items()
         }
@@ -70,7 +70,7 @@ class DefaultTransactionCommandPlanner(TransactionCommandPlanner):
 
         return ChainTask(
             tasks=[
-                GroupTask(tasks=group_tasks),
+                GroupTask(tasks=group_tasks),  # type: ignore[arg-type]
             ],
             final_task=TransactionCommandFinalTask(tasks=group_tasks),
         )

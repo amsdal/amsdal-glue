@@ -25,8 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "amsdal-glue-connections>=0.0.5",
-    "polars>=0.20",
-    "towncrier==23.11.0"
+    "polars>=0.20"
 ]
 
 [project.optional-dependencies]
@@ -54,6 +53,7 @@ extra-dependencies = [
     "pytest-mock>=3.14.0",
     "ruff>=0.4.5",
     "amsdal-glue[postgres-binary]",
+    "towncrier==23.11.0"
 ]
 pre-install-commands = [
   "pip install -e ../core/",
