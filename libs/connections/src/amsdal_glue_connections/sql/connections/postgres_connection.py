@@ -229,7 +229,7 @@ class PostgresConnection(ConnectionBase):
         return result
 
     @classmethod
-    def _adjust_schema_filters(cls, filters: Conditions | None):
+    def _adjust_schema_filters(cls, filters: Conditions | None) -> None:
         """
         Transform "name" attribute of the filters to the correct column name: "table_name"
         """
@@ -241,7 +241,7 @@ class PostgresConnection(ConnectionBase):
             if isinstance(_filter, Conditions):
                 cls._adjust_schema_filters(_filter)
 
-            if _filter.field.field.name == 'name':
+            elif _filter.field.field.name == 'name':
                 _filter.field.field.name = 'table_name'
 
     def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
@@ -441,12 +441,12 @@ class PostgresConnection(ConnectionBase):
                 constraints.append(
                     ForeignKeyConstraint(
                         name=raw_constrain[0],
-                        fields=[fid_to_name.get(fk) for fk in raw_constrain[3]],
+                        fields=[fid_to_name.get(fk) for fk in raw_constrain[3]],  # type: ignore[misc]
                         reference_schema=SchemaReference(
                             name=f_table_name,
                             version=Version.LATEST,
                         ),
-                        reference_fields=[f_table_fields.get(fid) for fid in raw_constrain[4]],
+                        reference_fields=[f_table_fields.get(fid) for fid in raw_constrain[4]],  # type: ignore[misc]
                     )
                 )
 
@@ -454,7 +454,7 @@ class PostgresConnection(ConnectionBase):
                 constraints.append(
                     PrimaryKeyConstraint(
                         name=raw_constrain[0],
-                        fields=[fid_to_name.get(pk) for pk in raw_constrain[3]],
+                        fields=[fid_to_name.get(pk) for pk in raw_constrain[3]],  # type: ignore[misc]
                     )
                 )
 
@@ -740,7 +740,7 @@ class PostgresConnection(ConnectionBase):
         self.execute(stmt)
 
     def _add_index(self, schema_reference: SchemaReference, index: IndexSchema) -> None:
-        _index_stmt = self._build_index(schema_reference.name, schema_reference.namespace, index)
+        _index_stmt = self._build_index(schema_reference.name, schema_reference.namespace or '', index)
 
         self.execute(_index_stmt)
 

@@ -13,6 +13,7 @@ from tests.sql.postgres.testcases.schema_mutations import add_last_name_property
 from tests.sql.postgres.testcases.schema_mutations import add_unique_constraint
 from tests.sql.postgres.testcases.schema_mutations import create_user_schema
 from tests.sql.postgres.testcases.schema_mutations import DEFAULT_SCHEMA
+from tests.sql.postgres.testcases.schema_mutations import DEFAULT_SCHEMA_REF
 from tests.sql.postgres.testcases.schema_mutations import delete_age_property
 from tests.sql.postgres.testcases.schema_mutations import delete_index
 from tests.sql.postgres.testcases.schema_mutations import delete_unique_constraint
@@ -180,7 +181,7 @@ def test_drop_constraint(database_connection: PostgresConnection) -> None:
         SchemaCommand(
             mutations=[
                 AddConstraint(
-                    schema_reference=DEFAULT_SCHEMA,
+                    schema_reference=DEFAULT_SCHEMA_REF,
                     constraint=UniqueConstraint(
                         name='uk_user_email_unique',
                         fields=['email', 'age'],
@@ -231,7 +232,7 @@ def test_delete_index(database_connection: PostgresConnection) -> None:
         SchemaCommand(
             mutations=[
                 AddIndex(
-                    schema_reference=DEFAULT_SCHEMA,
+                    schema_reference=DEFAULT_SCHEMA_REF,
                     index=IndexSchema(name='idx_user_email', fields=['email', 'age'], condition=None),
                 ),
             ],

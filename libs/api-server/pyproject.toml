@@ -1,0 +1,250 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/amsdal_glue_api_server"]
+
+[project]
+name = "amsdal-glue-api-server"
+dynamic = ["version"]
+description = 'AMSDAL Glue API Server is a web API interface over AMSDAL Glue, providing high-level abstraction for interacting with multiple databases simultaneously over HTTP'
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE.txt" }
+keywords = []
+authors = []
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "amsdal-glue>=0.0.10",
+    "amsdal-glue-sql-parser>=0.0.4",
+    "fastapi>=0.111.1",
+    "uvicorn>=0.30.3"
+]
+
+[project.urls]
+Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
+Issues = "https://github.com/amsdal/amsdal-glue/issues"
+Source = "https://github.com/amsdal/amsdal-glue/"
+
+[tool.hatch.version]
+path = "src/amsdal_glue_api_server/__about__.py"
+
+[tool.hatch.envs.default]
+path = "../../.venv/amsdal_glue_api_server"
+extra-dependencies = [
+    "mypy>=1.0.0",
+    "coverage[toml]>=7.4",
+    "pytest>=8.2.1",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.4.5",
+    "sqloxide==0.1.47",
+    "httpx==0.27.0",
+    "towncrier==23.11.0"
+]
+pre-install-commands = [
+  "pip install -e ../core/",
+  "pip install -e ../connections/",
+  "pip install -e ../amsdal-glue/",
+  "pip install -e ../sql-parser/",
+]
+
+[tool.hatch.envs.default.scripts]
+server = "python src/amsdal_glue_api_server/main.py"
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+    "- coverage combine",
+    "coverage report",
+]
+cov = [
+    "test-cov",
+    "cov-report",
+]
+typing = "mypy --install-types --non-interactive {args:src/amsdal_glue_api_server tests}"
+style = [
+    "ruff check {args:.}",
+    "ruff format --preview {args:.}",
+]
+fmt = [
+    "ruff format {args:.}",
+    "ruff check --fix {args:.}",
+    "style",
+]
+all = [
+    "style",
+    "typing",
+]
+change-logs = "towncrier {args:.}"
+release = "rm latest-changelogs.md && towncrier build --yes --version {args:version} && (cat latest-changelogs.md; cat change-logs.md) > temp.md && mv temp.md change-logs.md && git add change-logs.md latest-changelogs.md release_notes && git commit -m 'Updated release notes' && git push origin && git tag api-server/v{args:version} && git push origin api-server/v{args:version}"
+
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "ARG",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C",
+    "C4",
+    "C90",
+    "COM",
+    "DJ",
+    "DTZ",
+    "E",
+    "EM",
+    "ERA",
+    "F",
+    "FBT",
+    "FIX",
+    "FLY",
+    "FURB",
+    "G",
+    "I",
+    "ICN",
+    "INT",
+    "ISC",
+    "LOG",
+    "N",
+    "PERF",
+    "PIE",
+    "PL",
+    "PTH",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SIM",
+    "SLF",
+    "SLOT",
+    "T",
+    "T10",
+    "T20",
+    "TCH",
+    "TD",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+]
+ignore = [
+    "COM812",
+    "ISC001",
+]
+unfixable = [
+    # Don't touch unused imports
+    "F401",
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+order-by-type = false
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**.py" = ["PLR2004", "S101", "TID252"]
+
+[tool.ruff.lint.flake8-bandit]
+check-typed-exception = true
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.lint.mccabe]
+# Flag errors (`C901`) whenever the complexity level exceeds 10.
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 6
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[tool.coverage.run]
+source_pkgs = ["amsdal_glue_api_server", "tests"]
+branch = true
+parallel = true
+omit = [
+    "src/amsdal_glue_api_server/__about__.py",
+]
+
+[tool.coverage.paths]
+amsdal_glue = ["src/amsdal_glue_api_server"]
+tests = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.towncrier]
+directory= "release_notes"
+name = "AMSDAL GlUE API SERVER"
+title_format = "## [v{version}](https://pypi.org/project/amsdal-glue-api-server/{version}/) - {project_date}"
+filename = "latest-changelogs.md"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "security"
+name = "Security"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "performance"
+name = "Performance"
+showcontent = true

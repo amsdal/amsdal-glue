@@ -39,7 +39,7 @@ def _register_default_connection() -> Generator[None, None, None]:
             schema_name='shippings',
         )
 
-        connection_mng.get_connection_pool('shippings').get_connection().execute(
+        connection_mng.get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
             'CREATE TABLE IF NOT EXISTS shippings (id TEXT, customer_id TEXT, status TEXT)'
         )
 

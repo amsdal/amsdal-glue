@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.results.schema import SchemaResult
 from amsdal_glue_core.common.operations.commands import SchemaCommand

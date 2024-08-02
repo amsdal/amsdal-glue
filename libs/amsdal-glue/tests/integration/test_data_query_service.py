@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from collections.abc import Generator
 from pathlib import Path
 
@@ -69,7 +70,8 @@ def test_data_query_service() -> None:
         ),
     )
     assert data_result.success is True
-    assert [item.data for item in data_result.data] == [
+    assert data_result.data
+    assert [item.data if item else None for item in data_result.data] == [
         {'id': 1, 'first_name': 'John'},
         {'id': 2, 'first_name': 'Robert'},
         {'id': 3, 'first_name': 'David'},
@@ -118,7 +120,8 @@ def test_data_query_service_multiple_connections() -> None:
         ),
     )
     assert data_result.success is True
-    assert [item.data for item in data_result.data] == [
+    assert data_result.data
+    assert [item.data if item else None for item in data_result.data] == [
         {'id': 1, 'first_name': 'John', 'status': 'Delivered'},
         {'id': 2, 'first_name': 'Robert', 'status': 'Pending'},
         {'id': 3, 'first_name': 'David', 'status': 'Delivered'},

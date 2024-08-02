@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 # Register core services, managers and executors
 
 

@@ -24,7 +24,9 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue-core>=0.0.7",
+
+    "amsdal-glue-core>=0.0.3"
+
 ]
 
 [project.optional-dependencies]
@@ -53,7 +55,8 @@ extra-dependencies = [
     "pytest-benchmark>=4.0.0",
     "ruff>=0.5.2",
     "psycopg[binary,pool]>=3.2.1",
-    "docker>=7.1.0"
+    "docker>=7.1.0",
+    "towncrier==23.11.0"
 ]
 pre-install-commands = [
     "pip install -e ../core/",

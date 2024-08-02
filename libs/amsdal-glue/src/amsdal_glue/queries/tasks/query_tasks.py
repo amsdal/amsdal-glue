@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from typing import Any
 
 from amsdal_glue_core.common.executors.interfaces import FinalDataQueryExecutor

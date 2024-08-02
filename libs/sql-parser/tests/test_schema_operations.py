@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from datetime import datetime
 
 from amsdal_glue_core.common.data_models.conditions import Condition
@@ -16,6 +17,7 @@ from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
+from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
 from amsdal_glue_core.common.operations.mutations.schema import AddProperty
@@ -43,20 +45,26 @@ def test_simple_create_table_command(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        RegisterSchema(
-            schema=Schema(
-                name='users',
-                version=Version.LATEST,
-                properties=[
-                    PropertySchema(name='id', type=int, required=False, description=None, default=None),
-                    PropertySchema(name='name', type=str, required=False, description=None, default=None),
-                    PropertySchema(name='age', type=int, required=False, description=None, default=None),
-                    PropertySchema(name='created_at', type=datetime, required=False, description=None, default=None),
-                    PropertySchema(name='_metadata', type=dict, required=False, description=None, default=None),
-                    PropertySchema(name='is_active', type=bool, required=False, description=None, default=None),
-                    PropertySchema(name='height', type=float, required=False, description=None, default=None),
-                ],
-            ),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema=Schema(
+                        name='users',
+                        version=Version.LATEST,
+                        properties=[
+                            PropertySchema(name='id', type=int, required=False, description=None, default=None),
+                            PropertySchema(name='name', type=str, required=False, description=None, default=None),
+                            PropertySchema(name='age', type=int, required=False, description=None, default=None),
+                            PropertySchema(
+                                name='created_at', type=datetime, required=False, description=None, default=None
+                            ),
+                            PropertySchema(name='_metadata', type=dict, required=False, description=None, default=None),
+                            PropertySchema(name='is_active', type=bool, required=False, description=None, default=None),
+                            PropertySchema(name='height', type=float, required=False, description=None, default=None),
+                        ],
+                    ),
+                )
+            ]
         )
     ]
 
@@ -73,20 +81,24 @@ def test_simple_create_table_primary_key(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        RegisterSchema(
-            schema=Schema(
-                name='users',
-                version=Version.LATEST,
-                properties=[
-                    PropertySchema(name='id', type=int, required=True, description=None, default=None),
-                    PropertySchema(name='username', type=str, required=True, description=None, default=None),
-                    PropertySchema(name='full_name', type=str, required=True, description=None, default=None),
-                ],
-                constraints=[
-                    PrimaryKeyConstraint(name='id', fields=['id']),
-                    UniqueConstraint(name='username', fields=['username']),
-                ],
-            ),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema=Schema(
+                        name='users',
+                        version=Version.LATEST,
+                        properties=[
+                            PropertySchema(name='id', type=int, required=True, description=None, default=None),
+                            PropertySchema(name='username', type=str, required=True, description=None, default=None),
+                            PropertySchema(name='full_name', type=str, required=True, description=None, default=None),
+                        ],
+                        constraints=[
+                            PrimaryKeyConstraint(name='id', fields=['id']),
+                            UniqueConstraint(name='username', fields=['username']),
+                        ],
+                    ),
+                )
+            ]
         )
     ]
 
@@ -110,36 +122,40 @@ def test_simple_create_table_explicit_constraints(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        RegisterSchema(
-            schema=Schema(
-                name='users',
-                version=Version.LATEST,
-                properties=[
-                    PropertySchema(name='id', type=int, required=False, description=None, default=None),
-                    PropertySchema(name='username', type=str, required=False, description=None, default=None),
-                    PropertySchema(name='full_name', type=str, required=False, description=None, default=None),
-                ],
-                constraints=[
-                    PrimaryKeyConstraint(name='', fields=['id']),
-                    UniqueConstraint(name='', fields=['username']),
-                    CheckConstraint(
-                        name='',
-                        condition=Conditions(
-                            Condition(
-                                field=FieldReference(field=Field(name='id'), table_name='users'),
-                                lookup=FieldLookup.GT,
-                                value=Value('0'),
-                            )
-                        ),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema=Schema(
+                        name='users',
+                        version=Version.LATEST,
+                        properties=[
+                            PropertySchema(name='id', type=int, required=False, description=None, default=None),
+                            PropertySchema(name='username', type=str, required=False, description=None, default=None),
+                            PropertySchema(name='full_name', type=str, required=False, description=None, default=None),
+                        ],
+                        constraints=[
+                            PrimaryKeyConstraint(name='', fields=['id']),
+                            UniqueConstraint(name='', fields=['username']),
+                            CheckConstraint(
+                                name='',
+                                condition=Conditions(
+                                    Condition(
+                                        field=FieldReference(field=Field(name='id'), table_name='users'),
+                                        lookup=FieldLookup.GT,
+                                        value=Value('0'),
+                                    )
+                                ),
+                            ),
+                            ForeignKeyConstraint(
+                                name='',
+                                fields=['username'],
+                                reference_schema=SchemaReference(name='other_table', version=Version.LATEST),
+                                reference_fields=['other_field'],
+                            ),
+                        ],
                     ),
-                    ForeignKeyConstraint(
-                        name='',
-                        fields=['username'],
-                        reference_schema=SchemaReference(name='other_table', version=Version.LATEST),
-                        reference_fields=['other_field'],
-                    ),
-                ],
-            ),
+                )
+            ]
         )
     ]
 
@@ -163,36 +179,40 @@ def test_simple_create_table_explicit_named_constraints(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        RegisterSchema(
-            schema=Schema(
-                name='users',
-                version=Version.LATEST,
-                properties=[
-                    PropertySchema(name='id', type=int, required=False, description=None, default=None),
-                    PropertySchema(name='username', type=str, required=False, description=None, default=None),
-                    PropertySchema(name='full_name', type=str, required=False, description=None, default=None),
-                ],
-                constraints=[
-                    PrimaryKeyConstraint(name='id_pk', fields=['id']),
-                    UniqueConstraint(name='username_unique', fields=['username']),
-                    CheckConstraint(
-                        name='check_id',
-                        condition=Conditions(
-                            Condition(
-                                field=FieldReference(field=Field(name='id'), table_name='users'),
-                                lookup=FieldLookup.GT,
-                                value=Value('0'),
-                            )
-                        ),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema=Schema(
+                        name='users',
+                        version=Version.LATEST,
+                        properties=[
+                            PropertySchema(name='id', type=int, required=False, description=None, default=None),
+                            PropertySchema(name='username', type=str, required=False, description=None, default=None),
+                            PropertySchema(name='full_name', type=str, required=False, description=None, default=None),
+                        ],
+                        constraints=[
+                            PrimaryKeyConstraint(name='id_pk', fields=['id']),
+                            UniqueConstraint(name='username_unique', fields=['username']),
+                            CheckConstraint(
+                                name='check_id',
+                                condition=Conditions(
+                                    Condition(
+                                        field=FieldReference(field=Field(name='id'), table_name='users'),
+                                        lookup=FieldLookup.GT,
+                                        value=Value('0'),
+                                    )
+                                ),
+                            ),
+                            ForeignKeyConstraint(
+                                name='username_fk',
+                                fields=['username'],
+                                reference_schema=SchemaReference(name='other_table', version=Version.LATEST),
+                                reference_fields=['other_field'],
+                            ),
+                        ],
                     ),
-                    ForeignKeyConstraint(
-                        name='username_fk',
-                        fields=['username'],
-                        reference_schema=SchemaReference(name='other_table', version=Version.LATEST),
-                        reference_fields=['other_field'],
-                    ),
-                ],
-            ),
+                )
+            ]
         )
     ]
 
@@ -206,9 +226,13 @@ def test_create_index(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        AddIndex(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            index=IndexSchema(name='idx_name', fields=['name']),
+        SchemaCommand(
+            mutations=[
+                AddIndex(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    index=IndexSchema(name='idx_name', fields=['name']),
+                )
+            ]
         )
     ]
 
@@ -222,9 +246,13 @@ def test_create_index_multi_column(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        AddIndex(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            index=IndexSchema(name='idx_name', fields=['name', 'username']),
+        SchemaCommand(
+            mutations=[
+                AddIndex(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    index=IndexSchema(name='idx_name', fields=['name', 'username']),
+                )
+            ]
         )
     ]
 
@@ -238,9 +266,13 @@ def test_update_schema_add_property(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        AddProperty(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            property=PropertySchema(name='age', type=int, required=False, description=None, default=None),
+        SchemaCommand(
+            mutations=[
+                AddProperty(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    property=PropertySchema(name='age', type=int, required=False, description=None, default=None),
+                )
+            ]
         )
     ]
 
@@ -254,9 +286,13 @@ def test_update_schema_drop_property(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        DeleteProperty(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            property_name='age',
+        SchemaCommand(
+            mutations=[
+                DeleteProperty(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    property_name='age',
+                )
+            ]
         )
     ]
 
@@ -270,10 +306,14 @@ def test_update_schema_rename_property(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        RenameProperty(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            old_name='age',
-            new_name='years',
+        SchemaCommand(
+            mutations=[
+                RenameProperty(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    old_name='age',
+                    new_name='years',
+                )
+            ]
         )
     ]
 
@@ -287,9 +327,13 @@ def test_update_schema_rename_table(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        RenameSchema(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            new_schema_name='people',
+        SchemaCommand(
+            mutations=[
+                RenameSchema(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    new_schema_name='people',
+                )
+            ]
         )
     ]
 
@@ -303,8 +347,12 @@ def test_delete_schema(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        DeleteSchema(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
+        SchemaCommand(
+            mutations=[
+                DeleteSchema(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                )
+            ]
         )
     ]
 
@@ -318,17 +366,25 @@ def test_add_pk_constraint(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        AddConstraint(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            constraint=PrimaryKeyConstraint(name='id_pk', fields=['id']),
-        ),
+        SchemaCommand(
+            mutations=[
+                AddConstraint(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    constraint=PrimaryKeyConstraint(name='id_pk', fields=['id']),
+                )
+            ]
+        )
     ]
 
     assert parser.parse_sql('ALTER TABLE users ADD PRIMARY KEY (id)') == [
-        AddConstraint(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            constraint=PrimaryKeyConstraint(name='', fields=['id']),
-        ),
+        SchemaCommand(
+            mutations=[
+                AddConstraint(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    constraint=PrimaryKeyConstraint(name='', fields=['id']),
+                )
+            ]
+        )
     ]
 
 
@@ -341,10 +397,14 @@ def test_delete_constraint(benchmark) -> None:
     result = benchmark(parse_sql)
 
     assert result == [
-        DeleteConstraint(
-            schema_reference=SchemaReference(name='users', version=Version.LATEST),
-            constraint_name='id_pk',
-        ),
+        SchemaCommand(
+            mutations=[
+                DeleteConstraint(
+                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    constraint_name='id_pk',
+                )
+            ]
+        )
     ]
 
 

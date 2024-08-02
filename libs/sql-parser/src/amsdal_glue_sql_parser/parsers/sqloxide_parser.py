@@ -38,6 +38,8 @@ from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
+from amsdal_glue_core.common.operations.commands import DataCommand
+from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -70,7 +72,7 @@ class SqlOxideParser(SqlParserBase):
         if 'Query' in parsed_sql:
             query = self._parsed_sql_query_to_operation(parsed_sql['Query'])
 
-            if query.table.name == SCHEMA_REGISTRY_TABLE:
+            if query.table.name == SCHEMA_REGISTRY_TABLE:  # type: ignore[union-attr]
                 return SchemaQueryOperation(filters=query.where)
 
             return DataQueryOperation(query=query)
@@ -132,10 +134,16 @@ class SqlOxideParser(SqlParserBase):
         msg = 'Unsupported SQL operation'
         raise ValueError(msg)
 
-    def _drop_operation(self, parsed_sql: dict[str, Any]) -> Operation:
+    def _drop_operation(self, parsed_sql: dict[str, Any]) -> SchemaCommand:
         if parsed_sql['object_type'] == 'Table':
-            return DeleteSchema(
-                schema_reference=SchemaReference(name=parsed_sql['names'][0][0]['value'], version=Version.LATEST)
+            return SchemaCommand(
+                mutations=[
+                    DeleteSchema(
+                        schema_reference=SchemaReference(
+                            name=parsed_sql['names'][0][0]['value'], version=Version.LATEST
+                        )
+                    )
+                ]
             )
 
         msg = 'Unsupported drop operation'
@@ -146,11 +154,11 @@ class SqlOxideParser(SqlParserBase):
             return constraint['name']['value']
         return ''
 
-    def _alter_table(self, parsed_sql: dict[str, Any]) -> Operation:
+    def _alter_table(self, parsed_sql: dict[str, Any]) -> SchemaCommand:
         table_name = parsed_sql['name'][0]['value']
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
-        operations = []
+        operations: list[SchemaCommand] = []
         for operation in parsed_sql['operations']:
             if 'AddColumn' in operation:
                 column = operation['AddColumn']['column_def']
@@ -160,30 +168,42 @@ class SqlOxideParser(SqlParserBase):
                     name=column_name, type=column_type, required=False, description=None, default=None
                 )
 
-                operations.append(AddProperty(schema_reference=schema, property=_property))
+                operations.append(SchemaCommand(mutations=[AddProperty(schema_reference=schema, property=_property)]))
             elif 'DropColumn' in operation:
                 column_name = operation['DropColumn']['column_name']['value']
-                operations.append(DeleteProperty(schema_reference=schema, property_name=column_name))
+                operations.append(
+                    SchemaCommand(mutations=[DeleteProperty(schema_reference=schema, property_name=column_name)])
+                )
             elif 'RenameColumn' in operation:
                 old_column_name = operation['RenameColumn']['old_column_name']['value']
                 new_column_name = operation['RenameColumn']['new_column_name']['value']
                 operations.append(
-                    RenameProperty(schema_reference=schema, old_name=old_column_name, new_name=new_column_name)
+                    SchemaCommand(
+                        mutations=[
+                            RenameProperty(schema_reference=schema, old_name=old_column_name, new_name=new_column_name)
+                        ]
+                    )
                 )
             elif 'RenameTable' in operation:
                 new_table_name = operation['RenameTable']['table_name'][0]['value']
-                operations.append(RenameSchema(schema_reference=schema, new_schema_name=new_table_name))
+                operations.append(
+                    SchemaCommand(mutations=[RenameSchema(schema_reference=schema, new_schema_name=new_table_name)])
+                )
 
             elif 'AddConstraint' in operation:
                 constraint = operation['AddConstraint']
                 if 'PrimaryKey' in constraint:
                     fields = [column['value'] for column in constraint['PrimaryKey']['columns']]
                     operations.append(
-                        AddConstraint(
-                            schema_reference=schema,
-                            constraint=PrimaryKeyConstraint(
-                                name=self._constraint_name(constraint['PrimaryKey']), fields=fields
-                            ),
+                        SchemaCommand(
+                            mutations=[
+                                AddConstraint(
+                                    schema_reference=schema,
+                                    constraint=PrimaryKeyConstraint(
+                                        name=self._constraint_name(constraint['PrimaryKey']), fields=fields
+                                    ),
+                                )
+                            ]
                         )
                     )
                 else:
@@ -193,7 +213,11 @@ class SqlOxideParser(SqlParserBase):
             elif 'DropConstraint' in operation:
                 constraint = operation['DropConstraint']
                 operations.append(
-                    DeleteConstraint(schema_reference=schema, constraint_name=self._constraint_name(constraint))
+                    SchemaCommand(
+                        mutations=[
+                            DeleteConstraint(schema_reference=schema, constraint_name=self._constraint_name(constraint))
+                        ]
+                    )
                 )
             else:
                 msg = 'Unsupported alter table operation'
@@ -201,7 +225,7 @@ class SqlOxideParser(SqlParserBase):
 
         return operations[0]
 
-    def _create_index(self, parsed_sql: dict[str, Any]) -> AddIndex:
+    def _create_index(self, parsed_sql: dict[str, Any]) -> SchemaCommand:
         table_name = parsed_sql['table_name'][0]['value']
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
@@ -210,13 +234,17 @@ class SqlOxideParser(SqlParserBase):
         if parsed_sql['predicate']:
             condition = Conditions(self._process_selection(parsed_sql['predicate'], table_name))
 
-        return AddIndex(
-            schema_reference=schema,
-            index=IndexSchema(
-                name=parsed_sql['name'][0]['value'],
-                fields=fields,
-                condition=condition,
-            ),
+        return SchemaCommand(
+            mutations=[
+                AddIndex(
+                    schema_reference=schema,
+                    index=IndexSchema(
+                        name=parsed_sql['name'][0]['value'],
+                        fields=fields,
+                        condition=condition,
+                    ),
+                )
+            ]
         )
 
     def _process_column_type(self, column_type: str | dict[str, Any]) -> type:
@@ -241,7 +269,7 @@ class SqlOxideParser(SqlParserBase):
         msg = 'Unsupported column type'
         raise ValueError(msg)
 
-    def _create_table_sql_operation(self, parsed_sql: dict[str, Any]) -> RegisterSchema:
+    def _create_table_sql_operation(self, parsed_sql: dict[str, Any]) -> SchemaCommand:
         table_name = parsed_sql['name'][0]['value']
         schema = Schema(name=table_name, version=Version.LATEST, properties=[])
 
@@ -274,13 +302,13 @@ class SqlOxideParser(SqlParserBase):
         schema.properties = properties
         schema.constraints = constraints or None
 
-        return RegisterSchema(schema=schema)
+        return SchemaCommand(mutations=[RegisterSchema(schema=schema)])
 
     def _process_constraints_on_table(self, constraints: list[dict[str, Any]], table_name: str) -> list[BaseConstraint]:
         if not constraints:
             return []
 
-        constraints_list = []
+        constraints_list: list[BaseConstraint] = []
         for constraint in constraints:
             if 'PrimaryKey' in constraint:
                 fields = [field['value'] for field in constraint['PrimaryKey']['columns']]
@@ -325,7 +353,7 @@ class SqlOxideParser(SqlParserBase):
 
         return constraints_list
 
-    def _parse_delete_sql_operation(self, parsed_sql: dict[str, Any]) -> DeleteData:
+    def _parse_delete_sql_operation(self, parsed_sql: dict[str, Any]) -> DataCommand:
         table_name = parsed_sql['from']['WithFromKeyword'][0]['relation']['Table']['name'][0]['value']
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
@@ -334,9 +362,9 @@ class SqlOxideParser(SqlParserBase):
         if isinstance(where, Condition):
             where = Conditions(where)
 
-        return DeleteData(schema=schema, query=where)
+        return DataCommand(mutations=[DeleteData(schema=schema, query=where)])
 
-    def _parse_update_sql_operation(self, parsed_sql: dict[str, Any]) -> UpdateData:
+    def _parse_update_sql_operation(self, parsed_sql: dict[str, Any]) -> DataCommand:
         table_name = parsed_sql['table']['relation']['Table']['name'][0]['value']
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
@@ -352,13 +380,17 @@ class SqlOxideParser(SqlParserBase):
         if isinstance(where, Condition):
             where = Conditions(where)
 
-        return UpdateData(
-            schema=schema,
-            data=[Data(data=assignments, metadata=None)],
-            query=where,
+        return DataCommand(
+            mutations=[
+                UpdateData(
+                    schema=schema,
+                    data=Data(data=assignments, metadata=None),
+                    query=where,
+                )
+            ]
         )
 
-    def _parse_insert_sql_operation(self, parsed_sql: dict[str, Any]) -> InsertData:
+    def _parse_insert_sql_operation(self, parsed_sql: dict[str, Any]) -> DataCommand:
         columns = [column['value'] for column in parsed_sql['columns']]
         table_name = parsed_sql['table_name'][0]['value']
 
@@ -373,9 +405,13 @@ class SqlOxideParser(SqlParserBase):
 
             data_rows.append(data_row)
 
-        return InsertData(
-            schema=SchemaReference(name=table_name, version=Version.LATEST),
-            data=[Data(data=row, metadata=None) for row in data_rows],
+        return DataCommand(
+            mutations=[
+                InsertData(
+                    schema=SchemaReference(name=table_name, version=Version.LATEST),
+                    data=[Data(data=row, metadata=None) for row in data_rows],
+                )
+            ]
         )
 
     def _identifier_to_field(self, identifier: dict[str, Any], table_name: str) -> FieldReference | Value:
@@ -419,23 +455,32 @@ class SqlOxideParser(SqlParserBase):
         msg = 'Unsupported identifier'
         raise ValueError(msg)
 
+    def _identifier_to_field_reference(self, identifier: dict[str, Any], table_name: str) -> FieldReference:
+        field_reference = self._identifier_to_field(identifier, table_name)
+
+        if not isinstance(field_reference, FieldReference):
+            msg = 'Unsupported identifier'
+            raise TypeError(msg)
+
+        return field_reference
+
     def _process_projections(
         self,
         projections: list[dict[str, Any]],
         table_name: str,
     ) -> list[FieldReference | FieldReferenceAliased] | None:
         fields = []
-        widlcard = True
+        wildcard = True
         for projection in projections:
             if 'Wildcard' in projection:
                 continue
 
-            widlcard = False
+            wildcard = False
 
             if 'UnnamedExpr' in projection:
                 if 'Function' in projection['UnnamedExpr']:
                     continue
-                fields.append(self._identifier_to_field(projection['UnnamedExpr'], table_name))
+                fields.append(self._identifier_to_field_reference(projection['UnnamedExpr'], table_name))
 
             elif 'QualifiedWildcard' in projection:
                 fields.append(
@@ -452,7 +497,7 @@ class SqlOxideParser(SqlParserBase):
                 msg = 'Unsupported projection'
                 raise ValueError(msg)
 
-        return (fields or None) if not widlcard else None
+        return (fields or None) if not wildcard else None
 
     def _process_selection(
         self,
@@ -474,7 +519,7 @@ class SqlOxideParser(SqlParserBase):
 
             if value['op'].lower() in ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in']:
                 return Condition(
-                    field=self._identifier_to_field(value['left'], table_name),
+                    field=self._identifier_to_field_reference(value['left'], table_name),
                     lookup=FieldLookup(value['op'].upper()),
                     value=self._identifier_to_field(value['right'], table_name),
                 )
@@ -517,7 +562,7 @@ class SqlOxideParser(SqlParserBase):
 
         group_by_queries = []
         for group in group_by:
-            field = self._identifier_to_field(group, table_name)
+            field = self._identifier_to_field_reference(group, table_name)
             group_by_queries.append(GroupByQuery(field=field))
 
         return group_by_queries
@@ -528,7 +573,7 @@ class SqlOxideParser(SqlParserBase):
 
         order_by_queries = []
         for order in order_by:
-            field = self._identifier_to_field(order['expr'], table_name)
+            field = self._identifier_to_field_reference(order['expr'], table_name)
             direction = OrderDirection.ASC if order['asc'] else OrderDirection.DESC
             order_by_queries.append(OrderByQuery(field=field, direction=direction))
 
@@ -579,7 +624,7 @@ class SqlOxideParser(SqlParserBase):
                         msg = 'Unsupported aggregation function'
                         raise ValueError(msg)
                     expression = aff_function(
-                        field=self._identifier_to_field(function['args']['List']['args'][0], table_name)
+                        field=self._identifier_to_field_reference(function['args']['List']['args'][0], table_name)
                     )
                     field_alias_name = expression.field.field.name if expression.field.field.name != '*' else 'total'
                     aggregation_queries.append(
