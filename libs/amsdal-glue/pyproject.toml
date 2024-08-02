@@ -24,8 +24,9 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue-connections>=0.0.8",
-    "polars>=0.20"
+    "amsdal-glue-connections>=0.0.5",
+    "polars>=0.20",
+    "towncrier==23.11.0"
 ]
 
 [project.optional-dependencies]
