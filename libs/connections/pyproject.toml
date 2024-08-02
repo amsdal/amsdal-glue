@@ -25,7 +25,7 @@ classifiers = [
 ]
 dependencies = [
 
-    "amsdal-glue-core>=0.0.3"
+    "amsdal-glue-core>=0.0.8"
 
 ]
 

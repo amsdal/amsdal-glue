@@ -41,10 +41,12 @@ def register_connections() -> None:
     customers_db_pool = DefaultConnectionPool(
         PostgresConnection,
         dsn="postgres://db_user:db_password@localhost:5432/db_name_1",
+        # autocommit=True,
     )
     orders_db_pool = DefaultConnectionPool(
         PostgresConnection,
         dsn="postgres://db_user:db_password@localhost:5433/db_name_2",
+        # autocommit=True,
     )
     connection_mng = Container.managers.get(ConnectionManager)
     connection_mng.register_connection_pool(customers_db_pool, schema_name="customers")

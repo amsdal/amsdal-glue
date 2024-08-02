@@ -1,6 +1,6 @@
-## [v0.0.11](https://pypi.org/project/amsdal-glue/0.0.11/) - 2024-08-02
+## [v0.0.12](https://pypi.org/project/amsdal-glue/0.0.12/) - 2024-08-02
 
 
-### Added
+### Fixed
 
-- Typing added (typing-added)
+- Fixed dependencies (fixed-dependencies)
