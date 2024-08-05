@@ -94,7 +94,27 @@ class PostgresConnection(ConnectionBase):
     """
     PostgresConnection is responsible for managing connections and executing queries and commands on
     a PostgreSQL database.
-    It extends the ConnectionBase class.
+
+    Example:
+        Here is example of how to create a connection to a PostgreSQL database:
+
+        ```python
+        from amsdal_glue_connections import PostgresConnection
+
+        connection = PostgresConnection()
+        connection.connect(
+            dsn='postgresql://user:password@localhost:5432/mydatabase',
+            schema='public',
+            timezone='UTC',
+        )
+        ```
+
+        Note, it's also possible to put any extra connection parameters as keyword arguments supported by
+        [psycopg](https://www.psycopg.org/psycopg3/docs/api/connections.html#psycopg.Connection.connect).
+        Also, be aware that the `autocommit` parameter is set to `True` by default.
+
+        Most of the time, you will use the [ConnectionManager][amsdal_glue.ConnectionManager]
+        to manage connections instead of creating a connection directly.
     """
 
     def __init__(self) -> None:
@@ -150,14 +170,6 @@ class PostgresConnection(ConnectionBase):
         Raises:
             ConnectionError: If the connection is already established.
             ImportError: If the 'psycopg' package is not installed.
-
-        Example:
-            connection = PostgresConnection()
-            connection.connect(
-                dsn='postgresql://user:password@localhost:5432/mydatabase',
-                schema='public',
-                timezone='UTC',
-            )
         """
         try:
             import psycopg

@@ -8,7 +8,39 @@ from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPla
 class DefaultSchemaQueryService(SchemaQueryService):
     """
     DefaultSchemaQueryService is responsible for executing schema query operations.
-    It extends the SchemaQueryService class.
+
+    Example:
+        Here is an example to run a schema query operation:
+
+        ```python
+        from amsdal_glue import init_default_containers
+        from amsdal_glue import Container
+        from amsdal_glue import Conditions, Condition, FieldReference, FieldLookup, Value, Field
+        from amsdal_glue import SchemaQueryOperation
+        from amsdal_glue.services import SchemaQueryService
+
+        # Register default containers
+        init_default_containers()
+
+        # Get the registered DefaultSchemaQueryService
+        service = Container.services.get(SchemaQueryService)
+
+        # Query `users` schema
+        service.execute(
+            SchemaQueryOperation(
+                filters=Conditions(
+                    Condition(
+                        field=FieldReference(field=Field(name='name'), table_name='amsdal_schema_registry'),
+                        lookup=FieldLookup.EQ,
+                        value=Value('users'),
+                    )
+                ),
+            ),
+        )
+        ```
+
+        Note, the `amsdal_schema_registry` is reserved AMSDAL Glue name of the schema registry table.
+        Use it to filter the schemas by name.
     """
 
     def execute(self, query_op: SchemaQueryOperation) -> SchemaResult:

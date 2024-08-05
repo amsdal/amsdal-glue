@@ -11,7 +11,6 @@ from amsdal_glue_core.common.workflows.task import Task
 class SequentialSyncExecutor(SequentialExecutor):
     """
     SequentialSyncExecutor is responsible for executing tasks sequentially.
-    It extends the SequentialExecutor class.
     """
 
     def execute_sequential(

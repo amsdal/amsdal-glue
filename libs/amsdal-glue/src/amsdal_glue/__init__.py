@@ -24,6 +24,10 @@ from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.results.data import DataResult
+from amsdal_glue_core.common.data_models.results.data import LockResult
+from amsdal_glue_core.common.data_models.results.data import TransactionResult
+from amsdal_glue_core.common.data_models.results.schema import SchemaResult
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -159,4 +163,9 @@ __all__ = [
     'LockMode',
     'LockParameter',
     'LockSchemaReference',
+    # Results data classes
+    'SchemaResult',
+    'DataResult',
+    'TransactionResult',
+    'LockResult',
 ]

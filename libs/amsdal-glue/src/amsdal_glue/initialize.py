@@ -11,22 +11,35 @@ def init_default_containers() -> None:
     necessary components to function correctly.
 
     Registers:
-        - ConnectionManager: Manages database connections.
-        - SequentialExecutor: Executes tasks sequentially.
-        - ParallelExecutor: Executes tasks in parallel using threads.
-        - DataQueryService: Handles data query operations.
-        - SchemaQueryService: Handles schema query operations.
-        - DataQueryPlanner: Plans data query operations.
-        - SchemaQueryPlanner: Plans schema query operations.
-        - FinalDataQueryExecutor: Executes final data query operations.
-        - DataCommandService: Handles data command operations.
-        - SchemaCommandService: Handles schema command operations.
-        - DataCommandPlanner: Plans data command operations.
-        - SchemaCommandPlanner: Plans schema command operations.
-        - LockCommandService: Handles lock command operations.
-        - LockCommandPlanner: Plans lock command operations.
-        - TransactionCommandService: Handles transaction command operations.
-        - TransactionCommandPlanner: Plans transaction command operations.
+        - [ConnectionManager][amsdal_glue.ConnectionManager]: Manages database connections.
+        - [SequentialExecutor][amsdal_glue.interfaces.SequentialExecutor]: Executes tasks sequentially.
+        - [ParallelExecutor][amsdal_glue.interfaces.ParallelExecutor]: Executes tasks in parallel using threads.
+        - [DataQueryService][amsdal_glue.interfaces.DataQueryService]: Handles data query operations.
+        - [SchemaQueryService][amsdal_glue.interfaces.SchemaQueryService]: Handles schema query operations.
+        - [DataQueryPlanner][amsdal_glue.interfaces.DataQueryPlanner]: Plans data query operations.
+        - [SchemaQueryPlanner][amsdal_glue.interfaces.SchemaQueryPlanner]: Plans schema query operations.
+        - [FinalDataQueryExecutor][amsdal_glue.interfaces.FinalDataQueryExecutor]: Executes final data query operations.
+        - [DataCommandService][amsdal_glue.interfaces.DataCommandService]: Handles data command operations.
+        - [SchemaCommandService][amsdal_glue.interfaces.SchemaCommandService]: Handles schema command operations.
+        - [DataCommandPlanner][amsdal_glue.interfaces.DataCommandPlanner]: Plans data command operations.
+        - [SchemaCommandPlanner][amsdal_glue.interfaces.SchemaCommandPlanner]: Plans schema command operations.
+        - [LockCommandService][amsdal_glue.interfaces.LockCommandService]: Handles lock command operations.
+        - [LockCommandPlanner][amsdal_glue.interfaces.LockCommandPlanner]: Plans lock command operations.
+        - [TransactionCommandService][amsdal_glue.interfaces.TransactionCommandService]: Handles transaction command operations.
+        - [TransactionCommandPlanner][amsdal_glue.interfaces.TransactionCommandPlanner]: Plans transaction command operations.
+
+    Example:
+        Before using the application, you need to register all services, managers, planners, and executors.
+        You can do this by calling the `init_default_containers` function that sets up the default containers.
+        Or you can register them manually via [Container][amsdal_glue.Container] class.
+
+        Here is an example of how to use the `init_default_containers` function:
+
+        ```python
+        from amsdal_glue import init_default_containers
+
+        init_default_containers()
+        ```
     """
     from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
     from amsdal_glue_core.commands.planner.lock_command_planner import LockCommandPlanner

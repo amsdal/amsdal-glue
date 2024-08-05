@@ -8,7 +8,48 @@ from amsdal_glue_core.common.services.commands import DataCommandService
 class DefaultDataCommandService(DataCommandService):
     """
     DefaultDataCommandService is responsible for executing data commands.
-    It extends the DataCommandService class.
+
+    Example:
+        Here is an example to run a create data command:
+
+        ```python
+        from amsdal_glue import init_default_containers
+        from amsdal_glue import Container
+        from amsdal_glue import DataCommand, Data, SchemaReference
+        from amsdal_glue.services import DataCommandService
+
+        # Register default containers
+        init_default_containers()
+
+        # Get the registered DefaultDataCommandService
+        service = Container.services.get(DataCommandService)
+
+        # Insert data into `customers` and `logs` schemas
+        service.execute(
+            command=DataCommand(
+                mutations=[
+                    InsertData(
+                        schema=SchemaReference(name='customers', version=Version.LATEST),
+                        data=[
+                            Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                            Data(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
+                            Data(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
+                            Data(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
+                        ],
+                    ),
+                    InsertData(
+                        schema=SchemaReference(name='logs', version=Version.LATEST),
+                        data=[
+                            Data(data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}),
+                            Data(data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}),
+                            Data(data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor'}),
+                            Data(data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna'}),
+                        ],
+                    ),
+                ],
+            ),
+        )
+        ```
     """
 
     def execute(self, command: DataCommand) -> DataResult:

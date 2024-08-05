@@ -8,7 +8,35 @@ from amsdal_glue_core.common.services.commands import LockCommandService
 class DefaultLockCommandService(LockCommandService):
     """
     DefaultLockCommandService is responsible for executing lock commands.
-    It extends the LockCommandService class.
+
+    Example:
+        Here is an example to run a lock command:
+
+        ```python
+        from amsdal_glue import init_default_containers
+        from amsdal_glue import Container
+        from amsdal_glue import LockCommand, LockAction, LockMode, LockParameter, LockSchemaReference
+        from amsdal_glue import SchemaReference, Version
+        from amsdal_glue.services import LockCommandService
+
+        # Register default containers
+        init_default_containers()
+
+        # Get the registered DefaultLockCommandService
+        service = Container.services.get(LockCommandService)
+
+        # Lock a resource
+        service.execute(
+            LockCommand(
+                lock_id=None,
+                transaction_id=None,
+                action=LockAction.ACQUIRE,
+                mode=LockMode.EXCLUSIVE,
+                parameter=LockParameter.SKIP_LOCKED,
+                locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
+            ),
+        )
+        ```
     """
 
     def execute(self, command: LockCommand) -> LockResult:

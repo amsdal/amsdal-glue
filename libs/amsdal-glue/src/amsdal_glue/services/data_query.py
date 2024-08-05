@@ -8,7 +8,36 @@ from amsdal_glue_core.queries.planner.data_query_planner import DataQueryPlanner
 class DefaultDataQueryService(DataQueryService):
     """
     DefaultDataQueryService is responsible for executing data query operations.
-    It extends the DataQueryService class.
+
+    Example:
+        Here is an example to run a data query operation:
+
+        ```python
+        from amsdal_glue import init_default_containers
+        from amsdal_glue import Container
+        from amsdal_glue import FieldReference, FieldLookup, Value, Field
+        from amsdal_glue import DataQueryOperation
+        from amsdal_glue.services import DataQueryService
+
+        # Register default containers
+        init_default_containers()
+
+        # Get the registered DefaultDataQueryService
+        service = Container.services.get(DataQueryService)
+
+        # Query `users` schema and get only `first_name` and `last_name` fields
+        service.execute(
+            DataQueryOperation(
+                query=QueryStatement(
+                    table=SchemaReference(name='users', version=Version.LATEST),
+                    only=[
+                        FieldReference(field=Field(name='first_name'), table_name='users'),
+                        FieldReference(field=Field(name='last_name'), table_name='users'),
+                    ],
+                ),
+            ),
+        )
+        ```
     """
 
     def execute(self, query_op: DataQueryOperation) -> DataResult:

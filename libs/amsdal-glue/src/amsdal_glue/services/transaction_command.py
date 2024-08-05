@@ -8,7 +8,32 @@ from amsdal_glue_core.common.services.commands import TransactionCommandService
 class DefaultTransactionCommandService(TransactionCommandService):
     """
     DefaultTransactionCommandService is responsible for executing transaction commands.
-    It extends the TransactionCommandService class.
+
+    Example:
+        Here is an example to run a transaction command:
+
+        ```python
+        from amsdal_glue import init_default_containers
+        from amsdal_glue import Container
+        from amsdal_glue import TransactionCommand, Transaction, TransactionAction
+        from amsdal_glue import SchemaReference, Version
+        from amsdal_glue.services import TransactionCommandService
+
+        # Register default containers
+        init_default_containers()
+
+        # Get the registered DefaultTransactionCommandService
+        service = Container.services.get(TransactionCommandService)
+
+        # Begin a transaction command
+        service.execute(
+            TransactionCommand(
+                transaction_id='test_transaction',
+                schema=SchemaReference(name='customers', version=Version.LATEST),
+                action=TransactionAction.BEGIN,
+            ),
+        )
+        ```
     """
 
     def execute(self, command: TransactionCommand) -> TransactionResult:

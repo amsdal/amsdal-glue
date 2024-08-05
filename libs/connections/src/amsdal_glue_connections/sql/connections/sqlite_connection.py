@@ -51,12 +51,10 @@ def sqlite_field_json_transform(  # noqa: PLR0913
     table_quote: str = "'",
     field_quote: str = "'",
 ) -> str:
-    nested_fields_selection = '.'.join(
-        [
-            '$',
-            *fields,
-        ]
-    )
+    nested_fields_selection = '.'.join([
+        '$',
+        *fields,
+    ])
 
     if value_type in (int, bool):
         _cast_type = 'integer'
@@ -77,7 +75,28 @@ def sqlite_field_json_transform(  # noqa: PLR0913
 class SqliteConnection(ConnectionBase):
     """
     SqliteConnection is responsible for managing connections and executing queries and commands on a SQLite database.
-    It extends the ConnectionBase class.
+
+    Example:
+        Here is example of how to create a connection to a SQlite database:
+
+        ```python
+        from amsdal_glue_connections import SqliteConnection
+
+        connection = SqliteConnection()
+        connection.connect(
+            db_path='my_db.sqlite',
+            check_same_thread=False,
+        )
+        ```
+
+        Note, the `check_same_thread` parameter has `True` as default value. Although, it is required to set it to
+        `False` due to using the [ThreadParallelExecutor][amsdal_glue.executors.ThreadParallelExecutor].
+
+        It's also possible to put any other parameters as a keyword arguments that are accepted by the
+        [sqlite3.connect](https://docs.python.org/3/library/sqlite3.html#sqlite3.connect) function.
+
+        Most of the time, you will use the [ConnectionManager][amsdal_glue.ConnectionManager]
+        to manage connections instead of creating a connection directly.
     """
 
     def __init__(self) -> None:

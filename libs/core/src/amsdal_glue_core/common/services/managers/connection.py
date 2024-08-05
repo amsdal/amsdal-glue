@@ -68,6 +68,59 @@ class ConnectionManager(metaclass=Singleton):
             Retrieves the connection pool for a specific schema.
         disconnect_all() -> None:
             Disconnects all registered connection pools.
+
+    Example:
+        Always use [Container][amsdal_glue.Container] to register and retrieve the connection manager.
+
+        Register a ConnectionManager instance:
+
+        ```python
+        from amsdal_glue import Container
+        from amsdal_glue import ConnectionManager
+
+        connection_manager = ConnectionManager()
+        Container.managers.register(ConnectionManager, connection_manager)
+        ```
+
+        Retrieve the ConnectionManager instance:
+
+        ```python
+        from amsdal_glue import Container
+        from amsdal_glue import ConnectionManager
+
+        connection_manager = Container.managers.get(ConnectionManager)
+        ```
+
+        The ConnectionManager class provides methods to register and retrieve
+        [DefaultConnectionPool][amsdal_glue.DefaultConnectionPool] for different schemas.
+
+        Register a connection pool for a specific schema `users`:
+
+        ```python
+        from amsdal_glue import Container
+        from amsdal_glue import ConnectionManager
+        from amsdal_glue import DefaultConnectionPool
+        from amsdal_glue import PostgresConnection
+
+        connection_manager = Container.managers.get(ConnectionManager)
+        connection_manager.register_connection_pool(
+            DefaultConnectionPool(
+                PostgresConnection,
+                dsn="postgres://db_user:db_password@localhost:5433/db_name",
+            ),
+            schema_name="users",
+        )
+        ```
+
+        Retrieve the connection pool for the schema `users`:
+
+        ```python
+        from amsdal_glue import Container
+        from amsdal_glue import ConnectionManager
+
+        connection_manager = Container.managers.get(ConnectionManager)
+        connection_pool = connection_manager.get_connection_pool("users")
+        ```
     """
 
     def __init__(self) -> None:

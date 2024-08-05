@@ -18,6 +18,37 @@ class DefaultConnectionPool(ConnectionPoolBase):
                                                                          their last used time.
         _max_connections (int): The maximum number of connections allowed.
         _expiration_time (int): The time in seconds after which a connection is considered expired.
+
+    Example:
+        This example demonstrates how to create SQLite-base connection pool with a maximum of 10 connections,
+        supported by [SqliteConnection][amsdal_glue.SqliteConnection] connection:
+
+        ```python
+        from amsdal_glue import DefaultConnectionPool
+        from amsdal_glue import SqliteConnection
+
+        sqlite_connection_pool = DefaultConnectionPool(
+            SqliteConnection,
+            db_path='my_db.sqlite',
+            max_connections=10,
+        )
+        ```
+
+        Here is an example of how to create a Postgres-based connection
+        with some parameters supported by [PostgresConnection][amsdal_glue.PostgresConnection] connection:
+
+        ```python
+        from amsdal_glue import DefaultConnectionPool
+        from amsdal_glue import PostgresConnection
+
+        pg_connection_pool = DefaultConnectionPool(
+            PostgresConnection,
+            dsn='postgres://db_user:db_password@localhost:5433/db_name',
+            schema='public',
+            timezone='UTC',
+        )
+        ```
+
     """
 
     def __init__(
