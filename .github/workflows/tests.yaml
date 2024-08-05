@@ -122,6 +122,7 @@ jobs:
       - name: Hatch run test
         run: |
           cd libs/sql-parser
+          hatch env prune
           hatch run test
 
   api_server:
@@ -149,4 +150,5 @@ jobs:
       - name: Hatch run test
         run: |
           cd libs/api-server
+          hatch env prune
           hatch run test
