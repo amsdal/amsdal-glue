@@ -24,10 +24,10 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue>=0.0.10",
-    "amsdal-glue-sql-parser>=0.0.4",
+    "amsdal-glue>=0.0.12",
+    "amsdal-glue-sql-parser[sqloxide]>=0.0.5",
     "fastapi>=0.111.1",
-    "uvicorn>=0.30.3"
+    "uvicorn>=0.30.3",
 ]
 
 [project.urls]

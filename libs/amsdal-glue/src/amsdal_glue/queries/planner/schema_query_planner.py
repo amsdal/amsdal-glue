@@ -35,7 +35,7 @@ class DefaultSchemaQueryPlanner(SchemaQueryPlanner):
             SchemaQueryTask(
                 schema_query_node=SchemaQueryNode(
                     schema_name_connection=schema_name,
-                    filters=filters.copy() if filters else Conditions(),
+                    filters=filters.copy() if filters else None,  # type: ignore[arg-type]
                 ),
             )
             for schema_name in connections_map.values()
