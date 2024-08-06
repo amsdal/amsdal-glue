@@ -24,6 +24,10 @@ from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.results.data import DataResult
+from amsdal_glue_core.common.data_models.results.data import LockResult
+from amsdal_glue_core.common.data_models.results.data import TransactionResult
+from amsdal_glue_core.common.data_models.results.schema import SchemaResult
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -61,16 +65,11 @@ from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
+from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
-from amsdal_glue_core.common.services.commands import DataCommandService
-from amsdal_glue_core.common.services.commands import LockCommandService
-from amsdal_glue_core.common.services.commands import SchemaCommandService
-from amsdal_glue_core.common.services.commands import TransactionCommandService
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
-from amsdal_glue_core.common.services.queries import DataQueryService
-from amsdal_glue_core.common.services.queries import SchemaQueryService
 from amsdal_glue_core.containers import Container
 
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
@@ -80,12 +79,6 @@ __all__ = [
     'init_default_containers',
     # DI Container and base class services
     'Container',
-    'SchemaQueryService',
-    'DataQueryService',
-    'SchemaCommandService',
-    'DataCommandService',
-    'TransactionCommandService',
-    'LockCommandService',
     # Connections
     'ConnectionManager',
     'DefaultConnectionPool',
@@ -126,6 +119,7 @@ __all__ = [
     'OrderDirection',
     'LimitQuery',
     # Data classes for schema commands
+    'SchemaMutation',
     'SchemaCommand',
     'RegisterSchema',
     'ChangeSchema',
@@ -159,4 +153,9 @@ __all__ = [
     'LockMode',
     'LockParameter',
     'LockSchemaReference',
+    # Results data classes
+    'SchemaResult',
+    'DataResult',
+    'TransactionResult',
+    'LockResult',
 ]

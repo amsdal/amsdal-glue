@@ -9,7 +9,23 @@ if TYPE_CHECKING:
 
 
 class LockCommandNodeExecutor(metaclass=Singleton):
+    """Executes a node in the lock command tree.
+
+    This class implements the business logic for executing a single node of a lock command tree.
+
+    Methods:
+        execute(command: ExecutionLockCommand, transaction_id: str | None, lock_id: str | None) -> None:
+            Executes the given lock command node.
+    """
+
     def execute(self, command: 'ExecutionLockCommand', transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
+        """Executes the given lock command node.
+
+        Args:
+            command (ExecutionLockCommand): The lock command node to be executed.
+            transaction_id (str | None): The transaction ID to be used during execution.
+            lock_id (str | None): The lock ID to be used during execution.
+        """
         lock_object = command.locked_object
         _connection = resolve_connection(lock_object.schema, transaction_id)
 

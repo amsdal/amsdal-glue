@@ -94,7 +94,27 @@ class PostgresConnection(ConnectionBase):
     """
     PostgresConnection is responsible for managing connections and executing queries and commands on
     a PostgreSQL database.
-    It extends the ConnectionBase class.
+
+    Example:
+        Here is example of how to create a connection to a PostgreSQL database:
+
+        ```python
+        from amsdal_glue_connections import PostgresConnection
+
+        connection = PostgresConnection()
+        connection.connect(
+            dsn='postgresql://user:password@localhost:5432/mydatabase',
+            schema='public',
+            timezone='UTC',
+        )
+        ```
+
+        Note, it's also possible to put any extra connection parameters as keyword arguments supported by
+        [psycopg](https://www.psycopg.org/psycopg3/docs/api/connections.html#psycopg.Connection.connect).
+        Also, be aware that the `autocommit` parameter is set to `True` by default.
+
+        Most of the time, you will use the [ConnectionManager][amsdal_glue.ConnectionManager]
+        to manage connections instead of creating a connection directly.
     """
 
     def __init__(self) -> None:
@@ -132,6 +152,8 @@ class PostgresConnection(ConnectionBase):
         dsn: str = '',
         schema: str | None = None,
         timezone: str = 'UTC',
+        *,
+        autocommit: bool = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -142,18 +164,12 @@ class PostgresConnection(ConnectionBase):
             schema (str | None): The default schema to be used for the connection. If None,
                                  the default schema usually is 'public'.
             timezone (str): The timezone to be used for the connection.
+            autocommit (bool): Whether to enable autocommit mode.
             **kwargs: Additional connection parameters.
 
         Raises:
             ConnectionError: If the connection is already established.
-
-        Example:
-            connection = PostgresConnection()
-            connection.connect(
-                dsn='postgresql://user:password@localhost:5432/mydatabase',
-                schema='public',
-                timezone='UTC',
-            )
+            ImportError: If the 'psycopg' package is not installed.
         """
         try:
             import psycopg
@@ -168,7 +184,7 @@ class PostgresConnection(ConnectionBase):
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
-        self._connection = psycopg.connect(dsn, **kwargs)
+        self._connection = psycopg.connect(dsn, autocommit=autocommit, **kwargs)
         self._connection.execute("SELECT set_config('TimeZone', %s, false)", [timezone])
 
         if schema:

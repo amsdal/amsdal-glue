@@ -50,7 +50,7 @@ extra-dependencies = [
     "pytest-benchmark>=4.0.0",
     "ruff>=0.5.2",
     "sqloxide==0.1.47",
-    "towncrier==23.11.0"
+    "towncrier>=23.11.0",
 ]
 pre-install-commands = [
   "pip install -e ../core/",

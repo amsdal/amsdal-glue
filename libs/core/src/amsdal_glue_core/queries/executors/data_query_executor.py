@@ -7,12 +7,28 @@ from amsdal_glue_core.queries.data_query_nodes import DataQueryNode
 
 
 class DataQueryNodeExecutor(metaclass=Singleton):
+    """Executes a node in the data query tree.
+
+    This class implements the business logic for executing a single node of a data query tree.
+
+    Methods:
+        execute(query: DataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:
+            Executes the given data query node.
+    """
+
     def __init__(self) -> None:
         from amsdal_glue_core.containers import Container
 
         self.connection_manager = Container.managers.get(ConnectionManager)
 
     def execute(self, query: DataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
+        """Executes the given data query node.
+
+        Args:
+            query (DataQueryNode): The data query node to be executed.
+            transaction_id (str | None): The transaction ID to be used during execution.
+            lock_id (str | None): The lock ID to be used during execution.
+        """
         _query = query.query
         _connection = self.resolve_connection(_query.table, transaction_id)
 
@@ -23,6 +39,15 @@ class DataQueryNodeExecutor(metaclass=Singleton):
         table: SchemaReference | SubQueryStatement,
         transaction_id: str | None,
     ) -> ConnectionBase:
+        """Resolves the connection for the given table.
+
+        Args:
+            table (SchemaReference | SubQueryStatement): The table for which to resolve the connection.
+            transaction_id (str | None): The transaction ID to be used during execution.
+
+        Returns:
+            ConnectionBase: The resolved connection.
+        """
         if isinstance(table, SchemaReference):
             return self.connection_manager.get_connection_pool(table.name).get_connection(transaction_id)
 

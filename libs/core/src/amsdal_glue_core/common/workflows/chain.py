@@ -8,10 +8,36 @@ from amsdal_glue_core.common.workflows.task import Task
 
 @dataclass(kw_only=True)
 class ChainTask(Task):
+    """
+    Represents a chain of tasks to be executed sequentially.
+
+    Attributes:
+        tasks (list[Task]): The list of tasks to be executed.
+        final_task (Task | None): The final task to be executed after the chain of tasks.
+
+    Methods:
+        execute(transaction_id: str | None, lock_id: str | None) -> None:
+            Executes the chain of tasks sequentially using the SequentialExecutor.
+
+        item() -> Any:
+            Returns the item of the final task or the last task in the chain.
+
+        result() -> Any:
+            Returns the result of the final task or the last task in the chain.
+    """
+
     tasks: list[Task]
     final_task: Task | None = None
 
     def execute(self, transaction_id: str | None, lock_id: str | None):
+        """
+        Executes the chain of tasks sequentially using the SequentialExecutor.
+
+        Parameters:
+            transaction_id (str | None): The transaction ID to be used during execution.
+            lock_id (str | None): The lock ID to be used during execution.
+        """
+
         from amsdal_glue_core.containers import Container
 
         executor = Container.executors.get(SequentialExecutor)
@@ -24,6 +50,12 @@ class ChainTask(Task):
 
     @property
     def item(self) -> Any:
+        """
+        Returns the item of the final task or the last task in the chain.
+
+        Returns:
+            Any: The item of the final task or the last task in the chain.
+        """
         if self.final_task:
             return self.final_task.item
         return self.tasks[-1].item
@@ -31,6 +63,9 @@ class ChainTask(Task):
     @property
     def result(self) -> Any:
         """
-        Get result of task execution.
+        Returns the result of the final task or the last task in the chain.
+
+        Returns:
+            Any: The result of the final task or the last task in the chain.
         """
         return self.final_task.result if self.final_task else self.tasks[-1].result

@@ -8,7 +8,36 @@ from amsdal_glue_core.common.services.commands import SchemaCommandService
 class DefaultSchemaCommandService(SchemaCommandService):
     """
     DefaultSchemaCommandService is responsible for executing schema commands.
-    It extends the SchemaCommandService class.
+
+    Example:
+        Here is an example to run a delete schema command:
+
+        ```python
+        from amsdal_glue import init_default_containers
+        from amsdal_glue import Container
+        from amsdal_glue import SchemaCommand, SchemaReference, Version
+        from amsdal_glue.services import SchemaCommandService
+
+        # Register default containers
+        init_default_containers()
+
+        # Get the registered DefaultSchemaCommandService
+        service = Container.services.get(SchemaCommandService)
+
+        # Delete `user` schema
+        service.execute(
+            SchemaCommand(
+                mutations=[
+                    DeleteSchema(
+                        schema_reference=SchemaReference(
+                            name='user',
+                            version=Version.LATEST,
+                        ),
+                    ),
+                ],
+            ),
+        )
+        ```
     """
 
     def execute(self, command: SchemaCommand) -> SchemaResult:

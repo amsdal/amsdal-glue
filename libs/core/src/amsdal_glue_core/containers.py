@@ -63,6 +63,45 @@ class Container:
     The `Container` class is a central registry for managing dependencies in the application. It provides
     separate containers for different types of dependencies, such as managers, services, executors, and planners.
 
+    Instead of directly instantiating dependencies, use the `Container` class to retrieve instances of the required
+    dependencies. This promotes a more modular design, allows for easier management of dependencies and
+    simplifies testing.
+
+    Example:
+        These examples demonstrate how to work with the Container class.
+        Note that the examples assume usage via the `amsdal_glue` package. If you are using the Container
+        class directly via the `amsdal_glue_core` package, you should adjust the imports accordingly.
+
+        1. Get an instance of the [ConnectionManager][amsdal_glue.ConnectionManager] and register connection pool
+        ```python
+        import amsdal_glue
+        from amsdal_glue import Container
+
+        connection_manager = Container.managers.get(ConnectionManager)
+        connection_manager.register_connection_pool(
+            amsdal_glue.DefaultConnectionPool(
+                amsdal_glue.PostgresConnection,
+                dsn='postgres://db_user:db_password@localhost:5433/db_name',
+            ),
+        )
+        ```
+
+        2. Register the own [SequentialExecutor][amsdal_glue.interfaces.SequentialExecutor] implementation
+        ```python
+        import amsdal_glue
+        from amsdal_glue import Container
+        from amsdal_glue.executors import SequentialExecutor
+
+
+        class MySequentialExecutor(SequentialExecutor):
+            pass
+
+
+        Container.managers.register(SequentialExecutor, MySequentialExecutor)
+        ```
+
+    Note, when you get an instance of the dependency, you should use the base class type, not the implementation type.
+
     Attributes:
         managers (DependencyContainer): A container for manager dependencies.
         services (DependencyContainer): A container for service dependencies.

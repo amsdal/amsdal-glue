@@ -14,32 +14,114 @@ from amsdal_glue_core.common.operations.mutations.data import DataMutation
 
 
 class ConnectionBase(Connectable, ABC):
-    @abstractmethod
-    def query(self, query: QueryStatement) -> list[Data]: ...
+    """Abstract base class for database connections."""
 
     @abstractmethod
-    def query_schema(self, filters: Conditions | None = None) -> list[Schema]: ...
+    def query(self, query: QueryStatement) -> list[Data]:
+        """Executes a query and returns the result.
+
+        Args:
+            query (QueryStatement): The query to execute.
+
+        Returns:
+            list[Data]: The result of the query.
+        """
 
     @abstractmethod
-    def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]: ...
+    def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+        """Queries the schema with optional filters.
+
+        Args:
+            filters (Conditions | None): Optional filters for the schema query.
+
+        Returns:
+            list[Schema]: The result of the schema query.
+        """
 
     @abstractmethod
-    def acquire_lock(self, lock: ExecutionLockCommand) -> Any: ...
+    def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
+        """Executes a list of data mutations.
+
+        Args:
+            mutations (list[DataMutation]): The list of data mutations to execute.
+
+        Returns:
+            list[list[Data] | None]: The result of the mutations.
+        """
 
     @abstractmethod
-    def release_lock(self, lock: ExecutionLockCommand) -> Any: ...
+    def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+        """Acquires a lock.
+
+        Args:
+            lock (ExecutionLockCommand): The lock command to execute.
+
+        Returns:
+            Any: The result of the lock acquisition.
+        """
 
     @abstractmethod
-    def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any: ...
+    def release_lock(self, lock: ExecutionLockCommand) -> Any:
+        """Releases a lock.
+
+        Args:
+            lock (ExecutionLockCommand): The lock command to execute.
+
+        Returns:
+            Any: The result of the lock release.
+        """
 
     @abstractmethod
-    def rollback_transaction(self, transaction: TransactionCommand | str | None) -> Any: ...
+    def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        """Commits a transaction.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction to commit.
+
+        Returns:
+            Any: The result of the transaction commit.
+        """
 
     @abstractmethod
-    def begin_transaction(self, transaction: TransactionCommand | str | None) -> Any: ...
+    def rollback_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        """Rolls back a transaction.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction to roll back.
+
+        Returns:
+            Any: The result of the transaction rollback.
+        """
 
     @abstractmethod
-    def revert_transaction(self, transaction: TransactionCommand | str | None) -> Any: ...
+    def begin_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        """Begins a transaction.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction to begin.
+
+        Returns:
+            Any: The result of the transaction begin.
+        """
 
     @abstractmethod
-    def run_schema_command(self, command: SchemaCommand) -> list[Schema | None]: ...
+    def revert_transaction(self, transaction: TransactionCommand | str | None) -> Any:
+        """Reverts a transaction.
+
+        Args:
+            transaction (TransactionCommand | str | None): The transaction to revert.
+
+        Returns:
+            Any: The result of the transaction revert.
+        """
+
+    @abstractmethod
+    def run_schema_command(self, command: SchemaCommand) -> list[Schema | None]:
+        """Executes a schema command.
+
+        Args:
+            command (SchemaCommand): The schema command to execute.
+
+        Returns:
+            list[Schema | None]: The result of the schema command.
+        """

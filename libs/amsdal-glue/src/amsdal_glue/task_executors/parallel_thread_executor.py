@@ -11,7 +11,6 @@ from amsdal_glue_core.common.workflows.task import Task
 class ThreadParallelExecutor(ParallelExecutor):
     """
     ThreadParallelExecutor is responsible for executing tasks in parallel using threads.
-    It extends the ParallelExecutor class.
     """
 
     def execute_parallel(

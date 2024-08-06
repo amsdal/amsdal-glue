@@ -10,8 +10,23 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 
 
 class SchemaMutation(ABC):
+    """
+    Abstract base class for schema mutations.
+
+    Methods:
+        get_schema_name() -> str:
+            Returns the name of the schema associated with the mutation.
+    """
+
     @abstractmethod
-    def get_schema_name(self) -> str: ...
+    def get_schema_name(self) -> str:
+        """
+        Returns the name of the schema associated with the mutation.
+
+        Returns:
+            str: The name of the schema.
+        """
+        ...
 
 
 @dataclass(kw_only=True)

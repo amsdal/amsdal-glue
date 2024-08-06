@@ -9,12 +9,28 @@ if TYPE_CHECKING:
 
 
 class TransactionNodeExecutor(metaclass=Singleton):
+    """Executes a node in the transaction command tree.
+
+    This class implements the business logic for executing a single node of a transaction command tree.
+
+    Methods:
+        execute(command_node: ExecutionTransactionCommandNode, transaction_id: str | None, lock_id: str | None) -> None:
+            Executes the given transaction command node.
+    """
+
     def execute(
         self,
         command_node: 'ExecutionTransactionCommandNode',
         transaction_id: str | None,
         lock_id: str | None,  # noqa: ARG002
     ) -> None:
+        """Executes the given transaction command node.
+
+        Args:
+            command_node (ExecutionTransactionCommandNode): The transaction command node to be executed.
+            transaction_id (str | None): The transaction ID to be used during execution.
+            lock_id (str | None): The lock ID to be used during execution.
+        """
         if not command_node.command.schema:
             msg = 'Schema is required for transaction command'
             raise ValueError(msg)

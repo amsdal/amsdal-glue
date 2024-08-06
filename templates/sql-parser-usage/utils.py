@@ -1,40 +1,33 @@
-from amsdal_glue_core.common.data_models.schema import Schema
-
-from amsdal_glue_core.common.data_models.schema import PropertySchema
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.commands import SchemaCommand
-from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
-from amsdal_glue_core.common.services.commands import SchemaCommandService
-from amsdal_glue_core.containers import Container
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-
-
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.operations.commands import DataCommand
-from amsdal_glue_core.common.operations.mutations.data import InsertData
-from amsdal_glue_core.common.services.commands import DataCommandService
-
-from amsdal_glue_core.common.data_models.data import Data
-
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_connections.sql.connections.postgres_connection import (
-    PostgresConnection,
-)
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.join import JoinQuery
-from amsdal_glue_core.common.data_models.order_by import OrderByQuery
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.enums import JoinType
-from amsdal_glue_core.common.enums import OrderDirection
-from amsdal_glue_core.common.operations.queries import DataQueryOperation
-from amsdal_glue_core.common.services.queries import DataQueryService
-
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 from amsdal_glue_sql_parser.parsers.sqloxide_parser import SqlOxideParser
+
+from amsdal_glue import Condition
+from amsdal_glue import Conditions
+from amsdal_glue import ConnectionManager
+from amsdal_glue import Container
+from amsdal_glue import Data
+from amsdal_glue import DataCommand
+from amsdal_glue import DataQueryOperation
+from amsdal_glue import DefaultConnectionPool
+from amsdal_glue import Field
+from amsdal_glue import FieldLookup
+from amsdal_glue import FieldReference
+from amsdal_glue import InsertData
+from amsdal_glue import JoinQuery
+from amsdal_glue import JoinType
+from amsdal_glue import OrderByQuery
+from amsdal_glue import OrderDirection
+from amsdal_glue import PostgresConnection
+from amsdal_glue import PropertySchema
+from amsdal_glue import QueryStatement
+from amsdal_glue import RegisterSchema
+from amsdal_glue import Schema
+from amsdal_glue import SchemaCommand
+from amsdal_glue import SchemaReference
+from amsdal_glue import Version
+from amsdal_glue.interfaces import DataCommandService
+from amsdal_glue.interfaces import DataQueryService
+from amsdal_glue.interfaces import SchemaCommandService
 
 
 def register_connections() -> None:

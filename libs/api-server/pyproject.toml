@@ -48,7 +48,7 @@ extra-dependencies = [
     "ruff>=0.4.5",
     "sqloxide==0.1.47",
     "httpx==0.27.0",
-    "towncrier==23.11.0"
+    "towncrier>=23.11.0",
 ]
 pre-install-commands = [
   "pip install -e ../core/",

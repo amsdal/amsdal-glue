@@ -25,7 +25,14 @@ from amsdal_glue.queries.polars_operator_constructor import polars_operator_cons
 class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
     """
     PolarsFinalQueryDataExecutor is responsible for executing final data queries using Polars.
-    It extends the FinalDataQueryExecutor class.
+
+    This executor is used when the [DefaultDataQueryPlanner][amsdal_glue.planners.DefaultDataQueryPlanner]
+    splits the query to several subqueries and the [FinalDataQueryTask][amsdal_glue.tasks.FinalDataQueryTask]
+    is created.
+
+    Methods:
+        execute(query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:
+            Executes the final data query node.
     """
 
     def execute(self, query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002

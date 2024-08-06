@@ -17,17 +17,42 @@ if TYPE_CHECKING:
 
 @dataclass(kw_only=True)
 class QueryStatementNode:
+    """
+    Represents a node in a query statement.
+
+    Attributes:
+        alias (str): The alias for the query node.
+        query_node (DataQueryNode): The query node associated with this statement.
+    """
+
     alias: str
     query_node: 'DataQueryNode'
 
 
 @dataclass(kw_only=True)
 class AnnotationQueryNode:
+    """
+    Represents a node for annotation queries.
+
+    Attributes:
+        value (QueryStatementNode | ValueAnnotation): The value of the annotation query node,
+                                                      which can be a query statement node or a value annotation.
+    """
+
     value: QueryStatementNode | ValueAnnotation
 
 
 @dataclass(kw_only=True)
 class JoinQueryNode:
+    """
+    Represents a node for join queries.
+
+    Attributes:
+        table (QueryStatementNode): The table to join.
+        on (Conditions): The conditions for the join.
+        join_type (JoinType): The type of join. Defaults to JoinType.INNER.
+    """
+
     table: QueryStatementNode
     on: Conditions
     join_type: JoinType = JoinType.INNER
@@ -35,6 +60,21 @@ class JoinQueryNode:
 
 @dataclass(kw_only=True)
 class FinalQueryStatement:
+    """
+    Represents the final query statement.
+
+    Attributes:
+        table (QueryStatementNode): The main table for the query.
+        only (list[FieldReference | FieldReferenceAliased] | None): The fields to select in the query. Defaults to None.
+        annotations (list[AnnotationQueryNode] | None): The annotations for the query. Defaults to None.
+        aggregations (list[AggregationQuery] | None): The aggregations for the query. Defaults to None.
+        joins (list[JoinQueryNode] | None): The join conditions for the query. Defaults to None.
+        where (Conditions | None): The where conditions for the query. Defaults to None.
+        group_by (list[GroupByQuery] | None): The group by conditions for the query. Defaults to None.
+        order_by (list[OrderByQuery] | None): The order by conditions for the query. Defaults to None.
+        limit (LimitQuery | None): The limit for the query. Defaults to None.
+    """
+
     table: QueryStatementNode
     only: list[FieldReference | FieldReferenceAliased] | None = None
     annotations: list[AnnotationQueryNode] | None = None

@@ -1,15 +1,14 @@
-from datetime import datetime
 from pprint import pprint
 
-from amsdal_glue.initialize import init_default_containers
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue import Condition
+from amsdal_glue import Conditions
+from amsdal_glue import Field
+from amsdal_glue import FieldLookup
+from amsdal_glue import FieldReference
+from amsdal_glue import SchemaReference
+from amsdal_glue import Value
+from amsdal_glue import Version
+from amsdal_glue import init_default_containers
 from utils import *
 
 

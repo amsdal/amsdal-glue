@@ -9,35 +9,37 @@ from typing import ClassVar
 import httpx
 import polars as pl
 
+from amsdal_glue import AggregationQuery
+from amsdal_glue import AnnotationQuery
+from amsdal_glue import Conditions
+from amsdal_glue import Data
+from amsdal_glue import Field
+from amsdal_glue import FieldReference
+from amsdal_glue import FieldReferenceAliased
+from amsdal_glue import GroupByQuery
+from amsdal_glue import JoinQuery
+from amsdal_glue import LimitQuery
+from amsdal_glue import OrderByQuery
+from amsdal_glue import PropertySchema
+from amsdal_glue import QueryStatement
+from amsdal_glue import Schema
+from amsdal_glue import SchemaCommand
+from amsdal_glue import TransactionCommand
+from amsdal_glue import Version
+from amsdal_glue.interfaces import ConnectionBase
 from amsdal_glue.queries.polars_operator_constructor import polars_operator_constructor
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
-from amsdal_glue_core.common.data_models.group_by import GroupByQuery
-from amsdal_glue_core.common.data_models.join import JoinQuery
-from amsdal_glue_core.common.data_models.limit import LimitQuery
-from amsdal_glue_core.common.data_models.order_by import OrderByQuery
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import PropertySchema
-from amsdal_glue_core.common.data_models.schema import Schema
-from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.helpers.singleton import Singleton
-from amsdal_glue_core.common.interfaces.connection import ConnectionBase
-from amsdal_glue_core.common.operations.commands import SchemaCommand
-from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.queries.final_query_statement import QueryStatementNode
 
 logger = logging.getLogger(__name__)
 
+
 class DailyTreasureWebCache(metaclass=Singleton):
     def __init__(self):
         self.cache: dict[str, pl.DataFrame] = {}
+
 
 class DailyTreasureWebConnection(ConnectionBase):
     BASE_URL: ClassVar[str] = 'https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml'

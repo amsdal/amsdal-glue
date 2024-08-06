@@ -53,7 +53,7 @@ extra-dependencies = [
     "pytest-mock>=3.14.0",
     "ruff>=0.4.5",
     "amsdal-glue[postgres-binary]",
-    "towncrier==23.11.0"
+    "towncrier>=23.11.0",
 ]
 pre-install-commands = [
   "pip install -e ../core/",
