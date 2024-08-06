@@ -1,6 +1,9 @@
-## [v0.0.10](https://pypi.org/project/amsdal-glue-connections/0.0.10/) - 2024-08-02
+# ## [v0.0.11](https://pypi.org/project/amsdal-glue-connections/0.0.11/) - 2024-08-06
 
+### Added
 
-### Fixed
+- Documentation via docstrings (documentation)
 
-- Fixed dependencies (fixed-dependencies)
+### Changed
+
+- PostgresConnection: autocommit=True by default (autocommit-true)
