@@ -8,9 +8,33 @@ from amsdal_glue_core.common.workflows.task import Task
 
 @dataclass(kw_only=True)
 class GroupTask(Task):
+    """
+    Represents a group of tasks to be executed in parallel.
+
+    Attributes:
+        tasks (list[Task]): The list of tasks to be executed.
+
+    Methods:
+        execute(transaction_id: str | None, lock_id: str | None) -> None:
+            Executes the group of tasks in parallel using the ParallelExecutor.
+
+        item() -> Any:
+            Returns the items of the tasks in the group.
+
+        result() -> Any:
+            Returns the results of the tasks in the group.
+    """
+
     tasks: list[Task]
 
     def execute(self, transaction_id: str | None, lock_id: str | None):
+        """
+        Executes the group of tasks in parallel using the ParallelExecutor.
+
+        Parameters:
+            transaction_id (str | None): The transaction ID to be used during execution.
+            lock_id (str | None): The lock ID to be used during execution.
+        """
         from amsdal_glue_core.containers import Container
 
         parallel_executor = Container.executors.get(ParallelExecutor)
@@ -18,8 +42,20 @@ class GroupTask(Task):
 
     @property
     def item(self) -> Any:
+        """
+        Returns the items of the tasks in the group.
+
+        Returns:
+            Any: The items of the tasks in the group.
+        """
         return [task.item for task in self.tasks]
 
     @property
     def result(self) -> Any:
+        """
+        Returns the results of the tasks in the group.
+
+        Returns:
+            Any: The results of the tasks in the group.
+        """
         return [task.result for task in self.tasks]

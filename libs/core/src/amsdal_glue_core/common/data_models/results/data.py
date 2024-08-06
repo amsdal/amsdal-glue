@@ -15,6 +15,7 @@ class DataResult(ResultBase):
         exception (Exception | None): Optional exception that was raised during the operation, if any.
         data (list[Data] | None): The data returned by the query operation, if any.
     """
+
     data: list[Data] | None = None
 
 
@@ -28,6 +29,7 @@ class LockResult(ResultBase):
         exception (Exception | None): Optional exception that was raised during the operation, if any.
         result (Any): The result of the lock operation, if any.
     """
+
     result: Any = None
 
 
@@ -41,4 +43,5 @@ class TransactionResult(ResultBase):
         exception (Exception | None): Optional exception that was raised during the operation, if any.
         result (Any): The result of the transaction operation, if any.
     """
+
     result: Any = None

@@ -10,6 +10,7 @@ class ResultBase:
         message (str | None): Optional message providing additional information about the result.
         exception (Exception | None): Optional exception that was raised during the operation, if any.
     """
+
     success: bool
     message: str | None = None
     exception: Exception | None = None

@@ -65,16 +65,11 @@ from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
+from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
-from amsdal_glue_core.common.services.commands import DataCommandService
-from amsdal_glue_core.common.services.commands import LockCommandService
-from amsdal_glue_core.common.services.commands import SchemaCommandService
-from amsdal_glue_core.common.services.commands import TransactionCommandService
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
-from amsdal_glue_core.common.services.queries import DataQueryService
-from amsdal_glue_core.common.services.queries import SchemaQueryService
 from amsdal_glue_core.containers import Container
 
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
@@ -84,12 +79,6 @@ __all__ = [
     'init_default_containers',
     # DI Container and base class services
     'Container',
-    'SchemaQueryService',
-    'DataQueryService',
-    'SchemaCommandService',
-    'DataCommandService',
-    'TransactionCommandService',
-    'LockCommandService',
     # Connections
     'ConnectionManager',
     'DefaultConnectionPool',
@@ -130,6 +119,7 @@ __all__ = [
     'OrderDirection',
     'LimitQuery',
     # Data classes for schema commands
+    'SchemaMutation',
     'SchemaCommand',
     'RegisterSchema',
     'ChangeSchema',

@@ -106,9 +106,9 @@ class ConnectionManager(metaclass=Singleton):
         connection_manager.register_connection_pool(
             DefaultConnectionPool(
                 PostgresConnection,
-                dsn="postgres://db_user:db_password@localhost:5433/db_name",
+                dsn='postgres://db_user:db_password@localhost:5433/db_name',
             ),
-            schema_name="users",
+            schema_name='users',
         )
         ```
 
@@ -119,7 +119,7 @@ class ConnectionManager(metaclass=Singleton):
         from amsdal_glue import ConnectionManager
 
         connection_manager = Container.managers.get(ConnectionManager)
-        connection_pool = connection_manager.get_connection_pool("users")
+        connection_pool = connection_manager.get_connection_pool('users')
         ```
     """
 

@@ -5,16 +5,23 @@ from amsdal_glue_core.commands.planner.transaction_command_planner import Transa
 from amsdal_glue_core.common.executors.interfaces import FinalDataQueryExecutor
 from amsdal_glue_core.common.executors.interfaces import ParallelExecutor
 from amsdal_glue_core.common.executors.interfaces import SequentialExecutor
+from amsdal_glue_core.common.interfaces.connectable import Connectable
+from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.services.commands import DataCommandService
 from amsdal_glue_core.common.services.commands import LockCommandService
 from amsdal_glue_core.common.services.commands import SchemaCommandService
 from amsdal_glue_core.common.services.commands import TransactionCommandService
+from amsdal_glue_core.common.services.managers.connection import ConnectionPoolBase
 from amsdal_glue_core.common.services.queries import DataQueryService
 from amsdal_glue_core.common.services.queries import SchemaQueryService
 from amsdal_glue_core.queries.planner.data_query_planner import DataQueryPlanner
 from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPlanner
 
 __all__ = [
+    # Connections
+    'ConnectionPoolBase',
+    'ConnectionBase',
+    'Connectable',
     # Services
     'SchemaCommandService',
     'DataCommandService',

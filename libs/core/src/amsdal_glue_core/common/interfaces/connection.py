@@ -26,7 +26,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             list[Data]: The result of the query.
         """
-        pass
 
     @abstractmethod
     def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
@@ -38,7 +37,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             list[Schema]: The result of the schema query.
         """
-        pass
 
     @abstractmethod
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
@@ -50,7 +48,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             list[list[Data] | None]: The result of the mutations.
         """
-        pass
 
     @abstractmethod
     def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
@@ -62,7 +59,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             Any: The result of the lock acquisition.
         """
-        pass
 
     @abstractmethod
     def release_lock(self, lock: ExecutionLockCommand) -> Any:
@@ -74,7 +70,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             Any: The result of the lock release.
         """
-        pass
 
     @abstractmethod
     def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
@@ -86,7 +81,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             Any: The result of the transaction commit.
         """
-        pass
 
     @abstractmethod
     def rollback_transaction(self, transaction: TransactionCommand | str | None) -> Any:
@@ -98,7 +92,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             Any: The result of the transaction rollback.
         """
-        pass
 
     @abstractmethod
     def begin_transaction(self, transaction: TransactionCommand | str | None) -> Any:
@@ -110,7 +103,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             Any: The result of the transaction begin.
         """
-        pass
 
     @abstractmethod
     def revert_transaction(self, transaction: TransactionCommand | str | None) -> Any:
@@ -122,7 +114,6 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             Any: The result of the transaction revert.
         """
-        pass
 
     @abstractmethod
     def run_schema_command(self, command: SchemaCommand) -> list[Schema | None]:
@@ -134,4 +125,3 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             list[Schema | None]: The result of the schema command.
         """
-        pass

@@ -81,7 +81,7 @@ class Container:
         connection_manager.register_connection_pool(
             amsdal_glue.DefaultConnectionPool(
                 amsdal_glue.PostgresConnection,
-                dsn="postgres://db_user:db_password@localhost:5433/db_name",
+                dsn='postgres://db_user:db_password@localhost:5433/db_name',
             ),
         )
         ```
@@ -92,8 +92,10 @@ class Container:
         from amsdal_glue import Container
         from amsdal_glue.executors import SequentialExecutor
 
+
         class MySequentialExecutor(SequentialExecutor):
             pass
+
 
         Container.managers.register(SequentialExecutor, MySequentialExecutor)
         ```

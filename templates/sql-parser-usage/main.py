@@ -1,17 +1,13 @@
-from amsdal_glue.initialize import init_default_containers
-from utils import (
-    register_connections,
-    register_parser,
-    create_schemas,
-    create_new_records,
-)
-
-from amsdal_glue_core.common.services.queries import SchemaQueryService
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
-from amsdal_glue_core.common.services.queries import DataQueryService
-
-from amsdal_glue_core.containers import Container
+from amsdal_glue import Container
+from amsdal_glue.initialize import init_default_containers
+from amsdal_glue.interfaces import DataQueryService
+from amsdal_glue.interfaces import SchemaQueryService
+from utils import create_new_records
+from utils import create_schemas
+from utils import register_connections
+from utils import register_parser
 
 
 def main() -> None:

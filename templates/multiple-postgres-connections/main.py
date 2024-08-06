@@ -1,5 +1,5 @@
 from pprint import pprint
-from amsdal_glue.initialize import init_default_containers
+from amsdal_glue import init_default_containers
 from utils import *
 
 

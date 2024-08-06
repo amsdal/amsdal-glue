@@ -25,8 +25,8 @@ def init_default_containers() -> None:
         - [SchemaCommandPlanner][amsdal_glue.interfaces.SchemaCommandPlanner]: Plans schema command operations.
         - [LockCommandService][amsdal_glue.interfaces.LockCommandService]: Handles lock command operations.
         - [LockCommandPlanner][amsdal_glue.interfaces.LockCommandPlanner]: Plans lock command operations.
-        - [TransactionCommandService][amsdal_glue.interfaces.TransactionCommandService]: Handles transaction command operations.
-        - [TransactionCommandPlanner][amsdal_glue.interfaces.TransactionCommandPlanner]: Plans transaction command operations.
+        - [TransactionCommandService][amsdal_glue.interfaces.TransactionCommandService]: Handles transaction command.
+        - [TransactionCommandPlanner][amsdal_glue.interfaces.TransactionCommandPlanner]: Plans transaction command.
 
     Example:
         Before using the application, you need to register all services, managers, planners, and executors.

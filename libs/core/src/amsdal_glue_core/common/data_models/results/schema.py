@@ -14,4 +14,5 @@ class SchemaResult(ResultBase):
         exception (Exception | None): Optional exception that was raised during the operation, if any.
         schemas (list[Schema | None] | None): The schemas returned by the query operation, if any.
     """
+
     schemas: list[Schema | None] | None = None
