@@ -29,13 +29,20 @@ For example, if your changes related to `performance` optimizations use `perform
 
 ## Release
 
-In order to release new version, you need to run the following command:
+Before performing the release, it is necessary to merge the latest changes into the `main` branch. On your local computer, switch to the `main` branch, pull the latest changes, and run the `release.sh` script located in the `scripts` folder.
 
-```bash
-hatch run release RELEASE_VERSION
+When running the script, you need to provide arguments: the `release date` and the names of the libraries with the required release versions `library_name/release_version`. The script accepts up to 5 commands at a time.
+
+Example:
+
+``` bash
+   bash ./scripts/release.sh 01-01-24 api-server/0.1.0 amsdal-glue/0.2.0
 ```
-
-Replace `RELEASE_VERSION` to your current version that you are going to release, e.g. `0.0.10` (without leading `v`)
-This command will generate change logs, commit, create a tag and push.
+The script will perform the following actions:
+1. Creates a new brunch in release/01-01-24 format.
+2. Enter each specified library.
+3. Update the changelog.
+4. Commit the changes and create a tag.
+5. After processing all the specified libraries, push the changes and tags, triggering the necessary CI/CD processes for the releases.
 
 Note! Before executing this command make sure your all changes are committed.
