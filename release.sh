@@ -59,7 +59,7 @@ for LIB in "${LIBRARIES[@]}"; do
   if [[ "$LIB_NAME" == "amsdal-glue" ]]; then
     git push origin "glue/v$RELEASE_VERSION"
   fi
-  git push origin "$LIB_NAME/$RELEASE_VERSION"
+  git push origin "$LIB_NAME/v$RELEASE_VERSION"
 done
 
 echo "Branch release/$RELEASE_DATE created and pushed. Libraries processed."
