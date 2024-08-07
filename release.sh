@@ -52,6 +52,14 @@ for LIB in "${LIBRARIES[@]}"; do
 done
 
 git push origin "release/$RELEASE_DATE"
-git push origin --tags
+
+
+for LIB in "${LIBRARIES[@]}"; do
+  IFS='/' read -r LIB_NAME RELEASE_VERSION <<< "$LIB"
+  if [[ "$LIB_NAME" == "amsdal-glue" ]]; then
+    git push origin "glue/v$RELEASE_VERSION"
+  fi
+  git push origin "$LIB_NAME/$RELEASE_VERSION"
+done
 
 echo "Branch release/$RELEASE_DATE created and pushed. Libraries processed."
