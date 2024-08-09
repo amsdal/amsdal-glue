@@ -85,7 +85,7 @@ all = [
     "typing",
 ]
 change-logs = "towncrier {args:.}"
-release = "rm latest-changelogs.md && towncrier build --yes --version {args:version} && (cat latest-changelogs.md; cat change-logs.md) > temp.md && mv temp.md change-logs.md && git add change-logs.md latest-changelogs.md release_notes && git commit -m 'Updated release notes' && git push origin && git tag sql-parser/v{args:version} && git push origin sql-parser/v{args:version}"
+release = "rm latest-changelogs.md && towncrier build --yes --version {args:version} && (cat latest-changelogs.md; cat change-logs.md) > temp.md && mv temp.md change-logs.md && git add change-logs.md latest-changelogs.md release_notes && git commit -m 'Updated release notes for sql-parser'"
 
 
 [tool.ruff]

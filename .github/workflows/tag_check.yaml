@@ -1,0 +1,22 @@
+name: Tags Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [closed]
+
+
+jobs:
+  tags_check:
+    name: Tags Check
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
+        run: |
+          bash ./scripts/tag_check.sh
