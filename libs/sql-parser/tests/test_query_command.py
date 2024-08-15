@@ -26,6 +26,7 @@ from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.containers import Container
+
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 

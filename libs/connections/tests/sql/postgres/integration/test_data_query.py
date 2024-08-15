@@ -1,8 +1,8 @@
 from collections.abc import Generator
 
 import pytest
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from tests.sql.postgres.testcases.data_query import query_big_orders
 from tests.sql.postgres.testcases.data_query import query_customers
 from tests.sql.postgres.testcases.data_query import query_customers_age

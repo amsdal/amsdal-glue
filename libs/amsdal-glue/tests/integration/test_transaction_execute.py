@@ -4,8 +4,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
 from amsdal_glue_core.commands.planner.transaction_command_planner import TransactionCommandPlanner
@@ -20,6 +18,9 @@ from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
+
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
+from amsdal_glue.initialize import init_default_containers
 
 
 @pytest.fixture(autouse=True)

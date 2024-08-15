@@ -1,4 +1,3 @@
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -12,6 +11,8 @@ from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
+
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
 def simple_customer_insert(database_connection: PostgresConnection, namespace: str = '') -> list[list[Data] | None]:

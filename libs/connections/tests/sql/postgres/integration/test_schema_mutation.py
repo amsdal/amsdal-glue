@@ -1,6 +1,5 @@
 from unittest.mock import ANY
 
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -8,6 +7,7 @@ from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from tests.sql.postgres.testcases.schema_mutations import add_index
 from tests.sql.postgres.testcases.schema_mutations import add_last_name_property
 from tests.sql.postgres.testcases.schema_mutations import add_unique_constraint

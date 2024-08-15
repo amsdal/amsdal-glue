@@ -3,13 +3,14 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
 from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPlanner
+
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
+from amsdal_glue.initialize import init_default_containers
 
 FIXTURES_PATH = Path(__file__).parent / 'fixtures'
 

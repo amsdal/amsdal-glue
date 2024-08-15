@@ -2,11 +2,12 @@ import datetime
 from collections.abc import Generator
 
 import pytest
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import TransactionCommand
+
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
 @pytest.fixture(scope='function')

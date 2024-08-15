@@ -1,11 +1,12 @@
-from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+
+from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 
 
 def test_build_schema_mutation__register_schema() -> None:

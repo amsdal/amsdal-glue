@@ -5,6 +5,7 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.containers import Container
+
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 

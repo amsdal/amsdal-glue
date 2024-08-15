@@ -3,8 +3,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -23,6 +21,9 @@ from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.common.services.queries import DataQueryService
 from amsdal_glue_core.containers import Container
+
+from amsdal_glue.connections.connection_pool import DefaultConnectionPool
+from amsdal_glue.initialize import init_default_containers
 
 FIXTURES_PATH = Path(__file__).parent / 'fixtures'
 

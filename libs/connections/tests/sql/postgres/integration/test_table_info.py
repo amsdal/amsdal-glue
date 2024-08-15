@@ -1,12 +1,13 @@
 import datetime
 
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
+
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
 def test_simple_table_info(database_connection: PostgresConnection) -> None:

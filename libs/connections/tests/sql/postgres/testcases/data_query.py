@@ -1,4 +1,3 @@
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
@@ -18,6 +17,8 @@ from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.value import Value
+
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
 def query_customers(database_connection: PostgresConnection, namespace: str = '') -> list[Data]:

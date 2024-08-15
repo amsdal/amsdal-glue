@@ -1,13 +1,13 @@
 from collections.abc import Generator
 
 import pytest
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from tests.sql.postgres.testcases.data_mutations import delete_customer
 from tests.sql.postgres.testcases.data_mutations import insert_customers_and_orders
 from tests.sql.postgres.testcases.data_mutations import simple_customer_insert
