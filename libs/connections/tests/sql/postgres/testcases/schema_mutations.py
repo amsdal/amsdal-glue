@@ -1,6 +1,5 @@
 from dataclasses import asdict
 
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -26,6 +25,8 @@ from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
+
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 DEFAULT_SCHEMA = Schema(
     name='user',

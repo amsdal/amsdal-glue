@@ -8,8 +8,9 @@ from time import sleep
 from typing import Any
 
 import pytest
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.helpers.singleton import Singleton
+
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
 @dataclass

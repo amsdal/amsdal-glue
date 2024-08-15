@@ -15,6 +15,7 @@ from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
 from amsdal_glue_core.containers import Container
+
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 

@@ -1,5 +1,4 @@
 import pytest
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
@@ -24,6 +23,8 @@ from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.value import Value
+
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 
 
 def test_build_sql_query_simple() -> None:

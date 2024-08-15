@@ -2,8 +2,9 @@ from collections.abc import Generator
 from unittest import mock
 
 import pytest
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.common.helpers.singleton import Singleton
+
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
 class MockPostgresConnection(PostgresConnection):

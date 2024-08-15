@@ -29,6 +29,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 from amsdal_glue_core.containers import Container
+
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 

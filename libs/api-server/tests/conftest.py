@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
-from amsdal_glue_api_server.app import AmsdalGlueServerApp
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -31,6 +30,8 @@ from amsdal_glue_core.containers import Container
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 from amsdal_glue_sql_parser.parsers.sqloxide_parser import SqlOxideParser
 from fastapi.testclient import TestClient
+
+from amsdal_glue_api_server.app import AmsdalGlueServerApp
 
 
 @pytest.fixture(scope='function')
