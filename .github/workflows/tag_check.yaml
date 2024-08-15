@@ -14,7 +14,8 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v3
-
+        with:
+          token: ${{ secrets.ACCESS_KEY }}
       - name: Create tag
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_KEY }}
