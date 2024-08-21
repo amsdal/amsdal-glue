@@ -1,7 +1,8 @@
 """
 AMSDAL Glue is a library that provides a set of tools to help you build your own data access layer.
 """
-
+from amsdal_glue.connections.connection_manager import DefaultConnectionManager
+from amsdal_glue.interfaces import ConnectionManager
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
@@ -69,8 +70,8 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
+from amsdal_glue_core.containers import Singleton
 
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
@@ -79,8 +80,10 @@ __all__ = [
     'init_default_containers',
     # DI Container and base class services
     'Container',
+    'Singleton',
     # Connections
     'ConnectionManager',
+    'DefaultConnectionManager',
     'DefaultConnectionPool',
     'SqliteConnection',
     'PostgresConnection',

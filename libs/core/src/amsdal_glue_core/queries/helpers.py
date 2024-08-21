@@ -1,5 +1,5 @@
 from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 
 
 def has_multiple_connections(query: QueryStatement) -> bool:

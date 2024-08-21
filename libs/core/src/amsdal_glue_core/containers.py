@@ -4,6 +4,32 @@ from typing import TypeVar
 ServiceType = TypeVar('ServiceType')
 
 
+class Singleton:
+    """
+    The `Singleton` class is a decorator that ensures that only one instance of a class is created.
+
+    Example:
+        Here is an example of how to use the `Singleton` decorator:
+
+        ```python
+        import amsdal_glue
+        from amsdal_glue import Container, Singleton
+
+        Container.managers.register(Singleton(ConnectionManager), ConnectionManager)
+        ```
+    """
+    def __init__(self, cls: ServiceType) -> None:
+        print('INIT SINGLETON')
+        self._cls = cls
+        self._instance = None
+
+    def __call__(self) -> ServiceType:
+        print('CALL SINGLETON', self._instance)
+        if self._instance is None:
+            self._instance = self._cls()
+        return self._instance
+
+
 class DependencyContainer:
     """
     The `DependencyContainer` class is responsible for managing the registration and retrieval of dependencies.
@@ -26,6 +52,7 @@ class DependencyContainer:
         Initializes a new instance of the `DependencyContainer` class.
         """
         self._providers: dict[type[ServiceType], type[ServiceType]] = {}  # type: ignore[valid-type]
+        self._resolved: dict[ServiceType, type[ServiceType]] = {}  # type: ignore[valid-type]
 
     def register(self, dependency: type[ServiceType], provider: type[ServiceType]) -> None:
         """
@@ -52,9 +79,30 @@ class DependencyContainer:
         """
         if dependency in self._providers:
             cls = self._providers[dependency]
-            return cls()  # type: ignore[misc]
+            instance = cls()
+            self._resolved[instance] = dependency
+            return instance  # type: ignore[misc]
 
         msg = f'No provider for {dependency}'
+        raise ValueError(msg)
+
+    def get_dependency_type(self, instance: ServiceType) -> type[ServiceType]:
+        """
+        Retrieves the type of the dependency for the given instance.
+
+        Args:
+            instance (ServiceType): An instance of the provider.
+
+        Returns:
+            type[ServiceType]: The type of the dependency for the given instance.
+
+        Raises:
+            ValueError: If no dependency type is registered for the given instance.
+        """
+        if instance in self._resolved:
+            return self._resolved[instance]
+
+        msg = f'No dependency type for {instance}'
         raise ValueError(msg)
 
 

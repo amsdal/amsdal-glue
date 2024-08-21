@@ -16,9 +16,8 @@ from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.helpers.singleton import Singleton
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.common.services.queries import DataQueryService
 from amsdal_glue_core.containers import Container
 
@@ -46,7 +45,6 @@ def _register_default_connection() -> Generator[None, None, None]:
         yield
     finally:
         connection_mng.disconnect_all()
-        Singleton.invalidate_all_instances()
 
 
 def test_data_query_service() -> None:

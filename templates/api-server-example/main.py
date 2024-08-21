@@ -6,7 +6,7 @@ from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue_api_server.app import AmsdalGlueServerApp
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.containers import Container
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 from amsdal_glue_sql_parser.parsers.sqloxide_parser import SqlOxideParser

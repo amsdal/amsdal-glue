@@ -12,11 +12,10 @@ from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.helpers.singleton import Singleton
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import InsertData
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
 
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
@@ -51,12 +50,12 @@ def _register_default_connection() -> Generator[None, None, None]:
             yield
         finally:
             connection_mng.disconnect_all()
-            Singleton.invalidate_all_instances()
 
 
 def test_transaction() -> None:
     transaction_planner = Container.planners.get(TransactionCommandPlanner)
     command_planner = Container.planners.get(DataCommandPlanner)
+    connection_mng = Container.managers.get(ConnectionManager)
 
     transaction_planner.plan_transaction(
         TransactionCommand(
@@ -112,7 +111,7 @@ def test_transaction() -> None:
     ).execute(transaction_id='transaction_id', lock_id=None)
 
     assert (
-        ConnectionManager()  # type: ignore[attr-defined]
+        connection_mng  # type: ignore[attr-defined]
         .get_connection_pool('shippings')
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
@@ -120,7 +119,7 @@ def test_transaction() -> None:
         == [('111', '1', 'shipped')]
     )
     assert (
-        ConnectionManager()  # type: ignore[attr-defined]
+        connection_mng  # type: ignore[attr-defined]
         .get_connection_pool('customers')
         .get_connection()
         .execute('SELECT id, name FROM customers')
@@ -131,6 +130,7 @@ def test_transaction() -> None:
 def test_transaction_rollback() -> None:
     transaction_planner = Container.planners.get(TransactionCommandPlanner)
     command_planner = Container.planners.get(DataCommandPlanner)
+    connection_mng = Container.managers.get(ConnectionManager)
 
     transaction_planner.plan_transaction(
         TransactionCommand(
@@ -186,14 +186,14 @@ def test_transaction_rollback() -> None:
     ).execute(transaction_id='transaction_id', lock_id=None)
 
     assert (
-        ConnectionManager()  # type: ignore[attr-defined]
+        connection_mng  # type: ignore[attr-defined]
         .get_connection_pool('shippings')
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
     ) == []
     assert (
-        ConnectionManager()  # type: ignore[attr-defined]
+        connection_mng  # type: ignore[attr-defined]
         .get_connection_pool('customers')
         .get_connection()
         .execute('SELECT id, name FROM customers')

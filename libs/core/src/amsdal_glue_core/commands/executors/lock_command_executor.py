@@ -2,13 +2,12 @@ from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.helpers.resolve_connection import resolve_connection
-from amsdal_glue_core.common.helpers.singleton import Singleton
 
 if TYPE_CHECKING:
     from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 
 
-class LockCommandNodeExecutor(metaclass=Singleton):
+class LockCommandNodeExecutor:
     """Executes a node in the lock command tree.
 
     This class implements the business logic for executing a single node of a lock command tree.

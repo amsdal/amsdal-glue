@@ -70,6 +70,7 @@ Here is a simple example of how to use the `amsdal-glue` package to connect to a
 
 ```python
 import amsdal_glue
+from amsdal_glue import interfaces
 from amsdal_glue import (
     init_default_containers,
     QueryStatement,
@@ -87,7 +88,7 @@ def main() -> None:
     init_default_containers()
 
     # Register a connection to a SQLite database
-    connection_mng = amsdal_glue.Container.managers.get(amsdal_glue.ConnectionManager)
+    connection_mng = amsdal_glue.Container.managers.get(interfaces.ConnectionManager)
     connection_mng.register_connection_pool(
         amsdal_glue.DefaultConnectionPool(
             amsdal_glue.SqliteConnection,
@@ -112,7 +113,7 @@ def main() -> None:
     )
 
     # Execute the query
-    service = amsdal_glue.Container.services.get(amsdal_glue.DataQueryService)
+    service = amsdal_glue.Container.services.get(interfaces.DataQueryService)
     data_result = service.execute(
         query_op=DataQueryOperation(
             query=query,

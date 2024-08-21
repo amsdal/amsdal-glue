@@ -1,62 +1,9 @@
-from abc import ABC
-from abc import abstractmethod
-from typing import Any
-
 from amsdal_glue_core.common.enums import ConnectionAlias
-from amsdal_glue_core.common.helpers.singleton import Singleton
-from amsdal_glue_core.common.interfaces.connection import ConnectionBase
+from amsdal_glue.interfaces import ConnectionManager
+from amsdal_glue.interfaces import ConnectionPoolBase
 
 
-class ConnectionPoolBase(ABC):
-    """Abstract base class for managing a pool of database connections.
-
-    Args:
-        connection_class (type[ConnectionBase]): The class of the connection to manage.
-        *args (Any): Positional arguments to pass to the connection class.
-        **kwargs (Any): Keyword arguments to pass to the connection class.
-
-    Methods:
-        get_connection(transaction_id: str | None = None) -> ConnectionBase:
-            Retrieves a connection from the pool.
-        disconnect_connection(transaction_id: str | None = None) -> None:
-            Disconnects a specific connection from the pool.
-        disconnect() -> None:
-            Disconnects all connections in the pool.
-    """
-
-    def __init__(self, connection_class: type[ConnectionBase], *args: Any, **kwargs: Any) -> None:
-        self._connection_args = args
-        self._connection_kwargs = kwargs
-        self._connection_class = connection_class
-
-    @abstractmethod
-    def get_connection(self, transaction_id: str | None = None) -> ConnectionBase:
-        """Retrieves a connection from the pool.
-
-        Args:
-            transaction_id (str | None): The transaction ID for the connection.
-
-        Returns:
-            ConnectionBase: The connection instance.
-        """
-        ...
-
-    @abstractmethod
-    def disconnect_connection(self, transaction_id: str | None = None) -> None:
-        """Disconnects a specific connection from the pool.
-
-        Args:
-            transaction_id (str | None): The transaction ID for the connection.
-        """
-        ...
-
-    @abstractmethod
-    def disconnect(self) -> None:
-        """Disconnects all connections in the pool."""
-        ...
-
-
-class ConnectionManager(metaclass=Singleton):
+class DefaultConnectionManager(ConnectionManager):
     """Manages multiple connection pools for different schemas.
 
     Methods:
@@ -76,10 +23,10 @@ class ConnectionManager(metaclass=Singleton):
 
         ```python
         from amsdal_glue import Container
+        from amsdal_glue import Singleton
         from amsdal_glue import ConnectionManager
 
-        connection_manager = ConnectionManager()
-        Container.managers.register(ConnectionManager, connection_manager)
+        Container.managers.register(ConnectionManagerBase, Singleton(ConnectionManager))
         ```
 
         Retrieve the ConnectionManager instance:
@@ -134,6 +81,7 @@ class ConnectionManager(metaclass=Singleton):
             schema_name (str | None): The schema name for the connection pool.
         """
         self.connections[schema_name or ConnectionAlias.DEFAULT] = connection
+        print('>>', self, schema_name, self.connections)
 
     def has_multiple_models_connections(self, connection_alias: ConnectionAlias) -> bool:
         """Checks if there are multiple model connections for the given alias.
@@ -155,6 +103,7 @@ class ConnectionManager(metaclass=Singleton):
         Returns:
             ConnectionPoolBase: The connection pool instance.
         """
+        print('>>', self, schema_name, self.connections)
         return self.connections.get(schema_name) or self.connections[ConnectionAlias.DEFAULT]
 
     def disconnect_all(self) -> None:

@@ -4,6 +4,7 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.conditions import Condition
@@ -19,10 +20,9 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
-from amsdal_glue_core.common.helpers.singleton import Singleton
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
 
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
@@ -44,10 +44,10 @@ def _register_default_connection() -> Generator[None, None, None]:
             yield
         finally:
             connection_mng.disconnect_all()
-            Singleton.invalidate_all_instances()
 
 
 def test_create_schema():
+    connection_mng = Container.managers.get(ConnectionManager)
     schema = Schema(
         name='user',
         version=Version.LATEST,
@@ -107,7 +107,7 @@ def test_create_schema():
     )
     plan.execute(transaction_id=None, lock_id=None)
 
-    conn = ConnectionManager().get_connection_pool('user').get_connection()
+    conn = connection_mng.get_connection_pool('user').get_connection()
     result = conn.query_schema(filters=None)
     assert len(result) == 1
     _schema = result[0]

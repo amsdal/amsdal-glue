@@ -1,0 +1,3 @@
+amsdal-glue[postgres-binary]>=0.0.7
+
+

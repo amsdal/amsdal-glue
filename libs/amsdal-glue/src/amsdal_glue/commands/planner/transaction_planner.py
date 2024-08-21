@@ -2,9 +2,9 @@ from amsdal_glue_core.commands.planner.transaction_command_planner import Transa
 from amsdal_glue_core.commands.transaction_node import ExecutionTransactionCommandNode
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import TransactionCommand
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
-from amsdal_glue_core.common.services.managers.connection import ConnectionPoolBase
+from amsdal_glue_core.common.interfaces.connection_pool import ConnectionPoolBase
 from amsdal_glue_core.common.workflows.chain import ChainTask
 from amsdal_glue_core.common.workflows.group import GroupTask
 

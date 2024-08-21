@@ -1,11 +1,10 @@
 from amsdal_glue_core.commands.mutation_nodes import SchemaCommandNode
-from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 
 
-class SchemaCommandNodeExecutor(metaclass=Singleton):
+class SchemaCommandNodeExecutor:
     """Executes a node in the schema command tree produced by the schema command planner.
 
     This class implements the business logic for executing a single node of a schema command tree.

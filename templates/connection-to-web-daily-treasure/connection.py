@@ -29,14 +29,20 @@ from amsdal_glue import Version
 from amsdal_glue.interfaces import ConnectionBase
 from amsdal_glue.queries.polars_operator_constructor import polars_operator_constructor
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
-from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.queries.final_query_statement import QueryStatementNode
 
 logger = logging.getLogger(__name__)
 
 
-class DailyTreasureWebCache(metaclass=Singleton):
+class DailyTreasureWebCache:
+    _instance: 'DailyTreasureWebCache'
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, 'instance'):
+            cls._instance = super(DailyTreasureWebCache, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self):
         self.cache: dict[str, pl.DataFrame] = {}
 

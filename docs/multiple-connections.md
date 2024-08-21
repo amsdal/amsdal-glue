@@ -9,8 +9,8 @@ The AMSDAL Glue uses a connection manager to manage connections. To get the conn
 following code:
 
 ```python
-from amsdal_glue_core.containers import Container
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue import Container
+from amsdal_glue.interfaces import ConnectionManager
 
 connection_mng = Container.managers.get(ConnectionManager)
 ```
@@ -24,10 +24,10 @@ The AMSDAL Glue uses a connection pool to manage connections.
 Here is an example of how to create a connection pool and register it in the connection manager:
 
 ```python
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.containers import Container
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue import DefaultConnectionPool
+from amsdal_glue import SqliteConnection
+from amsdal_glue import Container
+from amsdal_glue.interfaces import ConnectionManager
 
 sql_connection_pool = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
 
@@ -43,10 +43,10 @@ connection_mng.register_connection_pool(sql_connection_pool, 'customers')
 Now, you can get the connection pool from the connection manager by the schema name:
 
 ```python
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.containers import Container
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue import DefaultConnectionPool
+from amsdal_glue import SqliteConnection
+from amsdal_glue import Container
+from amsdal_glue.interfaces import ConnectionManager
 
 sql_connection_pool = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
 
@@ -67,10 +67,10 @@ you need to connect to multiple databases in the same application.
 Here is an example of how to register multiple connection pools:
 
 ```python
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.containers import Container
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue import DefaultConnectionPool
+from amsdal_glue import SqliteConnection
+from amsdal_glue import Container
+from amsdal_glue.interfaces import ConnectionManager
 
 sql_customers_db = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
 sql_orders_db = DefaultConnectionPool(SqliteConnection, db_path='orders.sqlite', check_same_thread=False)
@@ -94,15 +94,15 @@ subqueries or joins between tables from different databases.
 Here is an example of how to query multiple databases:
 
 ```python
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.join import JoinQuery
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.enums import Version
+from amsdal_glue import Condition
+from amsdal_glue import Conditions
+from amsdal_glue import Field
+from amsdal_glue import FieldReference
+from amsdal_glue import JoinQuery
+from amsdal_glue import QueryStatement
+from amsdal_glue import SchemaReference
+from amsdal_glue import FieldLookup
+from amsdal_glue import Version
 
 query = QueryStatement(
     only=[
