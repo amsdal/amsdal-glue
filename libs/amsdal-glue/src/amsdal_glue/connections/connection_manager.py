@@ -81,7 +81,6 @@ class DefaultConnectionManager(ConnectionManager):
             schema_name (str | None): The schema name for the connection pool.
         """
         self.connections[schema_name or ConnectionAlias.DEFAULT] = connection
-        print('>>', self, schema_name, self.connections)
 
     def has_multiple_models_connections(self, connection_alias: ConnectionAlias) -> bool:
         """Checks if there are multiple model connections for the given alias.
@@ -103,7 +102,6 @@ class DefaultConnectionManager(ConnectionManager):
         Returns:
             ConnectionPoolBase: The connection pool instance.
         """
-        print('>>', self, schema_name, self.connections)
         return self.connections.get(schema_name) or self.connections[ConnectionAlias.DEFAULT]
 
     def disconnect_all(self) -> None:

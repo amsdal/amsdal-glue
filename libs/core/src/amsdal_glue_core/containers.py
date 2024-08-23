@@ -1,5 +1,9 @@
 # mypy: disable-error-code="type-abstract"
+import pickle
+from contextlib import contextmanager
+from typing import ClassVar
 from typing import TypeVar
+from uuid import uuid4
 
 ServiceType = TypeVar('ServiceType')
 
@@ -18,13 +22,12 @@ class Singleton:
         Container.managers.register(Singleton(ConnectionManager), ConnectionManager)
         ```
     """
+
     def __init__(self, cls: ServiceType) -> None:
-        print('INIT SINGLETON')
         self._cls = cls
         self._instance = None
 
     def __call__(self) -> ServiceType:
-        print('CALL SINGLETON', self._instance)
         if self._instance is None:
             self._instance = self._cls()
         return self._instance
@@ -54,7 +57,7 @@ class DependencyContainer:
         self._providers: dict[type[ServiceType], type[ServiceType]] = {}  # type: ignore[valid-type]
         self._resolved: dict[ServiceType, type[ServiceType]] = {}  # type: ignore[valid-type]
 
-    def register(self, dependency: type[ServiceType], provider: type[ServiceType]) -> None:
+    def register(self, dependency: type[ServiceType], provider: type[ServiceType] | Singleton) -> None:
         """
         Registers a provider for a given dependency type.
 
@@ -104,6 +107,26 @@ class DependencyContainer:
 
         msg = f'No dependency type for {instance}'
         raise ValueError(msg)
+
+
+class SubContainer:
+    def __init__(self, name: str = '') -> None:
+        self.name = name
+        self.managers = DependencyContainer()
+        self.services = DependencyContainer()
+        self.executors = DependencyContainer()
+        self.planners = DependencyContainer()
+
+
+class ContainerPropertyDescriptor:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def __get__(self, _, cls: type['Container']) -> DependencyContainer:
+        if cls.__current_container__ is None:
+            return getattr(cls, f'_root_{self.name}')
+
+        return getattr(cls.__sub_containers__[cls.__current_container__], self.name)
 
 
 class Container:
@@ -157,7 +180,82 @@ class Container:
         planners (DependencyContainer): A container for planner dependencies.
     """
 
-    managers = DependencyContainer()
-    services = DependencyContainer()
-    executors = DependencyContainer()
-    planners = DependencyContainer()
+    _root_managers = DependencyContainer()
+    _root_services = DependencyContainer()
+    _root_executors = DependencyContainer()
+    _root_planners = DependencyContainer()
+
+    __current_container__: ClassVar[str | None] = None
+    __sub_containers__: ClassVar[dict[str, SubContainer]] = {}
+
+    managers = ContainerPropertyDescriptor('managers')
+    services = ContainerPropertyDescriptor('services')
+    executors = ContainerPropertyDescriptor('executors')
+    planners = ContainerPropertyDescriptor('planners')
+
+    @classmethod
+    def define_sub_container(cls, name: str = '') -> SubContainer:
+        name = name or uuid4().hex
+        cls.__sub_containers__[name] = SubContainer(name)
+        return cls.__sub_containers__[name]
+
+    @classmethod
+    @contextmanager
+    def switch(cls, name: str) -> None:
+        previous = cls.__current_container__
+        cls.__current_container__ = name
+
+        try:
+            yield cls.__sub_containers__[name]
+        finally:
+            cls.__current_container__ = previous
+
+    @classmethod
+    @contextmanager
+    def root(cls) -> None:
+        previous = cls.__current_container__
+        cls.__current_container__ = None
+
+        try:
+            yield cls
+        finally:
+            cls.__current_container__ = previous
+
+    @classmethod
+    def serialize_state(cls) -> bytes:
+        return pickle.dumps(
+            {
+                '_root_managers': cls._root_managers._providers,
+                '_root_services': cls._root_services._providers,
+                '_root_executors': cls._root_executors._providers,
+                '_root_planners': cls._root_planners._providers,
+                '__current_container__': cls.__current_container__,
+                '__sub_containers__': {
+                    name: (
+                        sub_container.managers._providers,
+                        sub_container.services._providers,
+                        sub_container.executors._providers,
+                        sub_container.planners._providers,
+                    )
+                    for name, sub_container in cls.__sub_containers__.items()
+                }
+            }
+        )
+
+    @classmethod
+    def deserialize_state(cls, state: bytes) -> None:
+        data = pickle.loads(state)
+        cls._root_managers._providers = data['_root_managers']
+        cls._root_services._providers = data['_root_services']
+        cls._root_executors._providers = data['_root_executors']
+        cls._root_planners._providers = data['_root_planners']
+        cls.__current_container__ = data['__current_container__']
+
+        for name, (_managers, _service, _executors, _planners) in data['__sub_containers__'].items():
+            sub_container = SubContainer(name)
+            sub_container.managers._providers = _managers
+            sub_container.services._providers = _service
+            sub_container.executors._providers = _executors
+            sub_container.planners._providers = _planners
+
+            cls.__sub_containers__[name] = sub_container

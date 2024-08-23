@@ -1,6 +1,8 @@
 # mypy: disable-error-code="type-abstract"
+from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
 from amsdal_glue_core.common.data_models.results.data import DataResult
+from amsdal_glue_core.common.executors.manager import ExecutorManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.services.commands import DataCommandService
 
@@ -67,6 +69,9 @@ class DefaultDataCommandService(DataCommandService):
         query_planner = Container.planners.get(DataCommandPlanner)
         plan = query_planner.plan_data_command(command)
 
+        executor_manager = Container.managers.get(ExecutorManager)
+        plan.executor = executor_manager.resolve_by_service(DataCommandService)
+
         try:
             plan.execute(transaction_id=command.root_transaction_id, lock_id=command.lock_id)
         except Exception as e:  # noqa: BLE001
@@ -75,3 +80,7 @@ class DefaultDataCommandService(DataCommandService):
             _data = plan.final_task.result if plan.final_task else plan.tasks[-1].result
 
         return DataResult(success=True, data=_data)
+
+
+class PipelineDataCommandService(PipelineServiceMixin, DefaultDataCommandService):
+    ...

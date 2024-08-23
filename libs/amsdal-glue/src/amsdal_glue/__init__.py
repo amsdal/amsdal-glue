@@ -3,6 +3,7 @@ AMSDAL Glue is a library that provides a set of tools to help you build your own
 """
 from amsdal_glue.connections.connection_manager import DefaultConnectionManager
 from amsdal_glue.interfaces import ConnectionManager
+from amsdal_glue.managers.runtime_manager import DefaultRuntimeManager
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
@@ -81,6 +82,8 @@ __all__ = [
     # DI Container and base class services
     'Container',
     'Singleton',
+    # Runtime Manager
+    'DefaultRuntimeManager',
     # Connections
     'ConnectionManager',
     'DefaultConnectionManager',

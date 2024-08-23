@@ -28,6 +28,7 @@ class ChainTask(Task):
 
     tasks: list[Task]
     final_task: Task | None = None
+    executor: SequentialExecutor | None = None
 
     def execute(self, transaction_id: str | None, lock_id: str | None):
         """
@@ -40,7 +41,7 @@ class ChainTask(Task):
 
         from amsdal_glue_core.containers import Container
 
-        executor = Container.executors.get(SequentialExecutor)
+        executor = self.executor or Container.executors.get(SequentialExecutor)
         executor.execute_sequential(
             self.tasks,
             final_task=self.final_task,

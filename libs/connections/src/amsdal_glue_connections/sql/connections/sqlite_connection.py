@@ -269,12 +269,13 @@ class SqliteConnection(ConnectionBase):
         """
         return Data(data=data)
 
-    def connect(self, db_path: Path, **kwargs: Any) -> None:
+    def connect(self, db_path: Path, *, check_same_thread: bool = False, **kwargs: Any) -> None:
         """
         Establishes a connection to the SQLite database.
 
         Args:
             db_path (Path): The path to the SQLite database file.
+            check_same_thread (bool, optional): Whether to check the same thread. Defaults to False.
             **kwargs (Any): Additional arguments for the SQLite connection.
 
         Raises:
@@ -286,7 +287,7 @@ class SqliteConnection(ConnectionBase):
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-        self._connection = sqlite3.connect(db_path, **kwargs)
+        self._connection = sqlite3.connect(db_path, check_same_thread=check_same_thread, **kwargs)
         self._connection.isolation_level = None  # disable implicit transaction opening
 
     def disconnect(self) -> None:

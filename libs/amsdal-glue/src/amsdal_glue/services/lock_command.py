@@ -1,6 +1,8 @@
 # mypy: disable-error-code="type-abstract"
+from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 from amsdal_glue_core.commands.planner.lock_command_planner import LockCommandPlanner
 from amsdal_glue_core.common.data_models.results.data import LockResult
+from amsdal_glue_core.common.executors.manager import ExecutorManager
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.services.commands import LockCommandService
 
@@ -54,9 +56,16 @@ class DefaultLockCommandService(LockCommandService):
         query_planner = Container.planners.get(LockCommandPlanner)
         plan = query_planner.plan_lock(command)
 
+        executor_manager = Container.managers.get(ExecutorManager)
+        plan.executor = executor_manager.resolve_by_service(LockCommandService)
+
         try:
             plan.execute(transaction_id=command.root_transaction_id, lock_id=command.lock_id)
         except Exception as e:  # noqa: BLE001
             return LockResult(success=False, message=str(e))
 
         return LockResult(success=True, result=plan.result)
+
+
+class PipelineLockCommandService(PipelineServiceMixin, DefaultLockCommandService):
+    ...
