@@ -1,11 +1,10 @@
 # mypy: disable-error-code="type-abstract"
 import pickle
 from contextlib import contextmanager
+from typing import Any
 from typing import ClassVar
 from typing import TypeVar
 from uuid import uuid4
-
-ServiceType = TypeVar('ServiceType')
 
 
 class Singleton:
@@ -23,11 +22,11 @@ class Singleton:
         ```
     """
 
-    def __init__(self, cls: ServiceType) -> None:
+    def __init__(self, cls: type[Any]) -> None:
         self._cls = cls
         self._instance = None
 
-    def __call__(self) -> ServiceType:
+    def __call__(self) -> type[Any]:
         if self._instance is None:
             self._instance = self._cls()
         return self._instance
@@ -39,14 +38,14 @@ class DependencyContainer:
     It maintains a mapping of dependency types to their respective provider types.
 
     Attributes:
-        _providers (dict[type[ServiceType], type[ServiceType]]): A dictionary mapping dependency types to
+        _providers (dict[type[Any], type[Any]]): A dictionary mapping dependency types to
                                                                  provider types.
 
     Methods:
-        register(dependency: type[ServiceType], provider: type[ServiceType]) -> None:
+        register(dependency: type[Any], provider: type[Any]) -> None:
             Registers a provider for a given dependency type.
 
-        get(dependency: type[ServiceType]) -> ServiceType:
+        get(dependency: type[Any]) -> Any:
             Retrieves an instance of the provider for the given dependency type.
     """
 
@@ -54,28 +53,28 @@ class DependencyContainer:
         """
         Initializes a new instance of the `DependencyContainer` class.
         """
-        self._providers: dict[type[ServiceType], type[ServiceType]] = {}  # type: ignore[valid-type]
-        self._resolved: dict[ServiceType, type[ServiceType]] = {}  # type: ignore[valid-type]
+        self._providers: dict[type[Any], type[Any]] = {}  # type: ignore[valid-type]
+        self._resolved: dict[type[Any], type[Any]] = {}  # type: ignore[valid-type]
 
-    def register(self, dependency: type[ServiceType], provider: type[ServiceType] | Singleton) -> None:
+    def register(self, dependency: type[Any], provider: type[Any] | Singleton) -> None:
         """
         Registers a provider for a given dependency type.
 
         Args:
-            dependency (type[ServiceType]): The type of the dependency.
-            provider (type[ServiceType]): The type of the provider.
+            dependency (type[Any]): The type of the dependency.
+            provider (type[Any]): The type of the provider.
         """
         self._providers[dependency] = provider
 
-    def get(self, dependency: type[ServiceType]) -> ServiceType:
+    def get(self, dependency: type[Any]) -> Any:
         """
         Retrieves an instance of the provider for the given dependency type.
 
         Args:
-            dependency (type[ServiceType]): The type of the dependency.
+            dependency (type[Any]): The type of the dependency.
 
         Returns:
-            ServiceType: An instance of the provider for the given dependency type.
+            Any: An instance of the provider for the given dependency type.
 
         Raises:
             ValueError: If no provider is registered for the given dependency type.
@@ -89,15 +88,15 @@ class DependencyContainer:
         msg = f'No provider for {dependency}'
         raise ValueError(msg)
 
-    def get_dependency_type(self, instance: ServiceType) -> type[ServiceType]:
+    def get_dependency_type(self, instance: Any) -> type[Any]:
         """
         Retrieves the type of the dependency for the given instance.
 
         Args:
-            instance (ServiceType): An instance of the provider.
+            instance (Any): An instance of the provider.
 
         Returns:
-            type[ServiceType]: The type of the dependency for the given instance.
+            type[Any]: The type of the dependency for the given instance.
 
         Raises:
             ValueError: If no dependency type is registered for the given instance.

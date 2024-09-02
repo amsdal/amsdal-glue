@@ -4,7 +4,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.conditions import Condition

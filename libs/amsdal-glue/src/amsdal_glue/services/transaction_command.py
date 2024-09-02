@@ -1,10 +1,11 @@
 # mypy: disable-error-code="type-abstract"
-from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 from amsdal_glue_core.commands.planner.transaction_command_planner import TransactionCommandPlanner
 from amsdal_glue_core.common.data_models.results.data import TransactionResult
 from amsdal_glue_core.common.executors.manager import ExecutorManager
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.services.commands import TransactionCommandService
+
+from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 
 
 class DefaultTransactionCommandService(TransactionCommandService):
@@ -64,5 +65,4 @@ class DefaultTransactionCommandService(TransactionCommandService):
         return TransactionResult(success=True, result=plan.result)
 
 
-class PipelineTransactionCommandService(PipelineServiceMixin, DefaultTransactionCommandService):
-    ...
+class PipelineTransactionCommandService(PipelineServiceMixin, DefaultTransactionCommandService): ...

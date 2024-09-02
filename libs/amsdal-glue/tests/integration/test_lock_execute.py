@@ -107,8 +107,7 @@ def test_lock() -> None:
 
     with pytest.raises(ConnectionError):
         (
-            connection_mng  # type: ignore[attr-defined]
-            .get_connection_pool('shippings')
+            connection_mng.get_connection_pool('shippings')  # type: ignore[attr-defined]
             .get_connection()
             .execute('SELECT id, customer_id, status FROM shippings')
             .fetchall()
@@ -129,8 +128,7 @@ def test_lock() -> None:
 
     plan.execute(transaction_id=None, lock_id=None)
     assert (
-        connection_mng  # type: ignore[attr-defined]
-        .get_connection_pool('shippings')
+        connection_mng.get_connection_pool('shippings')  # type: ignore[attr-defined]
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()

@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from amsdal_glue_core.common.interfaces.runtime_manager import RuntimeManager
 
@@ -13,5 +13,5 @@ class DefaultRuntimeManager(RuntimeManager):
     def shutdown(self) -> None:
         for func in self._shutdown_hooks:
             func()
-            
+
         self._shutdown_hooks.clear()

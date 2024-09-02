@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 import tempfile
 from collections.abc import Generator
 

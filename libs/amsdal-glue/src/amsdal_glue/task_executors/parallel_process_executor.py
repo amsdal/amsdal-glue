@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.executors.interfaces import ParallelExecutor
 from amsdal_glue_core.common.executors.interfaces import SequentialExecutor
 from amsdal_glue_core.common.workflows.chain import ChainTask
@@ -25,6 +26,7 @@ class ProcessParallelExecutor(ParallelExecutor):
             lock_id (str | None): The lock ID to be used during execution.
         """
         from concurrent.futures import ProcessPoolExecutor
+
         from amsdal_glue import Container
 
         state = Container.serialize_state()

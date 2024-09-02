@@ -1,7 +1,8 @@
 from threading import Thread
 
-from amsdal_glue.interfaces import SequentialExecutor
 from amsdal_glue_core.common.workflows.task import Task
+
+from amsdal_glue.interfaces import SequentialExecutor
 
 
 class BackgroundSequentialExecutor(SequentialExecutor):

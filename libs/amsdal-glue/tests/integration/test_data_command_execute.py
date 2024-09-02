@@ -81,8 +81,7 @@ def test_insert_data_single_element() -> None:
     assert plan.tasks[0].result == [None]
 
     assert (
-        connection_mng  # type: ignore[attr-defined]
-        .get_connection_pool('shippings')
+        connection_mng.get_connection_pool('shippings')  # type: ignore[attr-defined]
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
@@ -281,8 +280,7 @@ def test_create_and_delete_data_single_element() -> None:
     assert plan.tasks[0].result == [None, None]
 
     assert (
-        connection_mng  # type: ignore[attr-defined]
-        .get_connection_pool('shippings')
+        connection_mng.get_connection_pool('shippings')  # type: ignore[attr-defined]
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()

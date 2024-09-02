@@ -1,19 +1,8 @@
-version: '3.8'
-
-volumes:
-  pg_data_existing:
-    driver: local
-  pg_data_new:
-    driver: local
-
 services:
   write_db:
     image: library/postgres:16
-    volumes:
-      - "pg_data_write:/var/lib/postgresql/data"
-      - "./existing-db-dump.sql:/docker-entrypoint-initdb.d/1.sql"
     environment:
-      POSTGRES_DB: db_name_1
+      POSTGRES_DB: write_db
       POSTGRES_USER: db_user
       POSTGRES_PASSWORD: db_password
     ports:
@@ -21,10 +10,8 @@ services:
 
   read_db:
     image: library/postgres:16
-    volumes:
-      - "pg_data_read:/var/lib/postgresql/data"
     environment:
-      POSTGRES_DB: db_name_2
+      POSTGRES_DB: read_db
       POSTGRES_USER: db_user
       POSTGRES_PASSWORD: db_password
     ports:

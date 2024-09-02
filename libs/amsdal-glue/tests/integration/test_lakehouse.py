@@ -1,3 +1,4 @@
+# mypy: disable-error-code="type-abstract"
 import tempfile
 from collections.abc import Generator
 
@@ -20,7 +21,7 @@ from amsdal_glue import SchemaCommand
 from amsdal_glue import SchemaReference
 from amsdal_glue import SqliteConnection
 from amsdal_glue import Version
-from amsdal_glue.applications.lakehouse import LakehouseApp
+from amsdal_glue.applications.lakehouse import LakehouseApplication
 from amsdal_glue.interfaces import DataCommandService
 from amsdal_glue.interfaces import DataQueryService
 from amsdal_glue.interfaces import RuntimeManager
@@ -28,8 +29,8 @@ from amsdal_glue.interfaces import SchemaCommandService
 
 
 @pytest.fixture()
-def lakehouse_app() -> Generator[LakehouseApp, None, None]:
-    app = LakehouseApp()
+def lakehouse_app() -> Generator[LakehouseApplication, None, None]:
+    app = LakehouseApplication()
 
     with tempfile.TemporaryDirectory() as temp_dir:
         query_db_path = f'{temp_dir}/query_data.sqlite'
@@ -58,7 +59,8 @@ def lakehouse_app() -> Generator[LakehouseApp, None, None]:
         finally:
             app.shutdown()
 
-def test_schema_command(lakehouse_app: LakehouseApp) -> None:
+
+def test_schema_command(lakehouse_app: LakehouseApplication) -> None:
     from .fixtures.user_schema import user_schema
 
     service = Container.services.get(SchemaCommandService)
@@ -91,7 +93,7 @@ def test_schema_command(lakehouse_app: LakehouseApp) -> None:
         assert len(columns) == 5
 
 
-def test_data_command(lakehouse_app: LakehouseApp):
+def test_data_command(lakehouse_app: LakehouseApplication):
     service = Container.services.get(DataCommandService)
     result = service.execute(
         DataCommand(
@@ -123,7 +125,7 @@ def test_data_command(lakehouse_app: LakehouseApp):
         assert records == [('1', 'Alice'), ('2', 'Bob')]
 
 
-def test_data_query(lakehouse_app: LakehouseApp, mocker: MockerFixture):
+def test_data_query(lakehouse_app: LakehouseApplication, mocker: MockerFixture):
     service = Container.services.get(DataCommandService)
 
     result = service.execute(

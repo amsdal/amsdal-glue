@@ -1,10 +1,11 @@
 # mypy: disable-error-code="type-abstract"
-from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 from amsdal_glue_core.commands.planner.lock_command_planner import LockCommandPlanner
 from amsdal_glue_core.common.data_models.results.data import LockResult
 from amsdal_glue_core.common.executors.manager import ExecutorManager
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.services.commands import LockCommandService
+
+from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 
 
 class DefaultLockCommandService(LockCommandService):
@@ -67,5 +68,4 @@ class DefaultLockCommandService(LockCommandService):
         return LockResult(success=True, result=plan.result)
 
 
-class PipelineLockCommandService(PipelineServiceMixin, DefaultLockCommandService):
-    ...
+class PipelineLockCommandService(PipelineServiceMixin, DefaultLockCommandService): ...

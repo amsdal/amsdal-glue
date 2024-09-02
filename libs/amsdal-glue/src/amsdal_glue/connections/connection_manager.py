@@ -1,4 +1,5 @@
 from amsdal_glue_core.common.enums import ConnectionAlias
+
 from amsdal_glue.interfaces import ConnectionManager
 from amsdal_glue.interfaces import ConnectionPoolBase
 

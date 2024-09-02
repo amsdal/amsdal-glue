@@ -1,10 +1,11 @@
 # mypy: disable-error-code="type-abstract"
-from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
 from amsdal_glue_core.common.data_models.results.data import DataResult
 from amsdal_glue_core.common.executors.manager import ExecutorManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.services.commands import DataCommandService
+
+from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 
 
 class DefaultDataCommandService(DataCommandService):
@@ -82,5 +83,4 @@ class DefaultDataCommandService(DataCommandService):
         return DataResult(success=True, data=_data)
 
 
-class PipelineDataCommandService(PipelineServiceMixin, DefaultDataCommandService):
-    ...
+class PipelineDataCommandService(PipelineServiceMixin, DefaultDataCommandService): ...

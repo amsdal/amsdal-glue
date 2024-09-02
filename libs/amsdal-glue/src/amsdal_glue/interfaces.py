@@ -8,12 +8,12 @@ from amsdal_glue_core.common.executors.interfaces import SequentialExecutor
 from amsdal_glue_core.common.interfaces.connectable import Connectable
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
+from amsdal_glue_core.common.interfaces.connection_pool import ConnectionPoolBase
 from amsdal_glue_core.common.interfaces.runtime_manager import RuntimeManager
 from amsdal_glue_core.common.services.commands import DataCommandService
 from amsdal_glue_core.common.services.commands import LockCommandService
 from amsdal_glue_core.common.services.commands import SchemaCommandService
 from amsdal_glue_core.common.services.commands import TransactionCommandService
-from amsdal_glue_core.common.interfaces.connection_pool import ConnectionPoolBase
 from amsdal_glue_core.common.services.queries import DataQueryService
 from amsdal_glue_core.common.services.queries import SchemaQueryService
 from amsdal_glue_core.queries.planner.data_query_planner import DataQueryPlanner

@@ -27,6 +27,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
@@ -149,6 +150,7 @@ class SqliteConnection(ConnectionBase):
             field_quote="'",
             value_transform=sqlite_value_json_transform,
             nested_field_transform=sqlite_field_json_transform,
+            math_operator_transform=sqlite_math_operator_transform,
         )
 
         try:

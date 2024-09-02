@@ -3,6 +3,7 @@ from typing import Any
 
 import polars as pl
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
+from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -13,6 +14,9 @@ from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.executors.interfaces import FinalDataQueryExecutor
+from amsdal_glue_core.common.expressions.common import CombinedExpression
+from amsdal_glue_core.common.expressions.common import Expression
+from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.queries.data_query_nodes import FinalDataQueryNode
 from amsdal_glue_core.queries.final_query_statement import AnnotationQueryNode
 from amsdal_glue_core.queries.final_query_statement import FinalQueryStatement
@@ -112,7 +116,7 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
 
         _annotation: AnnotationQueryNode
         for _annotation in query.annotations or []:
-            if isinstance(_annotation.value, ValueAnnotation):
+            if isinstance(_annotation.value, ValueAnnotation | ExpressionAnnotation):
                 continue
 
             _name, _frame = self._get_frame_from_table(_annotation.value)
@@ -216,8 +220,13 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
                 msg = 'PolarsFinalQueryExecutor does not support subquery annotations'
                 raise TypeError(msg)
 
-            _val = repr(annotation.value.value)
-            _stmt.append(f'{_val} AS {annotation.value.alias}')
+            if isinstance(annotation.value, ExpressionAnnotation):
+                _expression = self._build_expression(annotation.value.expression)
+                _val = f'({_expression})'
+                _stmt.append(f'{_val} AS {annotation.value.alias}')
+            else:
+                _val = repr(annotation.value.value)
+                _stmt.append(f'{_val} AS {annotation.value.alias}')
 
         for aggregation in aggregations or []:
             _aggr_field = self._build_field_reference_stmt(aggregation.expression.field)
@@ -262,6 +271,21 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
             _item_stmt += f' AS {field.alias}'
 
         return _item_stmt
+
+    def _build_expression(self, expression: Expression) -> str:
+        if isinstance(expression, CombinedExpression):
+            _left = self._build_expression(expression.left)
+            _right = self._build_expression(expression.right)
+            return f'{_left} {expression.operator} {_right}'
+
+        if isinstance(expression, FieldReference):
+            return self._build_field_reference_stmt(expression)
+
+        if isinstance(expression, Value):
+            return repr(expression)
+
+        msg = f'Unsupported expression type: {type(expression)}'
+        raise TypeError(msg)
 
     def _sql_build_joins(
         self,

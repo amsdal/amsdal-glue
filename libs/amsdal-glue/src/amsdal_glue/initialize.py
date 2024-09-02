@@ -4,7 +4,7 @@
 from amsdal_glue.pipelines.containers import SubContainer
 
 
-def init_default_containers(container: SubContainer | None = None) -> None:
+def init_default_containers(container: SubContainer | None = None) -> None:  # noqa: PLR0915
     """
     Initializes and registers the default containers for services, managers, and executors.
 
@@ -43,30 +43,32 @@ def init_default_containers(container: SubContainer | None = None) -> None:
         init_default_containers()
         ```
     """
-    from amsdal_glue.interfaces import DataCommandPlanner
-    from amsdal_glue.interfaces import LockCommandPlanner
-    from amsdal_glue.interfaces import SchemaCommandPlanner
-    from amsdal_glue.interfaces import TransactionCommandPlanner
-    from amsdal_glue.interfaces import FinalDataQueryExecutor
-    from amsdal_glue.interfaces import ParallelExecutor
-    from amsdal_glue.interfaces import SequentialExecutor
-    from amsdal_glue.interfaces import DataCommandService
-    from amsdal_glue.interfaces import LockCommandService
-    from amsdal_glue.interfaces import SchemaCommandService
-    from amsdal_glue.interfaces import TransactionCommandService
-    from amsdal_glue.interfaces import ConnectionManager
-    from amsdal_glue.interfaces import DataQueryService
-    from amsdal_glue.interfaces import SchemaQueryService
-    from amsdal_glue.interfaces import DataQueryPlanner
-    from amsdal_glue.interfaces import SchemaQueryPlanner
-    from amsdal_glue import Container as DefaultContainer
-    from amsdal_glue import Singleton
-    from amsdal_glue import DefaultConnectionManager
+    from amsdal_glue_core.common.executors.manager import ExecutorManager
 
+    from amsdal_glue import Container as DefaultContainer
+    from amsdal_glue import DefaultConnectionManager
+    from amsdal_glue import Singleton
     from amsdal_glue.commands.planner.data_planner import DefaultDataCommandPlanner
     from amsdal_glue.commands.planner.lock_planner import DefaultLockCommandPlanner
     from amsdal_glue.commands.planner.schema_planner import DefaultSchemaCommandPlanner
     from amsdal_glue.commands.planner.transaction_planner import DefaultTransactionCommandPlanner
+    from amsdal_glue.interfaces import ConnectionManager
+    from amsdal_glue.interfaces import DataCommandPlanner
+    from amsdal_glue.interfaces import DataCommandService
+    from amsdal_glue.interfaces import DataQueryPlanner
+    from amsdal_glue.interfaces import DataQueryService
+    from amsdal_glue.interfaces import FinalDataQueryExecutor
+    from amsdal_glue.interfaces import LockCommandPlanner
+    from amsdal_glue.interfaces import LockCommandService
+    from amsdal_glue.interfaces import ParallelExecutor
+    from amsdal_glue.interfaces import SchemaCommandPlanner
+    from amsdal_glue.interfaces import SchemaCommandService
+    from amsdal_glue.interfaces import SchemaQueryPlanner
+    from amsdal_glue.interfaces import SchemaQueryService
+    from amsdal_glue.interfaces import SequentialExecutor
+    from amsdal_glue.interfaces import TransactionCommandPlanner
+    from amsdal_glue.interfaces import TransactionCommandService
+    from amsdal_glue.managers.executor_manager import DefaultExecutorManager
     from amsdal_glue.queries.executors.palars_final_query_executor import PolarsFinalQueryDataExecutor
     from amsdal_glue.queries.planner.data_query_planner import DefaultDataQueryPlanner
     from amsdal_glue.queries.planner.schema_query_planner import DefaultSchemaQueryPlanner
@@ -78,67 +80,67 @@ def init_default_containers(container: SubContainer | None = None) -> None:
     from amsdal_glue.services.transaction_command import DefaultTransactionCommandService
     from amsdal_glue.task_executors.parallel_thread_executor import ThreadParallelExecutor
     from amsdal_glue.task_executors.sequential_sync_executor import SequentialSyncExecutor
-    from amsdal_glue_core.common.executors.manager import ExecutorManager
-    from amsdal_glue.managers.executor_manager import DefaultExecutorManager
 
-    container = container or DefaultContainer
+    _container = container or DefaultContainer  # type: ignore[assignment]
 
-    if container is DefaultContainer:
-        from amsdal_glue.interfaces import RuntimeManager
+    if _container is DefaultContainer:
         from amsdal_glue import DefaultRuntimeManager
+        from amsdal_glue.interfaces import RuntimeManager
 
-        container.managers.register(RuntimeManager, Singleton(DefaultRuntimeManager))
+        _container.managers.register(RuntimeManager, Singleton(DefaultRuntimeManager))
 
-    container.managers.register(ExecutorManager, Singleton(DefaultExecutorManager))
-    container.managers.register(ConnectionManager, Singleton(DefaultConnectionManager))
-    container.executors.register(SequentialExecutor, SequentialSyncExecutor)
-    container.executors.register(ParallelExecutor, ThreadParallelExecutor)
+    _container.managers.register(ExecutorManager, Singleton(DefaultExecutorManager))
+    _container.managers.register(ConnectionManager, Singleton(DefaultConnectionManager))
+    _container.executors.register(SequentialExecutor, SequentialSyncExecutor)
+    _container.executors.register(ParallelExecutor, ThreadParallelExecutor)
 
     # Register default services, managers and executors for Queries
-    container.services.register(DataQueryService, DefaultDataQueryService)
-    container.services.register(SchemaQueryService, DefaultSchemaQueryService)
-    container.planners.register(DataQueryPlanner, DefaultDataQueryPlanner)
-    container.planners.register(SchemaQueryPlanner, DefaultSchemaQueryPlanner)
-    container.executors.register(FinalDataQueryExecutor, PolarsFinalQueryDataExecutor)
+    _container.services.register(DataQueryService, DefaultDataQueryService)
+    _container.services.register(SchemaQueryService, DefaultSchemaQueryService)
+    _container.planners.register(DataQueryPlanner, DefaultDataQueryPlanner)
+    _container.planners.register(SchemaQueryPlanner, DefaultSchemaQueryPlanner)
+    _container.executors.register(FinalDataQueryExecutor, PolarsFinalQueryDataExecutor)
 
     # Register default services, managers and executors for Commands
-    container.services.register(DataCommandService, DefaultDataCommandService)
-    container.services.register(SchemaCommandService, DefaultSchemaCommandService)
-    container.planners.register(DataCommandPlanner, DefaultDataCommandPlanner)
-    container.planners.register(SchemaCommandPlanner, DefaultSchemaCommandPlanner)
+    _container.services.register(DataCommandService, DefaultDataCommandService)
+    _container.services.register(SchemaCommandService, DefaultSchemaCommandService)
+    _container.planners.register(DataCommandPlanner, DefaultDataCommandPlanner)
+    _container.planners.register(SchemaCommandPlanner, DefaultSchemaCommandPlanner)
 
     # Register default services, managers and executors for Lock Commands
-    container.services.register(LockCommandService, DefaultLockCommandService)
-    container.planners.register(LockCommandPlanner, DefaultLockCommandPlanner)
+    _container.services.register(LockCommandService, DefaultLockCommandService)
+    _container.planners.register(LockCommandPlanner, DefaultLockCommandPlanner)
 
     # Register default services, managers and executors for Transaction Commands
-    container.services.register(TransactionCommandService, DefaultTransactionCommandService)
-    container.planners.register(TransactionCommandPlanner, DefaultTransactionCommandPlanner)
+    _container.services.register(TransactionCommandService, DefaultTransactionCommandService)
+    _container.planners.register(TransactionCommandPlanner, DefaultTransactionCommandPlanner)
 
 
-def init_pipeline_containers() -> None:
-    from amsdal_glue.interfaces import DataCommandPlanner
-    from amsdal_glue.interfaces import LockCommandPlanner
-    from amsdal_glue.interfaces import SchemaCommandPlanner
-    from amsdal_glue.interfaces import TransactionCommandPlanner
-    from amsdal_glue.interfaces import FinalDataQueryExecutor
-    from amsdal_glue.interfaces import ParallelExecutor
-    from amsdal_glue.interfaces import SequentialExecutor
-    from amsdal_glue.interfaces import DataCommandService
-    from amsdal_glue.interfaces import LockCommandService
-    from amsdal_glue.interfaces import SchemaCommandService
-    from amsdal_glue.interfaces import TransactionCommandService
-    from amsdal_glue.interfaces import DataQueryService
-    from amsdal_glue.interfaces import SchemaQueryService
-    from amsdal_glue.interfaces import DataQueryPlanner
-    from amsdal_glue.interfaces import SchemaQueryPlanner
+def init_pipeline_containers() -> None:  # noqa: PLR0915
     from amsdal_glue import Container
+    from amsdal_glue import DefaultRuntimeManager
     from amsdal_glue import Singleton
-
     from amsdal_glue.commands.planner.data_planner import DefaultDataCommandPlanner
     from amsdal_glue.commands.planner.lock_planner import DefaultLockCommandPlanner
     from amsdal_glue.commands.planner.schema_planner import DefaultSchemaCommandPlanner
     from amsdal_glue.commands.planner.transaction_planner import DefaultTransactionCommandPlanner
+    from amsdal_glue.interfaces import DataCommandPlanner
+    from amsdal_glue.interfaces import DataCommandService
+    from amsdal_glue.interfaces import DataQueryPlanner
+    from amsdal_glue.interfaces import DataQueryService
+    from amsdal_glue.interfaces import FinalDataQueryExecutor
+    from amsdal_glue.interfaces import LockCommandPlanner
+    from amsdal_glue.interfaces import LockCommandService
+    from amsdal_glue.interfaces import ParallelExecutor
+    from amsdal_glue.interfaces import RuntimeManager
+    from amsdal_glue.interfaces import SchemaCommandPlanner
+    from amsdal_glue.interfaces import SchemaCommandService
+    from amsdal_glue.interfaces import SchemaQueryPlanner
+    from amsdal_glue.interfaces import SchemaQueryService
+    from amsdal_glue.interfaces import SequentialExecutor
+    from amsdal_glue.interfaces import TransactionCommandPlanner
+    from amsdal_glue.interfaces import TransactionCommandService
+    from amsdal_glue.pipelines.manager import PipelineManager
     from amsdal_glue.queries.executors.palars_final_query_executor import PolarsFinalQueryDataExecutor
     from amsdal_glue.queries.planner.data_query_planner import DefaultDataQueryPlanner
     from amsdal_glue.queries.planner.schema_query_planner import DefaultSchemaQueryPlanner
@@ -146,14 +148,10 @@ def init_pipeline_containers() -> None:
     from amsdal_glue.services.data_query import PipelineDataQueryService
     from amsdal_glue.services.lock_command import PipelineLockCommandService
     from amsdal_glue.services.schema_command import PipelineSchemaCommandService
-    from amsdal_glue.pipelines.manager import PipelineManager
     from amsdal_glue.services.schema_query import PipelineSchemaQueryService
     from amsdal_glue.services.transaction_command import PipelineTransactionCommandService
     from amsdal_glue.task_executors.parallel_process_executor import ProcessParallelExecutor
     from amsdal_glue.task_executors.sequential_sync_executor import SequentialSyncExecutor
-
-    from amsdal_glue.interfaces import RuntimeManager
-    from amsdal_glue import DefaultRuntimeManager
 
     Container.managers.register(RuntimeManager, Singleton(DefaultRuntimeManager))
     Container.managers.register(PipelineManager, Singleton(PipelineManager))

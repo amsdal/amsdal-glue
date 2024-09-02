@@ -1,10 +1,11 @@
 # mypy: disable-error-code="type-abstract"
-from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.results.schema import SchemaResult
 from amsdal_glue_core.common.executors.manager import ExecutorManager
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.services.commands import SchemaCommandService
+
+from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 
 
 class DefaultSchemaCommandService(SchemaCommandService):
@@ -70,5 +71,4 @@ class DefaultSchemaCommandService(SchemaCommandService):
         return SchemaResult(success=True, schemas=_schemas)
 
 
-class PipelineSchemaCommandService(PipelineServiceMixin, DefaultSchemaCommandService):
-    ...
+class PipelineSchemaCommandService(PipelineServiceMixin, DefaultSchemaCommandService): ...
