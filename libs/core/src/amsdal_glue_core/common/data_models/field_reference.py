@@ -46,8 +46,8 @@ class FieldReference(Combinable):
         ```python
         from amsdal_glue_core.common.data_models.field_reference import Field, FieldReference
 
-        field = Field(name="age")
-        field_ref = FieldReference(field=field, table_name="users")
+        field = Field(name='age')
+        field_ref = FieldReference(field=field, table_name='users')
 
         # Example of combining field references
         combined_expr = field_ref + 10  # Represents users.age + 10

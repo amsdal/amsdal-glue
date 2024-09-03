@@ -10,10 +10,9 @@ class Expression(BaseExpression):
         self.output_type = output_type
 
     def to_expression(self) -> 'Expression':
-        c = self.copy()
-        return c
+        return self.copy()
 
-    def copy(self):
+    def copy(self) -> 'Expression':
         return copy.copy(self)
 
 
@@ -25,12 +24,12 @@ class Combinable:
     division, modulus, and exponentiation.
     """
 
-    ADD = "+"
-    SUB = "-"
-    MUL = "*"
-    DIV = "/"
-    POW = "^"
-    MOD = "%"
+    ADD = '+'
+    SUB = '-'
+    MUL = '*'
+    DIV = '/'
+    POW = '^'
+    MOD = '%'
 
     def _combine(self, other: Any, operator: str, *, is_reversed: bool = False) -> Expression:
         if not hasattr(other, 'to_expression'):

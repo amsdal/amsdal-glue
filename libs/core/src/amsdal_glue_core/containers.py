@@ -1,9 +1,9 @@
 # mypy: disable-error-code="type-abstract"
 import pickle
+from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 from typing import ClassVar
-from typing import TypeVar
 from uuid import uuid4
 
 
@@ -28,8 +28,12 @@ class Singleton:
 
     def __call__(self) -> type[Any]:
         if self._instance is None:
-            self._instance = self._cls()
-        return self._instance
+            _instance = self._cls()
+            self._instance = _instance
+        else:
+            _instance = self._instance
+
+        return _instance
 
 
 class DependencyContainer:
@@ -64,7 +68,7 @@ class DependencyContainer:
             dependency (type[Any]): The type of the dependency.
             provider (type[Any]): The type of the provider.
         """
-        self._providers[dependency] = provider
+        self._providers[dependency] = provider  # type: ignore[assignment]
 
     def get(self, dependency: type[Any]) -> Any:
         """
@@ -200,7 +204,7 @@ class Container:
 
     @classmethod
     @contextmanager
-    def switch(cls, name: str) -> None:
+    def switch(cls, name: str) -> Iterator[Any]:
         previous = cls.__current_container__
         cls.__current_container__ = name
 
@@ -211,7 +215,7 @@ class Container:
 
     @classmethod
     @contextmanager
-    def root(cls) -> None:
+    def root(cls) -> Iterator[Any]:
         previous = cls.__current_container__
         cls.__current_container__ = None
 
@@ -222,39 +226,37 @@ class Container:
 
     @classmethod
     def serialize_state(cls) -> bytes:
-        return pickle.dumps(
-            {
-                '_root_managers': cls._root_managers._providers,
-                '_root_services': cls._root_services._providers,
-                '_root_executors': cls._root_executors._providers,
-                '_root_planners': cls._root_planners._providers,
-                '__current_container__': cls.__current_container__,
-                '__sub_containers__': {
-                    name: (
-                        sub_container.managers._providers,
-                        sub_container.services._providers,
-                        sub_container.executors._providers,
-                        sub_container.planners._providers,
-                    )
-                    for name, sub_container in cls.__sub_containers__.items()
-                }
-            }
-        )
+        return pickle.dumps({
+            '_root_managers': cls._root_managers._providers,  # noqa: SLF001
+            '_root_services': cls._root_services._providers,  # noqa: SLF001
+            '_root_executors': cls._root_executors._providers,  # noqa: SLF001
+            '_root_planners': cls._root_planners._providers,  # noqa: SLF001
+            '__current_container__': cls.__current_container__,
+            '__sub_containers__': {
+                name: (
+                    sub_container.managers._providers,  # noqa: SLF001
+                    sub_container.services._providers,  # noqa: SLF001
+                    sub_container.executors._providers,  # noqa: SLF001
+                    sub_container.planners._providers,  # noqa: SLF001
+                )
+                for name, sub_container in cls.__sub_containers__.items()
+            },
+        })
 
     @classmethod
     def deserialize_state(cls, state: bytes) -> None:
-        data = pickle.loads(state)
-        cls._root_managers._providers = data['_root_managers']
-        cls._root_services._providers = data['_root_services']
-        cls._root_executors._providers = data['_root_executors']
-        cls._root_planners._providers = data['_root_planners']
+        data = pickle.loads(state)  # noqa: S301
+        cls._root_managers._providers = data['_root_managers']  # noqa: SLF001
+        cls._root_services._providers = data['_root_services']  # noqa: SLF001
+        cls._root_executors._providers = data['_root_executors']  # noqa: SLF001
+        cls._root_planners._providers = data['_root_planners']  # noqa: SLF001
         cls.__current_container__ = data['__current_container__']
 
         for name, (_managers, _service, _executors, _planners) in data['__sub_containers__'].items():
             sub_container = SubContainer(name)
-            sub_container.managers._providers = _managers
-            sub_container.services._providers = _service
-            sub_container.executors._providers = _executors
-            sub_container.planners._providers = _planners
+            sub_container.managers._providers = _managers  # noqa: SLF001
+            sub_container.services._providers = _service  # noqa: SLF001
+            sub_container.executors._providers = _executors  # noqa: SLF001
+            sub_container.planners._providers = _planners  # noqa: SLF001
 
             cls.__sub_containers__[name] = sub_container
