@@ -1,9 +1,5 @@
-## [v0.0.11](https://pypi.org/project/amsdal-glue-connections/0.0.11/) - 2024-08-06
+## [v0.0.12](https://pypi.org/project/amsdal-glue-connections/0.0.12/) - 2024-09-16
 
 ### Added
 
-- Documentation via docstrings (documentation)
-
-### Changed
-
-- PostgresConnection: autocommit=True by default (autocommit-true)
+- Added ability to use math expressions in annotations. (math-expressions)
