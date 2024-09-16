@@ -1,6 +1,7 @@
-## [v0.0.13](https://pypi.org/project/amsdal-glue/0.0.13/) - 2024-08-06
+## [v0.0.14](https://pypi.org/project/amsdal-glue/0.0.14/) - 2024-09-16
 
 ### Added
 
-- Documentation via docstrings (documentation)
-- Optimization for imports: common classes, interfaces, planners, executors, services, tasks (imports-optimization)
+- CQRSApplcation - predefined pipeline to build the CQRS pattern. (cqrs)
+- LakehouseApplcation - predefined pipeline to build Lakehouse application. (lakehouse)
+- Added Pipeline service to build complex pipelines of AMSDAL Glue containers (pipelines)
