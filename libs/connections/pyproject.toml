@@ -211,7 +211,7 @@ exclude_lines = [
 ]
 
 [tool.towncrier]
-directory= "release_notes"
+directory = "release_notes"
 name = "AMSDAL GLUE CONNECTIONS"
 title_format = "## [v{version}](https://pypi.org/project/amsdal-glue-connections/{version}/) - {project_date}"
 filename = "latest-changelogs.md"

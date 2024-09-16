@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from amsdal_glue_core.common.expressions.common import Combinable
+
 
 @dataclass(kw_only=True)
 class Field:
@@ -28,13 +30,28 @@ class Field:
 
 
 @dataclass(kw_only=True)
-class FieldReference:
+class FieldReference(Combinable):
     """Represents a reference to a field in a table.
+
+    This class provides a reference to a field within a specific table,
+    including the namespace of the field. It extends from `Combinable` to
+    support combinable operations on field references.
 
     Attributes:
         field (Field): The field being referenced.
         table_name (str): The name of the table containing the field.
         namespace (str): The namespace of the field. Defaults to an empty string.
+
+    Example:
+        ```python
+        from amsdal_glue_core.common.data_models.field_reference import Field, FieldReference
+
+        field = Field(name='age')
+        field_ref = FieldReference(field=field, table_name='users')
+
+        # Example of combining field references
+        combined_expr = field_ref + 10  # Represents users.age + 10
+        ```
     """
 
     field: Field

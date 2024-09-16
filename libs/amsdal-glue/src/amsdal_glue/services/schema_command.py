@@ -1,8 +1,11 @@
 # mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.results.schema import SchemaResult
+from amsdal_glue_core.common.executors.manager import ExecutorManager
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.services.commands import SchemaCommandService
+
+from amsdal_glue.pipelines.services.router_mixin import PipelineServiceMixin
 
 
 class DefaultSchemaCommandService(SchemaCommandService):
@@ -55,6 +58,9 @@ class DefaultSchemaCommandService(SchemaCommandService):
         query_planner = Container.planners.get(SchemaCommandPlanner)
         plan = query_planner.plan_schema_command(command)
 
+        executor_manager = Container.managers.get(ExecutorManager)
+        plan.executor = executor_manager.resolve_by_service(SchemaCommandService)
+
         try:
             plan.execute(transaction_id=command.root_transaction_id, lock_id=command.lock_id)
         except Exception as e:  # noqa: BLE001
@@ -63,3 +69,6 @@ class DefaultSchemaCommandService(SchemaCommandService):
             _schemas = plan.final_task.result if plan.final_task else plan.tasks[-1].result
 
         return SchemaResult(success=True, schemas=_schemas)
+
+
+class PipelineSchemaCommandService(PipelineServiceMixin, DefaultSchemaCommandService): ...

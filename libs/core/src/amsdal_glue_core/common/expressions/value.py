@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from typing import Any
 
-from amsdal_glue_core.common.expressions.base import Expression
+from amsdal_glue_core.common.expressions.base import BaseExpression
 
 
 @dataclass
-class Value(Expression):
+class Value(BaseExpression):
     """Represents a value expression.
 
     Attributes:

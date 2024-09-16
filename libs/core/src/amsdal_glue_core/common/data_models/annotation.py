@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+from amsdal_glue_core.common.expressions.common import Expression
 from amsdal_glue_core.common.expressions.value import Value
 
 
@@ -18,6 +19,19 @@ class ValueAnnotation:
 
 
 @dataclass(kw_only=True)
+class ExpressionAnnotation:
+    """Represents an expression annotation.
+
+    Attributes:
+        expression (Expression): The expression being annotated.
+        alias (str): The alias for the annotation.
+    """
+
+    expression: Expression
+    alias: str
+
+
+@dataclass(kw_only=True)
 class AnnotationQuery:
     """Represents an annotation query.
 
@@ -25,4 +39,4 @@ class AnnotationQuery:
         value (SubQueryStatement | ValueAnnotation): The value or subquery being annotated.
     """
 
-    value: SubQueryStatement | ValueAnnotation
+    value: SubQueryStatement | ValueAnnotation | ExpressionAnnotation

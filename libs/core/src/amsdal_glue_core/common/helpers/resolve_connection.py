@@ -1,8 +1,8 @@
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
-from amsdal_glue_core.common.services.managers.connection import ConnectionPoolBase
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
+from amsdal_glue_core.common.interfaces.connection_pool import ConnectionPoolBase
 from amsdal_glue_core.containers import Container
 
 

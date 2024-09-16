@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.expressions.base import Expression
+from amsdal_glue_core.common.expressions.base import BaseExpression
 
 
 @dataclass(kw_only=True)
-class AggregationExpression(Expression):
+class AggregationExpression(BaseExpression):
     """Represents an aggregation expression.
 
     Attributes:

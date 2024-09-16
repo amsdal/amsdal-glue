@@ -16,12 +16,11 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
-from amsdal_glue_core.common.helpers.singleton import Singleton
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
 
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
@@ -48,10 +47,10 @@ def _register_default_connection() -> Generator[None, None, None]:
             yield
         finally:
             connection_mng.disconnect_all()
-            Singleton.invalidate_all_instances()
 
 
 def test_insert_data_single_element() -> None:
+    connection_mng = Container.managers.get(ConnectionManager)
     query = DataCommand(
         lock_id=None,
         transaction_id=None,
@@ -82,8 +81,7 @@ def test_insert_data_single_element() -> None:
     assert plan.tasks[0].result == [None]
 
     assert (
-        ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection_pool('shippings')
+        connection_mng.get_connection_pool('shippings')  # type: ignore[attr-defined]
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
@@ -92,7 +90,8 @@ def test_insert_data_single_element() -> None:
 
 
 def test_update_data_single_element() -> None:
-    ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+    connection_mng = Container.managers.get(ConnectionManager)
+    connection_mng.get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'INSERT INTO shippings (id, customer_id, status) '
         'VALUES ("111", "1", "shipped"), ("222", "2", "shipped"), ("333", "3", "shipped")'
     )
@@ -131,7 +130,7 @@ def test_update_data_single_element() -> None:
 
     assert plan.tasks[0].result == [None]
 
-    assert ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+    assert connection_mng.get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings ORDER BY id'
     ).fetchall() == [
         ('111', '1', 'cancelled'),
@@ -141,7 +140,8 @@ def test_update_data_single_element() -> None:
 
 
 def test_delete_data_single_element() -> None:
-    ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+    connection_mng = Container.managers.get(ConnectionManager)
+    connection_mng.get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'INSERT INTO shippings (id, customer_id, status) '
         'VALUES ("111", "1", "shipped"), ("222", "2", "shipped"), ("333", "3", "shipped")'
     )
@@ -171,7 +171,7 @@ def test_delete_data_single_element() -> None:
 
     assert plan.tasks[0].result == [None]
 
-    assert ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+    assert connection_mng.get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings ORDER BY id'
     ).fetchall() == [
         ('222', '2', 'shipped'),
@@ -180,6 +180,7 @@ def test_delete_data_single_element() -> None:
 
 
 def test_create_and_update_data_single_element() -> None:
+    connection_mng = Container.managers.get(ConnectionManager)
     query = DataCommand(
         lock_id=None,
         transaction_id=None,
@@ -229,7 +230,7 @@ def test_create_and_update_data_single_element() -> None:
 
     assert plan.tasks[0].result == [None, None]
 
-    assert ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+    assert connection_mng.get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings'
     ).fetchall() == [
         ('111', '1', 'cancelled'),
@@ -237,6 +238,7 @@ def test_create_and_update_data_single_element() -> None:
 
 
 def test_create_and_delete_data_single_element() -> None:
+    connection_mng = Container.managers.get(ConnectionManager)
     query = DataCommand(
         lock_id=None,
         transaction_id=None,
@@ -278,8 +280,7 @@ def test_create_and_delete_data_single_element() -> None:
     assert plan.tasks[0].result == [None, None]
 
     assert (
-        ConnectionManager()  # type: ignore[attr-defined]
-        .get_connection_pool('shippings')
+        connection_mng.get_connection_pool('shippings')  # type: ignore[attr-defined]
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()
@@ -288,6 +289,7 @@ def test_create_and_delete_data_single_element() -> None:
 
 
 def test_create_multiple_data_elements() -> None:
+    connection_mng = Container.managers.get(ConnectionManager)
     query = DataCommand(
         lock_id=None,
         transaction_id=None,
@@ -335,7 +337,7 @@ def test_create_multiple_data_elements() -> None:
 
     assert plan.tasks[0].result == [None]
 
-    assert ConnectionManager().get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
+    assert connection_mng.get_connection_pool('shippings').get_connection().execute(  # type: ignore[attr-defined]
         'SELECT id, customer_id, status FROM shippings ORDER BY id'
     ).fetchall() == [
         ('111', '1', 'shipped'),

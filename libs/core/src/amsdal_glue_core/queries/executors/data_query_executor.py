@@ -1,12 +1,11 @@
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
-from amsdal_glue_core.common.helpers.singleton import Singleton
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.queries.data_query_nodes import DataQueryNode
 
 
-class DataQueryNodeExecutor(metaclass=Singleton):
+class DataQueryNodeExecutor:
     """Executes a node in the data query tree.
 
     This class implements the business logic for executing a single node of a data query tree.

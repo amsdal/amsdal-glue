@@ -8,7 +8,6 @@ from time import sleep
 from typing import Any
 
 import pytest
-from amsdal_glue_core.common.helpers.singleton import Singleton
 
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
@@ -111,7 +110,6 @@ def database_connection() -> Generator[PostgresConnection, None, None]:
     finally:
         connection.disconnect()
         delete_postgres_database(db_name)
-        Singleton.invalidate_all_instances()
 
 
 @pytest.fixture(scope='session', autouse=True)

@@ -1,13 +1,12 @@
 from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.helpers.resolve_connection import resolve_connection
-from amsdal_glue_core.common.helpers.singleton import Singleton
 
 if TYPE_CHECKING:
     from amsdal_glue_core.commands.mutation_nodes import DataMutationNode
 
 
-class DataCommandNodeExecutor(metaclass=Singleton):
+class DataCommandNodeExecutor:
     """Executes a node in the data command tree.
 
     This class implements the business logic for executing a single node of a data command tree.

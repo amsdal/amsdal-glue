@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.common.helpers.singleton import Singleton
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.containers import Container
 from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPlanner
 
@@ -28,7 +27,6 @@ def _register_default_connection() -> Generator[None, None, None]:
         yield
     finally:
         connection_mng.disconnect_all()
-        Singleton.invalidate_all_instances()
 
 
 def _add_shipping_connection():

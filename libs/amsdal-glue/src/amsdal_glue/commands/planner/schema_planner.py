@@ -2,8 +2,8 @@ from collections import defaultdict
 
 from amsdal_glue_core.commands.mutation_nodes import SchemaCommandNode
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import SchemaCommand
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.common.workflows.chain import ChainTask
 
 from amsdal_glue.commands.tasks.schema_mutation_tasks import FinalSchemaCommandTask

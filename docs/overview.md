@@ -129,10 +129,10 @@ pools via the ConnectionManager and begin interacting with databases using the h
 `amsdal-glue` package:
 
 ```python
-from amsdal_glue.connections.connection_pool import DefaultConnectionPool
-from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.containers import Container
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue import DefaultConnectionPool
+from amsdal_glue import SqliteConnection
+from amsdal_glue import Container
+from amsdal_glue.interfaces import ConnectionManager
 
 sql_connection_pool = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
 connection_mng = Container.managers.get(ConnectionManager)

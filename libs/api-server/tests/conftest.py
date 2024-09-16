@@ -22,10 +22,10 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.services.commands import SchemaCommandService
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 from amsdal_glue_sql_parser.parsers.sqloxide_parser import SqlOxideParser
@@ -62,7 +62,10 @@ def _register_connections() -> Generator[Any, Any, Any]:
         connection_mng.register_connection_pool(db2, schema_name='cart')
         connection_mng.register_connection_pool(db3, schema_name='logs')
 
-        yield
+        try:
+            yield
+        finally:
+            connection_mng.disconnect_all()
 
 
 @pytest.fixture(scope='function', autouse=True)

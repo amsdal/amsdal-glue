@@ -1,5 +1,5 @@
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.workflows.chain import ChainTask
 from amsdal_glue_core.common.workflows.group import GroupTask
 from amsdal_glue_core.queries.planner.schema_query_planner import SchemaQueryPlanner

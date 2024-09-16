@@ -26,6 +26,7 @@ class GroupTask(Task):
     """
 
     tasks: list[Task]
+    executor: ParallelExecutor | None = None
 
     def execute(self, transaction_id: str | None, lock_id: str | None):
         """
@@ -37,7 +38,7 @@ class GroupTask(Task):
         """
         from amsdal_glue_core.containers import Container
 
-        parallel_executor = Container.executors.get(ParallelExecutor)
+        parallel_executor = self.executor or Container.executors.get(ParallelExecutor)
         parallel_executor.execute_parallel(self.tasks, transaction_id=transaction_id, lock_id=lock_id)
 
     @property

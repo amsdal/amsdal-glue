@@ -2,13 +2,12 @@ from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.helpers.resolve_connection import resolve_connection_pool
-from amsdal_glue_core.common.helpers.singleton import Singleton
 
 if TYPE_CHECKING:
     from amsdal_glue_core.commands.transaction_node import ExecutionTransactionCommandNode
 
 
-class TransactionNodeExecutor(metaclass=Singleton):
+class TransactionNodeExecutor:
     """Executes a node in the transaction command tree.
 
     This class implements the business logic for executing a single node of a transaction command tree.

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
+from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
@@ -35,11 +36,11 @@ class AnnotationQueryNode:
     Represents a node for annotation queries.
 
     Attributes:
-        value (QueryStatementNode | ValueAnnotation): The value of the annotation query node,
+        value (QueryStatementNode | ValueAnnotation | ExpressionAnnotation): The value of the annotation query node,
                                                       which can be a query statement node or a value annotation.
     """
 
-    value: QueryStatementNode | ValueAnnotation
+    value: QueryStatementNode | ValueAnnotation | ExpressionAnnotation
 
 
 @dataclass(kw_only=True)

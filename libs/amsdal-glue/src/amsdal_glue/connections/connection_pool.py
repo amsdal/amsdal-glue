@@ -5,7 +5,7 @@ from datetime import timezone
 from typing import Any
 
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
-from amsdal_glue_core.common.services.managers.connection import ConnectionPoolBase
+from amsdal_glue_core.common.interfaces.connection_pool import ConnectionPoolBase
 
 
 class DefaultConnectionPool(ConnectionPoolBase):

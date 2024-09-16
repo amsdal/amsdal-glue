@@ -1,13 +1,12 @@
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.common.helpers.singleton import Singleton
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
+from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 
 if TYPE_CHECKING:
     from amsdal_glue_core.queries.schema_query_nodes import SchemaQueryNode
 
 
-class SchemaQueryNodeExecutor(metaclass=Singleton):
+class SchemaQueryNodeExecutor:
     """Executes a node in the schema query tree.
 
     This class implements the business logic for executing a single node of a schema query tree.

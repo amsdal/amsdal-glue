@@ -3,6 +3,8 @@ from typing import Any
 
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
+from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
+from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -14,8 +16,11 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.expressions.common import CombinedExpression
+from amsdal_glue_core.common.expressions.common import Expression
 from amsdal_glue_core.common.expressions.value import Value
 
+from amsdal_glue_connections.sql.sql_builders.math_operator_transform import default_math_operator_transform
 from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
 
@@ -45,6 +50,7 @@ def build_sql_query(  # noqa: PLR0913
     nested_field_transform: Callable[
         [str, str, str, list[str], Any, str, str, str], str
     ] = default_nested_field_transform,
+    math_operator_transform: Callable[[Any, str, Any], str] = default_math_operator_transform,
 ) -> tuple[str, list[Any]]:
     """
     Builds an SQL query for the given query statement.
@@ -60,6 +66,7 @@ def build_sql_query(  # noqa: PLR0913
         value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
         nested_field_transform (Callable, optional): The function to transform nested fields.
                                                      Defaults to default_nested_field_transform.
+        math_operator_transform (Callable, optional): The function to transform math operators.
 
     Returns:
         tuple[str, list[Any]]: The SQL query and the list of values.
@@ -98,6 +105,7 @@ def build_sql_query(  # noqa: PLR0913
         field_quote=field_quote,
         value_transform=value_transform,
         nested_field_transform=nested_field_transform,
+        math_operator_transform=math_operator_transform,
     )
     values.extend(_values)
 
@@ -229,6 +237,7 @@ def build_annotations(  # noqa: PLR0913
     nested_field_transform: Callable[
         [str, str, str, list[str], Any, str, str, str], str
     ] = default_nested_field_transform,
+    math_operator_transform: Callable[[Any, str, Any], str] = default_math_operator_transform,
 ) -> tuple[str | None, list[Any]]:
     if not annotations:
         return None, []
@@ -250,7 +259,20 @@ def build_annotations(  # noqa: PLR0913
             )
             items.append(f'({_query}) AS {field_quote}{annotation.value.alias}{field_quote}')
             values.extend(_values)
-        else:
+        elif isinstance(annotation.value, ExpressionAnnotation):
+            _expression, _values = build_expression(
+                annotation.value.expression,
+                value_placeholder=value_placeholder,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+                nested_field_transform=nested_field_transform,
+                math_operator_transform=math_operator_transform,
+            )
+            _val = f'({_expression})'
+            items.append(f'{_val} AS {field_quote}{annotation.value.alias}{field_quote}')
+            values.extend(_values)
+        elif isinstance(annotation.value, ValueAnnotation):
             items.append(f'{value_placeholder} AS {field_quote}{annotation.value.alias}{field_quote}')
             values.append(annotation.value.value.value)
 
@@ -329,6 +351,62 @@ def build_field(
         _field_stm = f'{_field_stm} AS {field_quote}{field.alias}{field_quote}'
 
     return _field_stm
+
+
+def build_expression(  # noqa: PLR0913
+    expression: Expression,
+    value_placeholder: str = '?',
+    table_separator: str = '.',
+    table_quote: str = '',
+    field_quote: str = '',
+    value_type: Any = str,
+    nested_field_transform: Callable[
+        [str, str, str, list[str], Any, str, str, str], str
+    ] = default_nested_field_transform,
+    math_operator_transform: Callable[[Any, str, Any], str] = default_math_operator_transform,
+) -> tuple[str, list[Any]]:
+    values = []
+
+    if isinstance(expression, CombinedExpression):
+        _left, _values = build_expression(
+            expression.left,
+            value_placeholder=value_placeholder,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+            value_type=value_type,
+            nested_field_transform=nested_field_transform,
+            math_operator_transform=math_operator_transform,
+        )
+        values.extend(_values)
+
+        _right, _values = build_expression(
+            expression.right,
+            value_placeholder=value_placeholder,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+            value_type=value_type,
+            nested_field_transform=nested_field_transform,
+            math_operator_transform=math_operator_transform,
+        )
+        values.extend(_values)
+
+        return math_operator_transform(_left, expression.operator, _right), values
+    if isinstance(expression, FieldReference):
+        return build_field(
+            expression,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+            value_type=value_type,
+            nested_field_transform=nested_field_transform,
+        ), []
+    if isinstance(expression, Value):
+        return value_placeholder, [expression.value]
+
+    msg = f'Unsupported expression type: {type(expression)}'
+    raise ValueError(msg)
 
 
 def build_from(  # noqa: PLR0913

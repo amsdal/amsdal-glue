@@ -2,7 +2,6 @@ from collections.abc import Generator
 from unittest import mock
 
 import pytest
-from amsdal_glue_core.common.helpers.singleton import Singleton
 
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
@@ -30,7 +29,4 @@ class MockPostgresConnection(PostgresConnection):
 def database_connection() -> Generator[PostgresConnection, None, None]:
     connection = MockPostgresConnection()
 
-    try:
-        yield connection
-    finally:
-        Singleton.invalidate_all_instances()
+    yield connection

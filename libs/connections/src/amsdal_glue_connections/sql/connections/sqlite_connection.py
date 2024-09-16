@@ -27,6 +27,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
@@ -149,6 +150,7 @@ class SqliteConnection(ConnectionBase):
             field_quote="'",
             value_transform=sqlite_value_json_transform,
             nested_field_transform=sqlite_field_json_transform,
+            math_operator_transform=sqlite_math_operator_transform,
         )
 
         try:
@@ -269,12 +271,13 @@ class SqliteConnection(ConnectionBase):
         """
         return Data(data=data)
 
-    def connect(self, db_path: Path, **kwargs: Any) -> None:
+    def connect(self, db_path: Path, *, check_same_thread: bool = False, **kwargs: Any) -> None:
         """
         Establishes a connection to the SQLite database.
 
         Args:
             db_path (Path): The path to the SQLite database file.
+            check_same_thread (bool, optional): Whether to check the same thread. Defaults to False.
             **kwargs (Any): Additional arguments for the SQLite connection.
 
         Raises:
@@ -286,7 +289,7 @@ class SqliteConnection(ConnectionBase):
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-        self._connection = sqlite3.connect(db_path, **kwargs)
+        self._connection = sqlite3.connect(db_path, check_same_thread=check_same_thread, **kwargs)
         self._connection.isolation_level = None  # disable implicit transaction opening
 
     def disconnect(self) -> None:

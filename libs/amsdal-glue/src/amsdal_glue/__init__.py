@@ -6,6 +6,7 @@ from amsdal_glue_connections.sql.connections.postgres_connection import Postgres
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
+from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -69,18 +70,25 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
-from amsdal_glue_core.common.services.managers.connection import ConnectionManager
 from amsdal_glue_core.containers import Container
+from amsdal_glue_core.containers import Singleton
 
+from amsdal_glue.connections.connection_manager import DefaultConnectionManager
 from amsdal_glue.connections.connection_pool import DefaultConnectionPool
 from amsdal_glue.initialize import init_default_containers
+from amsdal_glue.interfaces import ConnectionManager
+from amsdal_glue.managers.runtime_manager import DefaultRuntimeManager
 
 __all__ = [
     'init_default_containers',
     # DI Container and base class services
     'Container',
+    'Singleton',
+    # Runtime Manager
+    'DefaultRuntimeManager',
     # Connections
     'ConnectionManager',
+    'DefaultConnectionManager',
     'DefaultConnectionPool',
     'SqliteConnection',
     'PostgresConnection',
@@ -102,6 +110,7 @@ __all__ = [
     'Field',
     'AnnotationQuery',
     'ValueAnnotation',
+    'ExpressionAnnotation',
     'AggregationQuery',
     'Sum',
     'Count',

@@ -1,7 +1,39 @@
 # mypy: disable-error-code="type-abstract"
-from typing import TypeVar
+import pickle
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
+from typing import ClassVar
+from uuid import uuid4
 
-ServiceType = TypeVar('ServiceType')
+
+class Singleton:
+    """
+    The `Singleton` class is a decorator that ensures that only one instance of a class is created.
+
+    Example:
+        Here is an example of how to use the `Singleton` decorator:
+
+        ```python
+        import amsdal_glue
+        from amsdal_glue import Container, Singleton
+
+        Container.managers.register(Singleton(ConnectionManager), ConnectionManager)
+        ```
+    """
+
+    def __init__(self, cls: type[Any]) -> None:
+        self._cls = cls
+        self._instance = None
+
+    def __call__(self) -> type[Any]:
+        if self._instance is None:
+            _instance = self._cls()
+            self._instance = _instance
+        else:
+            _instance = self._instance
+
+        return _instance
 
 
 class DependencyContainer:
@@ -10,14 +42,14 @@ class DependencyContainer:
     It maintains a mapping of dependency types to their respective provider types.
 
     Attributes:
-        _providers (dict[type[ServiceType], type[ServiceType]]): A dictionary mapping dependency types to
+        _providers (dict[type[Any], type[Any]]): A dictionary mapping dependency types to
                                                                  provider types.
 
     Methods:
-        register(dependency: type[ServiceType], provider: type[ServiceType]) -> None:
+        register(dependency: type[Any], provider: type[Any]) -> None:
             Registers a provider for a given dependency type.
 
-        get(dependency: type[ServiceType]) -> ServiceType:
+        get(dependency: type[Any]) -> Any:
             Retrieves an instance of the provider for the given dependency type.
     """
 
@@ -25,37 +57,79 @@ class DependencyContainer:
         """
         Initializes a new instance of the `DependencyContainer` class.
         """
-        self._providers: dict[type[ServiceType], type[ServiceType]] = {}  # type: ignore[valid-type]
+        self._providers: dict[type[Any], type[Any]] = {}  # type: ignore[valid-type]
+        self._resolved: dict[type[Any], type[Any]] = {}  # type: ignore[valid-type]
 
-    def register(self, dependency: type[ServiceType], provider: type[ServiceType]) -> None:
+    def register(self, dependency: type[Any], provider: type[Any] | Singleton) -> None:
         """
         Registers a provider for a given dependency type.
 
         Args:
-            dependency (type[ServiceType]): The type of the dependency.
-            provider (type[ServiceType]): The type of the provider.
+            dependency (type[Any]): The type of the dependency.
+            provider (type[Any]): The type of the provider.
         """
-        self._providers[dependency] = provider
+        self._providers[dependency] = provider  # type: ignore[assignment]
 
-    def get(self, dependency: type[ServiceType]) -> ServiceType:
+    def get(self, dependency: type[Any]) -> Any:
         """
         Retrieves an instance of the provider for the given dependency type.
 
         Args:
-            dependency (type[ServiceType]): The type of the dependency.
+            dependency (type[Any]): The type of the dependency.
 
         Returns:
-            ServiceType: An instance of the provider for the given dependency type.
+            Any: An instance of the provider for the given dependency type.
 
         Raises:
             ValueError: If no provider is registered for the given dependency type.
         """
         if dependency in self._providers:
             cls = self._providers[dependency]
-            return cls()  # type: ignore[misc]
+            instance = cls()
+            self._resolved[instance] = dependency
+            return instance  # type: ignore[misc]
 
         msg = f'No provider for {dependency}'
         raise ValueError(msg)
+
+    def get_dependency_type(self, instance: Any) -> type[Any]:
+        """
+        Retrieves the type of the dependency for the given instance.
+
+        Args:
+            instance (Any): An instance of the provider.
+
+        Returns:
+            type[Any]: The type of the dependency for the given instance.
+
+        Raises:
+            ValueError: If no dependency type is registered for the given instance.
+        """
+        if instance in self._resolved:
+            return self._resolved[instance]
+
+        msg = f'No dependency type for {instance}'
+        raise ValueError(msg)
+
+
+class SubContainer:
+    def __init__(self, name: str = '') -> None:
+        self.name = name
+        self.managers = DependencyContainer()
+        self.services = DependencyContainer()
+        self.executors = DependencyContainer()
+        self.planners = DependencyContainer()
+
+
+class ContainerPropertyDescriptor:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def __get__(self, _, cls: type['Container']) -> DependencyContainer:
+        if cls.__current_container__ is None:
+            return getattr(cls, f'_root_{self.name}')
+
+        return getattr(cls.__sub_containers__[cls.__current_container__], self.name)
 
 
 class Container:
@@ -109,7 +183,80 @@ class Container:
         planners (DependencyContainer): A container for planner dependencies.
     """
 
-    managers = DependencyContainer()
-    services = DependencyContainer()
-    executors = DependencyContainer()
-    planners = DependencyContainer()
+    _root_managers = DependencyContainer()
+    _root_services = DependencyContainer()
+    _root_executors = DependencyContainer()
+    _root_planners = DependencyContainer()
+
+    __current_container__: ClassVar[str | None] = None
+    __sub_containers__: ClassVar[dict[str, SubContainer]] = {}
+
+    managers = ContainerPropertyDescriptor('managers')
+    services = ContainerPropertyDescriptor('services')
+    executors = ContainerPropertyDescriptor('executors')
+    planners = ContainerPropertyDescriptor('planners')
+
+    @classmethod
+    def define_sub_container(cls, name: str = '') -> SubContainer:
+        name = name or uuid4().hex
+        cls.__sub_containers__[name] = SubContainer(name)
+        return cls.__sub_containers__[name]
+
+    @classmethod
+    @contextmanager
+    def switch(cls, name: str) -> Iterator[Any]:
+        previous = cls.__current_container__
+        cls.__current_container__ = name
+
+        try:
+            yield cls.__sub_containers__[name]
+        finally:
+            cls.__current_container__ = previous
+
+    @classmethod
+    @contextmanager
+    def root(cls) -> Iterator[Any]:
+        previous = cls.__current_container__
+        cls.__current_container__ = None
+
+        try:
+            yield cls
+        finally:
+            cls.__current_container__ = previous
+
+    @classmethod
+    def serialize_state(cls) -> bytes:
+        return pickle.dumps({
+            '_root_managers': cls._root_managers._providers,  # noqa: SLF001
+            '_root_services': cls._root_services._providers,  # noqa: SLF001
+            '_root_executors': cls._root_executors._providers,  # noqa: SLF001
+            '_root_planners': cls._root_planners._providers,  # noqa: SLF001
+            '__current_container__': cls.__current_container__,
+            '__sub_containers__': {
+                name: (
+                    sub_container.managers._providers,  # noqa: SLF001
+                    sub_container.services._providers,  # noqa: SLF001
+                    sub_container.executors._providers,  # noqa: SLF001
+                    sub_container.planners._providers,  # noqa: SLF001
+                )
+                for name, sub_container in cls.__sub_containers__.items()
+            },
+        })
+
+    @classmethod
+    def deserialize_state(cls, state: bytes) -> None:
+        data = pickle.loads(state)  # noqa: S301
+        cls._root_managers._providers = data['_root_managers']  # noqa: SLF001
+        cls._root_services._providers = data['_root_services']  # noqa: SLF001
+        cls._root_executors._providers = data['_root_executors']  # noqa: SLF001
+        cls._root_planners._providers = data['_root_planners']  # noqa: SLF001
+        cls.__current_container__ = data['__current_container__']
+
+        for name, (_managers, _service, _executors, _planners) in data['__sub_containers__'].items():
+            sub_container = SubContainer(name)
+            sub_container.managers._providers = _managers  # noqa: SLF001
+            sub_container.services._providers = _service  # noqa: SLF001
+            sub_container.executors._providers = _executors  # noqa: SLF001
+            sub_container.planners._providers = _planners  # noqa: SLF001
+
+            cls.__sub_containers__[name] = sub_container
