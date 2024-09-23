@@ -7,7 +7,6 @@ from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
@@ -15,42 +14,32 @@ from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
-from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.expressions.common import CombinedExpression
 from amsdal_glue_core.common.expressions.common import Expression
 from amsdal_glue_core.common.expressions.value import Value
 
+from amsdal_glue_connections.sql.sql_builders.build_only_constructor import build_field
+from amsdal_glue_connections.sql.sql_builders.build_only_constructor import BuildOnlyConstructor
+from amsdal_glue_connections.sql.sql_builders.build_only_constructor import default_build_only
 from amsdal_glue_connections.sql.sql_builders.math_operator_transform import default_math_operator_transform
+from amsdal_glue_connections.sql.sql_builders.math_operator_transform import MathOperatorTransform
 from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
+from amsdal_glue_connections.sql.sql_builders.nested_field_transform import NestedFieldTransform
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.operator_constructor import OperatorConstructor
 
 
 def build_sql_query(  # noqa: PLR0913
     query: QueryStatement,
     value_placeholder: str = '?',
     table_separator: str = '.',
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ] = default_operator_constructor,
+    operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
-    math_operator_transform: Callable[[Any, str, Any], str] = default_math_operator_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    math_operator_transform: MathOperatorTransform = default_math_operator_transform,
+    build_only: BuildOnlyConstructor = default_build_only,
 ) -> tuple[str, list[Any]]:
     """
     Builds an SQL query for the given query statement.
@@ -67,6 +56,7 @@ def build_sql_query(  # noqa: PLR0913
         nested_field_transform (Callable, optional): The function to transform nested fields.
                                                      Defaults to default_nested_field_transform.
         math_operator_transform (Callable, optional): The function to transform math operators.
+        build_only (Callable, optional): The function to build fields for the SELECT statement.
 
     Returns:
         tuple[str, list[Any]]: The SQL query and the list of values.
@@ -179,65 +169,16 @@ def build_sql_query(  # noqa: PLR0913
     return ' '.join(filter(None, stmt_parts)), values
 
 
-def build_only(
-    only: list[FieldReference | FieldReferenceAliased] | None,
-    table_separator: str = '.',
-    table_quote: str = '',
-    field_quote: str = '',
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
-    *,
-    distinct: bool = False,
-) -> str | None:
-    if not only:
-        return None
-
-    items = [
-        build_field(
-            _only,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        )
-        for _only in only
-    ]
-
-    fields = ', '.join(items)
-
-    if distinct:
-        return f'DISTINCT {fields}'
-
-    return fields
-
-
 def build_annotations(  # noqa: PLR0913
     annotations: list[AnnotationQuery] | None,
     value_placeholder: str = '?',
     table_separator: str = '.',
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ] = default_operator_constructor,
+    operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
-    math_operator_transform: Callable[[Any, str, Any], str] = default_math_operator_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    math_operator_transform: MathOperatorTransform = default_math_operator_transform,
 ) -> tuple[str | None, list[Any]]:
     if not annotations:
         return None, []
@@ -284,9 +225,7 @@ def build_aggregations(
     table_separator: str = '.',
     table_quote: str = '',
     field_quote: str = '',
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> str | None:
     if not aggregations:
         return None
@@ -306,53 +245,6 @@ def build_aggregations(
     return ', '.join(items)
 
 
-def build_field(
-    field: FieldReference | FieldReferenceAliased,
-    table_separator: str = '.',
-    table_quote: str = '',
-    field_quote: str = '',
-    value_type: Any = str,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
-) -> str:
-    _item = []
-    _field = field.field
-    _namespace_prefix = f'{table_quote}{field.namespace}{table_quote}{table_separator}' if field.namespace else ''
-
-    while _field:
-        _item.append(_field.name)
-        _field = _field.child  # type: ignore[assignment]
-
-    if len(_item) == 1:
-        _field_stm = _item[0]
-
-        if field.table_name:
-            _field_stm = (
-                f'{_namespace_prefix}'
-                f'{table_quote}{field.table_name}{table_quote}{table_separator}'
-                f'{field_quote}{_field_stm}{field_quote}'
-            )
-        else:
-            _field_stm = f'{field_quote}{_field_stm}{field_quote}'
-    else:
-        _field_stm = nested_field_transform(
-            field.table_name,
-            field.namespace,
-            _item[0],
-            _item[1:],
-            value_type,
-            table_separator,
-            table_quote,
-            field_quote,
-        )
-
-    if isinstance(field, FieldReferenceAliased) and field.alias:
-        _field_stm = f'{_field_stm} AS {field_quote}{field.alias}{field_quote}'
-
-    return _field_stm
-
-
 def build_expression(  # noqa: PLR0913
     expression: Expression,
     value_placeholder: str = '?',
@@ -360,10 +252,8 @@ def build_expression(  # noqa: PLR0913
     table_quote: str = '',
     field_quote: str = '',
     value_type: Any = str,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
-    math_operator_transform: Callable[[Any, str, Any], str] = default_math_operator_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    math_operator_transform: MathOperatorTransform = default_math_operator_transform,
 ) -> tuple[str, list[Any]]:
     values = []
 
@@ -413,27 +303,11 @@ def build_from(  # noqa: PLR0913
     table: SchemaReference | SubQueryStatement,
     value_placeholder: str = '?',
     table_separator: str = '.',
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ] = default_operator_constructor,
+    operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     if isinstance(table, SubQueryStatement):
         _query, _values = build_sql_query(
@@ -460,27 +334,11 @@ def build_joins(  # noqa: PLR0913
     joins: list[JoinQuery] | None,
     value_placeholder: str = '?',
     table_separator: str = '.',
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ] = default_operator_constructor,
+    operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     if not joins:
         return '', []
@@ -531,30 +389,14 @@ def build_joins(  # noqa: PLR0913
 
 def build_conditions(  # noqa: PLR0913
     conditions: Conditions | None,
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ],
+    operator_constructor: OperatorConstructor,
     value_placeholder: str = '?',
     table_separator: str = '.',
     null_value: str = 'NULL',
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     items = []
     values = []
@@ -612,30 +454,14 @@ def build_conditions(  # noqa: PLR0913
 
 def build_where(  # noqa: PLR0913
     where: Conditions | None,
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ] = default_operator_constructor,
+    operator_constructor: OperatorConstructor = default_operator_constructor,
     value_placeholder: str = '?',
     table_separator: str = '.',
     null_value: str = 'NULL',
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     if not where:
         return '', []
@@ -658,9 +484,7 @@ def build_group_by(
     table_separator: str = '.',
     table_quote: str = '',
     field_quote: str = '',
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> str | None:
     if not group_by:
         return None
@@ -684,9 +508,7 @@ def build_order_by(
     table_separator: str = '.',
     table_quote: str = '',
     field_quote: str = '',
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> str | None:
     if not order_by:
         return None

@@ -1,6 +1,11 @@
 from typing import Any
+from typing import Protocol
 
 from amsdal_glue_core.common.expressions.common import Combinable
+
+
+class MathOperatorTransform(Protocol):
+    def __call__(self, left: Any, operator: str, right: Any) -> str: ...
 
 
 def default_math_operator_transform(

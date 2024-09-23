@@ -13,6 +13,9 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
+from amsdal_glue_core.common.data_models.schema import DictSchemaModel
+from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -34,6 +37,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
+from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
 from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
@@ -218,6 +222,7 @@ class PostgresConnection(ConnectionBase):
             value_placeholder='%s',
             table_quote='"',
             field_quote='"',
+            build_only=pg_build_only,
         )
 
         try:
@@ -424,7 +429,7 @@ class PostgresConnection(ConnectionBase):
 
         # Get constraints info
         cursor = self.execute(
-            'SELECT conname, contype, confrelid, conkey, confkey '  # noqa: S608
+            'SELECT conname, contype, confrelid, conkey, confkey, con.oid '  # noqa: S608
             'FROM pg_catalog.pg_constraint con '
             'INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid '
             'INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace '
@@ -462,11 +467,19 @@ class PostgresConnection(ConnectionBase):
                     )
                 )
 
-            if raw_constrain[1] == 'p':
+            elif raw_constrain[1] == 'p':
                 constraints.append(
                     PrimaryKeyConstraint(
                         name=raw_constrain[0],
                         fields=[fid_to_name.get(pk) for pk in raw_constrain[3]],  # type: ignore[misc]
+                    )
+                )
+
+            elif raw_constrain[1] == 'u':
+                constraints.append(
+                    UniqueConstraint(
+                        name=raw_constrain[0],
+                        fields=[fid_to_name.get(u) for u in raw_constrain[3]],  # type: ignore[misc]
                     )
                 )
 
@@ -813,7 +826,10 @@ class PostgresConnection(ConnectionBase):
 
         return _index
 
-    def _to_sql_type(self, property_type: Schema | SchemaReference | type[Any]) -> str:  # noqa: PLR0911
+    def _to_sql_type(  # noqa: C901, PLR0911
+        self,
+        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+    ) -> str:
         if property_type is str:
             return 'TEXT'
         if property_type is int:
@@ -832,6 +848,9 @@ class PostgresConnection(ConnectionBase):
             return 'TIMESTAMP WITH TIME ZONE'
         if property_type == date:
             return 'DATE'
+        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
+            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
+            return 'JSON'
 
         msg = f'Unsupported type: {property_type}'
         raise ValueError(msg)

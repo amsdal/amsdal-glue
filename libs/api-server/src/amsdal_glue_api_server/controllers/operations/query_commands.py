@@ -78,7 +78,7 @@ class AggregationQueryBody(BaseModel):
 class QueryStatementBody(BaseModel):
     table: SchemaReference | SubQueryStatementBody
     only: list[FieldReference | FieldReferenceAliased] | None = None
-    distinct: bool = False
+    distinct: bool | list[FieldReference | FieldReferenceAliased] = False
     annotations: list[AnnotationQueryBody] | None = None
     aggregations: list[AggregationQueryBody] | None = None
     joins: list[JoinQueryBody] | None = None

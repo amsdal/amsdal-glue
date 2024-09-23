@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import sqlite3
 from datetime import date
 from datetime import datetime
@@ -15,6 +16,9 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
+from amsdal_glue_core.common.data_models.schema import DictSchemaModel
+from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -33,6 +37,9 @@ from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 
 logger = logging.getLogger(__name__)
+
+UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] UNIQUE \((?P<fields>[^)]+)\)')
+FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
 
 
 def sqlite_value_json_transform(value: Any) -> Any:
@@ -324,6 +331,25 @@ class SqliteConnection(ConnectionBase):
 
         return cursor
 
+    def _get_unique_constrains(self, table_name: str) -> list[UniqueConstraint]:
+        cursor = self.execute(f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';")  # noqa: S608
+        table_info = cursor.fetchone()
+        cursor.close()
+
+        unique_constraints = []
+
+        for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_info[0]):
+            fields = FIELDS_RE.findall(field_names)
+            unique_constraints.append(
+                UniqueConstraint(
+                    name=constraint_name,
+                    fields=fields,
+                    condition=None,
+                )
+            )
+
+        return unique_constraints
+
     def get_table_info(
         self,
         table_name: str,
@@ -364,6 +390,8 @@ class SqliteConnection(ConnectionBase):
                 )
             )
 
+        constraints.extend(self._get_unique_constrains(table_name))
+
         # Get constraints info
         cursor = self.execute(f'PRAGMA foreign_key_list({table_name})')
         foreign_keys = cursor.fetchall()
@@ -398,7 +426,7 @@ class SqliteConnection(ConnectionBase):
 
             index_fields = [field[2] for field in index_info]
 
-            if not self._is_constraint(index_fields, constraints):
+            if not self._is_constraint(index_fields, constraints) and not index[2]:
                 indexes.append(
                     IndexSchema(
                         name=index[1],
@@ -525,7 +553,9 @@ class SqliteConnection(ConnectionBase):
         return None
 
     @staticmethod
-    def to_sql_type(property_type: Schema | SchemaReference | type[Any]) -> str:  # noqa: PLR0911
+    def to_sql_type(  # noqa: C901, PLR0911
+        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+    ) -> str:
         if property_type is str:
             return 'TEXT'
         if property_type is int:
@@ -544,6 +574,9 @@ class SqliteConnection(ConnectionBase):
             return 'TIMESTAMP'
         if property_type == date:
             return 'DATE'
+        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
+            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
+            return 'JSON'
 
         msg = f'Unsupported type: {property_type}'
         raise ValueError(msg)
