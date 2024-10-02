@@ -1,7 +1,11 @@
 # mypy: disable-error-code="type-abstract"
+from types import GenericAlias
 from typing import Any
 
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
+from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
+from amsdal_glue_core.common.data_models.schema import DictSchemaModel
+from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
@@ -52,12 +56,14 @@ def _fetch_schemas() -> list[Schema | None]:
 
 def model_from_schema(schema: Schema) -> type[BaseModel]:
     properties = {}
-    _type: type[BaseModel | Any] | None
+    _type: type[BaseModel | Any] | GenericAlias | None
     for prop in schema.properties:
         if isinstance(prop.type, Schema):
             _type = model_from_schema(prop.type)
         elif isinstance(prop.type, SchemaReference):
             _type = int
+        elif isinstance(prop.type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
+            _type = _complex_type_to_type(prop.name, prop.type)
         else:
             _type = prop.type
 
@@ -67,6 +73,26 @@ def model_from_schema(schema: Schema) -> type[BaseModel]:
         properties[prop.name] = (_type, prop.default)
 
     return create_model(schema.name.capitalize(), **properties)  # type: ignore[call-overload]
+
+
+def _complex_type_to_type(
+    field_name: str,
+    complex_type: NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+) -> type[BaseModel | Any] | GenericAlias:
+    if isinstance(complex_type, NestedSchemaModel):
+        return create_model(  # type: ignore[call-overload]
+            f'{field_name.capitalize()}Nested',
+            **{
+                prop: (_complex_type_to_type(prop, prop_type), None)
+                for prop, prop_type in complex_type.properties.items()
+            },
+        )
+    if isinstance(complex_type, ArraySchemaModel):
+        return list[_complex_type_to_type('', complex_type.item_type)]  # type: ignore[misc]
+    if isinstance(complex_type, DictSchemaModel):
+        return dict[complex_type.key_type, _complex_type_to_type('', complex_type.value_type)]  # type: ignore[misc,name-defined]
+
+    return complex_type
 
 
 def _get_primary_key_constraint(schema: Schema) -> PrimaryKeyConstraint | None:

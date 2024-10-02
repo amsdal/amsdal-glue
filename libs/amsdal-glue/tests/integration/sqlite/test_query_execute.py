@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
+from amsdal_glue_connections.sql.sql_builders.exceptions import DistinctOnNotSupportedError
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
@@ -436,4 +437,142 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
     assert plan.final_task is not None
 
     with pytest.raises(RuntimeError, match='PolarsFinalQueryExecutor does not support subquery annotations'):
+        plan.execute(transaction_id=None, lock_id=None)
+
+
+def test_query_execute_distinct() -> None:
+    query = QueryStatement(
+        only=[
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+        ],
+        distinct=True,
+        table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+        order_by=[
+            OrderByQuery(
+                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+
+    planner = Container.planners.get(DataQueryPlanner)
+    plan = planner.plan_data_query(query)
+    assert plan.final_task is None
+
+    plan.execute(transaction_id=None, lock_id=None)
+    result = plan.tasks[-1].result
+    assert [item.data for item in result] == [
+        {'first_name': 'Betty'},
+        {'first_name': 'David'},
+        {'first_name': 'John'},
+        {'first_name': 'Robert'},
+    ]
+
+
+def test_query_execute_distinct_multiple_fields() -> None:
+    query = QueryStatement(
+        only=[
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+            FieldReference(field=Field(name='last_name'), table_name='c'),
+        ],
+        distinct=True,
+        table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+        order_by=[
+            OrderByQuery(
+                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+
+    planner = Container.planners.get(DataQueryPlanner)
+    plan = planner.plan_data_query(query)
+    assert plan.final_task is None
+
+    plan.execute(transaction_id=None, lock_id=None)
+    result = plan.tasks[-1].result
+    assert [item.data for item in result] == [
+        {'first_name': 'Betty', 'last_name': 'Doe'},
+        {'first_name': 'David', 'last_name': 'Robinson'},
+        {'first_name': 'John', 'last_name': 'Doe'},
+        {'first_name': 'John', 'last_name': 'Reinhardt'},
+        {'first_name': 'Robert', 'last_name': 'Luna'},
+    ]
+
+
+def test_query_execute_distinct_on_single_field() -> None:
+    query = QueryStatement(
+        only=[
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+        ],
+        distinct=[
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+        ],
+        table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+        order_by=[
+            OrderByQuery(
+                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+
+    planner = Container.planners.get(DataQueryPlanner)
+    plan = planner.plan_data_query(query)
+    assert plan.final_task is None
+
+    with pytest.raises(DistinctOnNotSupportedError):
+        plan.execute(transaction_id=None, lock_id=None)
+
+
+def test_query_execute_distinct_on_single_field_multiple_selected() -> None:
+    query = QueryStatement(
+        only=[
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+            FieldReference(field=Field(name='last_name'), table_name='c'),
+        ],
+        distinct=[
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+        ],
+        table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+        order_by=[
+            OrderByQuery(
+                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+
+    planner = Container.planners.get(DataQueryPlanner)
+    plan = planner.plan_data_query(query)
+    assert plan.final_task is None
+
+    with pytest.raises(DistinctOnNotSupportedError):
+        plan.execute(transaction_id=None, lock_id=None)
+
+
+def test_query_execute_distinct_on_multiple() -> None:
+    query = QueryStatement(
+        only=[
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+            FieldReference(field=Field(name='last_name'), table_name='c'),
+        ],
+        distinct=[
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+        ],
+        table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+        order_by=[
+            OrderByQuery(
+                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+
+    planner = Container.planners.get(DataQueryPlanner)
+    plan = planner.plan_data_query(query)
+    assert plan.final_task is None
+
+    with pytest.raises(DistinctOnNotSupportedError):
         plan.execute(transaction_id=None, lock_id=None)

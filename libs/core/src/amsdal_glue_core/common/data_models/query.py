@@ -20,7 +20,8 @@ class QueryStatement:
     Attributes:
         table (SchemaReference | SubQueryStatement): The table or subquery being queried.
         only (list[FieldReference | FieldReferenceAliased] | None): The list of fields to select. Defaults to None.
-        distinct (bool): Whether to select distinct rows. Defaults to False.
+        distinct (bool | list[FieldReference | FieldReferenceAliased]): Whether to select distinct rows. Defaults to
+            False. If a list of fields is provided, the distinct will be applied to the fields.
         annotations (list[AnnotationQuery] | None): The list of annotations in the query. Defaults to None.
         aggregations (list[AggregationQuery] | None): The list of aggregations in the query. Defaults to None.
         joins (list[JoinQuery] | None): The list of joins in the query. Defaults to None.
@@ -32,7 +33,7 @@ class QueryStatement:
 
     table: SchemaReference | SubQueryStatement
     only: list[FieldReference | FieldReferenceAliased] | None = None
-    distinct: bool = False
+    distinct: bool | list[FieldReference | FieldReferenceAliased] = False
     annotations: list[AnnotationQuery] | None = None
     aggregations: list[AggregationQuery] | None = None
     joins: list[JoinQuery] | None = None

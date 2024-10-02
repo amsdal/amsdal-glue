@@ -1,11 +1,49 @@
 from dataclasses import dataclass
 from typing import Any
 from typing import Optional
+from typing import TypeAlias
 from typing import Union
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.enums import Version
+
+FIELD_TYPE: TypeAlias = Union['NestedSchemaModel', 'ArraySchemaModel', 'DictSchemaModel', type[Any]]
+
+
+@dataclass(kw_only=True)
+class NestedSchemaModel:
+    """Represents a complex defined data structure with named properties.
+
+    Attributes:
+        properties (dict[str, FIELD_TYPE]): The properties of the nested schema model.
+    """
+
+    properties: dict[str, FIELD_TYPE]
+
+
+@dataclass(kw_only=True)
+class ArraySchemaModel:
+    """Represents an array of a defined data structure.
+
+    Attributes:
+        item_type (FIELD_TYPE): The type of items in the array schema model.
+    """
+
+    item_type: FIELD_TYPE
+
+
+@dataclass(kw_only=True)
+class DictSchemaModel:
+    """Represents a dictionary of a defined data structure.
+
+    Attributes:
+        key_type (type): The type of keys in the dictionary schema model.
+        value_type (FIELD_TYPE): The type of values in the dictionary schema model.
+    """
+
+    key_type: type
+    value_type: FIELD_TYPE
 
 
 @dataclass(kw_only=True)
@@ -37,14 +75,14 @@ class PropertySchema:
 
     Attributes:
         name (str): The name of the property.
-        type (Union[Schema, SchemaReference, type[Any]]): The type of the property.
+        type (Union[Schema, SchemaReference, FIELD_TYPE]): The type of the property.
         required (bool): Whether the property is required.
         description (str | None): The description of the property. Defaults to None.
         default (Any | None): The default value of the property. Defaults to None.
     """
 
     name: str
-    type: Union[Schema, 'SchemaReference', type[Any]]
+    type: Union[Schema, 'SchemaReference', FIELD_TYPE]
     required: bool
     description: str | None = None
     default: Any | None = None

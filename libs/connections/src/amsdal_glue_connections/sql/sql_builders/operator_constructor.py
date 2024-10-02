@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from typing import Any
+from typing import Protocol
 
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.enums import FieldLookup
@@ -7,6 +8,23 @@ from amsdal_glue_core.common.expressions.value import Value
 
 from amsdal_glue_connections.sql.sql_builders.exceptions import BinaryValuesNotSupportedError
 from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
+from amsdal_glue_connections.sql.sql_builders.nested_field_transform import NestedFieldTransform
+
+
+class OperatorConstructor(Protocol):
+    def __call__(  # noqa: PLR0913
+        self,
+        field: str,
+        lookup: FieldLookup,
+        value: FieldReference | Value,
+        value_placeholder: str,
+        table_separator: str,
+        null_value: str = 'NULL',
+        table_quote: str = '',
+        field_quote: str = '',
+        value_transform: Callable[[Any], Any] = lambda x: x,
+        nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    ) -> tuple[str, list[Any]]: ...
 
 
 def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
@@ -19,9 +37,7 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     """
     Constructs an SQL operator for the given field and lookup.
@@ -172,9 +188,7 @@ def repr_operator_constructor(  # noqa: PLR0913, PLR0912, C901, PLR0915
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     from amsdal_glue_connections.sql.sql_builders.query_builder import build_field
 

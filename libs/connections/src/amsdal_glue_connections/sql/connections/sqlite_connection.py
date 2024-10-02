@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import sqlite3
 from datetime import date
 from datetime import datetime
@@ -15,6 +16,9 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
+from amsdal_glue_core.common.data_models.schema import DictSchemaModel
+from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -34,6 +38,10 @@ from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema
 
 logger = logging.getLogger(__name__)
 
+UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] UNIQUE \((?P<fields>[^)]+)\)')
+PRIMARY_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] PRIMARY KEY')
+FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
+
 
 def sqlite_value_json_transform(value: Any) -> Any:
     if isinstance(value, dict | list):
@@ -52,10 +60,12 @@ def sqlite_field_json_transform(  # noqa: PLR0913
     table_quote: str = "'",
     field_quote: str = "'",
 ) -> str:
-    nested_fields_selection = '.'.join([
-        '$',
-        *fields,
-    ])
+    nested_fields_selection = '.'.join(
+        [
+            '$',
+            *fields,
+        ]
+    )
 
     if value_type in (int, bool):
         _cast_type = 'integer'
@@ -324,6 +334,27 @@ class SqliteConnection(ConnectionBase):
 
         return cursor
 
+    def _get_unique_constrains(self, table_sql: str) -> list[UniqueConstraint]:
+        unique_constraints = []
+
+        for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_sql):
+            fields = FIELDS_RE.findall(field_names)
+            unique_constraints.append(
+                UniqueConstraint(
+                    name=constraint_name,
+                    fields=fields,
+                    condition=None,
+                )
+            )
+
+        return unique_constraints
+
+    def _get_pk_name(self, table_sql: str) -> str:
+        for constraint_name in PRIMARY_KEY_RE.findall(table_sql):
+            return constraint_name
+
+        return ''
+
     def get_table_info(
         self,
         table_name: str,
@@ -342,6 +373,10 @@ class SqliteConnection(ConnectionBase):
         columns = cursor.fetchall()
         cursor.close()
 
+        cursor = self.execute(f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';")  # noqa: S608
+        table_sql = cursor.fetchone()[0]
+        cursor.close()
+
         properties = [
             PropertySchema(
                 name=column[1],
@@ -355,14 +390,17 @@ class SqliteConnection(ConnectionBase):
 
         # Get primary keys
         constraints: list[BaseConstraint] = []
+
         pk_columns = [column[1] for column in columns if column[5]]
         if pk_columns:
             constraints.append(
                 PrimaryKeyConstraint(
-                    name=f'pk_{table_name}',
+                    name=self._get_pk_name(table_sql) or f'pk_{table_name}',
                     fields=pk_columns,
                 )
             )
+
+        constraints.extend(self._get_unique_constrains(table_sql))
 
         # Get constraints info
         cursor = self.execute(f'PRAGMA foreign_key_list({table_name})')
@@ -398,7 +436,7 @@ class SqliteConnection(ConnectionBase):
 
             index_fields = [field[2] for field in index_info]
 
-            if not self._is_constraint(index_fields, constraints):
+            if not self._is_constraint(index_fields, constraints) and not index[2]:
                 indexes.append(
                     IndexSchema(
                         name=index[1],
@@ -525,7 +563,9 @@ class SqliteConnection(ConnectionBase):
         return None
 
     @staticmethod
-    def to_sql_type(property_type: Schema | SchemaReference | type[Any]) -> str:  # noqa: PLR0911
+    def to_sql_type(  # noqa: C901, PLR0911
+        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+    ) -> str:
         if property_type is str:
             return 'TEXT'
         if property_type is int:
@@ -544,6 +584,9 @@ class SqliteConnection(ConnectionBase):
             return 'TIMESTAMP'
         if property_type == date:
             return 'DATE'
+        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
+            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
+            return 'JSON'
 
         msg = f'Unsupported type: {property_type}'
         raise ValueError(msg)
