@@ -39,6 +39,7 @@ from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema
 logger = logging.getLogger(__name__)
 
 UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] UNIQUE \((?P<fields>[^)]+)\)')
+PRIMARY_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] PRIMARY KEY')
 FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
 
 
@@ -59,10 +60,12 @@ def sqlite_field_json_transform(  # noqa: PLR0913
     table_quote: str = "'",
     field_quote: str = "'",
 ) -> str:
-    nested_fields_selection = '.'.join([
-        '$',
-        *fields,
-    ])
+    nested_fields_selection = '.'.join(
+        [
+            '$',
+            *fields,
+        ]
+    )
 
     if value_type in (int, bool):
         _cast_type = 'integer'
@@ -331,14 +334,10 @@ class SqliteConnection(ConnectionBase):
 
         return cursor
 
-    def _get_unique_constrains(self, table_name: str) -> list[UniqueConstraint]:
-        cursor = self.execute(f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';")  # noqa: S608
-        table_info = cursor.fetchone()
-        cursor.close()
-
+    def _get_unique_constrains(self, table_sql: str) -> list[UniqueConstraint]:
         unique_constraints = []
 
-        for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_info[0]):
+        for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_sql):
             fields = FIELDS_RE.findall(field_names)
             unique_constraints.append(
                 UniqueConstraint(
@@ -349,6 +348,12 @@ class SqliteConnection(ConnectionBase):
             )
 
         return unique_constraints
+
+    def _get_pk_name(self, table_sql: str) -> str:
+        for constraint_name in PRIMARY_KEY_RE.findall(table_sql):
+            return constraint_name
+
+        return ''
 
     def get_table_info(
         self,
@@ -368,6 +373,10 @@ class SqliteConnection(ConnectionBase):
         columns = cursor.fetchall()
         cursor.close()
 
+        cursor = self.execute(f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';")  # noqa: S608
+        table_sql = cursor.fetchone()[0]
+        cursor.close()
+
         properties = [
             PropertySchema(
                 name=column[1],
@@ -381,16 +390,17 @@ class SqliteConnection(ConnectionBase):
 
         # Get primary keys
         constraints: list[BaseConstraint] = []
+
         pk_columns = [column[1] for column in columns if column[5]]
         if pk_columns:
             constraints.append(
                 PrimaryKeyConstraint(
-                    name=f'pk_{table_name}',
+                    name=self._get_pk_name(table_sql) or f'pk_{table_name}',
                     fields=pk_columns,
                 )
             )
 
-        constraints.extend(self._get_unique_constrains(table_name))
+        constraints.extend(self._get_unique_constrains(table_sql))
 
         # Get constraints info
         cursor = self.execute(f'PRAGMA foreign_key_list({table_name})')

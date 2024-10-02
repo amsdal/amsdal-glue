@@ -83,7 +83,7 @@ def test_create_schema() -> None:
             ),
         ],
         constraints=[
-            PrimaryKeyConstraint(name='pk_user', fields=['id']),
+            PrimaryKeyConstraint(name='pk_user_custom_name', fields=['id']),
             UniqueConstraint(name='uk_user_email', fields=['email'], condition=None),
             UniqueConstraint(name='uk_user_email_last_name', fields=['email', 'last_name'], condition=None),
             CheckConstraint(
@@ -161,7 +161,7 @@ def test_create_schema() -> None:
                 ),
             ],
             constraints=[
-                PrimaryKeyConstraint(name='pk_user', fields=['id']),
+                PrimaryKeyConstraint(name='pk_user_custom_name', fields=['id']),
                 UniqueConstraint(name='uk_user_email', fields=['email'], condition=None),
                 UniqueConstraint(name='uk_user_email_last_name', fields=['email', 'last_name'], condition=None),
             ],
