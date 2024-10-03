@@ -1,7 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 from typing import ClassVar
 
-from amsdal_glue_core.common.executors.manager import ExecutorManager
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.interfaces.runtime_manager import RuntimeManager
 from amsdal_glue_core.common.services.commands import DataCommandService
@@ -15,7 +14,6 @@ from amsdal_glue import Container
 from amsdal_glue.initialize import init_default_containers
 from amsdal_glue.initialize import init_pipeline_containers
 from amsdal_glue.pipelines.manager import PipelineManager
-from amsdal_glue.task_executors.background_executors import BackgroundSequentialExecutor
 
 
 class LakehouseApplication:
@@ -82,10 +80,6 @@ class LakehouseApplication:
         for service in command_services:
             # Command services uses command container and then query container
             self.pipeline.define(service, [self.LAKEHOUSE_CONTAINER_NAME, self.DEFAULT_CONTAINER_NAME])
-
-            # background executor for command container for these services
-            # executor_manager = self.default_container.managers.get(ExecutorManager)
-            # executor_manager.register_for_service(service, BackgroundSequentialExecutor)
 
     @property
     def default_connection_manager(self) -> ConnectionManager:

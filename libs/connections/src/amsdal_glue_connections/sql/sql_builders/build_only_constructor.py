@@ -41,10 +41,7 @@ def build_field(
     if len(_item) == 1:
         _field_stm = _item[0]
 
-        if _field_stm == '*':
-            _field_quote = ''
-        else:
-            _field_quote = field_quote
+        _field_quote = '' if _field_stm == '*' else field_quote
 
         if field.table_name:
             _field_stm = (

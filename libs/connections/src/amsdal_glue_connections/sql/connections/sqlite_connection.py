@@ -2,21 +2,15 @@ import json
 import logging
 import re
 import sqlite3
+import uuid
 from copy import copy
 from datetime import date
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_add_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_drop_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
+from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -39,6 +33,17 @@ from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
+
+from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
+from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_add_column
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_drop_column
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_migrate_column
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_rename_column
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +69,10 @@ def sqlite_field_json_transform(  # noqa: PLR0913
     table_quote: str = "'",
     field_quote: str = "'",
 ) -> str:
-    nested_fields_selection = '.'.join(
-        [
-            '$',
-            *fields,
-        ]
-    )
+    nested_fields_selection = '.'.join([
+        '$',
+        *fields,
+    ])
 
     if value_type in (int, bool):
         _cast_type = 'integer'
@@ -88,12 +91,11 @@ def sqlite_field_json_transform(  # noqa: PLR0913
 
 
 class JsonTypeMeta(type):
-    def __eq__(cls, other: Any) -> bool:
+    def __eq__(cls, other: object) -> bool:
         return other in (list, dict)
 
 
-class JsonType(dict, metaclass=JsonTypeMeta):
-    ...
+class JsonType(dict, metaclass=JsonTypeMeta): ...  # type: ignore[misc]
 
 
 class SqliteConnection(ConnectionBase):
@@ -323,12 +325,8 @@ class SqliteConnection(ConnectionBase):
             Data: The Data object.
         """
         for key, value in data.items():
-            if (
-                isinstance(value, str) and
-                (
-                    (value.startswith('{') and value.endswith('}'))
-                    or (value.startswith('[') and value.endswith(']'))
-                )
+            if isinstance(value, str) and (
+                (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']'))
             ):
                 data[key] = json.loads(value)
 
@@ -351,7 +349,6 @@ class SqliteConnection(ConnectionBase):
         cursor = self.connection.cursor()
 
         try:
-            print(f'QUERY ({self._db_path.name}):', query, args)
             cursor.execute(query, args)
         except sqlite3.Error as exc:
             msg = f'Error executing query: {query} with args: {args}. Exception: {exc}'
@@ -400,8 +397,8 @@ class SqliteConnection(ConnectionBase):
         cursor.close()
 
         cursor = self.execute(
-            f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';"
-        )  # noqa: S608
+            f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';"  # noqa: S608
+        )
         table_sql = cursor.fetchone()[0]
         cursor.close()
 
@@ -590,13 +587,20 @@ class SqliteConnection(ConnectionBase):
 
     def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:
         if isinstance(mutation, UpdateProperty):
-            # TODO: add_column_with_prefix `__temp`
-            # TODO: copy data from old column to new column
-            # TODO: remove old column
-            # TODO: rename new column to old column
+            new_uuid = f'f{uuid.uuid4().hex}'
+
+            new_property = mutation.property.__copy__()
+            new_property.name = new_uuid
+
+            if new_property.required:
+                logger.warning('Trying to update a property to required, which is not supported. Setting it to False.')
+                new_property.required = False
+
             statements = [
+                build_add_column(mutation.schema_reference, new_property, type_transform=self.to_sql_type),
+                build_migrate_column(mutation.schema_reference, mutation.property.name, new_uuid),
                 build_drop_column(mutation.schema_reference, mutation.property.name),
-                build_add_column(mutation.schema_reference, mutation.property, type_transform=self.to_sql_type),
+                build_rename_column(mutation.schema_reference, new_uuid, mutation.property.name),
             ]
         else:
             statements = build_schema_mutation(mutation, type_transform=self.to_sql_type)
@@ -621,7 +625,7 @@ class SqliteConnection(ConnectionBase):
             return 'REAL'
         if property_type is bool:
             return 'BOOLEAN'
-        if property_type == dict or property_type == list:
+        if property_type in (dict, list):
             return 'JSON'
         if property_type in (bytes, bytearray):
             return 'BLOB'
@@ -662,7 +666,7 @@ class SqliteConnection(ConnectionBase):
         raise ValueError(msg)
 
     def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
-        _childs = []
+        _childs: list[Conditions | Condition] = []
 
         for _child in conditions.children:
             if isinstance(_child, Conditions):

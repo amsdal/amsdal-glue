@@ -1,18 +1,18 @@
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 
-import amsdal_glue as glue
+from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 
 
 @pytest.fixture(scope='function')
-def database_connection() -> Generator[glue.SqliteConnection, None, None]:
+def database_connection() -> Generator[SqliteConnection, None, None]:
     with tempfile.TemporaryDirectory() as temp_dir:
         db_path = Path(temp_dir) / 'test.db'
 
-        connection = glue.SqliteConnection()
+        connection = SqliteConnection()
         connection.connect(db_path=db_path)
 
         try:

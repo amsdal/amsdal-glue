@@ -1,6 +1,7 @@
+from copy import copy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from copy import copy
+
 from amsdal_glue_core.common.data_models.conditions import Conditions
 
 if TYPE_CHECKING:
@@ -38,10 +39,7 @@ class PrimaryKeyConstraint(BaseConstraint):
         if not isinstance(other, PrimaryKeyConstraint):
             return False
 
-        return (
-            self.name == other.name
-            and self.fields == other.fields
-        )
+        return self.name == other.name and self.fields == other.fields
 
     def __copy__(self):
         return PrimaryKeyConstraint(
@@ -106,11 +104,7 @@ class UniqueConstraint(BaseConstraint):
         if not isinstance(other, UniqueConstraint):
             return False
 
-        return (
-            self.name == other.name
-            and self.fields == other.fields
-            and self.condition == other.condition
-        )
+        return self.name == other.name and self.fields == other.fields and self.condition == other.condition
 
     def __copy__(self):
         return UniqueConstraint(
@@ -137,10 +131,7 @@ class CheckConstraint(BaseConstraint):
         if not isinstance(other, UniqueConstraint):
             return False
 
-        return (
-            self.name == other.name
-            and self.condition == other.condition
-        )
+        return self.name == other.name and self.condition == other.condition
 
     def __copy__(self):
         return CheckConstraint(

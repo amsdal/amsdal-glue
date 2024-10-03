@@ -1,17 +1,23 @@
-import amsdal_glue as glue
+from amsdal_glue_core.common.data_models.schema import PropertySchema
+from amsdal_glue_core.common.data_models.schema import Schema
+from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.operations.commands import SchemaCommand
+from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+
+from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 
 
-def create_json_fields(database_connection: glue.SqliteConnection) -> glue.Schema:
-    schema = glue.Schema(
+def create_json_fields(database_connection: SqliteConnection) -> Schema:
+    schema = Schema(
         name='JsonFieldsTable',
-        version=glue.Version.LATEST,
+        version=Version.LATEST,
         properties=[
-            glue.PropertySchema(
+            PropertySchema(
                 name='field_dict',
                 type=dict,
                 required=True,
             ),
-            glue.PropertySchema(
+            PropertySchema(
                 name='field_list',
                 type=list,
                 required=True,
@@ -19,11 +25,11 @@ def create_json_fields(database_connection: glue.SqliteConnection) -> glue.Schem
         ],
     )
     schemas = database_connection.run_schema_command(
-        glue.SchemaCommand(
+        SchemaCommand(
             mutations=[
-                glue.RegisterSchema(schema=schema),
+                RegisterSchema(schema=schema),
             ],
         ),
     )
 
-    return schemas[0]
+    return schemas[0]  # type: ignore[return-value]

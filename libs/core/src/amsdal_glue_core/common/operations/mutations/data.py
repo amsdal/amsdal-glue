@@ -26,12 +26,9 @@ class InsertData(DataMutation):
     """
 
     data: list[Data]
-    
+
     def __copy__(self):
-        return InsertData(
-            schema=copy(self.schema),
-            data=[copy(data) for data in self.data]
-        )
+        return InsertData(schema=copy(self.schema), data=[copy(data) for data in self.data])
 
 
 @dataclass(kw_only=True)
@@ -48,9 +45,7 @@ class UpdateData(DataMutation):
 
     def __copy__(self):
         return UpdateData(
-            schema=copy(self.schema),
-            data=copy(self.data),
-            query=copy(self.query) if self.query else None
+            schema=copy(self.schema), data=copy(self.data), query=copy(self.query) if self.query else None
         )
 
 
@@ -65,7 +60,4 @@ class DeleteData(DataMutation):
     query: Conditions | None = None
 
     def __copy__(self):
-        return DeleteData(
-            schema=copy(self.schema),
-            query=copy(self.query) if self.query else None
-        )
+        return DeleteData(schema=copy(self.schema), query=copy(self.query) if self.query else None)

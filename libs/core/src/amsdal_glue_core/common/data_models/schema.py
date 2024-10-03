@@ -1,9 +1,9 @@
+from copy import copy
 from dataclasses import dataclass
 from typing import Any
 from typing import Optional
 from typing import TypeAlias
 from typing import Union
-from copy import copy
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
@@ -118,11 +118,7 @@ class PropertySchema:
         if not isinstance(other, PropertySchema):
             return False
 
-        return (
-            self.name == other.name
-            and self.type == other.type
-            and self.required == other.required
-        )
+        return self.name == other.name and self.type == other.type and self.required == other.required
 
     def __repr__(self):
         return f'PropertySchema<{self.name}:{self.type}:{self.required}:{self.description}:{self.default}>'

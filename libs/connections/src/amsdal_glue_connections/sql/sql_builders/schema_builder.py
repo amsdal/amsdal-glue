@@ -206,6 +206,13 @@ def build_rename_column(schema_reference: SchemaReference, old_name: str, new_na
     return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' RENAME COLUMN '{old_name}' TO '{new_name}'"
 
 
+def build_migrate_column(schema_reference: SchemaReference, old_field: str, new_field: str) -> str:
+    _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
+    table_name = f"{_namespace_prefix}'{schema_reference.name}'"
+
+    return f"UPDATE {table_name} SET '{new_field}' = {table_name}.'{old_field}'"  # noqa: S608
+
+
 def build_update_column(
     schema_reference: SchemaReference,
     property_obj: PropertySchema,

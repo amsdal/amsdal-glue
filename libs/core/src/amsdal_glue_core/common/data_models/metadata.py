@@ -22,5 +22,8 @@ class Metadata:
             object_id=self.object_id,
             object_version=self.object_version,
             created_at=self.created_at,
-            updated_at=self.updated_at
+            updated_at=self.updated_at,
         )
+
+    def copy(self) -> 'Metadata':
+        return self.__copy__()

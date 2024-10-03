@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 from copy import copy
+from dataclasses import dataclass
 
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.schema import SchemaReference

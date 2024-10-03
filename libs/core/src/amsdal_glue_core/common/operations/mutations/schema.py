@@ -144,10 +144,8 @@ class RenameProperty(ChangeSchema):
 
     def __copy__(self):
         return RenameProperty(
-            schema_reference=copy(self.schema_reference),
-            old_name=self.old_name,
-            new_name=self.new_name
-            )
+            schema_reference=copy(self.schema_reference), old_name=self.old_name, new_name=self.new_name
+        )
 
 
 @dataclass(kw_only=True)

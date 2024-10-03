@@ -1,9 +1,6 @@
 from collections.abc import Callable
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.math_operator_transform import default_math_operator_transform
-from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
-from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
@@ -148,29 +145,27 @@ def build_sql_query(  # noqa: PLR0913
 
     values.extend(_values)
 
-    stmt_parts.extend(
-        [
-            'FROM',
-            _from,
-            _joins,
-            _where,
-            build_group_by(
-                query.group_by,
-                table_separator=table_separator,
-                table_quote=table_quote,
-                field_quote=field_quote,
-                nested_field_transform=nested_field_transform,
-            ),
-            build_order_by(
-                query.order_by,
-                table_separator=table_separator,
-                table_quote=table_quote,
-                field_quote=field_quote,
-                nested_field_transform=nested_field_transform,
-            ),
-            build_limit(query.limit),
-        ]
-    )
+    stmt_parts.extend([
+        'FROM',
+        _from,
+        _joins,
+        _where,
+        build_group_by(
+            query.group_by,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+            nested_field_transform=nested_field_transform,
+        ),
+        build_order_by(
+            query.order_by,
+            table_separator=table_separator,
+            table_quote=table_quote,
+            field_quote=field_quote,
+            nested_field_transform=nested_field_transform,
+        ),
+        build_limit(query.limit),
+    ])
 
     return ' '.join(filter(None, stmt_parts)), values
 
