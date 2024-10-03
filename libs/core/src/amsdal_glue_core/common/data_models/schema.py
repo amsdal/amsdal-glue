@@ -3,6 +3,7 @@ from typing import Any
 from typing import Optional
 from typing import TypeAlias
 from typing import Union
+from copy import copy
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
@@ -68,6 +69,29 @@ class Schema:
     constraints: list[BaseConstraint] | None = None
     indexes: list[IndexSchema] | None = None
 
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __repr__(self):
+        return (
+            f'Schema<{self.namespace}.{self.name}_v_{self.version}'
+            f':{self.extends}'
+            f':{self.properties}'
+            f':{self.constraints}'
+            f':{self.indexes}>'
+        )
+
+    def __copy__(self):
+        return Schema(
+            name=self.name,
+            version=self.version,
+            namespace=self.namespace,
+            extends=copy(self.extends) if self.extends is not None else None,
+            properties=[copy(prop) for prop in self.properties],
+            constraints=[copy(constraint) for constraint in self.constraints] if self.constraints is not None else None,
+            indexes=[copy(index) for index in self.indexes] if self.indexes is not None else None,
+        )
+
 
 @dataclass(kw_only=True)
 class PropertySchema:
@@ -87,6 +111,31 @@ class PropertySchema:
     description: str | None = None
     default: Any | None = None
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, PropertySchema):
+            return False
+
+        return (
+            self.name == other.name
+            and self.type == other.type
+            and self.required == other.required
+        )
+
+    def __repr__(self):
+        return f'PropertySchema<{self.name}:{self.type}:{self.required}:{self.description}:{self.default}>'
+
+    def __copy__(self):
+        return PropertySchema(
+            name=self.name,
+            type=copy(self.type),
+            required=self.required,
+            description=self.description,
+            default=self.default,
+        )
+
 
 @dataclass(kw_only=True)
 class SchemaReference:
@@ -103,3 +152,14 @@ class SchemaReference:
     version: str | Version
     alias: str | None = None
     namespace: str | None = None
+
+    def __copy__(self):
+        return SchemaReference(
+            name=self.name,
+            version=self.version,
+            alias=self.alias,
+            namespace=self.namespace,
+        )
+
+    def __repr__(self):
+        return f'SchemaReference<{self.namespace}.{self.name}__v__{self.version}:{self.alias}>'

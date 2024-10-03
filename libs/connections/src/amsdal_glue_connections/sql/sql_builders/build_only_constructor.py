@@ -41,14 +41,19 @@ def build_field(
     if len(_item) == 1:
         _field_stm = _item[0]
 
+        if _field_stm == '*':
+            _field_quote = ''
+        else:
+            _field_quote = field_quote
+
         if field.table_name:
             _field_stm = (
                 f'{_namespace_prefix}'
                 f'{table_quote}{field.table_name}{table_quote}{table_separator}'
-                f'{field_quote}{_field_stm}{field_quote}'
+                f'{_field_quote}{_field_stm}{_field_quote}'
             )
         else:
-            _field_stm = f'{field_quote}{_field_stm}{field_quote}'
+            _field_stm = f'{_field_quote}{_field_stm}{_field_quote}'
     else:
         _field_stm = nested_field_transform(
             field.table_name,

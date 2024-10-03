@@ -1,6 +1,9 @@
 from collections.abc import Callable
 from typing import Any
 
+from amsdal_glue_connections.sql.sql_builders.math_operator_transform import default_math_operator_transform
+from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
+from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
@@ -16,6 +19,7 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.expressions.common import CombinedExpression
 from amsdal_glue_core.common.expressions.common import Expression
+from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.expressions.value import Value
 
 from amsdal_glue_connections.sql.sql_builders.build_only_constructor import build_field
@@ -144,27 +148,29 @@ def build_sql_query(  # noqa: PLR0913
 
     values.extend(_values)
 
-    stmt_parts.extend([
-        'FROM',
-        _from,
-        _joins,
-        _where,
-        build_group_by(
-            query.group_by,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        ),
-        build_order_by(
-            query.order_by,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        ),
-        build_limit(query.limit),
-    ])
+    stmt_parts.extend(
+        [
+            'FROM',
+            _from,
+            _joins,
+            _where,
+            build_group_by(
+                query.group_by,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+                nested_field_transform=nested_field_transform,
+            ),
+            build_order_by(
+                query.order_by,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+                nested_field_transform=nested_field_transform,
+            ),
+            build_limit(query.limit),
+        ]
+    )
 
     return ' '.join(filter(None, stmt_parts)), values
 
@@ -233,13 +239,16 @@ def build_aggregations(
     items = []
 
     for aggregation in aggregations:
-        _field = build_field(
-            aggregation.expression.field,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        )
+        if aggregation.expression.field.field.name == '*':
+            _field = '*'
+        else:
+            _field = build_field(
+                aggregation.expression.field,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+                nested_field_transform=nested_field_transform,
+            )
         items.append(f'{aggregation.expression.name}({_field}) AS {field_quote}{aggregation.alias}{field_quote}')
 
     return ', '.join(items)
@@ -294,6 +303,8 @@ def build_expression(  # noqa: PLR0913
         ), []
     if isinstance(expression, Value):
         return value_placeholder, [expression.value]
+    if isinstance(expression, RawExpression):
+        return expression.value, []
 
     msg = f'Unsupported expression type: {type(expression)}'
     raise ValueError(msg)
@@ -529,7 +540,7 @@ def build_order_by(
 
 
 def build_limit(limit: LimitQuery | None) -> str | None:
-    if not limit:
+    if not limit or limit.limit is None:
         return None
 
     _limit_stm = f'LIMIT {limit.limit}'

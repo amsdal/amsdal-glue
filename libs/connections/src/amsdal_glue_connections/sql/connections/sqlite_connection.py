@@ -2,11 +2,20 @@ import json
 import logging
 import re
 import sqlite3
+from copy import copy
 from datetime import date
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
+from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_add_column
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_drop_column
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
@@ -29,12 +38,7 @@ from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
-
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
+from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +85,15 @@ def sqlite_field_json_transform(  # noqa: PLR0913
         _stmt += f' as {_cast_type})'
 
     return _stmt
+
+
+class JsonTypeMeta(type):
+    def __eq__(cls, other: Any) -> bool:
+        return other in (list, dict)
+
+
+class JsonType(dict, metaclass=JsonTypeMeta):
+    ...
 
 
 class SqliteConnection(ConnectionBase):
@@ -140,6 +153,35 @@ class SqliteConnection(ConnectionBase):
 
         return self._connection
 
+    def connect(self, db_path: Path, *, check_same_thread: bool = False, **kwargs: Any) -> None:
+        """
+        Establishes a connection to the SQLite database.
+
+        Args:
+            db_path (Path): The path to the SQLite database file.
+            check_same_thread (bool, optional): Whether to check the same thread. Defaults to False.
+            **kwargs (Any): Additional arguments for the SQLite connection.
+
+        Raises:
+            ConnectionError: If the connection is already established.
+        """
+        if self._connection is not None:
+            msg = 'Connection already established'
+            raise ConnectionError(msg)
+
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+        self._db_path = Path(db_path)
+        self._connection = sqlite3.connect(db_path, check_same_thread=check_same_thread, **kwargs)
+        self._connection.isolation_level = None  # disable implicit transaction opening
+
+    def disconnect(self) -> None:
+        """
+        Closes the connection to the SQLite database.
+        """
+        self.connection.close()
+        self._connection = None
+
     def query(self, query: QueryStatement) -> list[Data]:
         """
         Executes a query on the SQLite database.
@@ -167,7 +209,7 @@ class SqliteConnection(ConnectionBase):
             cursor = self.execute(_stmt, *_params)
         except Exception as exc:
             logger.exception('Error executing query: %s with params: %s', _stmt, _params)
-            msg = f'Error executing query: {_stmt} with params: {_params}'
+            msg = f'Error "{exc}" raised during executing query: {_stmt} with params: {_params}'
             raise ConnectionError(msg) from exc
 
         fields = []
@@ -196,6 +238,7 @@ class SqliteConnection(ConnectionBase):
         stmt = 'SELECT name FROM sqlite_master WHERE type="table"'
 
         if filters and filters.children:
+            _filters = self._replace_table_name(filters, 'sqlite_master')
             where, values = build_where(filters)
             stmt += f' AND {where}'
         else:
@@ -279,35 +322,17 @@ class SqliteConnection(ConnectionBase):
         Returns:
             Data: The Data object.
         """
+        for key, value in data.items():
+            if (
+                isinstance(value, str) and
+                (
+                    (value.startswith('{') and value.endswith('}'))
+                    or (value.startswith('[') and value.endswith(']'))
+                )
+            ):
+                data[key] = json.loads(value)
+
         return Data(data=data)
-
-    def connect(self, db_path: Path, *, check_same_thread: bool = False, **kwargs: Any) -> None:
-        """
-        Establishes a connection to the SQLite database.
-
-        Args:
-            db_path (Path): The path to the SQLite database file.
-            check_same_thread (bool, optional): Whether to check the same thread. Defaults to False.
-            **kwargs (Any): Additional arguments for the SQLite connection.
-
-        Raises:
-            ConnectionError: If the connection is already established.
-        """
-        if self._connection is not None:
-            msg = 'Connection already established'
-            raise ConnectionError(msg)
-
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-
-        self._connection = sqlite3.connect(db_path, check_same_thread=check_same_thread, **kwargs)
-        self._connection.isolation_level = None  # disable implicit transaction opening
-
-    def disconnect(self) -> None:
-        """
-        Closes the connection to the SQLite database.
-        """
-        self.connection.close()
-        self._connection = None
 
     def execute(self, query: str, *args: Any) -> sqlite3.Cursor:
         """
@@ -326,6 +351,7 @@ class SqliteConnection(ConnectionBase):
         cursor = self.connection.cursor()
 
         try:
+            print(f'QUERY ({self._db_path.name}):', query, args)
             cursor.execute(query, args)
         except sqlite3.Error as exc:
             msg = f'Error executing query: {query} with args: {args}. Exception: {exc}'
@@ -369,11 +395,13 @@ class SqliteConnection(ConnectionBase):
             tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]: The properties, constraints,
                                                                                   and indexes of the table.
         """
-        cursor = self.execute(f'PRAGMA table_info({table_name})')
+        cursor = self.execute(f"PRAGMA table_info('{table_name}')")
         columns = cursor.fetchall()
         cursor.close()
 
-        cursor = self.execute(f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';")  # noqa: S608
+        cursor = self.execute(
+            f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';"
+        )  # noqa: S608
         table_sql = cursor.fetchone()[0]
         cursor.close()
 
@@ -403,7 +431,7 @@ class SqliteConnection(ConnectionBase):
         constraints.extend(self._get_unique_constrains(table_sql))
 
         # Get constraints info
-        cursor = self.execute(f'PRAGMA foreign_key_list({table_name})')
+        cursor = self.execute(f"PRAGMA foreign_key_list('{table_name}')")
         foreign_keys = cursor.fetchall()
         cursor.close()
 
@@ -423,27 +451,36 @@ class SqliteConnection(ConnectionBase):
         )
 
         # Get indexes info
-        cursor = self.execute(f'PRAGMA index_list({table_name})')
+        cursor = self.execute(f"PRAGMA index_list('{table_name}')")
         indexes_list = cursor.fetchall()
         cursor.close()
 
         indexes = []
 
         for index in indexes_list:
-            cursor = self.execute(f'PRAGMA index_info({index[1]})')
+            cursor = self.execute(f"PRAGMA index_info('{index[1]}')")
             index_info = cursor.fetchall()
             cursor.close()
 
             index_fields = [field[2] for field in index_info]
 
             if not self._is_constraint(index_fields, constraints) and not index[2]:
-                indexes.append(
-                    IndexSchema(
-                        name=index[1],
-                        fields=index_fields,
-                        condition=None,
-                    ),
-                )
+                if index[2]:
+                    constraints.append(
+                        UniqueConstraint(
+                            name=index[1],
+                            fields=index_fields,
+                            condition=None,
+                        ),
+                    )
+                else:
+                    indexes.append(
+                        IndexSchema(
+                            name=index[1],
+                            fields=index_fields,
+                            condition=None,
+                        ),
+                    )
 
         return properties, constraints, indexes
 
@@ -552,7 +589,17 @@ class SqliteConnection(ConnectionBase):
         return True
 
     def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:
-        statements = build_schema_mutation(mutation, type_transform=self.to_sql_type)
+        if isinstance(mutation, UpdateProperty):
+            # TODO: add_column_with_prefix `__temp`
+            # TODO: copy data from old column to new column
+            # TODO: remove old column
+            # TODO: rename new column to old column
+            statements = [
+                build_drop_column(mutation.schema_reference, mutation.property.name),
+                build_add_column(mutation.schema_reference, mutation.property, type_transform=self.to_sql_type),
+            ]
+        else:
+            statements = build_schema_mutation(mutation, type_transform=self.to_sql_type)
 
         for stmt in statements:
             self.execute(stmt)
@@ -574,7 +621,7 @@ class SqliteConnection(ConnectionBase):
             return 'REAL'
         if property_type is bool:
             return 'BOOLEAN'
-        if property_type is dict:
+        if property_type == dict or property_type == list:
             return 'JSON'
         if property_type in (bytes, bytearray):
             return 'BLOB'
@@ -603,7 +650,7 @@ class SqliteConnection(ConnectionBase):
         if sql_type == 'BOOLEAN':
             return bool
         if sql_type == 'JSON':
-            return dict
+            return JsonType
         if sql_type == 'BLOB':
             return bytes
         if sql_type == 'TIMESTAMP':
@@ -613,3 +660,16 @@ class SqliteConnection(ConnectionBase):
 
         msg = f'Unsupported type: {sql_type}'
         raise ValueError(msg)
+
+    def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
+        _childs = []
+
+        for _child in conditions.children:
+            if isinstance(_child, Conditions):
+                _childs.append(self._replace_table_name(_child, replace_name))
+            elif _child.field.table_name == SCHEMA_REGISTRY_TABLE:
+                _copy = copy(_child)
+                _copy.field.table_name = replace_name
+                _childs.append(_copy)
+
+        return Conditions(*_childs, connector=conditions.connector, negated=conditions.negated)

@@ -16,3 +16,11 @@ class Metadata:
     object_version: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+
+    def __copy__(self):
+        return Metadata(
+            object_id=self.object_id,
+            object_version=self.object_version,
+            created_at=self.created_at,
+            updated_at=self.updated_at
+        )

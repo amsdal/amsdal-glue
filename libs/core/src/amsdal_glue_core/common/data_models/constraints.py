@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-
+from copy import copy
 from amsdal_glue_core.common.data_models.conditions import Conditions
 
 if TYPE_CHECKING:
@@ -17,6 +17,9 @@ class BaseConstraint:
 
     name: str
 
+    def __repr__(self):
+        return f'BaseConstraint<{self.name}>'
+
 
 @dataclass(kw_only=True)
 class PrimaryKeyConstraint(BaseConstraint):
@@ -27,6 +30,24 @@ class PrimaryKeyConstraint(BaseConstraint):
     """
 
     fields: list[str]
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, PrimaryKeyConstraint):
+            return False
+
+        return (
+            self.name == other.name
+            and self.fields == other.fields
+        )
+
+    def __copy__(self):
+        return PrimaryKeyConstraint(
+            name=self.name,
+            fields=copy(self.fields),
+        )
 
 
 @dataclass(kw_only=True)
@@ -43,6 +64,28 @@ class ForeignKeyConstraint(BaseConstraint):
     reference_schema: 'SchemaReference'
     reference_fields: list[str]
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, ForeignKeyConstraint):
+            return False
+
+        return (
+            self.name == other.name
+            and self.fields == other.fields
+            and self.reference_schema == other.reference_schema
+            and self.reference_fields == other.reference_fields
+        )
+
+    def __copy__(self):
+        return ForeignKeyConstraint(
+            name=self.name,
+            fields=copy(self.fields),
+            reference_schema=copy(self.reference_schema),
+            reference_fields=copy(self.reference_fields),
+        )
+
 
 @dataclass(kw_only=True)
 class UniqueConstraint(BaseConstraint):
@@ -56,6 +99,26 @@ class UniqueConstraint(BaseConstraint):
     fields: list[str]
     condition: Conditions | None = None
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, UniqueConstraint):
+            return False
+
+        return (
+            self.name == other.name
+            and self.fields == other.fields
+            and self.condition == other.condition
+        )
+
+    def __copy__(self):
+        return UniqueConstraint(
+            name=self.name,
+            fields=copy(self.fields),
+            condition=copy(self.condition),
+        )
+
 
 @dataclass(kw_only=True)
 class CheckConstraint(BaseConstraint):
@@ -66,3 +129,21 @@ class CheckConstraint(BaseConstraint):
     """
 
     condition: Conditions
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, UniqueConstraint):
+            return False
+
+        return (
+            self.name == other.name
+            and self.condition == other.condition
+        )
+
+    def __copy__(self):
+        return CheckConstraint(
+            name=self.name,
+            condition=copy(self.condition),
+        )

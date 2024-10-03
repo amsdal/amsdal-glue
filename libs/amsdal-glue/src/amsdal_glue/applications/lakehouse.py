@@ -84,8 +84,8 @@ class LakehouseApplication:
             self.pipeline.define(service, [self.LAKEHOUSE_CONTAINER_NAME, self.DEFAULT_CONTAINER_NAME])
 
             # background executor for command container for these services
-            executor_manager = self.default_container.managers.get(ExecutorManager)
-            executor_manager.register_for_service(service, BackgroundSequentialExecutor)
+            # executor_manager = self.default_container.managers.get(ExecutorManager)
+            # executor_manager.register_for_service(service, BackgroundSequentialExecutor)
 
     @property
     def default_connection_manager(self) -> ConnectionManager:

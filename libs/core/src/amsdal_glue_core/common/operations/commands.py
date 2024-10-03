@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from copy import copy
 
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -21,6 +22,11 @@ class SchemaCommand(Operation):
 
     mutations: list[SchemaMutation]
 
+    def __copy__(self):
+        return SchemaCommand(
+            mutations=[copy(mutation) for mutation in self.mutations],
+        )
+
 
 @dataclass(kw_only=True)
 class DataCommand(Operation):
@@ -37,6 +43,11 @@ class DataCommand(Operation):
             msg = 'The "mutations" list cannot be empty'
             raise ValueError(msg)
 
+    def __copy__(self):
+        return DataCommand(
+            mutations=[copy(mutation) for mutation in self.mutations],
+        )
+
 
 @dataclass(kw_only=True)
 class TransactionCommand(Operation):
@@ -52,6 +63,13 @@ class TransactionCommand(Operation):
     schema: SchemaReference | None = None
     parent_transaction_id: str | None = None
 
+    def __copy__(self):
+        return TransactionCommand(
+            action=self.action,
+            schema=copy(self.schema) if self.schema is not None else None,
+            parent_transaction_id=self.parent_transaction_id,
+        )
+
 
 @dataclass(kw_only=True)
 class LockSchemaReference:
@@ -64,6 +82,12 @@ class LockSchemaReference:
 
     schema: SchemaReference
     query: Conditions | None = None
+
+    def __copy__(self):
+        return LockSchemaReference(
+            schema=copy(self.schema),
+            query=copy(self.query) if self.query is not None else None,
+        )
 
 
 @dataclass(kw_only=True)
@@ -81,3 +105,11 @@ class LockCommand(Operation):
     mode: LockMode
     parameter: LockParameter
     locked_objects: list[LockSchemaReference]
+
+    def __copy__(self):
+        return LockCommand(
+            action=self.action,
+            mode=self.mode,
+            parameter=self.parameter,
+            locked_objects=[copy(locked_object) for locked_object in self.locked_objects],
+        )

@@ -28,6 +28,12 @@ class Field:
 
         return '__'.join(fields)
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Field):
+            return False
+
+        return self.name == other.name and repr(self) == repr(other)
+
 
 @dataclass(kw_only=True)
 class FieldReference(Combinable):
