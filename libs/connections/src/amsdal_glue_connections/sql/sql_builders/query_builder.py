@@ -422,7 +422,12 @@ def build_conditions(  # noqa: PLR0913
                 value_transform=value_transform,
                 nested_field_transform=nested_field_transform,
             )
-            items.append(f'({_condition})')
+            _stmt = f'({_condition})'
+
+            if condition.negated:
+                _stmt = f'NOT {_stmt}'
+
+            items.append(_stmt)
             values.extend(_values)
             continue
 

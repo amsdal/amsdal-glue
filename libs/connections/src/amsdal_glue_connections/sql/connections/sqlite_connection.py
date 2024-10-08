@@ -127,6 +127,7 @@ class SqliteConnection(ConnectionBase):
 
     def __init__(self) -> None:
         self._connection: sqlite3.Connection | None = None
+        self._queries: list[str] = []
 
     @property
     def is_connected(self) -> bool:
@@ -284,6 +285,7 @@ class SqliteConnection(ConnectionBase):
             table_quote="'",
             field_quote="'",
             value_transform=sqlite_value_json_transform,
+            nested_field_transform=sqlite_field_json_transform,
         )
 
         try:
@@ -349,6 +351,9 @@ class SqliteConnection(ConnectionBase):
         cursor = self.connection.cursor()
 
         try:
+            if self.debug_queries:
+                self._queries.append(query)
+
             cursor.execute(query, args)
         except sqlite3.Error as exc:
             msg = f'Error executing query: {query} with args: {args}. Exception: {exc}'
@@ -677,3 +682,13 @@ class SqliteConnection(ConnectionBase):
                 _childs.append(_copy)
 
         return Conditions(*_childs, connector=conditions.connector, negated=conditions.negated)
+
+    @property
+    def queries(self) -> list[str]:
+        """
+        Returns the queries executed on this connection.
+
+        Returns:
+            list[str]: The queries executed.
+        """
+        return self._queries

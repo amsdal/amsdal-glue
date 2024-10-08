@@ -47,9 +47,11 @@ class Conditions:
         self.children = _args
 
         if not _skip_flatten:
+            self._flatten_reduce_nesting_many()
             self.__flatten_reduce_nesting()
             self.__flatten_by_connector()
             self.__split_by_or()
+            self._flatten_reduce_nesting_many()
 
     @staticmethod
     def _parse_args(
@@ -69,15 +71,57 @@ class Conditions:
             self.children = child.children
             self.connector = child.connector
 
+            if self.negated:
+                self.negated = not child.negated
+            else:
+                self.negated = child.negated
+
         if len(self.children) == 1:
             self.connector = FilterConnector.AND
+
+    def _flatten_reduce_nesting_many(self) -> None:
+        for child in self.children:
+            if isinstance(child, Conditions):
+                child._flatten_reduce_nesting_many()  # noqa: SLF001
+
+        if self.negated:
+            return
+
+        all_positive = True
+        same_connector = True
+        all_conditions = True
+
+        for child in self.children:
+            if not isinstance(child, Conditions):
+                all_conditions = False
+                break
+
+            if child.negated:
+                all_positive = False
+
+            if child.connector != self.connector:
+                same_connector = False
+
+        if not all_conditions or not all_positive or not same_connector:
+            return
+
+        new_children: list[Conditions | Condition] = []
+        for child in self.children:
+            new_children.extend(child.children)  # type: ignore[union-attr]
+
+        self.children = new_children
 
     def __flatten_by_connector(self) -> None:
         i = 0
 
         while i < len(self.children):
             child = self.children[i]
-            if isinstance(child, Conditions) and child.connector == self.connector:
+            if (
+                isinstance(child, Conditions)
+                and child.connector == self.connector
+                and not child.negated
+                and not self.negated
+            ):
                 self.children[i : i + 1] = child.children
             else:
                 i += 1
@@ -169,18 +213,21 @@ class Conditions:
 
     def __repr__(self) -> str:
         connector = f' {self.connector.value.lower()} '
-        children: list[str] = []
+        children: list[str] = [repr(child) for child in self.children]
 
-        for child in self.children:
-            if isinstance(child, Conditions):
-                children.append(f'({child!r})')
-            else:
-                children.append(repr(child))
+        r = f'({connector.join(children)})'
 
-        return connector.join(children)
+        if self.negated:
+            r = f'~{r}'
+
+        return r
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, Conditions):
             return False
 
-        return self.children == __value.children and self.connector == __value.connector
+        return (
+            self.children == __value.children
+            and self.connector == __value.connector
+            and self.negated == __value.negated
+        )

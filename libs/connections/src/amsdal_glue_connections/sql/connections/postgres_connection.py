@@ -123,6 +123,7 @@ class PostgresConnection(ConnectionBase):
 
     def __init__(self) -> None:
         self._connection: Any = None
+        self._queries: list[str] = []
 
     @property
     def is_connected(self) -> bool:
@@ -387,6 +388,9 @@ class PostgresConnection(ConnectionBase):
         import psycopg
 
         try:
+            if self.debug_queries:
+                self._queries.append(query)
+
             cursor = self.connection.execute(query, args)
         except psycopg.Error as exc:
             msg = f'Error executing query: {query} with args: {args}'
@@ -877,3 +881,13 @@ class PostgresConnection(ConnectionBase):
 
         msg = f'Unsupported type: {sql_type}'
         raise ValueError(msg)
+
+    @property
+    def queries(self) -> list[str]:
+        """
+        Returns the queries executed on this connection.
+
+        Returns:
+            list[str]: The queries executed.
+        """
+        return self._queries
