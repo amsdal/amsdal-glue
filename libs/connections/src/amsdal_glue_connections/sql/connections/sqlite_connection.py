@@ -140,6 +140,24 @@ class SqliteConnection(ConnectionBase):
         return self._connection is not None
 
     @property
+    def is_alive(self) -> bool:
+        """
+        Checks if the connection to the SQLite database is alive.
+
+        Returns:
+            bool: True if alive, False otherwise.
+        """
+        if not self.is_connected:
+            return False
+
+        try:
+            self._connection.execute('SELECT 1')
+        except sqlite3.Error:
+            return False
+
+        return True
+
+    @property
     def connection(self) -> sqlite3.Connection:
         """
         Gets the current SQLite connection.
@@ -242,7 +260,7 @@ class SqliteConnection(ConnectionBase):
 
         if filters and filters.children:
             _filters = self._replace_table_name(filters, 'sqlite_master')
-            where, values = build_where(filters)
+            where, values = build_where(_filters)
             stmt += f' AND {where}'
         else:
             values = []

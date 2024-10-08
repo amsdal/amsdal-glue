@@ -27,6 +27,18 @@ class ConnectionPoolBase(ABC):
         self._connection_kwargs = kwargs
         self._connection_class = connection_class
 
+    @property
+    @abstractmethod
+    def is_connected(self) -> bool:
+        """bool: Indicates if the pool is connected."""
+        ...
+
+    @property
+    @abstractmethod
+    def is_alive(self) -> bool:
+        """bool: Indicates if the pool is alive."""
+        ...
+
     @abstractmethod
     def get_connection(self, transaction_id: str | None = None) -> ConnectionBase:
         """Retrieves a connection from the pool.

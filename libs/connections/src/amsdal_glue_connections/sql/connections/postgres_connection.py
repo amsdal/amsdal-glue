@@ -3,6 +3,12 @@ from datetime import date
 from datetime import datetime
 from typing import Any
 
+from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
+from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
@@ -36,13 +42,6 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
-
-from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
-from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +133,33 @@ class PostgresConnection(ConnectionBase):
             bool: True if connected, False otherwise.
         """
         return self._connection is not None
+
+    @property
+    def is_alive(self) -> bool:
+        """
+        Checks if the connection to the PostgreSQL database is alive.
+
+        Returns:
+            bool: True if alive, False otherwise.
+        """
+        try:
+            import psycopg
+        except ImportError:
+            _msg = (
+                '"psycopg" package is required for PostgresConnection. '
+                'Use "pip install amsdal-glue-connections[postgres]" to install it.'
+            )
+            raise ImportError(_msg) from None
+
+        if not self.is_connected:
+            return False
+
+        try:
+            self._connection.execute('SELECT 1')
+        except psycopg.Error:
+            return False
+
+        return True
 
     @property
     def connection(self) -> Any:

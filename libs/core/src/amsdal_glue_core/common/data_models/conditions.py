@@ -1,3 +1,4 @@
+from copy import copy
 from dataclasses import dataclass
 from typing import Union
 
@@ -24,6 +25,30 @@ class Condition:
     lookup: FieldLookup
     value: Value | FieldReference
     negate: bool = False
+
+    def __copy__(self) -> 'Condition':
+        return Condition(
+            field=copy(self.field),
+            lookup=self.lookup,
+            value=copy(self.value),
+            negate=self.negate,
+        )
+
+    def __invert__(self) -> 'Condition':
+        self.negate = not self.negate
+
+        return self
+
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, Condition):
+            return False
+
+        return (
+            self.field == __value.field
+            and self.lookup == __value.lookup
+            and self.value == __value.value
+            and self.negate == __value.negate
+        )
 
 
 class Conditions:
@@ -122,7 +147,7 @@ class Conditions:
                 and not child.negated
                 and not self.negated
             ):
-                self.children[i : i + 1] = child.children
+                self.children[slice(i, i + 1)] = child.children
             else:
                 i += 1
 
@@ -171,12 +196,15 @@ class Conditions:
         # Otherwise, use the current Conditions object.
         left = self.children[0] if len(self.children) == 1 else self
 
-        # If the other Conditions object has only one child, use the child directly.
-        # Otherwise, use the other Conditions object.
-        right = other.children[0] if len(other.children) == 1 else other
+        if self.negated == other.negated:
+            # If the other Conditions object has only one child, use the child directly.
+            # Otherwise, use the other Conditions object.
+            right = other.children[0] if len(other.children) == 1 else other
+        else:
+            right = other
 
         # Combine the left and right Conditions objects with the specified connector.
-        return self.__class__(left, right, connector=connector)
+        return self.__class__(left, right, connector=connector, negated=self.negated)
 
     def _negate(self) -> None:
         if self.connector == FilterConnector.AND:
@@ -207,8 +235,12 @@ class Conditions:
     def __copy__(self) -> 'Conditions':
         return self.__class__(
             _SKIP_FLATTEN,
-            *self.children,
+            *[
+                child.__copy__()
+                for child in self.children
+            ],
             connector=self.connector,
+            negated=self.negated,
         )
 
     def __repr__(self) -> str:

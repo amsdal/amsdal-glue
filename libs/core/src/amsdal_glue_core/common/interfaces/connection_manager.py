@@ -6,6 +6,8 @@ from amsdal_glue_core.common.interfaces.connection_pool import ConnectionPoolBas
 
 
 class ConnectionManager(ABC):
+    connections: dict[str, ConnectionPoolBase]
+
     @abstractmethod
     def register_connection_pool(self, connection: ConnectionPoolBase, schema_name: str | None = None) -> None:
         """Registers a connection pool for a specific schema.

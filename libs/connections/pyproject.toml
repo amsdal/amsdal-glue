@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-postgres = [
+postgres-c = [
     "psycopg[c,pool]>=3.2.1",
 ]
 postgres-binary = [
