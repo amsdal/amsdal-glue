@@ -1,15 +1,11 @@
 import logging
+from copy import copy
 from datetime import date
 from datetime import datetime
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
-from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
+from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -42,6 +38,14 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
+
+from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
+from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
+from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
+from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
 logger = logging.getLogger(__name__)
 
@@ -300,11 +304,12 @@ class PostgresConnection(ConnectionBase):
         """
         self._adjust_schema_filters(filters)
 
-        stmt = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        stmt = "SELECT table_name FROM information_schema.tables AS inf_schema WHERE table_schema = 'public'"
 
-        if filters:
+        if filters and filters.children:
+            _filters = self._replace_table_name(filters, 'inf_schema')
             where, values = build_where(
-                filters,
+                _filters,
                 operator_constructor=pg_operator_constructor,
                 value_transform=pg_value_json_transform,
                 nested_field_transform=pg_field_json_transform,
@@ -334,6 +339,19 @@ class PostgresConnection(ConnectionBase):
             result.append(schema)
 
         return result
+
+    def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
+        _childs: list[Conditions | Condition] = []
+
+        for _child in conditions.children:
+            if isinstance(_child, Conditions):
+                _childs.append(self._replace_table_name(_child, replace_name))
+            elif _child.field.table_name == SCHEMA_REGISTRY_TABLE:
+                _copy = copy(_child)
+                _copy.field.table_name = replace_name
+                _childs.append(_copy)
+
+        return Conditions(*_childs, connector=conditions.connector, negated=conditions.negated)
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -868,7 +886,7 @@ class PostgresConnection(ConnectionBase):
             return 'DOUBLE PRECISION'
         if property_type is bool:
             return 'BOOLEAN'
-        if property_type is dict:
+        if property_type in (dict, list):
             return 'JSON'
         if property_type in (bytes, bytearray):
             return 'BYTEA'
