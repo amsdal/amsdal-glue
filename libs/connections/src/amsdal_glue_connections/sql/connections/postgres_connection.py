@@ -1,3 +1,4 @@
+import json
 import logging
 from copy import copy
 from datetime import date
@@ -92,7 +93,7 @@ def pg_field_json_transform(  # noqa: PLR0913
     )
 
     if _cast_type == 'text':
-        _stmt = f"trim('\"' FROM {_stmt})"
+        _stmt = f"trim('\"' FROM {_stmt})::text"
 
     return _stmt
 
@@ -413,6 +414,11 @@ class PostgresConnection(ConnectionBase):
         Returns:
             Data: The built Data object.
         """
+        for key, value in data.items():
+            if isinstance(value, str) and (
+                (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']'))
+            ):
+                data[key] = json.loads(value)
         return Data(data=data)
 
     def execute(self, query: str, *args: Any) -> Any:

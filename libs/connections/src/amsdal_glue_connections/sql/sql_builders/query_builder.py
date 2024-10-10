@@ -14,6 +14,7 @@ from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.expressions.common import CombinedExpression
 from amsdal_glue_core.common.expressions.common import Expression
 from amsdal_glue_core.common.expressions.raw import RawExpression
@@ -145,27 +146,29 @@ def build_sql_query(  # noqa: PLR0913
 
     values.extend(_values)
 
-    stmt_parts.extend([
-        'FROM',
-        _from,
-        _joins,
-        _where,
-        build_group_by(
-            query.group_by,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        ),
-        build_order_by(
-            query.order_by,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        ),
-        build_limit(query.limit),
-    ])
+    stmt_parts.extend(
+        [
+            'FROM',
+            _from,
+            _joins,
+            _where,
+            build_group_by(
+                query.group_by,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+                nested_field_transform=nested_field_transform,
+            ),
+            build_order_by(
+                query.order_by,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+                nested_field_transform=nested_field_transform,
+            ),
+            build_limit(query.limit),
+        ]
+    )
 
     return ' '.join(filter(None, stmt_parts)), values
 
@@ -432,6 +435,9 @@ def build_conditions(  # noqa: PLR0913
             continue
 
         _value_type = type(condition.value.value) if isinstance(condition.value, Value) else None
+        if condition.lookup == FieldLookup.ISNULL and _value_type:
+            _value_type = None
+
         _field = build_field(
             condition.field,
             table_separator=table_separator,
