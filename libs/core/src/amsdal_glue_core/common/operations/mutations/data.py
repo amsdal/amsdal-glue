@@ -1,3 +1,4 @@
+from copy import copy
 from dataclasses import dataclass
 
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -26,6 +27,9 @@ class InsertData(DataMutation):
 
     data: list[Data]
 
+    def __copy__(self):
+        return InsertData(schema=copy(self.schema), data=[copy(data) for data in self.data])
+
 
 @dataclass(kw_only=True)
 class UpdateData(DataMutation):
@@ -39,6 +43,11 @@ class UpdateData(DataMutation):
     data: Data
     query: Conditions | None = None
 
+    def __copy__(self):
+        return UpdateData(
+            schema=copy(self.schema), data=copy(self.data), query=copy(self.query) if self.query else None
+        )
+
 
 @dataclass(kw_only=True)
 class DeleteData(DataMutation):
@@ -49,3 +58,6 @@ class DeleteData(DataMutation):
     """
 
     query: Conditions | None = None
+
+    def __copy__(self):
+        return DeleteData(schema=copy(self.schema), query=copy(self.query) if self.query else None)

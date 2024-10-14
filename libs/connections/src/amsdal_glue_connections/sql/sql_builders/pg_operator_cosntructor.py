@@ -7,6 +7,7 @@ from amsdal_glue_core.common.expressions.value import Value
 
 from amsdal_glue_connections.sql.sql_builders.exceptions import BinaryValuesNotSupportedError
 from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
+from amsdal_glue_connections.sql.sql_builders.nested_field_transform import NestedFieldTransform
 
 
 def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
@@ -19,9 +20,7 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     """
     Constructs an SQL operator for the given field and lookup for PostgreSQL.
@@ -59,8 +58,10 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     elif isinstance(value, Value):
         _value = value_placeholder
         is_value = True
-        is_structure_type = isinstance(value.value, dict) or (
-            lookup != FieldLookup.IN and isinstance(value.value, list)
+        is_structure_type = (
+            isinstance(value.value, dict | str)
+            or (lookup != FieldLookup.IN and isinstance(value.value, list))
+            or (isinstance(value.value, list) and all(isinstance(val, dict | str) for val in value.value))
         )
     else:
         msg = f'Unsupported value type: {type(value)}'

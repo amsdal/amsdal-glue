@@ -1,16 +1,15 @@
 from collections.abc import Callable
 from typing import Any
 
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
 
 from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
+from amsdal_glue_connections.sql.sql_builders.nested_field_transform import NestedFieldTransform
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.operator_constructor import OperatorConstructor
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_conditions
 
 
@@ -18,27 +17,11 @@ def build_sql_data_command(  # noqa: PLR0913
     mutation: DataMutation,
     value_placeholder: str = '?',
     table_separator: str = '.',
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ] = default_operator_constructor,
+    operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     """
     Builds an SQL command for the given data mutation.
@@ -131,27 +114,11 @@ def _build_sql_update_data(  # noqa: PLR0913
     command: UpdateData,
     value_placeholder: str,
     table_separator: str,
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ] = default_operator_constructor,
+    operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     _namespace_prefix = (
         f'{table_quote}{command.schema.namespace}{table_quote}{table_separator}' if command.schema.namespace else ''
@@ -196,27 +163,11 @@ def _build_sql_delete_data(  # noqa: PLR0913
     command: DeleteData,
     value_placeholder: str,
     table_separator: str,
-    operator_constructor: Callable[
-        [
-            str,
-            FieldLookup,
-            FieldReference | Value,
-            str,
-            str,
-            str,
-            str,
-            str,
-            Callable[[Any], Any],
-            Callable[[str, str, str, list[str], Any, str, str, str], str],
-        ],
-        tuple[str, list[Any]],
-    ] = default_operator_constructor,
+    operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: Callable[
-        [str, str, str, list[str], Any, str, str, str], str
-    ] = default_nested_field_transform,
+    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
     _namespace_prefix = (
         f'{table_quote}{command.schema.namespace}{table_quote}{table_separator}' if command.schema.namespace else ''

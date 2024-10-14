@@ -1,3 +1,4 @@
+from copy import copy
 from dataclasses import dataclass
 from typing import Union
 
@@ -25,6 +26,33 @@ class Condition:
     value: Value | FieldReference
     negate: bool = False
 
+    def __copy__(self) -> 'Condition':
+        return Condition(
+            field=copy(self.field),
+            lookup=self.lookup,
+            value=copy(self.value),
+            negate=self.negate,
+        )
+
+    def __invert__(self) -> 'Condition':
+        self.negate = not self.negate
+
+        return self
+
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, Condition):
+            if isinstance(__value, Conditions) and len(__value.children) == 1 and not __value.negated:
+                return self == __value.children[0]
+
+            return False
+
+        return (
+            self.field == __value.field
+            and self.lookup == __value.lookup
+            and self.value == __value.value
+            and self.negate == __value.negate
+        )
+
 
 class Conditions:
     """Represents a collection of conditions in a query.
@@ -47,9 +75,11 @@ class Conditions:
         self.children = _args
 
         if not _skip_flatten:
+            self._flatten_reduce_nesting_many()
             self.__flatten_reduce_nesting()
             self.__flatten_by_connector()
             self.__split_by_or()
+            self._flatten_reduce_nesting_many()
 
     @staticmethod
     def _parse_args(
@@ -69,16 +99,58 @@ class Conditions:
             self.children = child.children
             self.connector = child.connector
 
+            if self.negated:
+                self.negated = not child.negated
+            else:
+                self.negated = child.negated
+
         if len(self.children) == 1:
             self.connector = FilterConnector.AND
+
+    def _flatten_reduce_nesting_many(self) -> None:
+        for child in self.children:
+            if isinstance(child, Conditions):
+                child._flatten_reduce_nesting_many()  # noqa: SLF001
+
+        if self.negated:
+            return
+
+        all_positive = True
+        same_connector = True
+        all_conditions = True
+
+        for child in self.children:
+            if not isinstance(child, Conditions):
+                all_conditions = False
+                break
+
+            if child.negated:
+                all_positive = False
+
+            if child.connector != self.connector:
+                same_connector = False
+
+        if not all_conditions or not all_positive or not same_connector:
+            return
+
+        new_children: list[Conditions | Condition] = []
+        for child in self.children:
+            new_children.extend(child.children)  # type: ignore[union-attr]
+
+        self.children = new_children
 
     def __flatten_by_connector(self) -> None:
         i = 0
 
         while i < len(self.children):
             child = self.children[i]
-            if isinstance(child, Conditions) and child.connector == self.connector:
-                self.children[i : i + 1] = child.children
+            if (
+                isinstance(child, Conditions)
+                and child.connector == self.connector
+                and not child.negated
+                and not self.negated
+            ):
+                self.children[slice(i, i + 1)] = child.children
             else:
                 i += 1
 
@@ -129,10 +201,10 @@ class Conditions:
 
         # If the other Conditions object has only one child, use the child directly.
         # Otherwise, use the other Conditions object.
-        right = other.children[0] if len(other.children) == 1 else other
+        right = (other.children[0] if len(other.children) == 1 else other) if self.negated == other.negated else other
 
         # Combine the left and right Conditions objects with the specified connector.
-        return self.__class__(left, right, connector=connector)
+        return self.__class__(left, right, connector=connector, negated=self.negated)
 
     def _negate(self) -> None:
         if self.connector == FilterConnector.AND:
@@ -163,24 +235,31 @@ class Conditions:
     def __copy__(self) -> 'Conditions':
         return self.__class__(
             _SKIP_FLATTEN,
-            *self.children,
+            *[child.__copy__() for child in self.children],
             connector=self.connector,
+            negated=self.negated,
         )
 
     def __repr__(self) -> str:
         connector = f' {self.connector.value.lower()} '
-        children: list[str] = []
+        children: list[str] = [repr(child) for child in self.children]
 
-        for child in self.children:
-            if isinstance(child, Conditions):
-                children.append(f'({child!r})')
-            else:
-                children.append(repr(child))
+        r = f'({connector.join(children)})'
 
-        return connector.join(children)
+        if self.negated:
+            r = f'~{r}'
+
+        return r
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, Conditions):
+            if isinstance(__value, Condition) and len(self.children) == 1 and not self.negated:
+                return self.children[0] == __value
+
             return False
 
-        return self.children == __value.children and self.connector == __value.connector
+        return (
+            self.children == __value.children
+            and self.connector == __value.connector
+            and self.negated == __value.negated
+        )

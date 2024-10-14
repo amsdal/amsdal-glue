@@ -34,3 +34,14 @@ class Connectable(ABC):
         :rtype: bool
         """
         ...
+
+    @property
+    @abstractmethod
+    def is_alive(self) -> bool:
+        """
+        Checks if the connection is alive.
+
+        :return: True if alive, False otherwise
+        :rtype: bool
+        """
+        ...

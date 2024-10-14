@@ -16,6 +16,8 @@ from amsdal_glue_core.common.operations.mutations.data import DataMutation
 class ConnectionBase(Connectable, ABC):
     """Abstract base class for database connections."""
 
+    debug_mode: bool = False
+
     @abstractmethod
     def query(self, query: QueryStatement) -> list[Data]:
         """Executes a query and returns the result.
@@ -125,3 +127,24 @@ class ConnectionBase(Connectable, ABC):
         Returns:
             list[Schema | None]: The result of the schema command.
         """
+
+    @property
+    def debug_queries(self) -> bool:
+        """
+        Returns the debug queries flag.
+
+        Returns:
+            bool: True if debug queries are enabled, False otherwise.
+        """
+        return self.debug_mode
+
+    @property
+    @abstractmethod
+    def queries(self) -> list[str]:
+        """
+        Returns the queries executed on this connection.
+
+        Returns:
+            list[str]: The queries executed.
+        """
+        ...

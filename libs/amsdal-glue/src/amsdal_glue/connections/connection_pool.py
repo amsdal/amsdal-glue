@@ -51,6 +51,14 @@ class DefaultConnectionPool(ConnectionPoolBase):
 
     """
 
+    @property
+    def is_connected(self) -> bool:
+        return all(connection.is_connected for connection, _ in self.connections.values())
+
+    @property
+    def is_alive(self) -> bool:
+        return all(connection.is_alive for connection, _ in self.connections.values())
+
     def __init__(
         self,
         connection_class: type[ConnectionBase],

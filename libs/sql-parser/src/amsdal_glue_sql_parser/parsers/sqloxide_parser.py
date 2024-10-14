@@ -599,6 +599,7 @@ class SqlOxideParser(SqlParserBase):
         aggregation_queries = []
         for projection in projections:
             alias = None
+
             if 'ExprWithAlias' in projection:
                 aggregation = projection['ExprWithAlias']['expr']
                 alias = projection['ExprWithAlias']['alias']['value']
@@ -685,8 +686,11 @@ class SqlOxideParser(SqlParserBase):
             schema.alias = table_description['alias']['name']['value']
         query = QueryStatement(table=schema)
 
-        if parsed_sql['body']['Select']['distinct'] == 'Distinct':
+        _distinct = parsed_sql['body']['Select']['distinct']
+        if isinstance(_distinct, str) and _distinct == 'Distinct':
             query.distinct = True
+        elif isinstance(_distinct, dict) and 'On' in _distinct:
+            query.distinct = [self._identifier_to_field_reference(field, table_name) for field in _distinct['On']]
 
         query.only = self._process_projections(
             parsed_sql['body']['Select']['projection'],

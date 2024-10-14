@@ -1,9 +1,12 @@
+import json
 import logging
+from copy import copy
 from datetime import date
 from datetime import datetime
 from typing import Any
 
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
+from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -13,6 +16,9 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
+from amsdal_glue_core.common.data_models.schema import DictSchemaModel
+from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -34,6 +40,8 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
+from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
+from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
 from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
@@ -85,7 +93,7 @@ def pg_field_json_transform(  # noqa: PLR0913
     )
 
     if _cast_type == 'text':
-        _stmt = f"trim('\"' FROM {_stmt})"
+        _stmt = f"trim('\"' FROM {_stmt})::text"
 
     return _stmt
 
@@ -119,6 +127,7 @@ class PostgresConnection(ConnectionBase):
 
     def __init__(self) -> None:
         self._connection: Any = None
+        self._queries: list[str] = []
 
     @property
     def is_connected(self) -> bool:
@@ -129,6 +138,33 @@ class PostgresConnection(ConnectionBase):
             bool: True if connected, False otherwise.
         """
         return self._connection is not None
+
+    @property
+    def is_alive(self) -> bool:
+        """
+        Checks if the connection to the PostgreSQL database is alive.
+
+        Returns:
+            bool: True if alive, False otherwise.
+        """
+        try:
+            import psycopg
+        except ImportError:
+            _msg = (
+                '"psycopg" package is required for PostgresConnection. '
+                'Use "pip install amsdal-glue-connections[postgres]" to install it.'
+            )
+            raise ImportError(_msg) from None
+
+        if not self.is_connected:
+            return False
+
+        try:
+            self._connection.execute('SELECT 1')
+        except psycopg.Error:
+            return False
+
+        return True
 
     @property
     def connection(self) -> Any:
@@ -218,6 +254,7 @@ class PostgresConnection(ConnectionBase):
             value_placeholder='%s',
             table_quote='"',
             field_quote='"',
+            build_only=pg_build_only,
         )
 
         try:
@@ -268,11 +305,12 @@ class PostgresConnection(ConnectionBase):
         """
         self._adjust_schema_filters(filters)
 
-        stmt = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        stmt = "SELECT table_name FROM information_schema.tables AS inf_schema WHERE table_schema = 'public'"
 
-        if filters:
+        if filters and filters.children:
+            _filters = self._replace_table_name(filters, 'inf_schema')
             where, values = build_where(
-                filters,
+                _filters,
                 operator_constructor=pg_operator_constructor,
                 value_transform=pg_value_json_transform,
                 nested_field_transform=pg_field_json_transform,
@@ -302,6 +340,19 @@ class PostgresConnection(ConnectionBase):
             result.append(schema)
 
         return result
+
+    def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
+        _childs: list[Conditions | Condition] = []
+
+        for _child in conditions.children:
+            if isinstance(_child, Conditions):
+                _childs.append(self._replace_table_name(_child, replace_name))
+            elif _child.field.table_name == SCHEMA_REGISTRY_TABLE:
+                _copy = copy(_child)
+                _copy.field.table_name = replace_name
+                _childs.append(_copy)
+
+        return Conditions(*_childs, connector=conditions.connector, negated=conditions.negated)
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -363,6 +414,11 @@ class PostgresConnection(ConnectionBase):
         Returns:
             Data: The built Data object.
         """
+        for key, value in data.items():
+            if isinstance(value, str) and (
+                (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']'))
+            ):
+                data[key] = json.loads(value)
         return Data(data=data)
 
     def execute(self, query: str, *args: Any) -> Any:
@@ -382,6 +438,9 @@ class PostgresConnection(ConnectionBase):
         import psycopg
 
         try:
+            if self.debug_queries:
+                self._queries.append(query)
+
             cursor = self.connection.execute(query, args)
         except psycopg.Error as exc:
             msg = f'Error executing query: {query} with args: {args}'
@@ -424,7 +483,7 @@ class PostgresConnection(ConnectionBase):
 
         # Get constraints info
         cursor = self.execute(
-            'SELECT conname, contype, confrelid, conkey, confkey '  # noqa: S608
+            'SELECT conname, contype, confrelid, conkey, confkey, con.oid '  # noqa: S608
             'FROM pg_catalog.pg_constraint con '
             'INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid '
             'INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace '
@@ -462,11 +521,19 @@ class PostgresConnection(ConnectionBase):
                     )
                 )
 
-            if raw_constrain[1] == 'p':
+            elif raw_constrain[1] == 'p':
                 constraints.append(
                     PrimaryKeyConstraint(
                         name=raw_constrain[0],
                         fields=[fid_to_name.get(pk) for pk in raw_constrain[3]],  # type: ignore[misc]
+                    )
+                )
+
+            elif raw_constrain[1] == 'u':
+                constraints.append(
+                    UniqueConstraint(
+                        name=raw_constrain[0],
+                        fields=[fid_to_name.get(u) for u in raw_constrain[3]],  # type: ignore[misc]
                     )
                 )
 
@@ -813,7 +880,10 @@ class PostgresConnection(ConnectionBase):
 
         return _index
 
-    def _to_sql_type(self, property_type: Schema | SchemaReference | type[Any]) -> str:  # noqa: PLR0911
+    def _to_sql_type(  # noqa: C901, PLR0911
+        self,
+        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+    ) -> str:
         if property_type is str:
             return 'TEXT'
         if property_type is int:
@@ -822,7 +892,7 @@ class PostgresConnection(ConnectionBase):
             return 'DOUBLE PRECISION'
         if property_type is bool:
             return 'BOOLEAN'
-        if property_type is dict:
+        if property_type in (dict, list):
             return 'JSON'
         if property_type in (bytes, bytearray):
             return 'BYTEA'
@@ -832,6 +902,9 @@ class PostgresConnection(ConnectionBase):
             return 'TIMESTAMP WITH TIME ZONE'
         if property_type == date:
             return 'DATE'
+        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
+            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
+            return 'JSON'
 
         msg = f'Unsupported type: {property_type}'
         raise ValueError(msg)
@@ -858,3 +931,13 @@ class PostgresConnection(ConnectionBase):
 
         msg = f'Unsupported type: {sql_type}'
         raise ValueError(msg)
+
+    @property
+    def queries(self) -> list[str]:
+        """
+        Returns the queries executed on this connection.
+
+        Returns:
+            list[str]: The queries executed.
+        """
+        return self._queries

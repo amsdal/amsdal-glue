@@ -16,3 +16,6 @@ class Value(BaseExpression):
 
     def __repr__(self) -> str:
         return repr(self.value)
+
+    def __hash__(self):
+        return hash(self.value)

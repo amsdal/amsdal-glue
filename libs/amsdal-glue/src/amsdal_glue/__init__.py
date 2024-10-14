@@ -34,6 +34,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import FilterConnector
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
@@ -46,6 +47,7 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.commands import LockCommand
@@ -117,10 +119,12 @@ __all__ = [
     'Avg',
     'Min',
     'Max',
+    'RawExpression',
     'JoinQuery',
     'JoinType',
     'Conditions',
     'Condition',
+    'FilterConnector',
     'FieldLookup',
     'Value',
     'GroupByQuery',

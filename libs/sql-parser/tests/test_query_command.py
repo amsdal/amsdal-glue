@@ -567,7 +567,52 @@ def test_simple_annotation(benchmark) -> None:
     ]
 
 
-def test_select_distinct(benchmark) -> None:
+def test_select_distinct_single_field(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT DISTINCT first_name FROM users;')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', version=Version.LATEST),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='users'),
+                ],
+                distinct=True,
+            ),
+        )
+    ]
+
+
+def test_select_distinct_on(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT DISTINCT ON (first_name) first_name, last_name FROM users;')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', version=Version.LATEST),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='users'),
+                    FieldReference(field=Field(name='last_name'), table_name='users'),
+                ],
+                distinct=[
+                    FieldReference(field=Field(name='first_name'), table_name='users'),
+                ],
+            ),
+        )
+    ]
+
+
+def test_select_distinct_multiple_fields(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
@@ -584,6 +629,31 @@ def test_select_distinct(benchmark) -> None:
                     FieldReference(field=Field(name='last_name'), table_name='users'),
                 ],
                 distinct=True,
+            ),
+        )
+    ]
+
+
+def test_select_distinct_on_multiple_fields(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT DISTINCT ON (first_name, last_name) first_name, last_name FROM users;')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', version=Version.LATEST),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='users'),
+                    FieldReference(field=Field(name='last_name'), table_name='users'),
+                ],
+                distinct=[
+                    FieldReference(field=Field(name='first_name'), table_name='users'),
+                    FieldReference(field=Field(name='last_name'), table_name='users'),
+                ],
             ),
         )
     ]

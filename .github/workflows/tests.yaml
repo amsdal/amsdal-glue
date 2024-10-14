@@ -9,6 +9,20 @@ on:
 jobs:
   amsdal_glue:
     runs-on: self-hosted
+    services:
+      postgres:
+        image: postgres:latest
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: example
+        options: >-
+          --health-cmd "pg_isready -U test_user -d test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout repository
