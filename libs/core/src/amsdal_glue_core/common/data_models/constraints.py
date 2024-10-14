@@ -128,7 +128,7 @@ class CheckConstraint(BaseConstraint):
         return not self.__eq__(other)
 
     def __eq__(self, other):
-        if not isinstance(other, UniqueConstraint):
+        if not isinstance(other, CheckConstraint):
             return False
 
         return self.name == other.name and self.condition == other.condition

@@ -58,8 +58,10 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     elif isinstance(value, Value):
         _value = value_placeholder
         is_value = True
-        is_structure_type = isinstance(value.value, dict) or (
-            lookup != FieldLookup.IN and isinstance(value.value, list)
+        is_structure_type = (
+            isinstance(value.value, dict | str)
+            or (lookup != FieldLookup.IN and isinstance(value.value, list))
+            or (isinstance(value.value, list) and all(isinstance(val, dict | str) for val in value.value))
         )
     else:
         msg = f'Unsupported value type: {type(value)}'

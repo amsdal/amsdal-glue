@@ -29,7 +29,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-    postgres = [
+postgres = [
     "amsdal-glue-connections[postgres]",
 ]
 postgres-binary = [

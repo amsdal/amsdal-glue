@@ -41,6 +41,9 @@ class Condition:
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, Condition):
+            if isinstance(__value, Conditions) and len(__value.children) == 1 and not __value.negated:
+                return self == __value.children[0]
+
             return False
 
         return (
@@ -196,12 +199,9 @@ class Conditions:
         # Otherwise, use the current Conditions object.
         left = self.children[0] if len(self.children) == 1 else self
 
-        if self.negated == other.negated:
-            # If the other Conditions object has only one child, use the child directly.
-            # Otherwise, use the other Conditions object.
-            right = other.children[0] if len(other.children) == 1 else other
-        else:
-            right = other
+        # If the other Conditions object has only one child, use the child directly.
+        # Otherwise, use the other Conditions object.
+        right = (other.children[0] if len(other.children) == 1 else other) if self.negated == other.negated else other
 
         # Combine the left and right Conditions objects with the specified connector.
         return self.__class__(left, right, connector=connector, negated=self.negated)
@@ -235,10 +235,7 @@ class Conditions:
     def __copy__(self) -> 'Conditions':
         return self.__class__(
             _SKIP_FLATTEN,
-            *[
-                child.__copy__()
-                for child in self.children
-            ],
+            *[child.__copy__() for child in self.children],
             connector=self.connector,
             negated=self.negated,
         )
@@ -256,6 +253,9 @@ class Conditions:
 
     def __eq__(self, __value: object) -> bool:
         if not isinstance(__value, Conditions):
+            if isinstance(__value, Condition) and len(self.children) == 1 and not self.negated:
+                return self.children[0] == __value
+
             return False
 
         return (
