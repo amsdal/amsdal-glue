@@ -1,5 +1,5 @@
-## [v0.0.12](https://pypi.org/project/amsdal-glue-connections/0.0.12/) - 2024-09-16
+## [v0.0.14](https://pypi.org/project/amsdal-glue-connections/0.0.14/) - 2024-10-15
 
-### Added
+### Fixed
 
-- Added ability to use math expressions in annotations. (math-expressions)
+- Fixed postgres field update to DOUBLE PRECISION and BIGINT
