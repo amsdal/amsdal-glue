@@ -835,7 +835,13 @@ class PostgresConnection(ConnectionBase):
         )
 
     def _build_column_update(self, column: PropertySchema) -> str:
-        return f'"{column.name}" TYPE {self._to_sql_type(column.type)}{" NOT NULL" if column.required else ""}'
+        sql_type = self._to_sql_type(column.type)
+        _stm = f'"{column.name}" TYPE {sql_type}{" NOT NULL" if column.required else ""}'
+
+        if sql_type in ['DOUBLE PRECISION', 'BIGINT']:
+            _stm += f' USING "{column.name}"::{sql_type}'
+
+        return _stm
 
     def _build_constraint(self, constraint: BaseConstraint) -> str:
         if isinstance(constraint, PrimaryKeyConstraint):
