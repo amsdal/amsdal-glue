@@ -63,8 +63,8 @@ class DefaultSchemaCommandService(SchemaCommandService):
 
         try:
             plan.execute(transaction_id=command.root_transaction_id, lock_id=command.lock_id)
-        except Exception as e:  # noqa: BLE001
-            return SchemaResult(success=False, message=str(e))
+        except Exception as exc:  # noqa: BLE001
+            return SchemaResult(success=False, message=str(exc), exception=exc)
         else:
             _schemas = plan.final_task.result if plan.final_task else plan.tasks[-1].result
 

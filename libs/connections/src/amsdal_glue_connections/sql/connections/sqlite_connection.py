@@ -310,7 +310,7 @@ class SqliteConnection(ConnectionBase):
             self.execute(_stmt, *_params)
         except Exception as exc:
             logger.exception('Error executing mutation: %s with params: %s', _stmt, _params)
-            msg = f'Error executing mutation: {_stmt} with params: {_params}'
+            msg = f'Mutation failed: {exc}'
             raise ConnectionError(msg) from exc
         return None
 
@@ -374,7 +374,7 @@ class SqliteConnection(ConnectionBase):
 
             cursor.execute(query, args)
         except sqlite3.Error as exc:
-            msg = f'Error executing query: {query} with args: {args}. Exception: {exc}'
+            msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             logger.exception(msg)
             raise ConnectionError(msg) from exc
 
@@ -616,7 +616,10 @@ class SqliteConnection(ConnectionBase):
             new_property.name = new_uuid
 
             if new_property.required:
-                logger.warning('Trying to update a property to required, which is not supported. Setting it to False.')
+                logger.warning(
+                    f'Trying to update a property "{mutation.property.name}" ({mutation.schema_reference}) to required,'
+                    f' which is not supported. Setting it to False.'
+                )
                 new_property.required = False
 
             statements = [

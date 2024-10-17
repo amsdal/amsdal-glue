@@ -381,7 +381,7 @@ class PostgresConnection(ConnectionBase):
             self.execute(_stmt, *_params)
         except Exception as exc:
             logger.exception('Error executing mutation: %s with params: %s', _stmt, _params)
-            msg = f'Error executing mutation: {_stmt} with params: {_params}'
+            msg = f'Mutation failed: {exc}'
             raise ConnectionError(msg) from exc
         return None
 
@@ -443,7 +443,7 @@ class PostgresConnection(ConnectionBase):
 
             cursor = self.connection.execute(query, args)
         except psycopg.Error as exc:
-            msg = f'Error executing query: {query} with args: {args}'
+            msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
         return cursor
 
