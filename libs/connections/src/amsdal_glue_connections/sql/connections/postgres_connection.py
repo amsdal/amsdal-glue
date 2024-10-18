@@ -902,7 +902,7 @@ class PostgresConnection(ConnectionBase):
         if property_type is bool:
             return 'BOOLEAN'
         if property_type in (dict, list):
-            return 'JSON'
+            return 'JSONB'
         if property_type in (bytes, bytearray):
             return 'BYTEA'
         if isinstance(property_type, Schema | SchemaReference):
@@ -913,7 +913,7 @@ class PostgresConnection(ConnectionBase):
             return 'DATE'
         if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
             logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
-            return 'JSON'
+            return 'JSONB'
 
         msg = f'Unsupported type: {property_type}'
         raise ValueError(msg)
@@ -929,7 +929,7 @@ class PostgresConnection(ConnectionBase):
             return float
         if sql_type == 'BOOLEAN':
             return bool
-        if sql_type == 'JSON':
+        if sql_type in ['JSON', 'JSONB']:
             return dict
         if sql_type == 'BYTEA':
             return bytes
