@@ -59,8 +59,8 @@ class DefaultTransactionCommandService(TransactionCommandService):
 
         try:
             plan.execute(transaction_id=command.root_transaction_id, lock_id=command.lock_id)
-        except Exception as e:  # noqa: BLE001
-            return TransactionResult(success=False, message=str(e))
+        except Exception as exc:  # noqa: BLE001
+            return TransactionResult(success=False, message=str(exc), exception=exc)
 
         return TransactionResult(success=True, result=plan.result)
 
