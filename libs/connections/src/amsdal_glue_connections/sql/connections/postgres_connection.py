@@ -261,7 +261,7 @@ class PostgresConnection(ConnectionBase):
             cursor = self.execute(_stmt, *_params)
         except Exception as exc:
             logger.exception('Error executing query: %s with params: %s', _stmt, _params)
-            msg = f'Error executing query: {_stmt} with params: {_params}'
+            msg = f'Query failed: {exc}'
             raise ConnectionError(msg) from exc
 
         fields = []
@@ -539,10 +539,13 @@ class PostgresConnection(ConnectionBase):
 
         # Get indexes info
         cursor = self.execute(
-            'SELECT i.relname as index_name, array_agg(a.attname) as column_names '  # noqa: S608
-            'FROM pg_class t, pg_class i, pg_index ix, pg_attribute a '
-            'WHERE t.oid = ix.indrelid AND i.oid = ix.indexrelid AND a.attrelid = t.oid '
-            f"AND a.attnum = ANY(ix.indkey) AND t.relkind = 'r' AND t.relname = '{table_name}' "
+            'SELECT i.relname AS index_name, array_agg(a.attname ORDER BY ord.n) AS column_names '  # noqa: S608
+            'FROM pg_class t '
+            'JOIN pg_index x ON t.oid = x.indrelid '
+            'JOIN pg_class i ON i.oid = x.indexrelid '
+            'JOIN generate_subscripts(x.indkey, 1) AS ord(n) ON TRUE '
+            'JOIN pg_attribute a ON a.attnum = x.indkey[ord.n] AND a.attrelid = t.oid '
+            f"WHERE t.relname = '{table_name}' "
             'GROUP BY t.relname, i.relname'
         )
         indexes_list = cursor.fetchall()
