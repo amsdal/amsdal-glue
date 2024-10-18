@@ -1,6 +1,5 @@
-## [v0.0.15](https://pypi.org/project/amsdal-glue-connections/0.0.15/) - 2024-10-18
+## [v0.0.16](https://pypi.org/project/amsdal-glue-connections/0.0.16/) - 2024-10-18
 
-### Fixed
+### Changed
 
-- Error messages (error-messages)
-- Postgres connection index retrieval (postgres-connection-index-retrieval)
+- Use 'JSONB' instead of 'JSON' in Postgres connections.
