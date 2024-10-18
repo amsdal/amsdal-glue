@@ -55,8 +55,9 @@ def test_create_customer_duplicate_error(test_client: TestClient) -> None:
     response_json = response.json()
     assert response_json == {
         'detail': (
-            "Error executing mutation: INSERT INTO 'customers' ('customer_id', "
-            "'email', 'name') VALUES (?, ?, ?) with params: [1, 'e1@example.com', 'John Doe']"
+            "Mutation failed: Error executing SQL: INSERT INTO 'customers' ('customer_id', 'email', 'name') VALUES "
+            "(?, ?, ?) with args: (1, 'e1@example.com', 'John Doe'). "
+            'Exception: UNIQUE constraint failed: customers.customer_id'
         )
     }
 

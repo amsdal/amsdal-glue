@@ -1,8 +1,16 @@
+## [v0.0.15](https://pypi.org/project/amsdal-glue-connections/0.0.15/) - 2024-10-18
+
+### Fixed
+
+- Error messages (error-messages)
+- Postgres connection index retrieval (postgres-connection-index-retrieval)
+
+
 ## [v0.0.14](https://pypi.org/project/amsdal-glue-connections/0.0.14/) - 2024-10-15
 
 ### Fixed
 
-- Fixed postgres field update to DOUBLE PRECISION and BIGINT
+- Fixed postgres field update to DOUBLE PRECISION and BIGINT (postgres-field-update)
 
 ## [v0.0.13](https://pypi.org/project/amsdal-glue-connections/0.0.13/) - 2024-10-14
 

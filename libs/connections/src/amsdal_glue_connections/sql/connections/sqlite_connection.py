@@ -616,10 +616,11 @@ class SqliteConnection(ConnectionBase):
             new_property.name = new_uuid
 
             if new_property.required:
-                logger.warning(
+                msg = (
                     f'Trying to update a property "{mutation.property.name}" ({mutation.schema_reference}) to required,'
                     f' which is not supported. Setting it to False.'
                 )
+                logger.warning(msg)
                 new_property.required = False
 
             statements = [

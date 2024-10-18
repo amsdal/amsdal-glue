@@ -97,7 +97,7 @@ def test_lock() -> None:
     try:
         plan.execute(transaction_id=None, lock_id=None)
     except ConnectionError as e:
-        assert 'Error executing mutation:' in str(e)
+        assert 'Mutation failed: Error executing SQL:' in str(e)
         assert str(e.__cause__.__cause__) == 'database is locked'  # type: ignore[union-attr]
         assert isinstance(e.__cause__.__cause__, sqlite3.OperationalError)  # type: ignore[union-attr]
 
