@@ -1,10 +1,14 @@
 # mypy: disable-error-code="type-abstract"
+import logging
 import pickle
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 from typing import ClassVar
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 
 class Singleton:
@@ -132,7 +136,35 @@ class ContainerPropertyDescriptor:
         return getattr(cls.__sub_containers__[cls.__current_container__], self.name)
 
 
-class Container:
+class ThreadLocalContainerDescriptor:
+    def __init__(self):
+        self.local = threading.local()
+
+    def __get__(self, instance, owner) -> str | None:
+        return getattr(self.local, '__current_container__', None)
+
+    def __set__(self, instance, value) -> None:
+        self.local.__current_container__ = value
+
+
+class MetaContainer(type):
+    def __getattr__(cls, name):
+        if name == '__current_container__':
+            descriptor = cls.__dict__['__current_container__']
+            return descriptor.__get__(None, cls)
+        return super().__getattribute__(name)
+
+    def __setattr__(cls, name, value):
+        if name == '__current_container__':
+            descriptor = cls.__dict__.get('__current_container__')
+
+            if isinstance(descriptor, ThreadLocalContainerDescriptor):
+                descriptor.__set__(None, value)
+        else:
+            super().__setattr__(name, value)
+
+
+class Container(metaclass=MetaContainer):
     """
     The `Container` class is a central registry for managing dependencies in the application. It provides
     separate containers for different types of dependencies, such as managers, services, executors, and planners.
@@ -188,7 +220,7 @@ class Container:
     _root_executors = DependencyContainer()
     _root_planners = DependencyContainer()
 
-    __current_container__: ClassVar[str | None] = None
+    __current_container__ = ThreadLocalContainerDescriptor()
     __sub_containers__: ClassVar[dict[str, SubContainer]] = {}
 
     managers = ContainerPropertyDescriptor('managers')
@@ -205,24 +237,24 @@ class Container:
     @classmethod
     @contextmanager
     def switch(cls, name: str) -> Iterator[Any]:
-        previous = cls.__current_container__
-        cls.__current_container__ = name
+        previous = Container.__current_container__
+        Container.__current_container__ = name  # type: ignore[assignment]
 
         try:
             yield cls.__sub_containers__[name]
         finally:
-            cls.__current_container__ = previous
+            Container.__current_container__ = previous  # type: ignore[assignment]
 
     @classmethod
     @contextmanager
     def root(cls) -> Iterator[Any]:
-        previous = cls.__current_container__
-        cls.__current_container__ = None
+        previous = Container.__current_container__
+        Container.__current_container__ = None  # type: ignore[assignment]
 
         try:
-            yield cls
+            yield Container
         finally:
-            cls.__current_container__ = previous
+            Container.__current_container__ = previous  # type: ignore[assignment]
 
     @classmethod
     def serialize_state(cls) -> bytes:
