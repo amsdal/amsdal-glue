@@ -1,6 +1,7 @@
 # mypy: disable-error-code="type-abstract"
 import tempfile
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture
@@ -31,8 +32,9 @@ from amsdal_glue.interfaces import SchemaCommandService
 @pytest.fixture()
 def cqrs_app() -> Generator[CQRSApplication, None, None]:
     app = CQRSApplication()
-
-    with tempfile.TemporaryDirectory() as temp_dir:
+    _dir = Path('.tmp')
+    _dir.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=_dir) as temp_dir:
         query_db_path = f'{temp_dir}/query_data.sqlite'
         command_db_path = f'{temp_dir}/command_data.sqlite'
 
