@@ -225,8 +225,7 @@ def test_build_sql_query_simple__where() -> None:
     )
 
     assert sql == (
-        'SELECT * FROM users AS u '
-        'WHERE (u.age >= ? AND u.name GLOB ?) OR (u.age >= ? AND LOWER(u.email) LIKE LOWER(?))'
+        'SELECT * FROM users AS u WHERE (u.age >= ? AND u.name GLOB ?) OR (u.age >= ? AND LOWER(u.email) LIKE LOWER(?))'
     )
     assert value == [18, '*John*', 18, 'john%']
 

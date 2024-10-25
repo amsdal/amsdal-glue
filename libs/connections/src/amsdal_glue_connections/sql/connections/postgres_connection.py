@@ -848,7 +848,7 @@ class PostgresConnection(ConnectionBase):
 
     def _build_constraint(self, constraint: BaseConstraint) -> str:
         if isinstance(constraint, PrimaryKeyConstraint):
-            return f'CONSTRAINT {constraint.name} ' f'PRIMARY KEY ({", ".join(constraint.fields)}) '
+            return f'CONSTRAINT {constraint.name} PRIMARY KEY ({", ".join(constraint.fields)}) '
         if isinstance(constraint, ForeignKeyConstraint):
             return (
                 f'CONSTRAINT "{constraint.name}" '
@@ -856,7 +856,7 @@ class PostgresConnection(ConnectionBase):
                 f'REFERENCES {constraint.reference_schema.name} ({", ".join(constraint.reference_fields)})'
             )
         if isinstance(constraint, UniqueConstraint):
-            return f'CONSTRAINT {constraint.name} ' f'UNIQUE ({", ".join(constraint.fields)})'
+            return f'CONSTRAINT {constraint.name} UNIQUE ({", ".join(constraint.fields)})'
         if isinstance(constraint, CheckConstraint):
             _where, _ = build_where(
                 constraint.condition,
@@ -866,7 +866,7 @@ class PostgresConnection(ConnectionBase):
                 field_quote='"',
             )
 
-            return f'CONSTRAINT {constraint.name} ' f'CHECK ({_where})'
+            return f'CONSTRAINT {constraint.name} CHECK ({_where})'
 
         msg = f'Unsupported constraint: {type(constraint)}'
         raise ValueError(msg)

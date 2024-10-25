@@ -381,9 +381,7 @@ def build_joins(  # noqa: PLR0913
             values.extend(_values)
         else:
             _namespace_prefix = (
-                (f'{table_quote}' f'{join.table.namespace}{table_quote}{table_separator}')
-                if join.table.namespace
-                else ''
+                (f'{table_quote}{join.table.namespace}{table_quote}{table_separator}') if join.table.namespace else ''
             )
             _table = f'{_namespace_prefix}{table_quote}{join.table.name}{table_quote}'
 

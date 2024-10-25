@@ -1,7 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import tempfile
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture
