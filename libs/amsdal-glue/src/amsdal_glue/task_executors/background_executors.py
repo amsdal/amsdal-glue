@@ -19,14 +19,22 @@ class BackgroundSequentialExecutor(SequentialExecutor):
         from amsdal_glue import Container
         from amsdal_glue.interfaces import RuntimeManager
 
-        def background_task():
-            for task in tasks:
-                task.execute(transaction_id=transaction_id, lock_id=lock_id)
+        def background_task(container_name: str | None):
+            if container_name:
+                with Container.switch(container_name):
+                    for task in tasks:
+                        task.execute(transaction_id=transaction_id, lock_id=lock_id)
 
-            if final_task is not None:
-                final_task.execute(transaction_id=transaction_id, lock_id=lock_id)
+                    if final_task is not None:
+                        final_task.execute(transaction_id=transaction_id, lock_id=lock_id)
+            else:
+                for task in tasks:
+                    task.execute(transaction_id=transaction_id, lock_id=lock_id)
 
-        thread = Thread(target=background_task)
+                if final_task is not None:
+                    final_task.execute(transaction_id=transaction_id, lock_id=lock_id)
+
+        thread = Thread(target=background_task, args=(Container.__current_container__,))
         thread.start()
         self._threads.append(thread)
 
