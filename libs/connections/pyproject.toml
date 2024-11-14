@@ -34,6 +34,9 @@ postgres-c = [
 postgres-binary = [
     "psycopg[binary,pool]>=3.2.1",
 ]
+async-sqlite = [
+    "aiosqlite>=0.20.0",
+]
 
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
@@ -51,10 +54,12 @@ extra-dependencies = [
     "pytest>=8.2.2",
     "pytest-mock>=3.14.0",
     "pytest-benchmark>=4.0.0",
+    "pytest-asyncio>=0.24.0",
     "ruff>=0.5.2",
     "psycopg[binary,pool]>=3.2.1",
     "docker>=7.1.0",
     "towncrier>=23.11.0",
+    "aiosqlite>=0.20.0",
 ]
 pre-install-commands = [
     "pip install -e ../core/",

@@ -44,7 +44,7 @@ class AsyncSchemaCommandService(ABC):
     """
 
     @abstractmethod
-    async def execute_async(self, command: SchemaCommand) -> SchemaResult:
+    async def execute(self, command: SchemaCommand) -> SchemaResult:
         """
         Asynchronously executes the given schema command.
 
@@ -90,7 +90,7 @@ class AsyncDataCommandService(ABC):
     """
 
     @abstractmethod
-    async def execute_async(self, command: DataCommand) -> DataResult:
+    async def execute(self, command: DataCommand) -> DataResult:
         """
         Asynchronously executes the given data command.
 
@@ -136,7 +136,7 @@ class AsyncLockCommandService(ABC):
     """
 
     @abstractmethod
-    async def execute_async(self, command: LockCommand) -> LockResult:
+    async def execute(self, command: LockCommand) -> LockResult:
         """
         Asynchronously executes the given lock command.
 
@@ -182,7 +182,7 @@ class AsyncTransactionCommandService(ABC):
     """
 
     @abstractmethod
-    async def execute_async(self, command: TransactionCommand) -> TransactionResult:
+    async def execute(self, command: TransactionCommand) -> TransactionResult:
         """
         Asynchronously executes the given transaction command.
 

@@ -150,7 +150,7 @@ def test_data_query(cqrs_app: CQRSApplication, mocker: MockerFixture):
     mocked_command_connection_pool = mocker.Mock(spec=DefaultConnectionPool)
     cqrs_app.command_connection_manager.register_connection_pool(mocked_command_connection_pool)
 
-    service = Container.services.get(DataQueryService)
+    query_service = Container.services.get(DataQueryService)
     query = QueryStatement(
         table=SchemaReference(name='customers', version=Version.LATEST),
         order_by=[
@@ -160,7 +160,7 @@ def test_data_query(cqrs_app: CQRSApplication, mocker: MockerFixture):
             ),
         ],
     )
-    data_result = service.execute(
+    data_result = query_service.execute(
         query_op=DataQueryOperation(
             query=query,
         ),

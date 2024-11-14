@@ -26,3 +26,28 @@ class Task(ABC):
         Get result of task execution.
         """
         ...
+
+
+class AsyncTask(ABC):
+    @abstractmethod
+    async def execute(self, transaction_id: str | None, lock_id: str | None) -> None:
+        """
+        Execute task.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def item(self) -> Any:
+        """
+        Get item of task execution.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def result(self) -> Any:
+        """
+        Get result of task execution.
+        """
+        ...

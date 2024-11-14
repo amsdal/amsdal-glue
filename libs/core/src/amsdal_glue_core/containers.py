@@ -6,9 +6,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 from typing import ClassVar
+from typing import TypeVar
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar('T')
 
 
 class Singleton:
@@ -64,7 +67,7 @@ class DependencyContainer:
         self._providers: dict[type[Any], type[Any]] = {}  # type: ignore[valid-type]
         self._resolved: dict[type[Any], type[Any]] = {}  # type: ignore[valid-type]
 
-    def register(self, dependency: type[Any], provider: type[Any] | Singleton) -> None:
+    def register(self, dependency: type[T], provider: T | Singleton) -> None:
         """
         Registers a provider for a given dependency type.
 
@@ -74,7 +77,7 @@ class DependencyContainer:
         """
         self._providers[dependency] = provider  # type: ignore[assignment]
 
-    def get(self, dependency: type[Any]) -> Any:
+    def get(self, dependency: type[T]) -> T:
         """
         Retrieves an instance of the provider for the given dependency type.
 

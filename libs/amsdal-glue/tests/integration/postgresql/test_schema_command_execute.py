@@ -142,11 +142,11 @@ def test_create_schema() -> None:
     }
 
     query_service = Container.services.get(SchemaQueryService)
-    result = query_service.execute(
+    schema_result = query_service.execute(
         SchemaQueryOperation(filters=None),
     )
 
-    assert result.schemas == [
+    assert schema_result.schemas == [
         Schema(
             name='user',
             version=Version.LATEST,
