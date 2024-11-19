@@ -35,6 +35,9 @@ postgres = [
 postgres-binary = [
     "amsdal-glue-connections[postgres-binary]",
 ]
+async-sqlite = [
+    "amsdal-glue-connections[async-sqlite]",
+]
 
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
@@ -51,9 +54,11 @@ extra-dependencies = [
     "coverage[toml]>=7.4",
     "pytest>=8.2.1",
     "pytest-mock>=3.14.0",
+    "pytest-asyncio>=0.24.0",
     "ruff>=0.4.5",
     "amsdal-glue[postgres-binary]",
     "towncrier>=23.11.0",
+    "aiosqlite>=0.20.0",
 ]
 pre-install-commands = [
   "pip install -e ../core/",

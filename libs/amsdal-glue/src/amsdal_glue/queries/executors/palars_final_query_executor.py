@@ -13,6 +13,7 @@ from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAl
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
+from amsdal_glue_core.common.executors.interfaces import AsyncFinalDataQueryExecutor
 from amsdal_glue_core.common.executors.interfaces import FinalDataQueryExecutor
 from amsdal_glue_core.common.expressions.common import CombinedExpression
 from amsdal_glue_core.common.expressions.common import Expression
@@ -26,41 +27,7 @@ from amsdal_glue_core.queries.final_query_statement import QueryStatementNode
 from amsdal_glue.queries.polars_operator_constructor import polars_operator_constructor
 
 
-class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
-    """
-    PolarsFinalQueryDataExecutor is responsible for executing final data queries using Polars.
-
-    This executor is used when the [DefaultDataQueryPlanner][amsdal_glue.planners.DefaultDataQueryPlanner]
-    splits the query to several subqueries and the [FinalDataQueryTask][amsdal_glue.tasks.FinalDataQueryTask]
-    is created.
-
-    Methods:
-        execute(query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:
-            Executes the final data query node.
-    """
-
-    def execute(self, query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
-        """
-        Executes the final data query using Polars.
-
-        Args:
-            query_node (FinalDataQueryNode): The node representing the final data query.
-            transaction_id (str | None): The ID of the transaction.
-            lock_id (str | None): The ID of the lock.
-        """
-        if query_node.result is not None:
-            return
-
-        if self.has_subquery_annotations(query_node.query):
-            msg = 'PolarsFinalQueryExecutor does not support subquery annotations'
-            raise RuntimeError(msg)
-
-        sql_context = self._build_sql_context(query_node.query)
-        sql = self._build_sql(query_node.query)
-        query_node.result = self.process_results(
-            sql_context.execute(sql).collect().to_dicts(),  # type: ignore[attr-defined]
-        )
-
+class PolarsFinalQueryDataExecutorMixin:
     def has_subquery_annotations(self, query: FinalQueryStatement) -> bool:
         """
         Checks if the query has subquery annotations.
@@ -426,3 +393,75 @@ class PolarsFinalQueryDataExecutor(FinalDataQueryExecutor):
             _stmt += f' OFFSET {limit.offset}'
 
         return _stmt
+
+
+class PolarsFinalQueryDataExecutor(PolarsFinalQueryDataExecutorMixin, FinalDataQueryExecutor):
+    """
+    PolarsFinalQueryDataExecutor is responsible for executing final data queries using Polars.
+
+    This executor is used when the [DefaultDataQueryPlanner][amsdal_glue.planners.DefaultDataQueryPlanner]
+    splits the query to several subqueries and the [FinalDataQueryTask][amsdal_glue.tasks.FinalDataQueryTask]
+    is created.
+
+    Methods:
+        execute(query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:
+            Executes the final data query node.
+    """
+
+    def execute(self, query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
+        """
+        Executes the final data query using Polars.
+
+        Args:
+            query_node (FinalDataQueryNode): The node representing the final data query.
+            transaction_id (str | None): The ID of the transaction.
+            lock_id (str | None): The ID of the lock.
+        """
+        if query_node.result is not None:
+            return
+
+        if self.has_subquery_annotations(query_node.query):
+            msg = 'PolarsFinalQueryExecutor does not support subquery annotations'
+            raise RuntimeError(msg)
+
+        sql_context = self._build_sql_context(query_node.query)
+        sql = self._build_sql(query_node.query)
+        query_node.result = self.process_results(
+            sql_context.execute(sql).collect().to_dicts(),  # type: ignore[attr-defined]
+        )
+
+
+class AsyncPolarsFinalQueryDataExecutor(PolarsFinalQueryDataExecutorMixin, AsyncFinalDataQueryExecutor):
+    """
+    AsyncPolarsFinalQueryDataExecutor is responsible for executing final data queries using Polars.
+
+    This executor is used when the [DefaultDataQueryPlanner][amsdal_glue.planners.DefaultDataQueryPlanner]
+    splits the query to several subqueries and the [FinalDataQueryTask][amsdal_glue.tasks.FinalDataQueryTask]
+    is created.
+
+    Methods:
+        execute(query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:
+            Executes the final data query node.
+    """
+
+    async def execute(self, query_node: FinalDataQueryNode, transaction_id: str | None, lock_id: str | None) -> None:  # noqa: ARG002
+        """
+        Executes the final data query using Polars.
+
+        Args:
+            query_node (FinalDataQueryNode): The node representing the final data query.
+            transaction_id (str | None): The ID of the transaction.
+            lock_id (str | None): The ID of the lock.
+        """
+        if query_node.result is not None:
+            return
+
+        if self.has_subquery_annotations(query_node.query):
+            msg = 'PolarsFinalQueryExecutor does not support subquery annotations'
+            raise RuntimeError(msg)
+
+        sql_context = self._build_sql_context(query_node.query)
+        sql = self._build_sql(query_node.query)
+        query_node.result = self.process_results(
+            sql_context.execute(sql).collect().to_dicts(),  # type: ignore[attr-defined]
+        )

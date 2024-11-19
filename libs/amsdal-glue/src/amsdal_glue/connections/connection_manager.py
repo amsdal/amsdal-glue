@@ -1,5 +1,9 @@
+import asyncio
+
 from amsdal_glue_core.common.enums import ConnectionAlias
 
+from amsdal_glue.interfaces import AsyncConnectionManager
+from amsdal_glue.interfaces import AsyncConnectionPoolBase
 from amsdal_glue.interfaces import ConnectionManager
 from amsdal_glue.interfaces import ConnectionPoolBase
 
@@ -114,3 +118,58 @@ class DefaultConnectionManager(ConnectionManager):
 
     def __del__(self) -> None:
         self.disconnect_all()
+
+
+class DefaultAsyncConnectionManager(AsyncConnectionManager):
+    def __init__(self) -> None:
+        self.connections: dict[str, AsyncConnectionPoolBase] = {}
+
+    def register_connection_pool(self, connection: AsyncConnectionPoolBase, schema_name: str | None = None) -> None:
+        """Registers a connection pool for a specific schema.
+
+        Args:
+            connection (AsyncConnectionPoolBase): The connection pool to register.
+            schema_name (str | None): The schema name for the connection pool.
+        """
+        self.connections[schema_name or ConnectionAlias.DEFAULT] = connection
+
+    def has_multiple_models_connections(self, connection_alias: ConnectionAlias) -> bool:
+        """Checks if there are multiple model connections for the given alias.
+
+        Args:
+            connection_alias (ConnectionAlias): The connection alias to check.
+
+        Returns:
+            bool: True if there are multiple model connections, False otherwise.
+        """
+        return connection_alias == ConnectionAlias.DEFAULT and len(self.connections) > 1
+
+    def get_connection_pool(self, schema_name: str) -> AsyncConnectionPoolBase:
+        """Retrieves the connection pool for a specific schema.
+
+        Args:
+            schema_name (str): The schema name for the connection pool.
+
+        Returns:
+            AsyncConnectionPoolBase: The connection pool instance.
+        """
+        return self.connections.get(schema_name) or self.connections[ConnectionAlias.DEFAULT]
+
+    async def disconnect_all(self) -> None:
+        """Disconnects all registered connection pools."""
+
+        for connection in self.connections.values():
+            await connection.disconnect()
+
+        self.connections.clear()
+
+    def __del__(self) -> None:
+        # Close connection when this object is destroyed
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(self.disconnect_all())  # noqa: RUF006
+            else:
+                loop.run_until_complete(self.disconnect_all())
+        except Exception:  # noqa: BLE001, S110
+            pass

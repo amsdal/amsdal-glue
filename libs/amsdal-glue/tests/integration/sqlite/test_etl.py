@@ -267,7 +267,7 @@ def test_expressions() -> None:
         msg = 'Failed to execute query'
         raise Exception(msg) from data_result.exception  # noqa: TRY002
 
-    assert [item.data if item else None for item in data_result.data[:5]] == [
+    assert [item.data if item else None for item in (data_result.data or [])[:5]] == [
         {
             'add': 1392731000,
             'country_population': 1392730000,
