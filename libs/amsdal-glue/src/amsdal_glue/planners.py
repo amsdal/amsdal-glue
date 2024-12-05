@@ -6,12 +6,10 @@ from amsdal_glue.queries.planner.data_query_planner import DefaultDataQueryPlann
 from amsdal_glue.queries.planner.schema_query_planner import DefaultSchemaQueryPlanner
 
 __all__ = [
-    # Default command planners
-    'DefaultSchemaCommandPlanner',
     'DefaultDataCommandPlanner',
-    'DefaultTransactionCommandPlanner',
-    'DefaultLockCommandPlanner',
-    # Default query planners
-    'DefaultSchemaQueryPlanner',
     'DefaultDataQueryPlanner',
+    'DefaultLockCommandPlanner',
+    'DefaultSchemaCommandPlanner',
+    'DefaultSchemaQueryPlanner',
+    'DefaultTransactionCommandPlanner',
 ]

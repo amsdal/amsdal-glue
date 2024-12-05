@@ -39,7 +39,7 @@ class Condition:
 
         return self
 
-    def __eq__(self, __value: object) -> bool:
+    def __eq__(self, __value: object) -> bool:  # noqa: PYI063
         if not isinstance(__value, Condition):
             if isinstance(__value, Conditions) and len(__value.children) == 1 and not __value.negated:
                 return self == __value.children[0]
@@ -251,7 +251,7 @@ class Conditions:
 
         return r
 
-    def __eq__(self, __value: object) -> bool:
+    def __eq__(self, __value: object) -> bool:  # noqa: PYI063
         if not isinstance(__value, Conditions):
             if isinstance(__value, Condition) and len(self.children) == 1 and not self.negated:
                 return self.children[0] == __value
