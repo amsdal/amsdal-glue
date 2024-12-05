@@ -12,18 +12,15 @@ from amsdal_glue.queries.tasks.schema_tasks import FinalSchemaQueryTask
 from amsdal_glue.queries.tasks.schema_tasks import SchemaQueryTask
 
 __all__ = [
-    # Universal
     'ChainTask',
-    'GroupTask',
-    # Command tasks
-    'SchemaCommandTask',
-    'FinalSchemaCommandTask',
     'DataMutationTask',
-    'TransactionCommandTask',
-    'LockCommandTask',
-    # Query tasks
-    'SchemaQueryTask',
-    'FinalSchemaQueryTask',
     'DataQueryTask',
     'FinalDataQueryTask',
+    'FinalSchemaCommandTask',
+    'FinalSchemaQueryTask',
+    'GroupTask',
+    'LockCommandTask',
+    'SchemaCommandTask',
+    'SchemaQueryTask',
+    'TransactionCommandTask',
 ]

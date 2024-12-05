@@ -1,3 +1,15 @@
+## [v0.0.18](https://pypi.org/project/amsdal-glue-connections/0.0.18/) - 2024-12-05
+
+### Added
+
+- Postgres async connection.
+
+## [v0.0.17](https://pypi.org/project/amsdal-glue-connections/0.0.17/) - 2024-11-14
+
+### Added
+
+- Async connections support.
+
 ## [v0.0.16](https://pypi.org/project/amsdal-glue-connections/0.0.16/) - 2024-10-18
 
 ### Changed

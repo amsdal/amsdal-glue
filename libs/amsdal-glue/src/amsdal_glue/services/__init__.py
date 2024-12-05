@@ -6,12 +6,10 @@ from amsdal_glue.services.schema_query import DefaultSchemaQueryService
 from amsdal_glue.services.transaction_command import DefaultTransactionCommandService
 
 __all__ = [
-    # Command services
-    'DefaultSchemaCommandService',
     'DefaultDataCommandService',
-    'DefaultTransactionCommandService',
-    'DefaultLockCommandService',
-    # Query services
-    'DefaultSchemaQueryService',
     'DefaultDataQueryService',
+    'DefaultLockCommandService',
+    'DefaultSchemaCommandService',
+    'DefaultSchemaQueryService',
+    'DefaultTransactionCommandService',
 ]
