@@ -1015,7 +1015,7 @@ class AsyncPostgresConnection(AsyncConnectionBase):
             )
             raise ImportError(_msg) from None
 
-        if not self.is_connected:
+        if not await self.is_connected:
             return False
 
         try:

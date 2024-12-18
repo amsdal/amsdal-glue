@@ -1,6 +1,5 @@
-## [v0.0.10](https://pypi.org/project/amsdal-glue-core/0.0.10/) - 2024-09-16
+## [v0.0.14](https://pypi.org/project/amsdal-glue-core/0.0.14/) - 2024-12-18
 
 ### Added
 
-- Extended Container by adding 'serialize_state' and 'deserialize_state' to pass into sub-processes. (container-state-serialization)
-- Extended Container to manage sub-containers. (sub-containers)
+- Async safe descriptor.
