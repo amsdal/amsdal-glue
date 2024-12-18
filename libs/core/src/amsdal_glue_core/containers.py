@@ -4,8 +4,10 @@ import pickle
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 from typing import ClassVar
+from typing import Generic
 from typing import TypeVar
 from uuid import uuid4
 
@@ -150,6 +152,17 @@ class ThreadLocalContainerDescriptor:
         self.local.__current_container__ = value
 
 
+class ContextVarDescriptor(Generic[T]):
+    def __init__(self, context_var: ContextVar[T]) -> None:
+        self.context_var = context_var
+
+    def __get__(self, instance, owner) -> T:
+        return self.context_var.get()
+
+    def __set__(self, instance, value) -> None:
+        self.context_var.set(value)
+
+
 class MetaContainer(type):
     def __getattr__(cls, name):
         if name == '__current_container__':
@@ -161,10 +174,13 @@ class MetaContainer(type):
         if name == '__current_container__':
             descriptor = cls.__dict__.get('__current_container__')
 
-            if isinstance(descriptor, ThreadLocalContainerDescriptor):
+            if isinstance(descriptor, ThreadLocalContainerDescriptor | ContextVarDescriptor):
                 descriptor.__set__(None, value)
         else:
             super().__setattr__(name, value)
+
+
+CURRENT_CONTAINER_CONTEXT: ContextVar[str | None] = ContextVar('__current_container__', default=None)
 
 
 class Container(metaclass=MetaContainer):
@@ -223,7 +239,7 @@ class Container(metaclass=MetaContainer):
     _root_executors = DependencyContainer()
     _root_planners = DependencyContainer()
 
-    __current_container__ = ThreadLocalContainerDescriptor()
+    __current_container__ = ContextVarDescriptor[str | None](CURRENT_CONTAINER_CONTEXT)
     __sub_containers__: ClassVar[dict[str, SubContainer]] = {}
 
     managers = ContainerPropertyDescriptor('managers')

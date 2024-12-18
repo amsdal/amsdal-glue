@@ -1,5 +1,5 @@
-## [v0.0.18](https://pypi.org/project/amsdal-glue-connections/0.0.18/) - 2024-12-05
+## [v0.0.19](https://pypi.org/project/amsdal-glue-connections/0.0.19/) - 2024-12-18
 
-### Added
+### Fixes
 
-- Postgres async connection.
+- Postgres is_alive check.
