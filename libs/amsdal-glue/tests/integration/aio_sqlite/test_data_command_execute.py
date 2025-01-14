@@ -11,7 +11,6 @@ from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
@@ -66,12 +65,6 @@ async def test_insert_data_single_element(register_default_connection: AsyncGene
                     data=[
                         Data(
                             data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                            metadata=Metadata(
-                                object_id='1',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         )
                     ],
                 )
@@ -111,12 +104,6 @@ async def test_update_data_single_element(register_default_connection: AsyncGene
                     schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                     data=Data(
                         data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
                     ),
                     query=Conditions(
                         Condition(
@@ -206,12 +193,6 @@ async def test_create_and_update_data_single_element(register_default_connection
                     data=[
                         Data(
                             data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                            metadata=Metadata(
-                                object_id='1',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         )
                     ],
                 ),
@@ -219,12 +200,6 @@ async def test_create_and_update_data_single_element(register_default_connection
                     schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                     data=Data(
                         data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
                     ),
                     query=Conditions(
                         Condition(
@@ -268,12 +243,6 @@ async def test_create_and_delete_data_single_element(register_default_connection
                     data=[
                         Data(
                             data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                            metadata=Metadata(
-                                object_id='1',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         )
                     ],
                 ),
@@ -322,30 +291,12 @@ async def test_create_multiple_data_elements(register_default_connection: AsyncG
                     data=[
                         Data(
                             data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                            metadata=Metadata(
-                                object_id='1',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         ),
                         Data(
                             data={'id': '222', 'customer_id': '2', 'status': 'shipped'},
-                            metadata=Metadata(
-                                object_id='2',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         ),
                         Data(
                             data={'id': '333', 'customer_id': '3', 'status': 'shipped'},
-                            metadata=Metadata(
-                                object_id='3',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         ),
                     ],
                 )

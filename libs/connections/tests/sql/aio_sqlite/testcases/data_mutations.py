@@ -3,7 +3,6 @@ from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
@@ -24,12 +23,6 @@ async def simple_customer_insert(
             data=[
                 Data(
                     data={'id': '1', 'name': 'customer'},
-                    metadata=Metadata(
-                        object_id='1',
-                        object_version='1',
-                        created_at='2021-01-01T00:00:00Z',
-                        updated_at='2021-01-01T00:00:00Z',
-                    ),
                 )
             ],
         ),
@@ -47,12 +40,6 @@ async def insert_customers_and_orders(
             data=[
                 Data(
                     data={'id': '1', 'name': 'customer'},
-                    metadata=Metadata(
-                        object_id='1',
-                        object_version='1',
-                        created_at='2021-01-01T00:00:00Z',
-                        updated_at='2021-01-01T00:00:00Z',
-                    ),
                 )
             ],
         ),
@@ -61,12 +48,6 @@ async def insert_customers_and_orders(
             data=[
                 Data(
                     data={'id': '2', 'name': 'customer', 'age': 25},
-                    metadata=Metadata(
-                        object_id='2',
-                        object_version='2',
-                        created_at='2021-01-01T00:00:00Z',
-                        updated_at='2021-01-01T00:00:00Z',
-                    ),
                 )
             ],
         ),
@@ -75,12 +56,6 @@ async def insert_customers_and_orders(
             data=[
                 Data(
                     data={'id': '1', 'customer_id': '1', 'amount': 100},
-                    metadata=Metadata(
-                        object_id='1',
-                        object_version='1',
-                        created_at='2021-01-01T00:00:00Z',
-                        updated_at='2021-01-01T00:00:00Z',
-                    ),
                 )
             ],
         ),
@@ -96,12 +71,6 @@ async def update_two_customers(
             data=[
                 Data(
                     data={'id': '1', 'name': 'customer'},
-                    metadata=Metadata(
-                        object_id='1',
-                        object_version='1',
-                        created_at='2021-01-01T00:00:00Z',
-                        updated_at='2021-01-01T00:00:00Z',
-                    ),
                 )
             ],
         ),
@@ -109,12 +78,6 @@ async def update_two_customers(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=Data(
                 data={'id': '1', 'name': 'new_customer'},
-                metadata=Metadata(
-                    object_id='1',
-                    object_version='2',
-                    created_at='2021-01-01T00:00:00Z',
-                    updated_at='2021-01-01T00:00:00Z',
-                ),
             ),
         ),
     ])

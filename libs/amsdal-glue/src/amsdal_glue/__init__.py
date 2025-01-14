@@ -23,7 +23,6 @@ from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.results.data import DataResult
@@ -133,7 +132,6 @@ __all__ = [
     'LockResult',
     'LockSchemaReference',
     'Max',
-    'Metadata',
     'Min',
     'OrderByQuery',
     'OrderDirection',

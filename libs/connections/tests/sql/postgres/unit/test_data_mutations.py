@@ -1,7 +1,6 @@
 from unittest import mock
 
 from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -42,12 +41,6 @@ def test_insert_benchmark_100(database_connection: MockPostgresConnection, bench
     _data = [
         Data(
             data={'id': i, 'name': 'customer'},
-            metadata=Metadata(
-                object_id=str(i),
-                object_version=str(i),
-                created_at='2021-01-01T00:00:00Z',
-                updated_at='2021-01-01T00:00:00Z',
-            ),
         )
         for i in range(100)
     ]
@@ -67,12 +60,6 @@ def test_insert_benchmark_1000(database_connection: MockPostgresConnection, benc
     _data = [
         Data(
             data={'id': i, 'name': 'customer'},
-            metadata=Metadata(
-                object_id=str(i),
-                object_version=str(i),
-                created_at='2021-01-01T00:00:00Z',
-                updated_at='2021-01-01T00:00:00Z',
-            ),
         )
         for i in range(1000)
     ]
@@ -92,12 +79,6 @@ def test_insert_benchmark_10000(database_connection: MockPostgresConnection, ben
     _data = [
         Data(
             data={'id': i, 'name': 'customer'},
-            metadata=Metadata(
-                object_id=str(i),
-                object_version=str(i),
-                created_at='2021-01-01T00:00:00Z',
-                updated_at='2021-01-01T00:00:00Z',
-            ),
         )
         for i in range(10000)
     ]

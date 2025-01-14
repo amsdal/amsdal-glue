@@ -8,7 +8,6 @@ from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConn
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
 from amsdal_glue_core.commands.planner.transaction_command_planner import TransactionCommandPlanner
 from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
@@ -75,12 +74,6 @@ def test_transaction() -> None:
                     data=[
                         Data(
                             data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                            metadata=Metadata(
-                                object_id='1',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         )
                     ],
                 ),
@@ -89,12 +82,6 @@ def test_transaction() -> None:
                     data=[
                         Data(
                             data={'id': '1', 'name': 'customer'},
-                            metadata=Metadata(
-                                object_id='1',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         )
                     ],
                 ),
@@ -148,12 +135,6 @@ def test_transaction_rollback() -> None:
                     data=[
                         Data(
                             data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                            metadata=Metadata(
-                                object_id='1',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         )
                     ],
                 ),
@@ -162,12 +143,6 @@ def test_transaction_rollback() -> None:
                     data=[
                         Data(
                             data={'id': '1', 'name': 'customer'},
-                            metadata=Metadata(
-                                object_id='1',
-                                object_version='1',
-                                created_at='2021-01-01T00:00:00Z',
-                                updated_at='2021-01-01T00:00:00Z',
-                            ),
                         )
                     ],
                 ),
