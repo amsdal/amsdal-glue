@@ -65,7 +65,10 @@ class FieldReference(Combinable):
     namespace: str = ''
 
     def __repr__(self) -> str:
-        return f'{self.table_name}.{self.field!r}'
+        return f'{self.namespace}.{self.table_name}.{self.field!r}'
+
+    def __hash__(self) -> int:
+        return hash(repr(self))
 
 
 @dataclass(kw_only=True)

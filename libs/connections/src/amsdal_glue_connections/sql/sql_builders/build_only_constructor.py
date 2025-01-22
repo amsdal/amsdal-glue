@@ -50,7 +50,7 @@ def build_field(
                 f'{_field_quote}{_field_stm}{_field_quote}'
             )
         else:
-            _field_stm = f'{_field_quote}{_field_stm}{_field_quote}'
+            _field_stm = f'{_field_stm}'
     else:
         _field_stm = nested_field_transform(
             field.table_name,
