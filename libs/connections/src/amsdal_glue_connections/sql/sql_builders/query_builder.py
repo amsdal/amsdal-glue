@@ -38,6 +38,7 @@ def build_sql_query(  # noqa: PLR0913
     operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
     math_operator_transform: MathOperatorTransform = default_math_operator_transform,
@@ -54,6 +55,7 @@ def build_sql_query(  # noqa: PLR0913
                                                    Defaults to default_operator_constructor.
         table_quote (str, optional): The quote character for table names. Defaults to ''.
         field_quote (str, optional): The quote character for field names. Defaults to ''.
+        value_placeholder_transform (Callable[[str, Any], str], optional): Transforms value placeholder based on value.
         value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
         nested_field_transform (Callable, optional): The function to transform nested fields.
                                                      Defaults to default_nested_field_transform.
@@ -126,6 +128,7 @@ def build_sql_query(  # noqa: PLR0913
         operator_constructor=operator_constructor,
         table_quote=table_quote,
         field_quote=field_quote,
+        value_placeholder_transform=value_placeholder_transform,
         value_transform=value_transform,
         nested_field_transform=nested_field_transform,
     )
@@ -137,6 +140,7 @@ def build_sql_query(  # noqa: PLR0913
         table_separator=table_separator,
         table_quote=table_quote,
         field_quote=field_quote,
+        value_placeholder_transform=value_placeholder_transform,
         value_transform=value_transform,
         nested_field_transform=nested_field_transform,
     )
@@ -344,6 +348,7 @@ def build_joins(  # noqa: PLR0913
     operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
@@ -361,6 +366,7 @@ def build_joins(  # noqa: PLR0913
             operator_constructor=operator_constructor,
             table_quote=table_quote,
             field_quote=field_quote,
+            value_placeholder_transform=value_placeholder_transform,
             value_transform=value_transform,
             nested_field_transform=nested_field_transform,
         )
@@ -374,6 +380,7 @@ def build_joins(  # noqa: PLR0913
                 operator_constructor=operator_constructor,
                 table_quote=table_quote,
                 field_quote=field_quote,
+                value_placeholder_transform=value_placeholder_transform,
                 value_transform=value_transform,
                 nested_field_transform=nested_field_transform,
             )
@@ -400,6 +407,7 @@ def build_conditions(  # noqa: PLR0913
     null_value: str = 'NULL',
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
@@ -418,6 +426,7 @@ def build_conditions(  # noqa: PLR0913
                 table_separator=table_separator,
                 table_quote=table_quote,
                 field_quote=field_quote,
+                value_placeholder_transform=value_placeholder_transform,
                 value_transform=value_transform,
                 nested_field_transform=nested_field_transform,
             )
@@ -452,6 +461,7 @@ def build_conditions(  # noqa: PLR0913
             null_value,
             table_quote,
             field_quote,
+            value_placeholder_transform,
             value_transform,
             nested_field_transform,
         )
@@ -473,6 +483,7 @@ def build_where(  # noqa: PLR0913
     null_value: str = 'NULL',
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
@@ -487,6 +498,7 @@ def build_where(  # noqa: PLR0913
         null_value=null_value,
         table_quote=table_quote,
         field_quote=field_quote,
+        value_placeholder_transform=value_placeholder_transform,
         value_transform=value_transform,
         nested_field_transform=nested_field_transform,
     )

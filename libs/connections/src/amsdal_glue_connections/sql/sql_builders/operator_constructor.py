@@ -22,6 +22,7 @@ class OperatorConstructor(Protocol):
         null_value: str = 'NULL',
         table_quote: str = '',
         field_quote: str = '',
+        value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
         value_transform: Callable[[Any], Any] = lambda x: x,
         nested_field_transform: NestedFieldTransform = default_nested_field_transform,
     ) -> tuple[str, list[Any]]: ...
@@ -36,6 +37,7 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     null_value: str = 'NULL',
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
@@ -51,6 +53,7 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
         null_value (str, optional): The representation of NULL values. Defaults to 'NULL'.
         table_quote (str, optional): The quote character for table names. Defaults to ''.
         field_quote (str, optional): The quote character for field names. Defaults to ''.
+        value_placeholder_transform (Callable[[str, str], str], optional): The value placeholder transform function.
         value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
         nested_field_transform (Callable, optional): The function to transform nested fields.
                                                      Defaults to default_nested_field_transform.
@@ -72,7 +75,12 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
             nested_field_transform=nested_field_transform,
         )
     elif isinstance(value, Value):
-        _value = value_placeholder
+        if lookup == FieldLookup.IN:
+            _value = [  # type: ignore[assignment]
+                value_placeholder_transform(value_placeholder, _value) for _value in value.value
+            ]
+        else:
+            _value = value_placeholder_transform(value_placeholder, value.value)
         is_value = True
     else:
         msg = f'Unsupported value type: {type(value)}'
@@ -115,9 +123,8 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
             if is_value:
                 values.append(value_transform(value.value))  # type: ignore[union-attr]
         case FieldLookup.IN:
-            _statement = 'IN (' + ','.join(['?'] * len(value.value)) + ')'  # type: ignore[union-attr]
-
             if is_value:
+                _statement = 'IN (' + ','.join(_item for _item in _value) + ')'  # type: ignore[union-attr]
                 if any(isinstance(val, bytes | bytearray) for val in value.value):  # type: ignore[union-attr]
                     raise BinaryValuesNotSupportedError
 
@@ -125,6 +132,8 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
                     value_transform(value)
                     for value in value.value  # type: ignore[union-attr]
                 ])
+            else:
+                _statement = f'IN {_value}'
         case FieldLookup.CONTAINS:
             _statement = f'GLOB {_value}'
 
@@ -187,6 +196,7 @@ def repr_operator_constructor(  # noqa: PLR0913, PLR0912, C901, PLR0915
     null_value: str = 'NULL',
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
@@ -206,7 +216,7 @@ def repr_operator_constructor(  # noqa: PLR0913, PLR0912, C901, PLR0915
         elif value.value is None:
             _value = null_value
         else:
-            _value = value_transform(value.value)
+            _value = value_placeholder_transform(value_transform(value.value), value.value)
     else:
         msg = f'Unsupported value type: {type(value)}'
         raise ValueError(msg)  # noqa: TRY004

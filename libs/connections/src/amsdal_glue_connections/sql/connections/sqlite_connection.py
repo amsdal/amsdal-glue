@@ -57,6 +57,12 @@ PRIMARY_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] PRIMARY KEY')
 FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
 
 
+def sqlite_value_placeholder_transform(placeholder: str, value: Any) -> str:
+    if isinstance(value, dict | list):
+        return f'json({placeholder})'
+    return placeholder
+
+
 def sqlite_value_json_transform(value: Any) -> Any:
     if isinstance(value, dict | list):
         return json.dumps(value)
@@ -226,6 +232,7 @@ class SqliteConnection(ConnectionBase):
             query,
             table_quote="'",
             field_quote="'",
+            value_placeholder_transform=sqlite_value_placeholder_transform,
             value_transform=sqlite_value_json_transform,
             nested_field_transform=sqlite_field_json_transform,
             math_operator_transform=sqlite_math_operator_transform,
@@ -307,6 +314,7 @@ class SqliteConnection(ConnectionBase):
             mutation,
             table_quote="'",
             field_quote="'",
+            value_placeholder_transform=sqlite_value_placeholder_transform,
             value_transform=sqlite_value_json_transform,
             nested_field_transform=sqlite_field_json_transform,
         )

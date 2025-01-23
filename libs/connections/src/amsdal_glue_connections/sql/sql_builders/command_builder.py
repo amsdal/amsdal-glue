@@ -20,6 +20,7 @@ def build_sql_data_command(  # noqa: PLR0913
     operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
@@ -34,6 +35,7 @@ def build_sql_data_command(  # noqa: PLR0913
                                                    Defaults to default_operator_constructor.
         table_quote (str, optional): The quote character for table names. Defaults to ''.
         field_quote (str, optional): The quote character for field names. Defaults to ''.
+        value_placeholder_transform (Callable[[str, Any], str], optional): The value placeholder transform.
         value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
         nested_field_transform (Callable, optional): The function to transform nested fields.
                                                      Defaults to default_nested_field_transform.
@@ -47,6 +49,7 @@ def build_sql_data_command(  # noqa: PLR0913
             value_placeholder,
             table_quote=table_quote,
             field_quote=field_quote,
+            value_placeholder_transform=value_placeholder_transform,
             value_transform=value_transform,
         )
 
@@ -58,6 +61,7 @@ def build_sql_data_command(  # noqa: PLR0913
             operator_constructor,
             table_quote=table_quote,
             field_quote=field_quote,
+            value_placeholder_transform=value_placeholder_transform,
             value_transform=value_transform,
             nested_field_transform=nested_field_transform,
         )
@@ -78,12 +82,13 @@ def build_sql_data_command(  # noqa: PLR0913
     raise NotImplementedError(msg)
 
 
-def _build_sql_insert_data(
+def _build_sql_insert_data(  # noqa: PLR0913
     command: InsertData,
     value_placeholder: str,
     table_separator: str = '.',
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
 ) -> tuple[str, list[Any]]:
     _namespace_prefix = (
@@ -98,14 +103,15 @@ def _build_sql_insert_data(
     values: list[Any] = []
 
     keys = sorted({key for data in command.data for key in data.data})
-    placeholders = [[value_placeholder] * len(keys)] * len(command.data)
 
-    if command.data:
-        stmt += ' ('
-        stmt += ', '.join(f'{field_quote}{key}{field_quote}' for key in keys)
-        stmt += ') VALUES '
-        stmt += ', '.join(f'({", ".join(row)})' for row in placeholders)
-        values.extend(value_transform(data.data.get(key)) for data in command.data for key in keys)
+    placeholders = [
+        [value_placeholder_transform(value_placeholder, data.data.get(key)) for key in keys] for data in command.data
+    ]
+    stmt += ' ('
+    stmt += ', '.join(f'{field_quote}{key}{field_quote}' for key in keys)
+    stmt += ') VALUES '
+    stmt += ', '.join(f'({", ".join(row)})' for row in placeholders)
+    values.extend(value_transform(data.data.get(key)) for data in command.data for key in keys)
 
     return stmt, values
 
@@ -117,6 +123,7 @@ def _build_sql_update_data(  # noqa: PLR0913
     operator_constructor: OperatorConstructor = default_operator_constructor,
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
@@ -133,13 +140,14 @@ def _build_sql_update_data(  # noqa: PLR0913
         raise ValueError(msg)
 
     values: list[Any] = []
-
     keys = sorted(set(command.data.data))
+    key_placeholders = [
+        (key, value_placeholder_transform(value_placeholder, command.data.data.get(key))) for key in keys
+    ]
 
-    if command.data:
-        stmt += ' SET '
-        stmt += ', '.join(f'{field_quote}{key}{field_quote} = {value_placeholder}' for key in keys)
-        values.extend(value_transform(command.data.data.get(key)) for key in keys)
+    stmt += ' SET '
+    stmt += ', '.join(f'{field_quote}{key}{field_quote} = {placeholder}' for key, placeholder in key_placeholders)
+    values.extend(value_transform(command.data.data.get(key)) for key in keys)
 
     if command.query:
         where, where_values = build_conditions(

@@ -19,6 +19,7 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     null_value: str = 'NULL',
     table_quote: str = '',
     field_quote: str = '',
+    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
 ) -> tuple[str, list[Any]]:
@@ -34,6 +35,7 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
         null_value (str, optional): The representation of NULL values. Defaults to 'NULL'.
         table_quote (str, optional): The quote character for table names. Defaults to ''.
         field_quote (str, optional): The quote character for field names. Defaults to ''.
+        value_placeholder_transform (Callable[[str, Any], str], optional): The transformation function for values.
         value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
         nested_field_transform (Callable, optional): The function to transform nested fields.
                                                      Defaults to default_nested_field_transform.
@@ -56,7 +58,13 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
             nested_field_transform=nested_field_transform,
         )
     elif isinstance(value, Value):
-        _value = value_placeholder
+        if lookup == FieldLookup.IN:
+            _value = [  # type: ignore[assignment]
+                value_placeholder_transform(value_placeholder, _value) for _value in value.value
+            ]
+        else:
+            _value = value_placeholder_transform(value_placeholder, value.value)
+
         is_value = True
         is_structure_type = (
             isinstance(value.value, dict | str)
