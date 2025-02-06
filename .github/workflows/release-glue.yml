@@ -18,10 +18,10 @@ jobs:
       DEPS: yes
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -33,7 +33,7 @@ jobs:
         run: cd libs/amsdal-glue && hatch build
 
       - name: Store the distribution packages
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
           path: libs/amsdal-glue/dist/
@@ -52,12 +52,12 @@ jobs:
       PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     steps:
       - name: Set up python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Download all the dists
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: libs/amsdal-glue/dist/
