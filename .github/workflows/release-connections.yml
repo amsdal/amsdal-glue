@@ -33,7 +33,7 @@ jobs:
         run: cd libs/connections && hatch build
 
       - name: Store the distribution packages
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
           path: libs/connections/dist/
