@@ -1442,8 +1442,25 @@ class AsyncPostgresConnection(AsyncConnectionBase):
         Returns:
             Any: The result of the lock acquisition.
         """
-        if lock.mode == 'EXCLUSIVE':
-            await self.execute('BEGIN EXCLUSIVE')
+        if lock.locked_object.query:
+            locked_object = lock.locked_object
+            where, values = build_where(
+                locked_object.query,
+                operator_constructor=pg_operator_constructor,
+                value_transform=pg_value_json_transform,
+                nested_field_transform=pg_field_json_transform,
+                value_placeholder='%s',
+                table_quote='"',
+                field_quote='"',
+            )
+            _query = f'SELECT * FROM {self._table_name_from_schema_reference(locked_object.schema)}'  # noqa: S608
+
+            if where:
+                _query += f' WHERE {where}'
+
+            _query += ' FOR UPDATE'
+
+            await self.execute(_query, *values)
 
         return True
 
@@ -1458,6 +1475,7 @@ class AsyncPostgresConnection(AsyncConnectionBase):
             Any: The result of the lock release.
         """
         if lock.mode == 'EXCLUSIVE':
+            return True
             await self.execute('COMMIT')
 
         return True
@@ -1632,9 +1650,13 @@ class AsyncPostgresConnection(AsyncConnectionBase):
             _index_stmt = self._build_index(schema.name, schema.namespace, _index)
             await self.execute(_index_stmt)
 
-    async def _drop_table(self, schema_reference: SchemaReference) -> None:
+    def _table_name_from_schema_reference(self, schema_reference: SchemaReference) -> str:
         _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-        stmt = f'DROP TABLE {_namespace_prefix}"{schema_reference.name}"'
+
+        return f'{_namespace_prefix}"{schema_reference.name}"'
+
+    async def _drop_table(self, schema_reference: SchemaReference) -> None:
+        stmt = f'DROP TABLE {self._table_name_from_schema_reference(schema_reference)}'
         await self.execute(stmt)
 
     async def _rename_table(self, schema_reference: SchemaReference, new_schema_name: str) -> None:

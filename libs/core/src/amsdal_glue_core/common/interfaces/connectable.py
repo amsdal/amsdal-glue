@@ -8,10 +8,10 @@ class Connectable(ABC):
     def connect(self, *args: Any, **kwargs: Any) -> None:
         """
         Connects to the database.
-        :param kwargs: the connection parameters
-        :type kwargs: Any
+        param kwargs: the connection parameters
+        type kwargs: Any
 
-        :return: None
+        return: None
         """
         ...
 
@@ -20,7 +20,7 @@ class Connectable(ABC):
         """
         Disconnects from the database.
 
-        :return: None
+        return: None
         """
         ...
 
@@ -30,8 +30,8 @@ class Connectable(ABC):
         """
         Checks if the connection is established.
 
-        :return: True if connected, False otherwise
-        :rtype: bool
+        return: True if connected, False otherwise
+        rtype: bool
         """
         ...
 
@@ -41,8 +41,8 @@ class Connectable(ABC):
         """
         Checks if the connection is alive.
 
-        :return: True if alive, False otherwise
-        :rtype: bool
+        return: True if alive, False otherwise
+        rtype: bool
         """
         ...
 
@@ -52,10 +52,10 @@ class AsyncConnectable(ABC):
     async def connect(self, *args: Any, **kwargs: Any) -> None:
         """
         Connects to the database.
-        :param kwargs: the connection parameters
-        :type kwargs: Any
+        param kwargs: the connection parameters
+        type kwargs: Any
 
-        :return: None
+        return: None
         """
         ...
 
@@ -64,7 +64,7 @@ class AsyncConnectable(ABC):
         """
         Disconnects from the database.
 
-        :return: None
+        return: None
         """
         ...
 
@@ -74,8 +74,8 @@ class AsyncConnectable(ABC):
         """
         Checks if the connection is established.
 
-        :return: True if connected, False otherwise
-        :rtype: bool
+        return: True if connected, False otherwise
+        rtype: bool
         """
         ...
 
@@ -85,7 +85,7 @@ class AsyncConnectable(ABC):
         """
         Checks if the connection is alive.
 
-        :return: True if alive, False otherwise
-        :rtype: bool
+        return: True if alive, False otherwise
+        rtype: bool
         """
         ...
