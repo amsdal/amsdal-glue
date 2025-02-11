@@ -43,6 +43,7 @@ def build_sql_query(  # noqa: PLR0913
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
     math_operator_transform: MathOperatorTransform = default_math_operator_transform,
     build_only: BuildOnlyConstructor = default_build_only,
+    use_expressions_in_conditions: bool = False,
 ) -> tuple[str, list[Any]]:
     """
     Builds an SQL query for the given query statement.
@@ -61,6 +62,8 @@ def build_sql_query(  # noqa: PLR0913
                                                      Defaults to default_nested_field_transform.
         math_operator_transform (Callable, optional): The function to transform math operators.
         build_only (Callable, optional): The function to build fields for the SELECT statement.
+        use_expressions_in_conditions (bool, optional): Whether to replace values that are field reference with
+                                                        annotation expressions in the conditions. Defaults to False.
 
     Returns:
         tuple[str, list[Any]]: The SQL query and the list of values.
@@ -90,6 +93,23 @@ def build_sql_query(  # noqa: PLR0913
     ]
 
     # Annotations
+    if use_expressions_in_conditions:
+        expressions = {
+            _annotation.value.alias: build_expression(
+                _annotation.value.expression,
+                value_placeholder=value_placeholder,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+                nested_field_transform=nested_field_transform,
+                math_operator_transform=math_operator_transform,
+            )
+            for _annotation in (query.annotations or [])
+            if isinstance(_annotation.value, ExpressionAnnotation)
+        }
+    else:
+        expressions = None
+
     _annotations, _values = build_annotations(
         query.annotations,
         value_placeholder=value_placeholder,
@@ -117,6 +137,7 @@ def build_sql_query(  # noqa: PLR0913
         field_quote=field_quote,
         value_transform=value_transform,
         nested_field_transform=nested_field_transform,
+        use_expressions_in_conditions=use_expressions_in_conditions,
     )
     values.extend(_values)
 
@@ -131,6 +152,8 @@ def build_sql_query(  # noqa: PLR0913
         value_placeholder_transform=value_placeholder_transform,
         value_transform=value_transform,
         nested_field_transform=nested_field_transform,
+        expressions=expressions,
+        use_expressions_in_conditions=use_expressions_in_conditions,
     )
     values.extend(_values)
     _where, _values = build_where(
@@ -143,6 +166,7 @@ def build_sql_query(  # noqa: PLR0913
         value_placeholder_transform=value_placeholder_transform,
         value_transform=value_transform,
         nested_field_transform=nested_field_transform,
+        expressions=expressions,
     )
 
     if _where:
@@ -319,6 +343,7 @@ def build_from(  # noqa: PLR0913
     field_quote: str = '',
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    use_expressions_in_conditions: bool = False,
 ) -> tuple[str, list[Any]]:
     if isinstance(table, SubQueryStatement):
         _query, _values = build_sql_query(
@@ -330,6 +355,7 @@ def build_from(  # noqa: PLR0913
             field_quote=field_quote,
             value_transform=value_transform,
             nested_field_transform=nested_field_transform,
+            use_expressions_in_conditions=use_expressions_in_conditions,
         )
         return f'({_query}) AS {table_quote}{table.alias}{table_quote}', _values
 
@@ -351,6 +377,8 @@ def build_joins(  # noqa: PLR0913
     value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    expressions: dict[str, tuple[str, list[Any]]] | None = None,
+    use_expressions_in_conditions: bool = False,
 ) -> tuple[str, list[Any]]:
     if not joins:
         return '', []
@@ -369,6 +397,7 @@ def build_joins(  # noqa: PLR0913
             value_placeholder_transform=value_placeholder_transform,
             value_transform=value_transform,
             nested_field_transform=nested_field_transform,
+            expressions=expressions,
         )
         values.extend(_values)
 
@@ -383,6 +412,7 @@ def build_joins(  # noqa: PLR0913
                 value_placeholder_transform=value_placeholder_transform,
                 value_transform=value_transform,
                 nested_field_transform=nested_field_transform,
+                use_expressions_in_conditions=use_expressions_in_conditions,
             )
             _table = f'({_query}) AS {table_quote}{join.table.alias}{table_quote}'
             values.extend(_values)
@@ -410,6 +440,7 @@ def build_conditions(  # noqa: PLR0913
     value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    expressions: dict[str, tuple[str, list[Any]]] | None = None,
 ) -> tuple[str, list[Any]]:
     items = []
     values = []
@@ -429,6 +460,7 @@ def build_conditions(  # noqa: PLR0913
                 value_placeholder_transform=value_placeholder_transform,
                 value_transform=value_transform,
                 nested_field_transform=nested_field_transform,
+                expressions=expressions,
             )
             _stmt = f'({_condition})'
 
@@ -464,6 +496,7 @@ def build_conditions(  # noqa: PLR0913
             value_placeholder_transform,
             value_transform,
             nested_field_transform,
+            expressions,
         )
 
         if condition.negate:
@@ -486,6 +519,7 @@ def build_where(  # noqa: PLR0913
     value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    expressions: dict[str, tuple[str, list[Any]]] | None = None,
 ) -> tuple[str, list[Any]]:
     if not where:
         return '', []
@@ -501,6 +535,7 @@ def build_where(  # noqa: PLR0913
         value_placeholder_transform=value_placeholder_transform,
         value_transform=value_transform,
         nested_field_transform=nested_field_transform,
+        expressions=expressions,
     )
 
 

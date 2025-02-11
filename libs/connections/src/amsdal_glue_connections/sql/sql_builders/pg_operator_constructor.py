@@ -22,6 +22,7 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    expressions: dict[str, tuple[str, Any]] | None = None,
 ) -> tuple[str, list[Any]]:
     """
     Constructs an SQL operator for the given field and lookup for PostgreSQL.
@@ -39,6 +40,8 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
         value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
         nested_field_transform (Callable, optional): The function to transform nested fields.
                                                      Defaults to default_nested_field_transform.
+        expressions (dict[str, tuple[str, list[Any]]] | None): The dict of expressions to replace as value in case of
+                                                         referencing to annotation.
 
     Returns:
         tuple[str, list[Any]]: The SQL operator and the list of values.
@@ -50,18 +53,20 @@ def pg_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     is_structure_type = False
 
     if isinstance(value, FieldReference):
-        _value = build_field(
-            value,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        )
+        if expressions and value.field.name in expressions:
+            _value, _values = expressions[value.field.name]
+            values.extend(_values)
+        else:
+            _value = build_field(
+                value,
+                table_separator=table_separator,
+                table_quote=table_quote,
+                field_quote=field_quote,
+                nested_field_transform=nested_field_transform,
+            )
     elif isinstance(value, Value):
         if lookup == FieldLookup.IN:
-            _value = [  # type: ignore[assignment]
-                value_placeholder_transform(value_placeholder, _value) for _value in value.value
-            ]
+            _value = value_placeholder
         else:
             _value = value_placeholder_transform(value_placeholder, value.value)
 

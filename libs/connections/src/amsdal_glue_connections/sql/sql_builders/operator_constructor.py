@@ -25,6 +25,7 @@ class OperatorConstructor(Protocol):
         value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
         value_transform: Callable[[Any], Any] = lambda x: x,
         nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+        expressions: dict[str, tuple[str, list[Any]]] | None = None,
     ) -> tuple[str, list[Any]]: ...
 
 
@@ -40,6 +41,7 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
     value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    expressions: dict[str, tuple[str, list[Any]]] | None = None,  # noqa: ARG001
 ) -> tuple[str, list[Any]]:
     """
     Constructs an SQL operator for the given field and lookup.
@@ -57,6 +59,8 @@ def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
         value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
         nested_field_transform (Callable, optional): The function to transform nested fields.
                                                      Defaults to default_nested_field_transform.
+        expressions (dict[str, tuple[str, Any]] | None): The dict of expressions to replace as value in case of
+                                                         referencing to annotation.
 
     Returns:
         tuple[str, list[Any]]: The SQL operator and the list of values.
@@ -199,6 +203,7 @@ def repr_operator_constructor(  # noqa: PLR0913, PLR0912, C901, PLR0915
     value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
     value_transform: Callable[[Any], Any] = lambda x: x,
     nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    expressions: dict[str, tuple[str, list[Any]]] | None = None,  # noqa: ARG001
 ) -> tuple[str, list[Any]]:
     from amsdal_glue_connections.sql.sql_builders.query_builder import build_field
 

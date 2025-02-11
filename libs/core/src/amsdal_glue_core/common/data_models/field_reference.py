@@ -70,6 +70,12 @@ class FieldReference(Combinable):
     def __hash__(self) -> int:
         return hash(repr(self))
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, FieldReference):
+            return False
+
+        return self.namespace == other.namespace and self.table_name == other.table_name and self.field == other.field
+
 
 @dataclass(kw_only=True)
 class FieldReferenceAliased(FieldReference):

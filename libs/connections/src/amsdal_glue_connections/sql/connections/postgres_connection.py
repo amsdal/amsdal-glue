@@ -46,7 +46,7 @@ from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
-from amsdal_glue_connections.sql.sql_builders.pg_operator_cosntructor import pg_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.pg_operator_constructor import pg_operator_constructor
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
@@ -260,6 +260,7 @@ class PostgresConnection(ConnectionBase):
             table_quote='"',
             field_quote='"',
             build_only=pg_build_only,
+            use_expressions_in_conditions=True,
         )
 
         try:
@@ -858,7 +859,7 @@ class PostgresConnection(ConnectionBase):
             return (
                 f'CONSTRAINT "{constraint.name}" '
                 f'FOREIGN KEY ({", ".join(constraint.fields)}) '
-                f'REFERENCES {constraint.reference_schema.name} ({", ".join(constraint.reference_fields)})'
+                f'REFERENCES "{constraint.reference_schema.name}" ({", ".join(constraint.reference_fields)})'
             )
         if isinstance(constraint, UniqueConstraint):
             return f'CONSTRAINT {constraint.name} UNIQUE ({", ".join(constraint.fields)})'
