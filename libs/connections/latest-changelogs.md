@@ -1,5 +1,5 @@
-## [v0.0.19](https://pypi.org/project/amsdal-glue-connections/0.0.19/) - 2024-12-18
+## [v0.0.21](https://pypi.org/project/amsdal-glue-connections/0.0.21/) - 2024-02-13
 
 ### Fixes
 
-- Postgres is_alive check.
+- Disable locking in SQLite connection.
