@@ -3,6 +3,7 @@ import logging
 import re
 import sqlite3
 import uuid
+from contextlib import suppress
 from copy import copy
 from datetime import date
 from datetime import datetime
@@ -10,6 +11,14 @@ from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.cast import sqlite_cast_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.func_transform import func_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.nested_field import sqlite_nested_field_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.type_transform import sqlite_value_type_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_placeholder import sqlite_value_placeholder_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_transform import sqlite_value_transform
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -27,6 +36,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -57,50 +67,6 @@ PRIMARY_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] PRIMARY KEY')
 FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
 
 
-def sqlite_value_placeholder_transform(placeholder: str, value: Any) -> str:
-    if isinstance(value, dict | list):
-        return f'json({placeholder})'
-    return placeholder
-
-
-def sqlite_value_json_transform(value: Any) -> Any:
-    if isinstance(value, dict | list):
-        return json.dumps(value)
-
-    return value
-
-
-def sqlite_field_json_transform(  # noqa: PLR0913
-    table_alias: str,
-    namespace: str,  # noqa: ARG001
-    field: str,
-    fields: list[str],
-    value_type: Any = str,
-    table_separator: str = '.',
-    table_quote: str = "'",
-    field_quote: str = "'",
-) -> str:
-    nested_fields_selection = '.'.join([
-        '$',
-        *fields,
-    ])
-
-    if value_type in (int, bool):
-        _cast_type = 'integer'
-    elif value_type is float:
-        _cast_type = 'real'
-    else:
-        _cast_type = 'text'
-
-    _table_reference = f'{table_quote}{table_alias}{table_quote}{table_separator}' if table_alias else ''
-    _stmt = f"cast(json_extract({_table_reference}{field_quote}{field}{field_quote}, '{nested_fields_selection}')"
-
-    if _cast_type:
-        _stmt += f' as {_cast_type})'
-
-    return _stmt
-
-
 class JsonTypeMeta(type):
     def __eq__(cls, other: object) -> bool:
         return other in (list, dict)
@@ -109,7 +75,141 @@ class JsonTypeMeta(type):
 class JsonType(dict, metaclass=JsonTypeMeta): ...  # type: ignore[misc]
 
 
-class SqliteConnection(ConnectionBase):
+_sqlite_transform = None
+def get_sqlite_transform() -> Transform:
+    global _sqlite_transform
+
+    if not _sqlite_transform:
+        _sqlite_transform = Transform()
+        _sqlite_transform.register(TransformTypes.CAST, sqlite_cast_transform)
+        _sqlite_transform.register(TransformTypes.VALUE_PLACEHOLDER, sqlite_value_placeholder_transform)
+        _sqlite_transform.register(TransformTypes.VALUE, sqlite_value_transform)
+        _sqlite_transform.register(TransformTypes.NESTED_FIELD, sqlite_nested_field_transform)
+        _sqlite_transform.register(TransformTypes.MATH_OPERATOR, sqlite_math_operator_transform)
+        _sqlite_transform.register(TransformTypes.FUNC, func_transform)
+    return _sqlite_transform
+
+
+class SqliteConnectionMixin:
+    def __init__(self) -> None:
+        self._queries: list[str] = []
+
+    @staticmethod
+    def build_data(data: dict[str, Any]) -> Data:
+        """
+        Builds a Data object from a dictionary.
+
+        Args:
+            data (dict[str, Any]): The data dictionary.
+
+        Returns:
+            Data: The Data object.
+        """
+        for key, value in data.items():
+            if isinstance(value, str) and (
+                (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']'))
+            ):
+                data[key] = json.loads(value)
+
+        return Data(data=data)
+
+    @staticmethod
+    def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
+        for constraint in constraints:
+            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
+                continue
+
+            if index_fields == constraint.fields:
+                return True
+        return False
+
+    @staticmethod
+    def to_sql_type(  # noqa: C901, PLR0911
+        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+    ) -> str:
+        with suppress(ValueError):
+            return sqlite_value_type_transform(property_type)
+
+        if isinstance(property_type, Schema | SchemaReference):
+            return 'TEXT'
+        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
+            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
+            return 'JSON'
+
+        msg = f'Unsupported type: {property_type}'
+        raise ValueError(msg)
+
+    def _get_unique_constrains(self, table_sql: str) -> list[UniqueConstraint]:
+        unique_constraints = []
+
+        for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_sql):
+            fields = FIELDS_RE.findall(field_names)
+            unique_constraints.append(
+                UniqueConstraint(
+                    name=constraint_name,
+                    fields=fields,
+                    condition=None,
+                )
+            )
+
+        return unique_constraints
+
+    def _get_pk_name(self, table_sql: str) -> str:
+        for constraint_name in PRIMARY_KEY_RE.findall(table_sql):
+            return constraint_name
+
+        return ''
+
+    def to_python_type(self, sql_type: str) -> type[Any]:  # noqa: PLR0911
+        sql_type = sql_type.upper()
+
+        if sql_type == 'TEXT' or sql_type.startswith('VARCHAR'):
+            return str
+        if sql_type in ('INTEGER', 'INT'):
+            return int
+        if sql_type == 'REAL':
+            return float
+        if sql_type == 'BOOLEAN':
+            return bool
+        if sql_type in ('JSON', 'JSONB'):
+            return JsonType
+        if sql_type == 'BLOB':
+            return bytes
+        if sql_type == 'TIMESTAMP':
+            return datetime
+        if sql_type == 'DATE':
+            return date
+
+        msg = f'Unsupported type: {sql_type}'
+        raise ValueError(msg)
+
+    def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
+        items: list[Conditions | Condition] = []
+
+        for _child in conditions.children:
+            if isinstance(_child, Conditions):
+                items.append(self._replace_table_name(_child, replace_name))
+            elif isinstance(_child.left, FieldReferenceExpression) and _child.left.field_reference.table_name == SCHEMA_REGISTRY_TABLE:
+                _copy = copy(_child)
+                _copy.left.field_reference.table_name = replace_name
+                items.append(_copy)
+            else:
+                items.append(_child)
+
+        return Conditions(*items, connector=conditions.connector, negated=conditions.negated)
+
+    @property
+    def queries(self) -> list[str]:
+        """
+        Returns the queries executed on this connection.
+
+        Returns:
+            list[str]: The queries executed.
+        """
+        return self._queries
+
+
+class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
     """
     SqliteConnection is responsible for managing connections and executing queries and commands on a SQLite database.
 
@@ -138,7 +238,7 @@ class SqliteConnection(ConnectionBase):
 
     def __init__(self) -> None:
         self._connection: sqlite3.Connection | None = None
-        self._queries: list[str] = []
+        super().__init__()
 
     @property
     def is_connected(self) -> bool:
@@ -230,12 +330,7 @@ class SqliteConnection(ConnectionBase):
         """
         _stmt, _params = build_sql_query(
             query,
-            table_quote="'",
-            field_quote="'",
-            value_placeholder_transform=sqlite_value_placeholder_transform,
-            value_transform=sqlite_value_json_transform,
-            nested_field_transform=sqlite_field_json_transform,
-            math_operator_transform=sqlite_math_operator_transform,
+            transform=get_sqlite_transform(),
         )
 
         try:
@@ -272,7 +367,7 @@ class SqliteConnection(ConnectionBase):
 
         if filters and filters.children:
             _filters = self._replace_table_name(filters, 'sqlite_master')
-            where, values = build_where(_filters)
+            where, values = build_where(_filters, transform=get_sqlite_transform())
             stmt += f' AND {where}'
         else:
             values = []
@@ -312,11 +407,7 @@ class SqliteConnection(ConnectionBase):
     def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
         _stmt, _params = build_sql_data_command(
             mutation,
-            table_quote="'",
-            field_quote="'",
-            value_placeholder_transform=sqlite_value_placeholder_transform,
-            value_transform=sqlite_value_json_transform,
-            nested_field_transform=sqlite_field_json_transform,
+            transform=get_sqlite_transform(),
         )
 
         try:
@@ -346,25 +437,6 @@ class SqliteConnection(ConnectionBase):
 
         return result
 
-    @staticmethod
-    def build_data(data: dict[str, Any]) -> Data:
-        """
-        Builds a Data object from a dictionary.
-
-        Args:
-            data (dict[str, Any]): The data dictionary.
-
-        Returns:
-            Data: The Data object.
-        """
-        for key, value in data.items():
-            if isinstance(value, str) and (
-                (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']'))
-            ):
-                data[key] = json.loads(value)
-
-        return Data(data=data)
-
     def execute(self, query: str, *args: Any) -> sqlite3.Cursor:
         """
         Executes a query on the SQLite database.
@@ -392,27 +464,6 @@ class SqliteConnection(ConnectionBase):
             raise ConnectionError(msg) from exc
 
         return cursor
-
-    def _get_unique_constrains(self, table_sql: str) -> list[UniqueConstraint]:
-        unique_constraints = []
-
-        for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_sql):
-            fields = FIELDS_RE.findall(field_names)
-            unique_constraints.append(
-                UniqueConstraint(
-                    name=constraint_name,
-                    fields=fields,
-                    condition=None,
-                )
-            )
-
-        return unique_constraints
-
-    def _get_pk_name(self, table_sql: str) -> str:
-        for constraint_name in PRIMARY_KEY_RE.findall(table_sql):
-            return constraint_name
-
-        return ''
 
     def get_table_info(
         self,
@@ -516,16 +567,6 @@ class SqliteConnection(ConnectionBase):
                     )
 
         return properties, constraints, indexes
-
-    @staticmethod
-    def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
-        for constraint in constraints:
-            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
-                continue
-
-            if index_fields == constraint.fields:
-                return True
-        return False
 
     def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
         """
@@ -653,86 +694,11 @@ class SqliteConnection(ConnectionBase):
 
         return None
 
-    @staticmethod
-    def to_sql_type(  # noqa: C901, PLR0911
-        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
-    ) -> str:
-        if property_type is str:
-            return 'TEXT'
-        if property_type is int:
-            return 'INTEGER'
-        if property_type is float:
-            return 'REAL'
-        if property_type is bool:
-            return 'BOOLEAN'
-        if property_type in (dict, list):
-            return 'JSON'
-        if property_type in (bytes, bytearray):
-            return 'BLOB'
-        if isinstance(property_type, Schema | SchemaReference):
-            return 'TEXT'
-        if property_type == datetime:
-            return 'TIMESTAMP'
-        if property_type == date:
-            return 'DATE'
-        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
-            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
-            return 'JSON'
 
-        msg = f'Unsupported type: {property_type}'
-        raise ValueError(msg)
-
-    def to_python_type(self, sql_type: str) -> type[Any]:  # noqa: PLR0911
-        sql_type = sql_type.upper()
-
-        if sql_type == 'TEXT' or sql_type.startswith('VARCHAR'):
-            return str
-        if sql_type in ('INTEGER', 'INT'):
-            return int
-        if sql_type == 'REAL':
-            return float
-        if sql_type == 'BOOLEAN':
-            return bool
-        if sql_type == 'JSON':
-            return JsonType
-        if sql_type == 'BLOB':
-            return bytes
-        if sql_type == 'TIMESTAMP':
-            return datetime
-        if sql_type == 'DATE':
-            return date
-
-        msg = f'Unsupported type: {sql_type}'
-        raise ValueError(msg)
-
-    def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
-        _childs: list[Conditions | Condition] = []
-
-        for _child in conditions.children:
-            if isinstance(_child, Conditions):
-                _childs.append(self._replace_table_name(_child, replace_name))
-            elif _child.field.table_name == SCHEMA_REGISTRY_TABLE:
-                _copy = copy(_child)
-                _copy.field.table_name = replace_name
-                _childs.append(_copy)
-
-        return Conditions(*_childs, connector=conditions.connector, negated=conditions.negated)
-
-    @property
-    def queries(self) -> list[str]:
-        """
-        Returns the queries executed on this connection.
-
-        Returns:
-            list[str]: The queries executed.
-        """
-        return self._queries
-
-
-class AsyncSqliteConnection(AsyncConnectionBase):
+class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
     def __init__(self) -> None:
         self._connection: aiosqlite.Connection | None = None
-        self._queries: list[str] = []
+        super().__init__()
 
     @property
     async def is_connected(self) -> bool:
@@ -842,11 +808,7 @@ class AsyncSqliteConnection(AsyncConnectionBase):
         """
         _stmt, _params = build_sql_query(
             query,
-            table_quote='`',
-            field_quote='`',
-            value_transform=sqlite_value_json_transform,
-            nested_field_transform=sqlite_field_json_transform,
-            math_operator_transform=sqlite_math_operator_transform,
+            transform=get_sqlite_transform(),
         )
 
         try:
@@ -883,7 +845,7 @@ class AsyncSqliteConnection(AsyncConnectionBase):
 
         if filters and filters.children:
             _filters = self._replace_table_name(filters, 'sqlite_master')
-            where, values = build_where(_filters)
+            where, values = build_where(_filters, transform=get_sqlite_transform())
             stmt += f' AND {where}'
         else:
             values = []
@@ -923,10 +885,7 @@ class AsyncSqliteConnection(AsyncConnectionBase):
     async def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
         _stmt, _params = build_sql_data_command(
             mutation,
-            table_quote='`',
-            field_quote='`',
-            value_transform=sqlite_value_json_transform,
-            nested_field_transform=sqlite_field_json_transform,
+            transform=get_sqlite_transform(),
         )
 
         try:
@@ -955,25 +914,6 @@ class AsyncSqliteConnection(AsyncConnectionBase):
             result.append(data)
 
         return result
-
-    @staticmethod
-    def build_data(data: dict[str, Any]) -> Data:
-        """
-        Builds a Data object from a dictionary.
-
-        Args:
-            data (dict[str, Any]): The data dictionary.
-
-        Returns:
-            Data: The Data object.
-        """
-        for key, value in data.items():
-            if isinstance(value, str) and (
-                (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']'))
-            ):
-                data[key] = json.loads(value)
-
-        return Data(data=data)
 
     async def execute(self, query: str, *args: Any) -> 'aiosqlite.Cursor':
         """
@@ -1011,27 +951,6 @@ class AsyncSqliteConnection(AsyncConnectionBase):
             raise ConnectionError(msg) from exc
 
         return cursor
-
-    def _get_unique_constrains(self, table_sql: str) -> list[UniqueConstraint]:
-        unique_constraints = []
-
-        for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_sql):
-            fields = FIELDS_RE.findall(field_names)
-            unique_constraints.append(
-                UniqueConstraint(
-                    name=constraint_name,
-                    fields=fields,
-                    condition=None,
-                )
-            )
-
-        return unique_constraints
-
-    def _get_pk_name(self, table_sql: str) -> str:
-        for constraint_name in PRIMARY_KEY_RE.findall(table_sql):
-            return constraint_name
-
-        return ''
 
     async def get_table_info(
         self,
@@ -1138,16 +1057,6 @@ class AsyncSqliteConnection(AsyncConnectionBase):
                     )
 
         return properties, constraints, indexes
-
-    @staticmethod
-    def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
-        for constraint in constraints:
-            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
-                continue
-
-            if index_fields == constraint.fields:
-                return True
-        return False
 
     async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
         """
@@ -1275,77 +1184,3 @@ class AsyncSqliteConnection(AsyncConnectionBase):
 
         return None
 
-    @staticmethod
-    def to_sql_type(  # noqa: C901, PLR0911
-        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
-    ) -> str:
-        if property_type is str:
-            return 'TEXT'
-        if property_type is int:
-            return 'INTEGER'
-        if property_type is float:
-            return 'REAL'
-        if property_type is bool:
-            return 'BOOLEAN'
-        if property_type in (dict, list):
-            return 'JSON'
-        if property_type in (bytes, bytearray):
-            return 'BLOB'
-        if isinstance(property_type, Schema | SchemaReference):
-            return 'TEXT'
-        if property_type == datetime:
-            return 'TIMESTAMP'
-        if property_type == date:
-            return 'DATE'
-        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
-            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
-            return 'JSON'
-
-        msg = f'Unsupported type: {property_type}'
-        raise ValueError(msg)
-
-    def to_python_type(self, sql_type: str) -> type[Any]:  # noqa: PLR0911
-        sql_type = sql_type.upper()
-
-        if sql_type == 'TEXT' or sql_type.startswith('VARCHAR'):
-            return str
-        if sql_type in ('INTEGER', 'INT'):
-            return int
-        if sql_type == 'REAL':
-            return float
-        if sql_type == 'BOOLEAN':
-            return bool
-        if sql_type == 'JSON':
-            return JsonType
-        if sql_type == 'BLOB':
-            return bytes
-        if sql_type == 'TIMESTAMP':
-            return datetime
-        if sql_type == 'DATE':
-            return date
-
-        msg = f'Unsupported type: {sql_type}'
-        raise ValueError(msg)
-
-    def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
-        _childs: list[Conditions | Condition] = []
-
-        for _child in conditions.children:
-            if isinstance(_child, Conditions):
-                _childs.append(self._replace_table_name(_child, replace_name))
-            elif _child.field.table_name == SCHEMA_REGISTRY_TABLE:
-                _copy = copy(_child)
-                _copy.field.table_name = replace_name
-                _childs.append(_copy)
-
-        return Conditions(*_childs, connector=conditions.connector, negated=conditions.negated)
-
-    @property
-    def queries(self) -> list[str]:
-        """
-        Returns the queries executed on this connection.
-
-        Returns:
-            list[str]: The queries executed.
-        """
-        return self._queries

@@ -1,272 +1,181 @@
-from collections.abc import Callable
 from typing import Any
 from typing import Protocol
 
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_connections.sql.sql_builders.build_expression import build_expression
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.value import Value
 
 from amsdal_glue_connections.sql.sql_builders.exceptions import BinaryValuesNotSupportedError
-from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
-from amsdal_glue_connections.sql.sql_builders.nested_field_transform import NestedFieldTransform
 
 
 class OperatorConstructor(Protocol):
     def __call__(  # noqa: PLR0913
         self,
-        field: str,
+        left: Expression,
         lookup: FieldLookup,
-        value: FieldReference | Value,
-        value_placeholder: str,
-        table_separator: str,
-        null_value: str = 'NULL',
-        table_quote: str = '',
-        field_quote: str = '',
-        value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
-        value_transform: Callable[[Any], Any] = lambda x: x,
-        nested_field_transform: NestedFieldTransform = default_nested_field_transform,
-        expressions: dict[str, tuple[str, list[Any]]] | None = None,
+        right: Expression,
+        transform: Transform,
     ) -> tuple[str, list[Any]]: ...
 
 
 def default_operator_constructor(  # noqa: C901, PLR0915, PLR0912, PLR0913
-    field: str,
+    left: Expression,
     lookup: FieldLookup,
-    value: FieldReference | Value,
-    value_placeholder: str,
-    table_separator: str,
-    null_value: str = 'NULL',
-    table_quote: str = '',
-    field_quote: str = '',
-    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
-    value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
-    expressions: dict[str, tuple[str, list[Any]]] | None = None,  # noqa: ARG001
+    right: Expression,
+    transform: Transform,
 ) -> tuple[str, list[Any]]:
     """
     Constructs an SQL operator for the given field and lookup.
 
     Args:
-        field (str): The field name.
+        left (Expression): The left expression.
         lookup (FieldLookup): The lookup type.
-        value (FieldReference | Value): The value or field reference.
-        value_placeholder (str): The placeholder for values in the SQL command.
-        table_separator (str): The separator for table names.
-        null_value (str, optional): The representation of NULL values. Defaults to 'NULL'.
-        table_quote (str, optional): The quote character for table names. Defaults to ''.
-        field_quote (str, optional): The quote character for field names. Defaults to ''.
-        value_placeholder_transform (Callable[[str, str], str], optional): The value placeholder transform function.
-        value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
-        nested_field_transform (Callable, optional): The function to transform nested fields.
-                                                     Defaults to default_nested_field_transform.
-        expressions (dict[str, tuple[str, Any]] | None): The dict of expressions to replace as value in case of
-                                                         referencing to annotation.
+        right (Expression): The right expression.
+        transform (Transform): The transform SQL to database specific.
 
     Returns:
         tuple[str, list[Any]]: The SQL operator and the list of values.
     """
-    from amsdal_glue_connections.sql.sql_builders.query_builder import build_field
+    value_transform = transform.resolve(TransformTypes.VALUE)
+    left_stmt, left_values = build_expression(left, transform)
 
-    values = []
-    is_value: bool = False
+    if isinstance(right, Value) and lookup == FieldLookup.IN:
+        if not isinstance(right.value, list | tuple | set):
+            msg = f'Unsupported value type "{type(right.value)}" for lookup "{lookup}". Must be list, tuple or set.'
+            raise ValueError(msg)
 
-    if isinstance(value, FieldReference):
-        _value = build_field(
-            value,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        )
-    elif isinstance(value, Value):
-        if lookup == FieldLookup.IN:
-            _value = [  # type: ignore[assignment]
-                value_placeholder_transform(value_placeholder, _value) for _value in value.value
-            ]
-        else:
-            _value = value_placeholder_transform(value_placeholder, value.value)
-        is_value = True
+        _stmts, _values = [], []
+        for value in right.value:
+            _right_stmt, _right_values = build_expression(
+                Value(value=value, output_type=right.output_type),
+                transform,
+            )
+            _stmts.append(_right_stmt)
+            _values.extend(_right_values)
+
+        right_stmt = ', '.join(_stmts)
+        right_values = _values
     else:
-        msg = f'Unsupported value type: {type(value)}'
-        raise ValueError(msg)  # noqa: TRY004
+        right_stmt, right_values = build_expression(right, transform)
+
+    raw_values = left_values + right_values
+    values = [
+        value_transform(_value)
+        for _value in raw_values
+    ]
 
     match lookup:
         case FieldLookup.EXACT:
-            _statement = f'IS {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            right_stmt = f'IS {right_stmt}' # type: ignore[union-attr]
         case FieldLookup.EQ:
-            _statement = f'= {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            right_stmt = f'= {right_stmt}'
         case FieldLookup.NEQ:
-            _statement = f'!= {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            right_stmt = f'!= {right_stmt}'
         case FieldLookup.GT:
-            _statement = f'> {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            right_stmt = f'> {right_stmt}'
         case FieldLookup.GTE:
-            _statement = f'>= {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            right_stmt = f'>= {right_stmt}'
         case FieldLookup.LT:
-            _statement = f'< {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            right_stmt = f'< {right_stmt}'
         case FieldLookup.LTE:
-            _statement = f'<= {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            right_stmt = f'<= {right_stmt}'
         case FieldLookup.IN:
-            if is_value:
-                _statement = 'IN (' + ','.join(_item for _item in _value) + ')'  # type: ignore[union-attr]
-                if any(isinstance(val, bytes | bytearray) for val in value.value):  # type: ignore[union-attr]
-                    raise BinaryValuesNotSupportedError
-
-                values.extend([
-                    value_transform(value)
-                    for value in value.value  # type: ignore[union-attr]
-                ])
-            else:
-                _statement = f'IN {_value}'
+            right_stmt = f'IN ({right_stmt})'
         case FieldLookup.CONTAINS:
-            _statement = f'GLOB {_value}'
-
-            if is_value:
-                values.append(f'*{value_transform(value.value)}*')  # type: ignore[union-attr]
+            right_stmt = f'GLOB {right_stmt}'
+            values = [f'*{_value}*' for _value in values]
         case FieldLookup.ICONTAINS:
-            field = f'LOWER({field})'
-            _statement = f'LIKE LOWER({_value})'
-
-            if is_value:
-                values.append(f'%{value_transform(value.value)}%')  # type: ignore[union-attr]
+            left_stmt = f'LOWER({left_stmt})'
+            right_stmt = f'LIKE LOWER({right_stmt})'
+            values = [f'%{_value}%' for _value in values]
         case FieldLookup.STARTSWITH:
-            _statement = f'GLOB {_value}'
-
-            if is_value:
-                values.append(f'{value_transform(value.value)}*')  # type: ignore[union-attr]
+            right_stmt = f'GLOB {right_stmt}'
+            values = [f'{_value}*' for _value in values]
         case FieldLookup.ISTARTSWITH:
-            field = f'LOWER({field})'
-            _statement = f'LIKE LOWER({_value})'
-
-            if is_value:
-                values.append(f'{value_transform(value.value)}%')  # type: ignore[union-attr]
+            left_stmt = f'LOWER({left_stmt})'
+            right_stmt = f'LIKE LOWER({right_stmt})'
+            values = [f'{_value}%' for _value in values]
         case FieldLookup.ENDSWITH:
-            _statement = f'GLOB {_value}'
-
-            if is_value:
-                values.append(f'*{value_transform(value.value)}')  # type: ignore[union-attr]
+            right_stmt = f'GLOB {right_stmt}'
+            values = [f'*{_value}' for _value in values]
         case FieldLookup.IENDSWITH:
-            field = f'LOWER({field})'
-            _statement = f'LIKE LOWER({_value})'
-
-            if is_value:
-                values.append(f'%{value_transform(value.value)}')  # type: ignore[union-attr]
+            left_stmt = f'LOWER({left_stmt})'
+            right_stmt = f'LIKE LOWER({right_stmt})'
+            values = [f'%{_value}' for _value in values]
         case FieldLookup.ISNULL:
-            _statement = f'IS {null_value}' if value.value else f'IS NOT {null_value}'  # type: ignore[union-attr]
+            if not isinstance(right, Value):
+                msg = f'Unsupported value type "{type(right)}" for lookup "{lookup}". Must be Value.'
+                raise ValueError(msg)
+
+            values = []
+            _null_value = transform.apply(TransformTypes.NULL_VALUE)
+            right_stmt = f'IS {_null_value}' if right.value else f'IS NOT {_null_value}'  # type: ignore[union-attr]
         case FieldLookup.REGEX:
-            _statement = f'REGEXP {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            right_stmt = f'REGEXP {right_stmt}'
         case FieldLookup.IREGEX:
-            field = f'LOWER({field})'
-            _statement = f'REGEXP {_value}'
-
-            if is_value:
-                values.append(value_transform(value.value))  # type: ignore[union-attr]
+            left_stmt = f'LOWER({left_stmt})'
+            right_stmt = f'REGEXP {right_stmt}'
         case _:
             msg = f'{lookup} not supported'
             raise ValueError(msg)
 
-    return f'{field} {_statement}', values
+    return f'{left_stmt} {right_stmt}', values
 
 
 def repr_operator_constructor(  # noqa: PLR0913, PLR0912, C901, PLR0915
-    field: str,
+    left: Expression,
     lookup: FieldLookup,
-    value: FieldReference | Value,
-    value_placeholder: str,  # noqa: ARG001
-    table_separator: str,
-    null_value: str = 'NULL',
-    table_quote: str = '',
-    field_quote: str = '',
-    value_placeholder_transform: Callable[[str, Any], str] = lambda placeholder, _: placeholder,
-    value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
-    expressions: dict[str, tuple[str, list[Any]]] | None = None,  # noqa: ARG001
+    right: Expression,
+    transform: Transform,
 ) -> tuple[str, list[Any]]:
-    from amsdal_glue_connections.sql.sql_builders.query_builder import build_field
-
-    if isinstance(value, FieldReference):
-        _value = build_field(
-            value,
-            table_separator=table_separator,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            nested_field_transform=nested_field_transform,
-        )
-    elif isinstance(value, Value):
-        if isinstance(value.value, str):
-            _value = f"'{value.value}'"
-        elif value.value is None:
-            _value = null_value
-        else:
-            _value = value_placeholder_transform(value_transform(value.value), value.value)
-    else:
-        msg = f'Unsupported value type: {type(value)}'
-        raise ValueError(msg)  # noqa: TRY004
+    left_stmt = repr(left)
+    right_stmt = repr(right)
 
     match lookup:
         case FieldLookup.EXACT:
-            _statement = f'IS {_value}'
+            right_stmt = f'IS {right_stmt}'
         case FieldLookup.EQ:
-            _statement = f'= {_value}'
+            right_stmt = f'= {right_stmt}'
         case FieldLookup.NEQ:
-            _statement = f'!= {_value}'
+            right_stmt = f'!= {right_stmt}'
         case FieldLookup.GT:
-            _statement = f'> {_value}'
+            right_stmt = f'> {right_stmt}'
         case FieldLookup.GTE:
-            _statement = f'>= {_value}'
+            right_stmt = f'>= {right_stmt}'
         case FieldLookup.LT:
-            _statement = f'< {_value}'
+            right_stmt = f'< {right_stmt}'
         case FieldLookup.LTE:
-            _statement = f'<= {_value}'
+            right_stmt = f'<= {right_stmt}'
         case FieldLookup.IN:
-            _statement = f'IN ({_value})'
+            right_stmt = f'IN ({right_stmt})'
         case FieldLookup.CONTAINS:
-            _statement = f"GLOB '*{value.value}*'"  # type: ignore[union-attr]
+            right_stmt = f"GLOB '*{right_stmt}*'"  # type: ignore[union-attr]
         case FieldLookup.ICONTAINS:
-            field = f'LOWER({field})'
-            _statement = f"LIKE '%{value.value.lower()}%'"  # type: ignore[union-attr]
+            left_stmt = f'LOWER({left_stmt})'
+            right_stmt = f"LIKE '%{right_stmt.lower()}%'"  # type: ignore[union-attr]
         case FieldLookup.STARTSWITH:
-            _statement = f"GLOB '{value.value}*'"  # type: ignore[union-attr]
+            right_stmt = f"GLOB '{right_stmt}*'"  # type: ignore[union-attr]
         case FieldLookup.ISTARTSWITH:
-            field = f'LOWER({field})'
-            _statement = f"LIKE '{value.value.lower()}%'"  # type: ignore[union-attr]
+            left_stmt = f'LOWER({left_stmt})'
+            right_stmt = f"LIKE '{right_stmt.lower()}%'"  # type: ignore[union-attr]
         case FieldLookup.ENDSWITH:
-            _statement = f"GLOB '*{value.value}'"  # type: ignore[union-attr]
+            right_stmt = f"GLOB '*{right_stmt}'"  # type: ignore[union-attr]
         case FieldLookup.IENDSWITH:
-            field = f'LOWER({field})'
-            _statement = f"LIKE '%{value.value.lower()}'"  # type: ignore[union-attr]
+            left_stmt = f'LOWER({left_stmt})'
+            right_stmt = f"LIKE '%{right_stmt.lower()}'"  # type: ignore[union-attr]
         case FieldLookup.ISNULL:
-            _statement = f'IS {null_value}' if value.value else f'IS NOT {null_value}'  # type: ignore[union-attr]
+            _null_value = transform.apply(TransformTypes.NULL_VALUE)
+            right_stmt = f'IS {_null_value}' if value.value else f'IS NOT {_null_value}'  # type: ignore[union-attr]
         case FieldLookup.REGEX:
-            _statement = f'REGEXP {_value}'
+            right_stmt = f'REGEXP {right_stmt}'
         case FieldLookup.IREGEX:
-            field = f'LOWER({field})'
-            _statement = f'REGEXP {_value.lower()}'
+            left_stmt = f'LOWER({left_stmt})'
+            right_stmt = f'REGEXP {right_stmt.lower()}'
         case _:
             msg = f'{lookup} not supported'
             raise ValueError(msg)
 
-    return f'{field} {_statement}', []
+    return f'{left_stmt} {right_stmt}', []

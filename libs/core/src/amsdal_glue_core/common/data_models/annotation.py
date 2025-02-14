@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
-from amsdal_glue_core.common.expressions.common import Expression
+from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.value import Value
 
 

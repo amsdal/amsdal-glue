@@ -1,5 +1,8 @@
-from typing import Any
 from typing import Protocol
+
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
+from amsdal_glue_core.common.data_models.output_type import OutputType
 
 
 class NestedFieldTransform(Protocol):
@@ -9,10 +12,8 @@ class NestedFieldTransform(Protocol):
         namespace: str,
         field: str,
         fields: list[str],
-        value_type: Any = str,
-        table_separator: str = '.',
-        table_quote: str = '',
-        field_quote: str = "'",
+        transform: Transform,
+        output_type: type | OutputType | None = None,
     ) -> str: ...
 
 
@@ -21,19 +22,16 @@ def default_nested_field_transform(  # noqa: PLR0913
     namespace: str,
     field: str,
     fields: list[str],
-    value_type: Any = str,  # noqa: ARG001
-    table_separator: str = '.',
-    table_quote: str = '',
-    field_quote: str = "'",
+    transform: Transform,
+    output_type: type | OutputType | None = None,  # noqa: ARG001
 ) -> str:
     stmt = '__'.join([field, *fields])
 
     if table_alias:
-        _namespace_prefix = f'{table_quote}{namespace}{table_quote}{table_separator}' if namespace else ''
-        stmt = (
-            f'{_namespace_prefix}'
-            f'{table_quote}{table_alias}{table_quote}{table_separator}'
-            f'{field_quote}{stmt}{field_quote}'
-        )
+        _namespace = transform.apply(TransformTypes.TABLE_QUOTE, namespace)
+        _table = transform.apply(TransformTypes.TABLE_QUOTE, table_alias)
+        _stmt = transform.apply(TransformTypes.FIELD_QUOTE, stmt)
+
+        stmt = transform.apply(TransformTypes.TABLE_SEPARATOR, _namespace, _table, _stmt)
 
     return stmt

@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from typing import Optional
+from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.expressions.common import Combinable
+
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 
 
 @dataclass(kw_only=True)
@@ -64,6 +68,11 @@ class FieldReference(Combinable):
     table_name: str
     namespace: str = ''
 
+    def to_expression(self) -> 'FieldReferenceExpression':
+        from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+
+        return FieldReferenceExpression(field_reference=self)
+
     def __repr__(self) -> str:
         return f'{self.namespace}.{self.table_name}.{self.field!r}'
 
@@ -86,3 +95,14 @@ class FieldReferenceAliased(FieldReference):
     """
 
     alias: str
+
+    def to_expression(self) -> 'FieldReferenceExpression':
+        from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+
+        return FieldReferenceExpression(
+            field_reference=FieldReference(
+                field=self.field,
+                table_name=self.table_name,
+                namespace=self.namespace,
+            ),
+        )

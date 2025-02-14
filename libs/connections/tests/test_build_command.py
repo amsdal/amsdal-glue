@@ -1,3 +1,4 @@
+from amsdal_glue_connections.sql.connections.sqlite_connection import get_sqlite_transform
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -33,6 +34,7 @@ def test_build_data_command__insert() -> None:
                 ),
             ],
         ),
+        transform=get_sqlite_transform(),
     )
 
     assert sql == 'INSERT INTO users (id, name) VALUES (?, ?), (?, ?)'
@@ -58,6 +60,7 @@ def test_build_data_command_with_namespace__insert() -> None:
                 ),
             ],
         ),
+        transform=get_sqlite_transform(),
     )
 
     assert sql == 'INSERT INTO ns1.users (id, name) VALUES (?, ?), (?, ?)'
@@ -77,6 +80,7 @@ def test_build_data_command__update() -> None:
                 ),
             ),
         ),
+        transform=get_sqlite_transform(),
     )
 
     assert sql == 'UPDATE users SET role = ? WHERE users.is_active IS ?'
@@ -96,6 +100,7 @@ def test_build_data_command_with_namespace__update() -> None:
                 ),
             ),
         ),
+        transform=get_sqlite_transform(),
     )
 
     assert sql == 'UPDATE ns1.users SET role = ? WHERE users.is_active IS ?'
@@ -115,6 +120,7 @@ def test_build_data_command_with_namespaces__update() -> None:
                 ),
             ),
         ),
+        transform=get_sqlite_transform(),
     )
 
     assert sql == 'UPDATE ns1.users SET role = ? WHERE ns1.users.is_active IS ?'
@@ -133,6 +139,7 @@ def test_build_data_command__delete() -> None:
                 ),
             ),
         ),
+        transform=get_sqlite_transform(),
     )
 
     assert sql == 'DELETE FROM users WHERE users.is_active IS ?'
@@ -151,6 +158,7 @@ def test_build_data_command_with_namespace__delete() -> None:
                 ),
             ),
         ),
+        transform=get_sqlite_transform(),
     )
 
     assert sql == 'DELETE FROM ns1.users WHERE users.is_active IS ?'
@@ -169,6 +177,7 @@ def test_build_data_command_with_namespaces__delete() -> None:
                 ),
             ),
         ),
+        transform=get_sqlite_transform(),
     )
 
     assert sql == 'DELETE FROM ns1.users WHERE ns1.users.is_active IS ?'

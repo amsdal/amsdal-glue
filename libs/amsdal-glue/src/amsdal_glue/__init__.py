@@ -47,6 +47,9 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+from amsdal_glue_core.common.expressions.func import Func
+from amsdal_glue_core.common.expressions.jsonb_array import JsonbArrayExpression
 from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -140,6 +143,9 @@ __all__ = [
     'PropertySchema',
     'QueryStatement',
     'RawExpression',
+    'FieldReferenceExpression',
+    'Func',
+    'JsonbArrayExpression',
     'RegisterSchema',
     'RenameProperty',
     'RenameSchema',
