@@ -2,7 +2,7 @@ from datetime import date
 from datetime import datetime
 
 
-def pg_value_type_transform(value_type: type) -> str:
+def pg_value_type_transform(value_type: type) -> str:  # noqa: PLR0911
     if value_type in (dict, list):
         return 'JSONB'
     if value_type is str:

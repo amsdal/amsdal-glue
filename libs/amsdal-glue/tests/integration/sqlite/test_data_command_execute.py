@@ -14,6 +14,7 @@ from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -99,9 +100,11 @@ def test_update_data_single_element() -> None:
                 ),
                 query=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value(value='1'),
+                        right=Value(value='1'),
                     ),
                 ),
             )
@@ -140,9 +143,11 @@ def test_delete_data_single_element() -> None:
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                 query=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value(value='1'),
+                        right=Value(value='1'),
                     ),
                 ),
             )
@@ -187,9 +192,11 @@ def test_create_and_update_data_single_element() -> None:
                 ),
                 query=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value(value='1'),
+                        right=Value(value='1'),
                     ),
                 ),
             ),
@@ -230,9 +237,11 @@ def test_create_and_delete_data_single_element() -> None:
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                 query=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value(value='1'),
+                        right=Value(value='1'),
                     ),
                 ),
             ),

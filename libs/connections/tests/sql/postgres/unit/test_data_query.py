@@ -200,7 +200,7 @@ def test_filter_conditions_join(database_connection: MockPostgresConnection) -> 
         'SELECT "o"."id", "o"."amount", "o"."customer_id", "c"."age" '
         'FROM "orders" AS "o" '
         'INNER JOIN "customers" AS "c" ON "o"."customer_id" = "c"."id" '
-        'WHERE "c"."name"::text = %s::text ORDER BY "o"."id" ASC',
+        'WHERE "c"."name" = %s ORDER BY "o"."id" ASC',
         ('Alice',),
     )
 

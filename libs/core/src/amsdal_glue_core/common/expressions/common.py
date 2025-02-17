@@ -21,16 +21,10 @@ class Combinable:
 
     def _combine(self, other: Any, operator: str, *, is_reversed: bool = False) -> Expression:
         if not isinstance(other, Expression):
-            if hasattr(other, 'to_expression'):
-                other = other.to_expression()
-            else:
-                other = Value(other)
+            other = other.to_expression() if hasattr(other, 'to_expression') else Value(other)
 
         if not isinstance(self, Expression):
-            if hasattr(self, 'to_expression'):
-                _self = self.to_expression()
-            else:
-                _self = Value(self)
+            _self = self.to_expression() if hasattr(self, 'to_expression') else Value(self)
         else:
             _self = self
 

@@ -1,8 +1,8 @@
+from collections.abc import Callable
 from enum import Enum
 from functools import partial
 from typing import Any
-from typing import Callable
-
+from typing import ClassVar
 
 
 class TransformTypes(Enum):
@@ -32,7 +32,7 @@ class Transform:
     def str_joiner(separator: str, *values: str) -> str:
         return separator.join(filter(None, values))
 
-    _registry: dict[Any, Callable] = {
+    _registry: ClassVar[dict[Any, Callable]] = {
         TransformTypes.TABLE_SEPARATOR: partial(str_joiner, '.'),
         TransformTypes.TABLE_QUOTE: partial(str_wrapper, "'"),
         TransformTypes.FIELD_QUOTE: partial(str_wrapper, "'"),
@@ -40,12 +40,12 @@ class Transform:
     }
 
     def __init__(self) -> None:
-        from amsdal_glue_connections.sql.sql_builders.math_operator_transform import default_math_operator_transform
         from amsdal_glue_connections.sql.sql_builders.build_only_constructor import default_build_only
+        from amsdal_glue_connections.sql.sql_builders.math_operator_transform import default_math_operator_transform
         from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
         from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
 
-        self._registry = self._registry.copy()
+        self._registry = self._registry.copy()  # type: ignore[misc]
         self._registry[TransformTypes.MATH_OPERATOR] = default_math_operator_transform
         self._registry[TransformTypes.NESTED_FIELD] = default_nested_field_transform
         self._registry[TransformTypes.BUILD_ONLY] = default_build_only
@@ -62,6 +62,6 @@ class Transform:
 
     def __copy__(self) -> 'Transform':
         _transform = Transform()
-        _transform._registry = self._registry.copy()
+        _transform._registry = self._registry.copy()  # type: ignore[misc]  # noqa: SLF001
 
         return _transform

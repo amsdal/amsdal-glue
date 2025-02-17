@@ -13,6 +13,7 @@ class Func(Expression):
         name (str): The name of the function.
         args (list[Expression]): The arguments of the function.
     """
+
     TEMPLATE: ClassVar[str] = '{name}({args})'
     ARG_TEMPLATE: ClassVar[str] = '{arg}'
 

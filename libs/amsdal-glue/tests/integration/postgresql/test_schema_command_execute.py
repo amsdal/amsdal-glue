@@ -23,6 +23,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -106,9 +107,11 @@ def test_create_schema() -> None:
                 name='ck_user_age',
                 condition=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='age'), table_name='user'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='age'), table_name='user')
+                        ),
                         lookup=FieldLookup.GT,
-                        value=Value(value=18),
+                        right=Value(value=18),
                     ),
                 ),
             ),

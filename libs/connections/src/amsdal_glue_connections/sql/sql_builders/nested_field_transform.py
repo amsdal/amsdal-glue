@@ -1,12 +1,13 @@
 from typing import Protocol
 
+from amsdal_glue_core.common.data_models.output_type import OutputType
+
 from amsdal_glue_connections.sql.sql_builders.transform import Transform
 from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
-from amsdal_glue_core.common.data_models.output_type import OutputType
 
 
 class NestedFieldTransform(Protocol):
-    def __call__(  # noqa: PLR0913
+    def __call__(
         self,
         table_alias: str,
         namespace: str,
@@ -17,7 +18,7 @@ class NestedFieldTransform(Protocol):
     ) -> str: ...
 
 
-def default_nested_field_transform(  # noqa: PLR0913
+def default_nested_field_transform(
     table_alias: str,
     namespace: str,
     field: str,

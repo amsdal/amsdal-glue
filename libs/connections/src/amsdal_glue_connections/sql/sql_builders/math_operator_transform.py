@@ -46,3 +46,6 @@ def sqlite_math_operator_transform(
     if operator == Combinable.POW:
         return f'POWER({left}, {right})'
     return f'{left} {operator} {right}'
+
+
+pg_math_operator_transform = sqlite_math_operator_transform

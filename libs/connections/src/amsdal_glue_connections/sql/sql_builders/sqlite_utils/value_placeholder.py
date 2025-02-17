@@ -1,8 +1,9 @@
 from typing import Any
 
+from amsdal_glue_core.common.data_models.output_type import OutputType
+
 from amsdal_glue_connections.sql.sql_builders.transform import Transform
 from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
-from amsdal_glue_core.common.data_models.output_type import OutputType
 
 
 def sqlite_value_placeholder_transform(

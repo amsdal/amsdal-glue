@@ -11,14 +11,6 @@ from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.cast import sqlite_cast_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.func_transform import func_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.nested_field import sqlite_nested_field_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.type_transform import sqlite_value_type_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_placeholder import sqlite_value_placeholder_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_transform import sqlite_value_transform
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -56,6 +48,14 @@ from amsdal_glue_connections.sql.sql_builders.schema_builder import build_drop_c
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_migrate_column
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_rename_column
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.cast import sqlite_cast_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.func_transform import func_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.nested_field import sqlite_nested_field_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.type_transform import sqlite_value_type_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_placeholder import sqlite_value_placeholder_transform
+from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_transform import sqlite_value_transform
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 if TYPE_CHECKING:
     import aiosqlite
@@ -76,8 +76,10 @@ class JsonType(dict, metaclass=JsonTypeMeta): ...  # type: ignore[misc]
 
 
 _sqlite_transform = None
+
+
 def get_sqlite_transform() -> Transform:
-    global _sqlite_transform
+    global _sqlite_transform  # noqa: PLW0603
 
     if not _sqlite_transform:
         _sqlite_transform = Transform()
@@ -124,11 +126,11 @@ class SqliteConnectionMixin:
         return False
 
     @staticmethod
-    def to_sql_type(  # noqa: C901, PLR0911
+    def to_sql_type(
         property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
     ) -> str:
         with suppress(ValueError):
-            return sqlite_value_type_transform(property_type)
+            return sqlite_value_type_transform(property_type)  # type: ignore[arg-type]
 
         if isinstance(property_type, Schema | SchemaReference):
             return 'TEXT'
@@ -189,9 +191,12 @@ class SqliteConnectionMixin:
         for _child in conditions.children:
             if isinstance(_child, Conditions):
                 items.append(self._replace_table_name(_child, replace_name))
-            elif isinstance(_child.left, FieldReferenceExpression) and _child.left.field_reference.table_name == SCHEMA_REGISTRY_TABLE:
+            elif (
+                isinstance(_child.left, FieldReferenceExpression)
+                and _child.left.field_reference.table_name == SCHEMA_REGISTRY_TABLE
+            ):
                 _copy = copy(_child)
-                _copy.left.field_reference.table_name = replace_name
+                _copy.left.field_reference.table_name = replace_name  # type: ignore[attr-defined]
                 items.append(_copy)
             else:
                 items.append(_child)
@@ -684,10 +689,12 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
                 build_rename_column(mutation.schema_reference, new_uuid, mutation.property.name),
             ]
         else:
-            statements = build_schema_mutation(mutation, type_transform=self.to_sql_type)
+            statements = build_schema_mutation(
+                mutation, type_transform=self.to_sql_type, transform=get_sqlite_transform()
+            )
 
-        for stmt in statements:
-            self.execute(stmt)
+        for stmt, values in statements:
+            self.execute(stmt, *values)
 
         if isinstance(mutation, RegisterSchema):
             return mutation.schema
@@ -1174,13 +1181,16 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                 build_rename_column(mutation.schema_reference, new_uuid, mutation.property.name),
             ]
         else:
-            statements = build_schema_mutation(mutation, type_transform=self.to_sql_type)
+            statements = build_schema_mutation(
+                mutation,
+                type_transform=self.to_sql_type,
+                transform=get_sqlite_transform(),
+            )
 
-        for stmt in statements:
-            await self.execute(stmt)
+        for stmt, values in statements:
+            await self.execute(stmt, *values)
 
         if isinstance(mutation, RegisterSchema):
             return mutation.schema
 
         return None
-

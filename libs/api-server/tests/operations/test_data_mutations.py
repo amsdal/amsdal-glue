@@ -55,9 +55,9 @@ def test_update_customer(test_client: TestClient) -> None:
             'query': {
                 'children': [
                     {
-                        'field': {'field': {'name': 'customer_id'}, 'table_name': 'customers'},
+                        'left': {'field_reference': {'field': {'name': 'customer_id'}, 'table_name': 'customers'}},
                         'lookup': 'EQ',
-                        'value': {'value': 1},
+                        'right': {'value': 1},
                     }
                 ]
             },
@@ -97,9 +97,9 @@ def test_delete_customer(test_client: TestClient) -> None:
             'query': {
                 'children': [
                     {
-                        'field': {'field': {'name': 'customer_id'}, 'table_name': 'customers'},
+                        'left': {'field_reference': {'field': {'name': 'customer_id'}, 'table_name': 'customers'}},
                         'lookup': 'EQ',
-                        'value': {'value': 1},
+                        'right': {'value': 1},
                     }
                 ]
             },

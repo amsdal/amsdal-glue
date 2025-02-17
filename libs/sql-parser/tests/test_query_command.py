@@ -22,6 +22,7 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
@@ -86,20 +87,28 @@ def test_conditions(benchmark) -> None:
                 ],
                 where=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='first_name'), table_name='users'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='first_name'), table_name='users')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value('John'),
+                        right=Value('John'),
                     ),
                     Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='last_name'), table_name='users'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='last_name'), table_name='users')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=Value('Doe'),
+                            right=Value('Doe'),
                         ),
                         Condition(
-                            field=FieldReference(field=Field(name='first_name'), table_name='users'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='first_name'), table_name='users')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='last_name'), table_name='users'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='last_name'), table_name='users')
+                            ),
                         ),
                         connector=FilterConnector.OR,
                     ),
@@ -114,7 +123,7 @@ def test_simple_alias(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql('SELECT "u".first_name, u.last_name ' 'FROM users u WHERE u."last_name" = \'Doe\';')
+        return parser.parse_sql('SELECT "u".first_name, u.last_name FROM users u WHERE u."last_name" = \'Doe\';')
 
     result = benchmark(parse_sql)
 
@@ -128,9 +137,11 @@ def test_simple_alias(benchmark) -> None:
                 ],
                 where=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='last_name'), table_name='u'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value('Doe'),
+                        right=Value('Doe'),
                     ),
                     connector=FilterConnector.AND,
                 ),
@@ -166,9 +177,13 @@ def test_simple_join(benchmark) -> None:
                         table=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                         on=Conditions(
                             Condition(
-                                field=FieldReference(field=Field(name='id'), table_name='u'),
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                                ),
                                 lookup=FieldLookup.EQ,
-                                value=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                                ),
                             ),
                             connector=FilterConnector.AND,
                         ),
@@ -177,9 +192,11 @@ def test_simple_join(benchmark) -> None:
                 ],
                 where=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='last_name'), table_name='u'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value('Doe'),
+                        right=Value('Doe'),
                     ),
                     connector=FilterConnector.AND,
                 ),
@@ -217,9 +234,13 @@ def test_multiple_joins(benchmark) -> None:
                         table=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                         on=Conditions(
                             Condition(
-                                field=FieldReference(field=Field(name='id'), table_name='u'),
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                                ),
                                 lookup=FieldLookup.EQ,
-                                value=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                                ),
                             ),
                             connector=FilterConnector.AND,
                         ),
@@ -229,9 +250,13 @@ def test_multiple_joins(benchmark) -> None:
                         table=SchemaReference(name='addresses', version=Version.LATEST, alias='a'),
                         on=Conditions(
                             Condition(
-                                field=FieldReference(field=Field(name='id'), table_name='u'),
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                                ),
                                 lookup=FieldLookup.EQ,
-                                value=FieldReference(field=Field(name='customer_id'), table_name='a'),
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='a')
+                                ),
                             ),
                             connector=FilterConnector.AND,
                         ),
@@ -240,9 +265,11 @@ def test_multiple_joins(benchmark) -> None:
                 ],
                 where=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='last_name'), table_name='u'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value('Doe'),
+                        right=Value('Doe'),
                     ),
                     connector=FilterConnector.AND,
                 ),
@@ -281,9 +308,13 @@ def test_query_ordering(benchmark) -> None:
                         table=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                         on=Conditions(
                             Condition(
-                                field=FieldReference(field=Field(name='id'), table_name='u'),
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                                ),
                                 lookup=FieldLookup.EQ,
-                                value=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                                ),
                             ),
                             connector=FilterConnector.AND,
                         ),
@@ -293,9 +324,13 @@ def test_query_ordering(benchmark) -> None:
                         table=SchemaReference(name='addresses', version=Version.LATEST, alias='a'),
                         on=Conditions(
                             Condition(
-                                field=FieldReference(field=Field(name='id'), table_name='u'),
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                                ),
                                 lookup=FieldLookup.EQ,
-                                value=FieldReference(field=Field(name='customer_id'), table_name='a'),
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='a')
+                                ),
                             ),
                             connector=FilterConnector.AND,
                         ),
@@ -304,9 +339,11 @@ def test_query_ordering(benchmark) -> None:
                 ],
                 where=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='last_name'), table_name='u'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value('Doe'),
+                        right=Value('Doe'),
                     ),
                     connector=FilterConnector.AND,
                 ),
@@ -394,9 +431,11 @@ def test_simple_group_by(benchmark) -> None:
                 ],
                 where=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='age'), table_name='users'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='age'), table_name='users')
+                        ),
                         lookup=FieldLookup.GT,
-                        value=Value('18'),
+                        right=Value('18'),
                     ),
                     connector=FilterConnector.AND,
                 ),
@@ -450,9 +489,11 @@ def test_simple_aggregate(benchmark) -> None:
                 ],
                 where=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='age'), table_name='users'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='age'), table_name='users')
+                        ),
                         lookup=FieldLookup.GT,
-                        value=Value('18'),
+                        right=Value('18'),
                     ),
                     connector=FilterConnector.AND,
                 ),
@@ -487,9 +528,13 @@ def test_aggregation_with_joins(benchmark) -> None:
                         table=SchemaReference(name='customers', version=Version.LATEST),
                         on=Conditions(
                             Condition(
-                                field=FieldReference(field=Field(name='id'), table_name='customers'),
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                                ),
                                 lookup=FieldLookup.EQ,
-                                value=FieldReference(field=Field(name='customer_id'), table_name='orders'),
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='orders')
+                                ),
                             ),
                         ),
                         join_type=JoinType.INNER,
@@ -551,9 +596,15 @@ def test_simple_annotation(benchmark) -> None:
                                 ],
                                 where=Conditions(
                                     Condition(
-                                        field=FieldReference(field=Field(name='user_id'), table_name='orders'),
+                                        left=FieldReferenceExpression(
+                                            field_reference=FieldReference(
+                                                field=Field(name='user_id'), table_name='orders'
+                                            )
+                                        ),
                                         lookup=FieldLookup.EQ,
-                                        value=FieldReference(field=Field(name='id'), table_name='users'),
+                                        right=FieldReferenceExpression(
+                                            field_reference=FieldReference(field=Field(name='id'), table_name='users')
+                                        ),
                                     ),
                                     connector=FilterConnector.AND,
                                 ),

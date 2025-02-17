@@ -11,4 +11,3 @@ class BaseExpression:
 
     def copy(self) -> 'BaseExpression':
         return copy.copy(self)
-

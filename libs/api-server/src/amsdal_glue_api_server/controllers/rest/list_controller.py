@@ -15,6 +15,7 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.services.queries import DataQueryService
@@ -66,9 +67,11 @@ def _process_filter(schema: Schema, filter_name: str, filter_values: str):
 
     value = _match.group('value')
     return Condition(
-        field=FieldReference(field=Field(name=filter_name), table_name=schema.name),
+        left=FieldReferenceExpression(
+            field_reference=FieldReference(field=Field(name=filter_name), table_name=schema.name)
+        ),
         lookup=lookup,
-        value=Value(value),
+        right=Value(value),
         negate=negated,
     )
 

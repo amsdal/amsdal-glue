@@ -6,6 +6,7 @@ from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -85,9 +86,11 @@ def delete_customer(database_connection: PostgresConnection, namespace: str = ''
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             query=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='age'), table_name=''),
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='age'), table_name='')
+                    ),
                     lookup=FieldLookup.LT,
-                    value=Value(27),
+                    right=Value(27),
                 ),
             ),
         ),

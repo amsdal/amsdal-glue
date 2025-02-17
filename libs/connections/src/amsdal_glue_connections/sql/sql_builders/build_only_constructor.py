@@ -1,11 +1,11 @@
 from typing import Protocol
-from amsdal_glue_connections.sql.sql_builders.build_field import build_field
 
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 
+from amsdal_glue_connections.sql.sql_builders.build_field import build_field
 from amsdal_glue_connections.sql.sql_builders.exceptions import DistinctOnNotSupportedError
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
 
 
 class BuildOnlyConstructor(Protocol):

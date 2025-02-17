@@ -13,6 +13,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
@@ -94,9 +95,13 @@ def create_user_schema(database_connection: PostgresConnection, namespace: str =
                 name='ck_user_age',
                 condition=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='age'), table_name='user', namespace=namespace),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(
+                                field=Field(name='age'), table_name='user', namespace=namespace
+                            )
+                        ),
                         lookup=FieldLookup.GT,
-                        value=Value(value=18),
+                        right=Value(value=18),
                     ),
                 ),
             ),

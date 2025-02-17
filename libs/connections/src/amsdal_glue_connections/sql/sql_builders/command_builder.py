@@ -1,16 +1,16 @@
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
 
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_conditions
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 
-def build_sql_data_command(  # noqa: PLR0913
+def build_sql_data_command(
     mutation: DataMutation,
     transform: Transform,
 ) -> tuple[str, list[Any]]:
@@ -45,7 +45,7 @@ def build_sql_data_command(  # noqa: PLR0913
     raise NotImplementedError(msg)
 
 
-def _build_sql_insert_data(  # noqa: PLR0913
+def _build_sql_insert_data(
     command: InsertData,
     transform: Transform,
 ) -> tuple[str, list[Any]]:
@@ -64,26 +64,19 @@ def _build_sql_insert_data(  # noqa: PLR0913
     keys = sorted({key for data in command.data for key in data.data})
 
     placeholders = [
-        [
-            transform.apply(TransformTypes.VALUE_PLACEHOLDER, data.data.get(key), transform=transform)
-            for key in keys
-        ]
+        [transform.apply(TransformTypes.VALUE_PLACEHOLDER, data.data.get(key), transform=transform) for key in keys]
         for data in command.data
     ]
     stmt += ' ('
     stmt += ', '.join(f'{transform.apply(TransformTypes.FIELD_QUOTE, key)}' for key in keys)
     stmt += ') VALUES '
     stmt += ', '.join(f'({", ".join(row)})' for row in placeholders)
-    values.extend(
-        transform.apply(TransformTypes.VALUE, data.data.get(key))
-        for data in command.data
-        for key in keys
-    )
+    values.extend(transform.apply(TransformTypes.VALUE, data.data.get(key)) for data in command.data for key in keys)
 
     return stmt, values
 
 
-def _build_sql_update_data(  # noqa: PLR0913
+def _build_sql_update_data(
     command: UpdateData,
     transform: Transform,
 ) -> tuple[str, list[Any]]:
@@ -107,13 +100,13 @@ def _build_sql_update_data(  # noqa: PLR0913
         (
             key,
             transform.apply(TransformTypes.VALUE_PLACEHOLDER, command.data.data.get(key), transform=transform),
-        ) for key in keys
+        )
+        for key in keys
     ]
 
     stmt += ' SET '
     stmt += ', '.join(
-        f'{transform.apply(TransformTypes.FIELD_QUOTE, key)} = {placeholder}'
-        for key, placeholder in key_placeholders
+        f'{transform.apply(TransformTypes.FIELD_QUOTE, key)} = {placeholder}' for key, placeholder in key_placeholders
     )
     values.extend(transform.apply(TransformTypes.VALUE, command.data.data.get(key)) for key in keys)
 
@@ -129,7 +122,7 @@ def _build_sql_update_data(  # noqa: PLR0913
     return stmt, values
 
 
-def _build_sql_delete_data(  # noqa: PLR0913
+def _build_sql_delete_data(
     command: DeleteData,
     transform: Transform,
 ) -> tuple[str, list[Any]]:

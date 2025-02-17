@@ -148,7 +148,7 @@ def test_delete(database_connection: MockPostgresConnection) -> None:
     delete_customer(database_connection)
 
     database_connection.execute_mock.assert_called_once_with(
-        'DELETE FROM "customers" WHERE "age" < %s',
+        'DELETE FROM "customers" WHERE age < %s',
         (27,),
     )
 
@@ -157,7 +157,7 @@ def test_delete__with_namespace(database_connection: MockPostgresConnection) -> 
     delete_customer(database_connection, namespace='ns1')
 
     database_connection.execute_mock.assert_called_once_with(
-        'DELETE FROM "ns1"."customers" WHERE "age" < %s',
+        'DELETE FROM "ns1"."customers" WHERE age < %s',
         (27,),
     )
 

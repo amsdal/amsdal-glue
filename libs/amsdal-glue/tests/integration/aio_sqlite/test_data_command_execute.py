@@ -14,6 +14,7 @@ from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -107,9 +108,11 @@ async def test_update_data_single_element(register_default_connection: AsyncGene
                     ),
                     query=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=Value(value='1'),
+                            right=Value(value='1'),
                         ),
                     ),
                 )
@@ -152,9 +155,11 @@ async def test_delete_data_single_element(register_default_connection: AsyncGene
                     schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                     query=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=Value(value='1'),
+                            right=Value(value='1'),
                         ),
                     ),
                 )
@@ -203,9 +208,11 @@ async def test_create_and_update_data_single_element(register_default_connection
                     ),
                     query=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=Value(value='1'),
+                            right=Value(value='1'),
                         ),
                     ),
                 ),
@@ -250,9 +257,11 @@ async def test_create_and_delete_data_single_element(register_default_connection
                     schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                     query=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=Value(value='1'),
+                            right=Value(value='1'),
                         ),
                     ),
                 ),

@@ -23,14 +23,15 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
-from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
 
 
 def build_schema_mutation(  # noqa: C901, PLR0911
     mutation: SchemaMutation,
     type_transform: Callable[[Any], str],
-) -> list[str]:
+    transform: Transform,
+) -> list[tuple[str, list[Any]]]:
     """
     Builds SQL statements for the given schema mutation.
 
@@ -43,8 +44,13 @@ def build_schema_mutation(  # noqa: C901, PLR0911
     """
     if isinstance(mutation, RegisterSchema):
         return [
-            build_create_table(mutation.schema, type_transform=type_transform),
-            *build_create_indexes(mutation.schema.name, mutation.schema.namespace, mutation.schema.indexes or []),
+            build_create_table(mutation.schema, type_transform=type_transform, transform=transform),
+            *build_create_indexes(
+                mutation.schema.name,
+                mutation.schema.namespace,
+                mutation.schema.indexes or [],
+                transform=transform,
+            ),
         ]
 
     if isinstance(mutation, DeleteSchema):
@@ -89,7 +95,12 @@ def build_schema_mutation(  # noqa: C901, PLR0911
 
     if isinstance(mutation, AddIndex):
         return [
-            build_index(mutation.schema_reference.name, mutation.schema_reference.namespace or '', mutation.index),
+            build_index(
+                mutation.schema_reference.name,
+                mutation.schema_reference.namespace or '',
+                mutation.index,
+                transform=transform,
+            ),
         ]
 
     if isinstance(mutation, DeleteIndex):
@@ -101,16 +112,22 @@ def build_schema_mutation(  # noqa: C901, PLR0911
     raise ValueError(msg)
 
 
-def build_create_table(schema: Schema, type_transform: Callable[[Any], str]) -> str:
+def build_create_table(
+    schema: Schema,
+    type_transform: Callable[[Any], str],
+    transform: Transform,
+) -> tuple[str, list[Any]]:
     if schema.extends is not None:
         msg = f'Unsupported nested schemas: {schema.extends}'
         raise ValueError(msg)
 
     _constraint_stmts = []
+    _values = []
 
     for _constraint in schema.constraints or []:
-        _constraint_stmt = build_constraint(_constraint)
+        _constraint_stmt, _constraint_values = build_constraint(_constraint, transform=transform)
         _constraint_stmts.append(_constraint_stmt)
+        _values.extend(_constraint_values)
 
     _namespace_prefix = f"'{schema.namespace}'." if schema.namespace else ''
     stmt = f"CREATE TABLE {_namespace_prefix}'{schema.name}' ("
@@ -122,30 +139,36 @@ def build_create_table(schema: Schema, type_transform: Callable[[Any], str]) -> 
 
     stmt += ')'
 
-    return stmt
+    return stmt, _values
 
 
-def build_create_indexes(schema_name: str, namespace: str, indexes: list[IndexSchema]) -> list[str]:
-    return [build_index(schema_name, namespace, index) for index in indexes]
+def build_create_indexes(
+    schema_name: str,
+    namespace: str,
+    indexes: list[IndexSchema],
+    transform: Transform,
+) -> list[tuple[str, list[Any]]]:
+    return [build_index(schema_name, namespace, index, transform=transform) for index in indexes]
 
 
-def build_index(schema_name: str, namespace: str, index: IndexSchema) -> str:
+def build_index(schema_name: str, namespace: str, index: IndexSchema, transform: Transform) -> tuple[str, list[Any]]:
     fields_str = ', '.join(f"'{field}'" for field in index.fields)
     _namespace_prefix = f"'{namespace}'." if namespace else ''
     _index = f"CREATE INDEX {_namespace_prefix}'{index.name}' ON {_namespace_prefix}'{schema_name}' ({fields_str})"
+    _values: list[Any] = []
 
     if index.condition:
-        where, _ = build_where(index.condition, operator_constructor=repr_operator_constructor)
+        where, _values = build_where(index.condition, transform=transform)
         _index += f' WHERE {where}'
 
-    return _index
+    return _index, _values
 
 
-def build_constraint(constraint: BaseConstraint) -> str:
+def build_constraint(constraint: BaseConstraint, transform: Transform) -> tuple[str, list[Any]]:
     if isinstance(constraint, PrimaryKeyConstraint):
         fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
 
-        return f"CONSTRAINT '{constraint.name}' PRIMARY KEY ({fields_str})"
+        return f"CONSTRAINT '{constraint.name}' PRIMARY KEY ({fields_str})", []
     if isinstance(constraint, ForeignKeyConstraint):
         fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
 
@@ -153,15 +176,15 @@ def build_constraint(constraint: BaseConstraint) -> str:
             f"CONSTRAINT '{constraint.name}' "
             f'FOREIGN KEY ({fields_str}) '
             f'REFERENCES {constraint.reference_schema.name} ({", ".join(constraint.reference_fields)})'
-        )
+        ), []
     if isinstance(constraint, UniqueConstraint):
         fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
 
-        return f"CONSTRAINT '{constraint.name}' UNIQUE ({fields_str})"
+        return f"CONSTRAINT '{constraint.name}' UNIQUE ({fields_str})", []
     if isinstance(constraint, CheckConstraint):
-        _where, _ = build_where(constraint.condition, operator_constructor=repr_operator_constructor)
+        _where, _values = build_where(constraint.condition, transform=transform, embed_values=True)
 
-        return f"CONSTRAINT '{constraint.name}' CHECK ({_where})"
+        return f"CONSTRAINT '{constraint.name}' CHECK ({_where})", _values
 
     msg = f'Unsupported constraint: {type(constraint)}'
     raise ValueError(msg)
@@ -171,69 +194,69 @@ def build_column(column: PropertySchema, type_transform: Callable[[Any], str]) -
     return f"'{column.name}' {type_transform(column.type)}{' NOT NULL' if column.required else ''}"
 
 
-def build_drop_table(schema_reference: SchemaReference) -> str:
+def build_drop_table(schema_reference: SchemaReference) -> tuple[str, list[Any]]:
     _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
 
-    return f"DROP TABLE {_namespace_prefix}'{schema_reference.name}'"
+    return f"DROP TABLE {_namespace_prefix}'{schema_reference.name}'", []
 
 
-def build_rename_table(schema_reference: SchemaReference, new_schema_name: str) -> str:
+def build_rename_table(schema_reference: SchemaReference, new_schema_name: str) -> tuple[str, list[Any]]:
     _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
 
-    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' RENAME TO '{new_schema_name}'"
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' RENAME TO '{new_schema_name}'", []
 
 
 def build_add_column(
     schema_reference: SchemaReference,
     property_obj: PropertySchema,
     type_transform: Callable[[Any], str],
-) -> str:
+) -> tuple[str, list[Any]]:
     _column = build_column(property_obj, type_transform=type_transform)
     _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
 
-    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' ADD COLUMN {_column}"
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' ADD COLUMN {_column}", []
 
 
-def build_drop_column(schema_reference: SchemaReference, property_name: str) -> str:
+def build_drop_column(schema_reference: SchemaReference, property_name: str) -> tuple[str, list[Any]]:
     _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
 
-    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' DROP COLUMN '{property_name}'"
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' DROP COLUMN '{property_name}'", []
 
 
-def build_rename_column(schema_reference: SchemaReference, old_name: str, new_name: str) -> str:
+def build_rename_column(schema_reference: SchemaReference, old_name: str, new_name: str) -> tuple[str, list[Any]]:
     _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
 
-    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' RENAME COLUMN '{old_name}' TO '{new_name}'"
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' RENAME COLUMN '{old_name}' TO '{new_name}'", []
 
 
-def build_migrate_column(schema_reference: SchemaReference, old_field: str, new_field: str) -> str:
+def build_migrate_column(schema_reference: SchemaReference, old_field: str, new_field: str) -> tuple[str, list[Any]]:
     _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
     table_name = f"{_namespace_prefix}'{schema_reference.name}'"
 
-    return f"UPDATE {table_name} SET '{new_field}' = {table_name}.'{old_field}'"  # noqa: S608
+    return f"UPDATE {table_name} SET '{new_field}' = {table_name}.'{old_field}'", []  # noqa: S608
 
 
 def build_update_column(
     schema_reference: SchemaReference,
     property_obj: PropertySchema,
     type_transform: Callable[[Any], str],
-) -> str:
+) -> tuple[str, list[Any]]:
     _column = build_column(property_obj, type_transform=type_transform)
     _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
 
-    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' ALTER COLUMN {_column}"
+    return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' ALTER COLUMN {_column}", []
 
 
-def build_full_constraint_stmt(schema_reference: SchemaReference, constraint: BaseConstraint) -> str:
+def build_full_constraint_stmt(schema_reference: SchemaReference, constraint: BaseConstraint) -> tuple[str, list[Any]]:
     msg = 'SQLite does not support adding constraints to existing tables. Recreate table instead.'
     raise NotImplementedError(msg)
 
 
-def build_drop_constraint(schema_reference: SchemaReference, constraint_name: str) -> str:
+def build_drop_constraint(schema_reference: SchemaReference, constraint_name: str) -> tuple[str, list[Any]]:
     msg = 'SQLite does not support dropping constraints from existing tables. Recreate table instead.'
     raise NotImplementedError(msg)
 
 
-def build_drop_index(schema_reference: SchemaReference, index_name: str) -> str:
+def build_drop_index(schema_reference: SchemaReference, index_name: str) -> tuple[str, list[Any]]:
     _namespace_prefix = f"'{schema_reference.namespace}'." if schema_reference.namespace else ''
-    return f"DROP INDEX {_namespace_prefix}'{index_name}'"
+    return f"DROP INDEX {_namespace_prefix}'{index_name}'", []

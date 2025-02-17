@@ -1,9 +1,10 @@
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.common.data_models.output_type import OutputType
 
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
-def pg_nested_field_transform(  # noqa: PLR0913
+
+def pg_nested_field_transform(
     table_alias: str,
     namespace: str,
     field: str,
@@ -11,10 +12,7 @@ def pg_nested_field_transform(  # noqa: PLR0913
     transform: Transform,
     output_type: type | OutputType | None = None,
 ) -> str:
-    if output_type is str:
-        last_extract_operator = '->>'
-    else:
-        last_extract_operator = '->'
+    last_extract_operator = '->>' if output_type is str else '->'
 
     if len(fields) > 1:
         nested_fields_selection = '->'

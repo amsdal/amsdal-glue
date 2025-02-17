@@ -16,6 +16,7 @@ from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
@@ -57,9 +58,13 @@ async def query_orders_with_customers(database_connection: AsyncSqliteConnection
                     table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
                     on=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='id'), table_name='c'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                            ),
                         ),
                     ),
                     join_type=JoinType.INNER,
@@ -106,9 +111,11 @@ async def query_big_orders(database_connection: AsyncSqliteConnection) -> list[D
             ],
             where=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='amount'), table_name='o')
+                    ),
                     lookup=FieldLookup.GT,
-                    value=Value(100),
+                    right=Value(100),
                 ),
             ),
         )
@@ -136,9 +143,13 @@ async def query_orders_for_customer(database_connection: AsyncSqliteConnection) 
                     table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
                     on=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='id'), table_name='c'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                            ),
                         ),
                     ),
                     join_type=JoinType.INNER,
@@ -146,9 +157,11 @@ async def query_orders_for_customer(database_connection: AsyncSqliteConnection) 
             ],
             where=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='name'), table_name='c'),
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='name'), table_name='c')
+                    ),
                     lookup=FieldLookup.EQ,
-                    value=Value('Alice'),
+                    right=Value('Alice'),
                 ),
             ),
         )
@@ -177,9 +190,13 @@ async def query_customers_expenses(database_connection: AsyncSqliteConnection) -
                             table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
                             where=Conditions(
                                 Condition(
-                                    field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                                    ),
                                     lookup=FieldLookup.EQ,
-                                    value=FieldReference(field=Field(name='id'), table_name='c'),
+                                    right=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                                    ),
                                 ),
                             ),
                         ),
@@ -238,9 +255,13 @@ async def query_expenses_by_customer_with_name(database_connection: AsyncSqliteC
                     table=SchemaReference(name='customers', version=Version.LATEST),
                     on=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='id'), table_name='customers'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='customer_id'), table_name='orders'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='customer_id'), table_name='orders')
+                            ),
                         ),
                     ),
                     join_type=JoinType.INNER,

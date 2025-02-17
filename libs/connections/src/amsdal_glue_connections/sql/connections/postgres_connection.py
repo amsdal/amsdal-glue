@@ -8,14 +8,6 @@ from functools import partial
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_connections.sql.sql_builders.postgres_utils.cast import pg_cast_transform
-from amsdal_glue_connections.sql.sql_builders.postgres_utils.func_transform import func_transform
-from amsdal_glue_connections.sql.sql_builders.postgres_utils.nested_field import pg_nested_field_transform
-from amsdal_glue_connections.sql.sql_builders.postgres_utils.type_transform import pg_value_type_transform
-from amsdal_glue_connections.sql.sql_builders.postgres_utils.value_placeholder import pg_value_placeholder_transform
-from amsdal_glue_connections.sql.sql_builders.postgres_utils.value_transfrom import pg_value_transform
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -56,10 +48,19 @@ from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections.sql.sql_builders.math_operator_transform import pg_math_operator_transform
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.postgres_utils.cast import pg_cast_transform
+from amsdal_glue_connections.sql.sql_builders.postgres_utils.func_transform import func_transform
+from amsdal_glue_connections.sql.sql_builders.postgres_utils.nested_field import pg_nested_field_transform
 from amsdal_glue_connections.sql.sql_builders.postgres_utils.operator_constructor import pg_operator_constructor
+from amsdal_glue_connections.sql.sql_builders.postgres_utils.type_transform import pg_value_type_transform
+from amsdal_glue_connections.sql.sql_builders.postgres_utils.value_placeholder import pg_value_placeholder_transform
+from amsdal_glue_connections.sql.sql_builders.postgres_utils.value_transfrom import pg_value_transform
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 if TYPE_CHECKING:
     import psycopg
@@ -67,8 +68,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _pg_transform = None
+
+
 def get_pg_transform() -> Transform:
-    global _pg_transform
+    global _pg_transform  # noqa: PLW0603
 
     if not _pg_transform:
         _pg_transform = Transform()
@@ -80,12 +83,16 @@ def get_pg_transform() -> Transform:
         _pg_transform.register(TransformTypes.TABLE_QUOTE, partial(Transform.str_wrapper, '"'))
         _pg_transform.register(TransformTypes.FIELD_QUOTE, partial(Transform.str_wrapper, '"'))
         _pg_transform.register(TransformTypes.BUILD_ONLY, pg_build_only)
+        _pg_transform.register(TransformTypes.MATH_OPERATOR, pg_math_operator_transform)
         _pg_transform.register(TransformTypes.FUNC, func_transform)
     return _pg_transform
 
+
 _pg_transform_repr = None
+
+
 def get_pg_transform_repr() -> Transform:
-    global _pg_transform_repr
+    global _pg_transform_repr  # noqa: PLW0603
 
     if not _pg_transform_repr:
         _pg_transform_repr = copy(get_pg_transform())
@@ -123,9 +130,12 @@ class PostgresConnectionMixin:
         for _child in conditions.children:
             if isinstance(_child, Conditions):
                 items.append(self._replace_table_name(_child, replace_name))
-            elif isinstance(_child.left, FieldReferenceExpression) and _child.left.field_reference.table_name == SCHEMA_REGISTRY_TABLE:
+            elif (
+                isinstance(_child.left, FieldReferenceExpression)
+                and _child.left.field_reference.table_name == SCHEMA_REGISTRY_TABLE
+            ):
                 _copy = copy(_child)
-                _copy.left.field_reference.table_name = replace_name
+                _copy.left.field_reference.table_name = replace_name  # type: ignore[attr-defined]
                 items.append(_copy)
             else:
                 items.append(_child)
@@ -189,7 +199,8 @@ class PostgresConnectionMixin:
         if isinstance(constraint, CheckConstraint):
             _where, _ = build_where(
                 constraint.condition,
-                transform=get_pg_transform_repr(),
+                transform=get_pg_transform(),
+                embed_values=True,
             )
 
             return f'CONSTRAINT {constraint.name} CHECK ({_where})'
@@ -213,12 +224,12 @@ class PostgresConnectionMixin:
 
         return _index
 
-    def _to_sql_type(  # noqa: C901, PLR0911
+    def _to_sql_type(
         self,
         property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
     ) -> str:
         with suppress(ValueError):
-            return pg_value_type_transform(property_type)
+            return pg_value_type_transform(property_type)  # type: ignore[arg-type]
 
         if isinstance(property_type, Schema | SchemaReference):
             return 'TEXT'
@@ -261,6 +272,7 @@ class PostgresConnectionMixin:
             list[str]: The queries executed.
         """
         return self._queries
+
 
 class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
     """
@@ -1582,4 +1594,3 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
         stmt = f'DROP INDEX {_namespace_prefix}"{index_name}"'
         await self.execute(stmt)
-

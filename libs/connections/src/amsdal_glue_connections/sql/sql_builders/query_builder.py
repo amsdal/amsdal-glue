@@ -1,9 +1,6 @@
 from typing import Any
+from typing import TYPE_CHECKING
 
-from amsdal_glue_connections.sql.sql_builders.build_expression import build_expression
-from amsdal_glue_connections.sql.sql_builders.build_field import build_field
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
@@ -17,10 +14,16 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 
-from amsdal_glue_connections.sql.sql_builders.operator_constructor import OperatorConstructor
+from amsdal_glue_connections.sql.sql_builders.build_expression import build_expression
+from amsdal_glue_connections.sql.sql_builders.build_field import build_field
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
+
+if TYPE_CHECKING:
+    from amsdal_glue_connections.sql.sql_builders.operator_constructor import OperatorConstructor
 
 
-def build_sql_query(  # noqa: PLR0913
+def build_sql_query(
     query: QueryStatement,
     transform: Transform,
 ) -> tuple[str, list[Any]]:
@@ -100,7 +103,7 @@ def build_sql_query(  # noqa: PLR0913
     return ' '.join(filter(None, stmt_parts)), values
 
 
-def build_annotations(  # noqa: PLR0913
+def build_annotations(
     annotations: list[AnnotationQuery] | None,
     transform: Transform,
 ) -> tuple[str | None, list[Any]]:
@@ -132,10 +135,7 @@ def build_annotations(  # noqa: PLR0913
                 annotation.value.value,
                 transform=transform,
             )
-            _values = [
-                transform.apply(TransformTypes.VALUE, _value)
-                for _value in _values
-            ]
+            _values = [transform.apply(TransformTypes.VALUE, _value) for _value in _values]
             items.append(f'{_expression} AS {_alias}')
             values.extend(_values)
 
@@ -165,8 +165,7 @@ def build_aggregations(
     return ', '.join(items)
 
 
-
-def build_from(  # noqa: PLR0913
+def build_from(
     table: SchemaReference | SubQueryStatement,
     transform: Transform,
 ) -> tuple[str, list[Any]]:
@@ -188,7 +187,7 @@ def build_from(  # noqa: PLR0913
     return _stmt, []
 
 
-def build_joins(  # noqa: PLR0913
+def build_joins(
     joins: list[JoinQuery] | None,
     transform: Transform,
 ) -> tuple[str, list[Any]]:
@@ -199,7 +198,6 @@ def build_joins(  # noqa: PLR0913
     values = []
 
     for join in joins:
-
         _on, _values = build_conditions(
             join.on,
             transform=transform,
@@ -227,9 +225,11 @@ def build_joins(  # noqa: PLR0913
     return ' '.join(items), values
 
 
-def build_conditions(  # noqa: PLR0913
+def build_conditions(
     conditions: Conditions | None,
     transform: Transform,
+    *,
+    embed_values: bool = False,
 ) -> tuple[str, list[Any]]:
     items = []
     values = []
@@ -242,6 +242,7 @@ def build_conditions(  # noqa: PLR0913
             _condition, _values = build_conditions(
                 condition,
                 transform=transform,
+                embed_values=embed_values,
             )
             _stmt = f'({_condition})'
 
@@ -258,6 +259,7 @@ def build_conditions(  # noqa: PLR0913
             condition.lookup,
             condition.right,
             transform=transform,
+            embed_values=embed_values,
         )
 
         if condition.negate:
@@ -269,9 +271,11 @@ def build_conditions(  # noqa: PLR0913
     return f' {conditions.connector.value} '.join(items), values
 
 
-def build_where(  # noqa: PLR0913
+def build_where(
     where: Conditions | None,
     transform: Transform,
+    *,
+    embed_values: bool = False,
 ) -> tuple[str, list[Any]]:
     if not where:
         return '', []
@@ -279,6 +283,7 @@ def build_where(  # noqa: PLR0913
     return build_conditions(
         where,
         transform=transform,
+        embed_values=embed_values,
     )
 
 

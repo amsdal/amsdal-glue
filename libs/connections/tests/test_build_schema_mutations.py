@@ -5,6 +5,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
+from amsdal_glue_connections.sql.connections.sqlite_connection import get_sqlite_transform
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 
@@ -29,6 +30,7 @@ def test_build_schema_mutation__register_schema() -> None:
             ),
         ),
         type_transform=SqliteConnection.to_sql_type,
+        transform=get_sqlite_transform(),
     )
 
     assert stmts == [
@@ -38,9 +40,10 @@ def test_build_schema_mutation__register_schema() -> None:
             "'name' TEXT NOT NULL, "
             "'age' INTEGER, "
             "CONSTRAINT 'pk_person' PRIMARY KEY ('id')"
-            ')'
+            ')',
+            [],
         ),
-        "CREATE INDEX 'idx_person_name' ON 'Person' ('name')",
+        ("CREATE INDEX 'idx_person_name' ON 'Person' ('name')", []),
     ]
 
 
@@ -65,6 +68,7 @@ def test_build_schema_mutation_with_namespace__register_schema() -> None:
             ),
         ),
         type_transform=SqliteConnection.to_sql_type,
+        transform=get_sqlite_transform(),
     )
 
     assert stmts == [
@@ -74,7 +78,8 @@ def test_build_schema_mutation_with_namespace__register_schema() -> None:
             "'name' TEXT NOT NULL, "
             "'age' INTEGER, "
             "CONSTRAINT 'pk_person' PRIMARY KEY ('id')"
-            ')'
+            ')',
+            [],
         ),
-        "CREATE INDEX 'ns1'.'idx_person_name' ON 'ns1'.'Person' ('name')",
+        ("CREATE INDEX 'ns1'.'idx_person_name' ON 'ns1'.'Person' ('name')", []),
     ]

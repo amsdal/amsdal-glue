@@ -74,7 +74,9 @@ class FieldReference(Combinable):
         return FieldReferenceExpression(field_reference=self)
 
     def __repr__(self) -> str:
-        return f'{self.namespace}.{self.table_name}.{self.field!r}'
+        if self.namespace:
+            return f'{self.namespace}.{self.table_name}.{self.field!r}'
+        return f'{self.table_name}.{self.field!r}'
 
     def __hash__(self) -> int:
         return hash(repr(self))

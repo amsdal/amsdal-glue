@@ -7,4 +7,3 @@ class OutputType:
 
     def __str__(self) -> str:
         return self.type_name
-

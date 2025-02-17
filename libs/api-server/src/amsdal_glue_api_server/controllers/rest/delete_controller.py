@@ -9,6 +9,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
@@ -31,9 +32,13 @@ def generate_delete_controller(schema: Schema, pk_parameters: type[BaseModel]):
                         query=Conditions(
                             *(
                                 Condition(
-                                    field=FieldReference(field=Field(name=pk_field), table_name=schema.name),
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(
+                                            field=Field(name=pk_field), table_name=schema.name
+                                        )
+                                    ),
                                     lookup=FieldLookup.EQ,
-                                    value=Value(pk_value),
+                                    right=Value(pk_value),
                                 )
                                 for pk_field, pk_value in pk_key_parameter.model_dump().items()
                             )

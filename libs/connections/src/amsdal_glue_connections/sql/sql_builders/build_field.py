@@ -1,9 +1,10 @@
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
+
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 
 def build_field(
@@ -31,7 +32,7 @@ def build_field(
             _field_stm = f'{_field_stm}'
 
         if not _is_asterisk and output_type is not None:
-            _field_stm = transform.apply(TransformTypes.CAST,_field_stm, output_type)
+            _field_stm = transform.apply(TransformTypes.CAST, _field_stm, output_type)
     else:
         _field_stm = transform.apply(
             TransformTypes.NESTED_FIELD,

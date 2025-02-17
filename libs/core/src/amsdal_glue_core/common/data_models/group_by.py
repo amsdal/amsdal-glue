@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Any
 
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 
@@ -14,7 +13,7 @@ class GroupByQuery:
 
     field: FieldReference
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, GroupByQuery):
             return False
 

@@ -16,6 +16,7 @@ from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.services.queries import DataQueryService
@@ -92,9 +93,13 @@ def test_data_query_service_multiple_connections() -> None:
                 table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
                 on=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=FieldReference(field=Field(name='id'), table_name='c'),
+                        right=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                        ),
                     ),
                 ),
                 join_type=JoinType.INNER,

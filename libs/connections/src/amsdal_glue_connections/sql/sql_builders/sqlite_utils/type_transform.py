@@ -2,7 +2,7 @@ from datetime import date
 from datetime import datetime
 
 
-def sqlite_value_type_transform(value_type: type) -> str:
+def sqlite_value_type_transform(value_type: type) -> str:  # noqa: PLR0911
     if value_type is str:
         return 'TEXT'
     if value_type is int:

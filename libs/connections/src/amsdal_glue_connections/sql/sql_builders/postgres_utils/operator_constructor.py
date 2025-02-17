@@ -1,18 +1,21 @@
 from typing import Any
 
-from amsdal_glue_connections.sql.sql_builders.build_expression import build_expression
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.value import Value
 
+from amsdal_glue_connections.sql.sql_builders.build_expression import build_expression
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
-def pg_operator_constructor(
+
+def pg_operator_constructor(  # noqa: C901, PLR0912, PLR0915
     left: Expression,
     lookup: FieldLookup,
     right: Expression,
     transform: Transform,
+    *,
+    embed_values: bool = False,
 ) -> tuple[str, list[Any]]:
     """
     Constructs an SQL operator for the given field and lookup for PostgreSQL.
@@ -27,8 +30,8 @@ def pg_operator_constructor(
         tuple[str, list[Any]]: The SQL operator and the list of values.
     """
     value_transform = transform.resolve(TransformTypes.VALUE)
-    left_stmt, raw_left_values = build_expression(left, transform)
-    right_stmt, raw_right_values = build_expression(right, transform)
+    left_stmt, raw_left_values = build_expression(left, transform, embed_values=embed_values)
+    right_stmt, raw_right_values = build_expression(right, transform, embed_values=embed_values)
     left_values = [value_transform(_value) for _value in raw_left_values]
     right_values = [value_transform(_value) for _value in raw_right_values]
 
@@ -37,10 +40,7 @@ def pg_operator_constructor(
             msg = f'Unsupported value type "{type(right.value)}" for lookup "{lookup}". Must be list, tuple or set.'
             raise ValueError(msg)
 
-        _values = [
-            value_transform(_value)
-            for _value in raw_right_values[0]
-        ]
+        _values = [value_transform(_value) for _value in raw_right_values[0]]
         if any(isinstance(val, bool) for val in _values):
             _values = [[bool(val) for val in _values]]
         elif any(isinstance(val, float) for val in _values):
@@ -51,15 +51,12 @@ def pg_operator_constructor(
         right_values = [_values]
 
     values = left_values + right_values
-    
+
     match lookup:
         case FieldLookup.EXACT:
             right_stmt = f'IS {right_stmt}'
 
-            if isinstance(right, Value) and not (
-                isinstance(right.value, bool)
-                or right.value is None
-            ):
+            if isinstance(right, Value) and not (isinstance(right.value, bool) or right.value is None):
                 right_stmt = f'= {right_stmt}'
         case FieldLookup.EQ:
             right_stmt = f'= {right_stmt}'
@@ -99,7 +96,7 @@ def pg_operator_constructor(
         case FieldLookup.ISNULL:
             if not isinstance(right, Value):
                 msg = f'Unsupported value type "{type(right)}" for lookup "{lookup}". Must be Value.'
-                raise ValueError(msg)
+                raise TypeError(msg)
 
             values = []
             _null_value = transform.apply(TransformTypes.NULL_VALUE)

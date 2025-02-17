@@ -21,6 +21,7 @@ from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.services.queries import DataQueryService
@@ -72,9 +73,13 @@ cities_with_country_code_query = QueryStatement(
             join_type=JoinType.LEFT,
             on=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='country_name'), table_name='cm'),
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='country_name'), table_name='cm')
+                    ),
                     lookup=FieldLookup.EQ,
-                    value=FieldReference(field=Field(name='Country'), table_name='c'),
+                    right=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='Country'), table_name='c')
+                    ),
                 ),
             ),
         ),
@@ -99,9 +104,13 @@ sum_city_population_query = QueryStatement(
             join_type=JoinType.LEFT,
             on=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='country_code'), table_name='cts_codes'),
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='country_code'), table_name='cts_codes')
+                    ),
                     lookup=FieldLookup.EQ,
-                    value=FieldReference(field=Field(name='country_code'), table_name='cnt'),
+                    right=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='country_code'), table_name='cnt')
+                    ),
                 ),
             ),
         ),

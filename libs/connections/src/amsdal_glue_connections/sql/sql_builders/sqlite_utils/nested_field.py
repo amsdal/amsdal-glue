@@ -1,9 +1,10 @@
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 from amsdal_glue_core.common.data_models.output_type import OutputType
 
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
-def sqlite_nested_field_transform(  # noqa: PLR0913
+
+def sqlite_nested_field_transform(
     table_alias: str,
     namespace: str,  # noqa: ARG001
     field: str,

@@ -22,8 +22,10 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 
+from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 
 
@@ -32,9 +34,10 @@ def test_build_sql_query_simple() -> None:
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST),
         ),
+        transform=get_pg_transform(),
     )
 
-    assert sql == 'SELECT * FROM users'
+    assert sql == 'SELECT * FROM "users"'
     assert value == []
 
 
@@ -47,9 +50,10 @@ def test_build_sql_query_simple__only() -> None:
                 FieldReferenceAliased(field=Field(name='age'), table_name='u', alias='user_age'),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
-    assert sql == 'SELECT u.full_name, u.age AS user_age FROM users AS u'
+    assert sql == 'SELECT "u"."full_name", "u"."age" AS "user_age" FROM "users" AS "u"'
     assert value == []
 
 
@@ -62,9 +66,10 @@ def test_build_sql_query_simple_with_namespace__only() -> None:
                 FieldReferenceAliased(field=Field(name='age'), table_name='u', alias='user_age'),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
-    assert sql == 'SELECT u.full_name, u.age AS user_age FROM my_schema.users AS u'
+    assert sql == 'SELECT "u"."full_name", "u"."age" AS "user_age" FROM "my_schema"."users" AS "u"'
     assert value == []
 
 
@@ -99,14 +104,15 @@ def test_build_sql_query_simple__annotations() -> None:
                 ),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
     assert sql == (
         'SELECT '
-        '(SELECT ur.role FROM user_roles AS ur LIMIT 1) AS role, '
-        '? AS max_age, '
-        '? AS custom_greeting '
-        'FROM users AS u'
+        '(SELECT "ur"."role" FROM "user_roles" AS "ur" LIMIT 1) AS "role", '
+        '%s AS "max_age", '
+        '%s AS "custom_greeting" '
+        'FROM "users" AS "u"'
     )
     assert value == [100, 'hello']
 
@@ -144,14 +150,15 @@ def test_build_sql_query_simple_with_namespace__annotations() -> None:
                 ),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
     assert sql == (
         'SELECT '
-        '(SELECT ur.role FROM ns2.user_roles AS ur LIMIT 1) AS role, '
-        '? AS max_age, '
-        '? AS custom_greeting '
-        'FROM ns1.users AS u'
+        '(SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" LIMIT 1) AS "role", '
+        '%s AS "max_age", '
+        '%s AS "custom_greeting" '
+        'FROM "ns1"."users" AS "u"'
     )
     assert value == [100, 'hello']
 
@@ -183,16 +190,17 @@ def test_build_sql_query_simple__aggregations() -> None:
                 ),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
     assert sql == (
         'SELECT '
-        'SUM(u.amount) AS total_amount, '
-        'MIN(u.amount) AS min_amount, '
-        'MAX(u.amount) AS max_amount, '
-        'COUNT(u.id) AS total_count, '
-        'AVG(u.id) AS avg_count '
-        'FROM users AS u'
+        'SUM("u"."amount") AS "total_amount", '
+        'MIN("u"."amount") AS "min_amount", '
+        'MAX("u"."amount") AS "max_amount", '
+        'COUNT("u"."id") AS "total_count", '
+        'AVG("u"."id") AS "avg_count" '
+        'FROM "users" AS "u"'
     )
     assert value == []
 
@@ -203,29 +211,37 @@ def test_build_sql_query_simple__where() -> None:
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
             where=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='age'), table_name='u'),
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='age'), table_name='u')
+                    ),
                     lookup=FieldLookup.GTE,
-                    value=Value(18),
+                    right=Value(18),
                 ),
                 Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='name'), table_name='u'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='name'), table_name='u')
+                        ),
                         lookup=FieldLookup.CONTAINS,
-                        value=Value('John'),
+                        right=Value('John'),
                     ),
                     Condition(
-                        field=FieldReference(field=Field(name='email'), table_name='u'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='email'), table_name='u')
+                        ),
                         lookup=FieldLookup.ISTARTSWITH,
-                        value=Value('john'),
+                        right=Value('john'),
                     ),
                     connector=FilterConnector.OR,
                 ),
             ),
         ),
+        transform=get_pg_transform(),
     )
 
     assert sql == (
-        'SELECT * FROM users AS u WHERE (u.age >= ? AND u.name GLOB ?) OR (u.age >= ? AND LOWER(u.email) LIKE LOWER(?))'
+        'SELECT * FROM "users" AS "u" WHERE ("u"."age" >= %s AND "u"."name" LIKE %s) OR '
+        '("u"."age" >= %s AND LOWER("u"."email") LIKE %s)'
     )
     assert value == [18, '*John*', 18, 'john%']
 
@@ -240,18 +256,25 @@ def test_build_sql_query_simple__joins(join_type) -> None:
                     table=SchemaReference(name='user_roles', version=Version.LATEST, alias='ur'),
                     on=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='user_id'), table_name='ur'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='user_id'), table_name='ur')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='id'), table_name='u'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                            ),
                         ),
                     ),
                     join_type=join_type,
                 ),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
-    assert sql == f'SELECT * FROM users AS u {join_type.value} JOIN user_roles AS ur ON ur.user_id = u.id'  # noqa: S608
+    assert (
+        sql == f'SELECT * FROM "users" AS "u" {join_type.value} JOIN "user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'  # noqa: S608
+    )
     assert value == []
 
 
@@ -265,19 +288,25 @@ def test_build_sql_query_simple_with_namespace__joins(join_type) -> None:
                     table=SchemaReference(name='user_roles', namespace='ns2', version=Version.LATEST, alias='ur'),
                     on=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='user_id'), table_name='ur'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='user_id'), table_name='ur')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='id'), table_name='u'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                            ),
                         ),
                     ),
                     join_type=join_type,
                 ),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
     assert sql == (
-        f'SELECT * FROM ns1.users AS u {join_type.value} JOIN ns2.user_roles AS ur ON ur.user_id = u.id'  # noqa: S608
+        f'SELECT * FROM "ns1"."users" AS "u" {join_type.value} JOIN '  # noqa: S608
+        '"ns2"."user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'
     )
     assert value == []
 
@@ -296,9 +325,10 @@ def test_build_sql_query_simple__group_by() -> None:
                 GroupByQuery(field=FieldReference(field=Field(name='role_id'), table_name='u')),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
-    assert sql == 'SELECT SUM(u.amount) AS amount_per_role FROM users AS u GROUP BY u.role_id'
+    assert sql == 'SELECT SUM("u"."amount") AS "amount_per_role" FROM "users" AS "u" GROUP BY "u"."role_id"'
     assert value == []
 
 
@@ -308,9 +338,10 @@ def test_build_sql_query_simple__limit() -> None:
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
             limit=LimitQuery(limit=10, offset=20),
         ),
+        transform=get_pg_transform(),
     )
 
-    assert sql == 'SELECT * FROM users AS u LIMIT 10 OFFSET 20'
+    assert sql == 'SELECT * FROM "users" AS "u" LIMIT 10 OFFSET 20'
     assert value == []
 
 
@@ -322,18 +353,21 @@ def test_build_sql_query_complex() -> None:
                     table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
                     where=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='age'), table_name='u'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='u')
+                            ),
                             lookup=FieldLookup.GTE,
-                            value=Value(18),
+                            right=Value(18),
                         ),
                     ),
                 ),
                 alias='sub',
             ),
         ),
+        transform=get_pg_transform(),
     )
 
-    assert sql == 'SELECT * FROM (SELECT * FROM users AS u WHERE u.age >= ?) AS sub'
+    assert sql == 'SELECT * FROM (SELECT * FROM "users" AS "u" WHERE "u"."age" >= %s) AS "sub"'
     assert value == [18]
 
 
@@ -345,18 +379,21 @@ def test_build_sql_query_complex_with_namespace() -> None:
                     table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST, alias='u'),
                     where=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='age'), table_name='u'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='u')
+                            ),
                             lookup=FieldLookup.GTE,
-                            value=Value(18),
+                            right=Value(18),
                         ),
                     ),
                 ),
                 alias='sub',
             ),
         ),
+        transform=get_pg_transform(),
     )
 
-    assert sql == 'SELECT * FROM (SELECT * FROM ns1.users AS u WHERE u.age >= ?) AS sub'
+    assert sql == 'SELECT * FROM (SELECT * FROM "ns1"."users" AS "u" WHERE "u"."age" >= %s) AS "sub"'
     assert value == [18]
 
 
@@ -368,9 +405,11 @@ def test_build_sql_query_complex_joins() -> None:
                     table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
                     where=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='age'), table_name='u'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='u')
+                            ),
                             lookup=FieldLookup.GTE,
-                            value=Value(18),
+                            right=Value(18),
                         ),
                     ),
                 ),
@@ -386,9 +425,11 @@ def test_build_sql_query_complex_joins() -> None:
                             ],
                             where=Conditions(
                                 Condition(
-                                    field=FieldReference(field=Field(name='role'), table_name='ur'),
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='role'), table_name='ur')
+                                    ),
                                     lookup=FieldLookup.STARTSWITH,
-                                    value=Value('staff_'),
+                                    right=Value('staff_'),
                                 ),
                             ),
                         ),
@@ -396,24 +437,29 @@ def test_build_sql_query_complex_joins() -> None:
                     ),
                     on=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='user_id'), table_name='ur'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='user_id'), table_name='ur')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='id'), table_name='sub'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='sub')
+                            ),
                         ),
                     ),
                     join_type=JoinType.LEFT,
                 ),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
     assert sql == (
         'SELECT * FROM '
-        '(SELECT * FROM users AS u WHERE u.age >= ?) AS sub '
-        'LEFT JOIN (SELECT ur.role FROM user_roles AS ur WHERE ur.role GLOB ?) AS ur '
-        'ON ur.user_id = sub.id'
+        '(SELECT * FROM "users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
+        'LEFT JOIN (SELECT "ur"."role" FROM "user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
+        'ON "ur"."user_id" = "sub"."id"'
     )
-    assert value == [18, 'staff_*']
+    assert value == [18, 'staff_%']
 
 
 def test_build_sql_query_complex_joins_with_namespace() -> None:
@@ -424,9 +470,11 @@ def test_build_sql_query_complex_joins_with_namespace() -> None:
                     table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST, alias='u'),
                     where=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='age'), table_name='u'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='u')
+                            ),
                             lookup=FieldLookup.GTE,
-                            value=Value(18),
+                            right=Value(18),
                         ),
                     ),
                 ),
@@ -447,9 +495,11 @@ def test_build_sql_query_complex_joins_with_namespace() -> None:
                             ],
                             where=Conditions(
                                 Condition(
-                                    field=FieldReference(field=Field(name='role'), table_name='ur'),
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='role'), table_name='ur')
+                                    ),
                                     lookup=FieldLookup.STARTSWITH,
-                                    value=Value('staff_'),
+                                    right=Value('staff_'),
                                 ),
                             ),
                         ),
@@ -457,24 +507,29 @@ def test_build_sql_query_complex_joins_with_namespace() -> None:
                     ),
                     on=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='user_id'), table_name='ur'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='user_id'), table_name='ur')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='id'), table_name='sub'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='sub')
+                            ),
                         ),
                     ),
                     join_type=JoinType.LEFT,
                 ),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
     assert sql == (
         'SELECT * FROM '
-        '(SELECT * FROM ns1.users AS u WHERE u.age >= ?) AS sub '
-        'LEFT JOIN (SELECT ur.role FROM ns2.user_roles AS ur WHERE ur.role GLOB ?) AS ur '
-        'ON ur.user_id = sub.id'
+        '(SELECT * FROM "ns1"."users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
+        'LEFT JOIN (SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
+        'ON "ur"."user_id" = "sub"."id"'
     )
-    assert value == [18, 'staff_*']
+    assert value == [18, 'staff_%']
 
 
 def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
@@ -485,9 +540,13 @@ def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
                     table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
                     where=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='age'), table_name='users', namespace='ns1'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(
+                                    field=Field(name='age'), table_name='users', namespace='ns1'
+                                )
+                            ),
                             lookup=FieldLookup.GTE,
-                            value=Value(18),
+                            right=Value(18),
                         ),
                     ),
                 ),
@@ -503,13 +562,15 @@ def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
                             ],
                             where=Conditions(
                                 Condition(
-                                    field=FieldReference(
-                                        field=Field(name='role'),
-                                        table_name='user_roles',
-                                        namespace='ns2',
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(
+                                            field=Field(name='role'),
+                                            table_name='user_roles',
+                                            namespace='ns2',
+                                        )
                                     ),
                                     lookup=FieldLookup.STARTSWITH,
-                                    value=Value('staff_'),
+                                    right=Value('staff_'),
                                 ),
                             ),
                         ),
@@ -517,21 +578,27 @@ def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
                     ),
                     on=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='user_id'), table_name='ur'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='user_id'), table_name='ur')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=FieldReference(field=Field(name='id'), table_name='sub'),
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='sub')
+                            ),
                         ),
                     ),
                     join_type=JoinType.LEFT,
                 ),
             ],
         ),
+        transform=get_pg_transform(),
     )
 
     assert sql == (
         'SELECT * FROM '
-        '(SELECT * FROM ns1.users WHERE ns1.users.age >= ?) AS sub '
-        'LEFT JOIN (SELECT ns2.user_roles.role FROM ns2.user_roles WHERE ns2.user_roles.role GLOB ?) AS ur '
-        'ON ur.user_id = sub.id'
+        '(SELECT * FROM "ns1"."users" WHERE "ns1"."users"."age" >= %s) AS "sub" '
+        'LEFT JOIN ('
+        'SELECT "ns2"."user_roles"."role" FROM "ns2"."user_roles" WHERE "ns2"."user_roles"."role" LIKE %s) AS "ur" '
+        'ON "ur"."user_id" = "sub"."id"'
     )
-    assert value == [18, 'staff_*']
+    assert value == [18, 'staff_%']
