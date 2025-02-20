@@ -13,9 +13,9 @@ def sqlite_value_placeholder_transform(
 ) -> str:
     placeholder = '?'
 
+    if output_type is not None:
+        return transform.apply(TransformTypes.CAST, placeholder, output_type)
+
     if isinstance(value, dict | list):
         return f'json({placeholder})'
-
-    if output_type is not None:
-        placeholder = transform.apply(TransformTypes.CAST, placeholder, output_type)
     return placeholder
