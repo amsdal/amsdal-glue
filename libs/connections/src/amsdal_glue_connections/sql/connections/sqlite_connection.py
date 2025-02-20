@@ -1065,7 +1065,17 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         return properties, constraints, indexes
 
-    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+    @staticmethod
+    def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
+        for constraint in constraints:
+            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
+                continue
+
+            if index_fields == constraint.fields:
+                return True
+        return False
+
+    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
         """
         Acquires a lock on the SQLite database.
 
@@ -1075,12 +1085,10 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         Returns:
             Any: The result of the lock acquisition.
         """
-        if lock.mode == 'EXCLUSIVE':
-            await self.connection.execute('BEGIN EXCLUSIVE')
 
         return True
 
-    async def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    async def release_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
         """
         Releases a lock on the SQLite database.
 
@@ -1090,8 +1098,6 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         Returns:
             Any: The result of the lock release.
         """
-        if lock.mode == 'EXCLUSIVE':
-            await self.connection.execute('COMMIT')
 
         return True
 
