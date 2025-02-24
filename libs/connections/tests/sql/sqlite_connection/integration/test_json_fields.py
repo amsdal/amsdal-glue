@@ -21,12 +21,14 @@ def test_insert_and_read_json_data(database_connection: SqliteConnection) -> Non
         },
     )
 
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name=schema.name, version=schema.version),
-            data=[data],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                data=[data],
+            ),
+        ]
+    )
     query = QueryStatement(
         table=SchemaReference(name=schema.name, version=schema.version),
     )
@@ -50,12 +52,14 @@ def test_annotate_json_object(database_connection: SqliteConnection) -> None:
         },
     )
 
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name=schema.name, version=schema.version),
-            data=[data],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                data=[data],
+            ),
+        ]
+    )
 
     METADATA_SELECT_EXPRESSION = """
     json_object(

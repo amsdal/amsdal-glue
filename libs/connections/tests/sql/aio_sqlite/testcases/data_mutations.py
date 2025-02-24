@@ -18,16 +18,18 @@ from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqlit
 async def simple_customer_insert(
     database_connection: AsyncSqliteConnection, namespace: str = ''
 ) -> list[list[Data] | None]:
-    return await database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data=[
-                Data(
-                    data={'id': '1', 'name': 'customer'},
-                )
-            ],
-        ),
-    ])
+    return await database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
+                data=[
+                    Data(
+                        data={'id': '1', 'name': 'customer'},
+                    )
+                ],
+            ),
+        ]
+    )
 
 
 async def insert_customers_and_orders(
@@ -35,67 +37,73 @@ async def insert_customers_and_orders(
     namespace_1: str = '',
     namespace_2: str = '',
 ) -> list[list[Data] | None]:
-    return await database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
-            data=[
-                Data(
-                    data={'id': '1', 'name': 'customer'},
-                )
-            ],
-        ),
-        InsertData(
-            schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
-            data=[
-                Data(
-                    data={'id': '2', 'name': 'customer', 'age': 25},
-                )
-            ],
-        ),
-        InsertData(
-            schema=SchemaReference(name='orders', namespace=namespace_2, version=Version.LATEST),
-            data=[
-                Data(
-                    data={'id': '1', 'customer_id': '1', 'amount': 100},
-                )
-            ],
-        ),
-    ])
+    return await database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
+                data=[
+                    Data(
+                        data={'id': '1', 'name': 'customer'},
+                    )
+                ],
+            ),
+            InsertData(
+                schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
+                data=[
+                    Data(
+                        data={'id': '2', 'name': 'customer', 'age': 25},
+                    )
+                ],
+            ),
+            InsertData(
+                schema=SchemaReference(name='orders', namespace=namespace_2, version=Version.LATEST),
+                data=[
+                    Data(
+                        data={'id': '1', 'customer_id': '1', 'amount': 100},
+                    )
+                ],
+            ),
+        ]
+    )
 
 
 async def update_two_customers(
     database_connection: AsyncSqliteConnection, namespace: str = ''
 ) -> list[list[Data] | None]:
-    return await database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data=[
-                Data(
-                    data={'id': '1', 'name': 'customer'},
-                )
-            ],
-        ),
-        UpdateData(
-            schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data=Data(
-                data={'id': '1', 'name': 'new_customer'},
+    return await database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
+                data=[
+                    Data(
+                        data={'id': '1', 'name': 'customer'},
+                    )
+                ],
             ),
-        ),
-    ])
+            UpdateData(
+                schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
+                data=Data(
+                    data={'id': '1', 'name': 'new_customer'},
+                ),
+            ),
+        ]
+    )
 
 
 async def delete_customer(database_connection: AsyncSqliteConnection, namespace: str = '') -> list[list[Data] | None]:
-    return await database_connection.run_mutations([
-        DeleteData(
-            schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            query=Conditions(
-                Condition(
-                    left=FieldReferenceExpression(
-                        field_reference=FieldReference(field=Field(name='age'), table_name='')
+    return await database_connection.run_mutations(
+        [
+            DeleteData(
+                schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
+                query=Conditions(
+                    Condition(
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='age'), table_name='')
+                        ),
+                        lookup=FieldLookup.LT,
+                        right=Value(27),
                     ),
-                    lookup=FieldLookup.LT,
-                    right=Value(27),
                 ),
             ),
-        ),
-    ])
+        ]
+    )

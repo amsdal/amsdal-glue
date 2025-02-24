@@ -67,13 +67,15 @@ def pg_build_only(
 
     if distinct:
         if isinstance(distinct, list):
-            distinct_fields = ', '.join([
-                build_field(
-                    _distinct,
-                    transform=transform,
-                )
-                for _distinct in distinct
-            ])
+            distinct_fields = ', '.join(
+                [
+                    build_field(
+                        _distinct,
+                        transform=transform,
+                    )
+                    for _distinct in distinct
+                ]
+            )
 
             return f'DISTINCT ON ({distinct_fields}) {fields}'
 

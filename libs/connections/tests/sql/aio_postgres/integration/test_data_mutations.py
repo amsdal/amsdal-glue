@@ -60,22 +60,24 @@ async def test_delete(
     fixture_connection: AsyncGenerator[AsyncPostgresConnection, None],
 ) -> None:
     async for fc in fixture_connection:
-        await fc.run_mutations([
-            InsertData(
-                schema=SchemaReference(name='customers', version=Version.LATEST),
-                data=[
-                    Data(
-                        data={'id': '1', 'name': 'customer'},
-                    ),
-                    Data(
-                        data={'id': '2', 'name': 'customer', 'age': 25},
-                    ),
-                    Data(
-                        data={'id': '3', 'name': 'customer', 'age': 30},
-                    ),
-                ],
-            ),
-        ])
+        await fc.run_mutations(
+            [
+                InsertData(
+                    schema=SchemaReference(name='customers', version=Version.LATEST),
+                    data=[
+                        Data(
+                            data={'id': '1', 'name': 'customer'},
+                        ),
+                        Data(
+                            data={'id': '2', 'name': 'customer', 'age': 25},
+                        ),
+                        Data(
+                            data={'id': '3', 'name': 'customer', 'age': 30},
+                        ),
+                    ],
+                ),
+            ]
+        )
         assert await (await fc.execute('SELECT id, name, age FROM customers')).fetchall() == [
             (1, 'customer', None),
             (2, 'customer', 25),

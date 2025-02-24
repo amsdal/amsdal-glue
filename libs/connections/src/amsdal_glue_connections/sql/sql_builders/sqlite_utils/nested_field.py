@@ -12,10 +12,12 @@ def sqlite_nested_field_transform(
     transform: Transform,
     output_type: type | OutputType | None = None,
 ) -> str:
-    nested_fields_selection = '.'.join([
-        '$',
-        *fields,
-    ])
+    nested_fields_selection = '.'.join(
+        [
+            '$',
+            *fields,
+        ]
+    )
 
     if output_type in (int, bool):
         _cast_type = 'integer'

@@ -247,12 +247,18 @@ def build_update_column(
     return f"ALTER TABLE {_namespace_prefix}'{schema_reference.name}' ALTER COLUMN {_column}", []
 
 
-def build_full_constraint_stmt(schema_reference: SchemaReference, constraint: BaseConstraint) -> tuple[str, list[Any]]:
+def build_full_constraint_stmt(
+    schema_reference: SchemaReference,
+    constraint: BaseConstraint,
+) -> tuple[str, list[Any]]:
     msg = 'SQLite does not support adding constraints to existing tables. Recreate table instead.'
     raise NotImplementedError(msg)
 
 
-def build_drop_constraint(schema_reference: SchemaReference, constraint_name: str) -> tuple[str, list[Any]]:
+def build_drop_constraint(
+    schema_reference: SchemaReference,
+    constraint_name: str,
+) -> tuple[str, list[Any]]:
     msg = 'SQLite does not support dropping constraints from existing tables. Recreate table instead.'
     raise NotImplementedError(msg)
 
