@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal_glue>=0.0.11",
+    "amsdal_glue>=0.1.0",
 ]
 
 [project.optional-dependencies]

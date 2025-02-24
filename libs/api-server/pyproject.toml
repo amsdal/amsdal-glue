@@ -24,8 +24,8 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue>=0.0.12",
-    "amsdal-glue-sql-parser[sqloxide]>=0.0.5",
+    "amsdal-glue>=0.1.0",
+    "amsdal-glue-sql-parser[sqloxide]>=0.1.0",
     "fastapi>=0.111.1",
     "uvicorn>=0.30.3",
 ]

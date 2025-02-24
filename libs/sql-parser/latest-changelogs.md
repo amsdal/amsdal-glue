@@ -1,6 +1,6 @@
-## [v0.0.5](https://pypi.org/project/amsdal-glue-sql-parser/0.0.5/) - 2024-08-02
+## [v0.1.0](https://pypi.org/project/amsdal-glue-sql-parser/0.1.0/) - 2025-02-24
 
+### Changed
 
-### Added
-
-- Typing added (typing-added)
+- Builder helpers
+- Conditions
