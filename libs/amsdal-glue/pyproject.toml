@@ -48,7 +48,6 @@ Source = "https://github.com/amsdal/amsdal-glue/"
 path = "src/amsdal_glue/__about__.py"
 
 [tool.hatch.envs.default]
-python = "3.12.7"
 path = "../../../.venv/glue"
 extra-dependencies = [
     "mypy>=1.0.0",
