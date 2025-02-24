@@ -2,10 +2,9 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Union
 
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
-from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.expressions.expression import Expression
 
 _SKIP_FLATTEN = object()
 
@@ -15,22 +14,22 @@ class Condition:
     """Represents a condition in a query.
 
     Attributes:
-        field (FieldReference): The field to which the condition applies.
+        left (Expression): The left expression to which the condition applies.
         lookup (FieldLookup): The lookup type for the condition.
-        value (Value | FieldReference): The value or field reference for the condition.
+        right (left): The right expression for the condition.
         negate (bool): Whether the condition is negated. Defaults to False.
     """
 
-    field: FieldReference
+    left: Expression
     lookup: FieldLookup
-    value: Value | FieldReference
+    right: Expression
     negate: bool = False
 
     def __copy__(self) -> 'Condition':
         return Condition(
-            field=copy(self.field),
+            left=copy(self.left),
             lookup=self.lookup,
-            value=copy(self.value),
+            right=copy(self.right),
             negate=self.negate,
         )
 
@@ -47,9 +46,9 @@ class Condition:
             return False
 
         return (
-            self.field == __value.field
+            self.left == __value.left
             and self.lookup == __value.lookup
-            and self.value == __value.value
+            and self.right == __value.right
             and self.negate == __value.negate
         )
 

@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import Any
 
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
@@ -6,72 +5,40 @@ from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
 
-from amsdal_glue_connections.sql.sql_builders.nested_field_transform import default_nested_field_transform
-from amsdal_glue_connections.sql.sql_builders.nested_field_transform import NestedFieldTransform
-from amsdal_glue_connections.sql.sql_builders.operator_constructor import default_operator_constructor
-from amsdal_glue_connections.sql.sql_builders.operator_constructor import OperatorConstructor
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_conditions
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
+from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 
-def build_sql_data_command(  # noqa: PLR0913
+def build_sql_data_command(
     mutation: DataMutation,
-    value_placeholder: str = '?',
-    table_separator: str = '.',
-    operator_constructor: OperatorConstructor = default_operator_constructor,
-    table_quote: str = '',
-    field_quote: str = '',
-    value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    transform: Transform,
 ) -> tuple[str, list[Any]]:
     """
     Builds an SQL command for the given data mutation.
 
     Args:
         mutation (DataMutation): The data mutation to be converted to an SQL command.
-        value_placeholder (str, optional): The placeholder for values in the SQL command. Defaults to '?'.
-        table_separator (str, optional): The separator for table names. Defaults to '.'.
-        operator_constructor (Callable, optional): The function to construct operators.
-                                                   Defaults to default_operator_constructor.
-        table_quote (str, optional): The quote character for table names. Defaults to ''.
-        field_quote (str, optional): The quote character for field names. Defaults to ''.
-        value_transform (Callable, optional): The function to transform values. Defaults to lambda x: x.
-        nested_field_transform (Callable, optional): The function to transform nested fields.
-                                                     Defaults to default_nested_field_transform.
-
+        transform (Transform): The transform SQL to database specific.
     Returns:
         tuple[str, list[Any]]: The SQL command and the list of values.
     """
     if isinstance(mutation, InsertData):
         return _build_sql_insert_data(
             mutation,
-            value_placeholder,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            value_transform=value_transform,
+            transform=transform,
         )
 
     if isinstance(mutation, UpdateData):
         return _build_sql_update_data(
             mutation,
-            value_placeholder,
-            table_separator,
-            operator_constructor,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            value_transform=value_transform,
-            nested_field_transform=nested_field_transform,
+            transform=transform,
         )
 
     if isinstance(mutation, DeleteData):
         return _build_sql_delete_data(
             mutation,
-            value_placeholder,
-            table_separator,
-            operator_constructor,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            value_transform=value_transform,
-            nested_field_transform=nested_field_transform,
+            transform=transform,
         )
 
     msg = f'Unsupported command type: {type(mutation)}'
@@ -80,16 +47,13 @@ def build_sql_data_command(  # noqa: PLR0913
 
 def _build_sql_insert_data(
     command: InsertData,
-    value_placeholder: str,
-    table_separator: str = '.',
-    table_quote: str = '',
-    field_quote: str = '',
-    value_transform: Callable[[Any], Any] = lambda x: x,
+    transform: Transform,
 ) -> tuple[str, list[Any]]:
-    _namespace_prefix = (
-        f'{table_quote}{command.schema.namespace}{table_quote}{table_separator}' if command.schema.namespace else ''
-    )
-    stmt = f'INSERT INTO {_namespace_prefix}{table_quote}{command.schema.name}{table_quote}'
+    _namespace = transform.apply(TransformTypes.TABLE_QUOTE, command.schema.namespace)
+    _table = transform.apply(TransformTypes.TABLE_QUOTE, command.schema.name)
+    _stmt = transform.apply(TransformTypes.TABLE_SEPARATOR, _namespace, _table)
+
+    stmt = f'INSERT INTO {_stmt}'
 
     if not command.data:
         msg = 'No data provided for insert operation'
@@ -98,59 +62,58 @@ def _build_sql_insert_data(
     values: list[Any] = []
 
     keys = sorted({key for data in command.data for key in data.data})
-    placeholders = [[value_placeholder] * len(keys)] * len(command.data)
 
-    if command.data:
-        stmt += ' ('
-        stmt += ', '.join(f'{field_quote}{key}{field_quote}' for key in keys)
-        stmt += ') VALUES '
-        stmt += ', '.join(f'({", ".join(row)})' for row in placeholders)
-        values.extend(value_transform(data.data.get(key)) for data in command.data for key in keys)
+    placeholders = [
+        [transform.apply(TransformTypes.VALUE_PLACEHOLDER, data.data.get(key), transform=transform) for key in keys]
+        for data in command.data
+    ]
+    stmt += ' ('
+    stmt += ', '.join(f'{transform.apply(TransformTypes.FIELD_QUOTE, key)}' for key in keys)
+    stmt += ') VALUES '
+    stmt += ', '.join(f'({", ".join(row)})' for row in placeholders)
+    values.extend(transform.apply(TransformTypes.VALUE, data.data.get(key)) for data in command.data for key in keys)
 
     return stmt, values
 
 
-def _build_sql_update_data(  # noqa: PLR0913
+def _build_sql_update_data(
     command: UpdateData,
-    value_placeholder: str,
-    table_separator: str,
-    operator_constructor: OperatorConstructor = default_operator_constructor,
-    table_quote: str = '',
-    field_quote: str = '',
-    value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    transform: Transform,
 ) -> tuple[str, list[Any]]:
-    _namespace_prefix = (
-        f'{table_quote}{command.schema.namespace}{table_quote}{table_separator}' if command.schema.namespace else ''
-    )
-    stmt = f'UPDATE {_namespace_prefix}{table_quote}{command.schema.name}{table_quote}'
+    _namespace = transform.apply(TransformTypes.TABLE_QUOTE, command.schema.namespace)
+    _table = transform.apply(TransformTypes.TABLE_QUOTE, command.schema.name)
+    _stmt = transform.apply(TransformTypes.TABLE_SEPARATOR, _namespace, _table)
+
+    stmt = f'UPDATE {_stmt}'
 
     if command.schema.alias:
-        stmt += f' AS {table_quote}{command.schema.alias}{table_quote}'
+        _alias = transform.apply(TransformTypes.TABLE_QUOTE, command.schema.alias)
+        stmt += f' AS {_alias}'
 
     if not command.data:
         msg = 'No data provided for update operation'
         raise ValueError(msg)
 
     values: list[Any] = []
-
     keys = sorted(set(command.data.data))
+    key_placeholders = [
+        (
+            key,
+            transform.apply(TransformTypes.VALUE_PLACEHOLDER, command.data.data.get(key), transform=transform),
+        )
+        for key in keys
+    ]
 
-    if command.data:
-        stmt += ' SET '
-        stmt += ', '.join(f'{field_quote}{key}{field_quote} = {value_placeholder}' for key in keys)
-        values.extend(value_transform(command.data.data.get(key)) for key in keys)
+    stmt += ' SET '
+    stmt += ', '.join(
+        f'{transform.apply(TransformTypes.FIELD_QUOTE, key)} = {placeholder}' for key, placeholder in key_placeholders
+    )
+    values.extend(transform.apply(TransformTypes.VALUE, command.data.data.get(key)) for key in keys)
 
     if command.query:
         where, where_values = build_conditions(
             conditions=command.query,
-            value_placeholder=value_placeholder,
-            table_separator=table_separator,
-            operator_constructor=operator_constructor,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            value_transform=value_transform,
-            nested_field_transform=nested_field_transform,
+            transform=transform,
         )
 
         stmt += f' WHERE {where}'
@@ -159,36 +122,26 @@ def _build_sql_update_data(  # noqa: PLR0913
     return stmt, values
 
 
-def _build_sql_delete_data(  # noqa: PLR0913
+def _build_sql_delete_data(
     command: DeleteData,
-    value_placeholder: str,
-    table_separator: str,
-    operator_constructor: OperatorConstructor = default_operator_constructor,
-    table_quote: str = '',
-    field_quote: str = '',
-    value_transform: Callable[[Any], Any] = lambda x: x,
-    nested_field_transform: NestedFieldTransform = default_nested_field_transform,
+    transform: Transform,
 ) -> tuple[str, list[Any]]:
-    _namespace_prefix = (
-        f'{table_quote}{command.schema.namespace}{table_quote}{table_separator}' if command.schema.namespace else ''
-    )
-    stmt = f'DELETE FROM {_namespace_prefix}{table_quote}{command.schema.name}{table_quote}'  # noqa: S608
+    _namespace = transform.apply(TransformTypes.TABLE_QUOTE, command.schema.namespace)
+    _table = transform.apply(TransformTypes.TABLE_QUOTE, command.schema.name)
+    _stmt = transform.apply(TransformTypes.TABLE_SEPARATOR, _namespace, _table)
+
+    stmt = f'DELETE FROM {_stmt}'  # noqa: S608
 
     if command.schema.alias:
-        stmt += f' AS {table_quote}{command.schema.alias}{table_quote}'
+        _alias = transform.apply(TransformTypes.TABLE_QUOTE, command.schema.alias)
+        stmt += f' AS {_alias}'
 
     values = []
 
     if command.query:
         where, where_values = build_conditions(
             conditions=command.query,
-            value_placeholder=value_placeholder,
-            table_separator=table_separator,
-            operator_constructor=operator_constructor,
-            table_quote=table_quote,
-            field_quote=field_quote,
-            value_transform=value_transform,
-            nested_field_transform=nested_field_transform,
+            transform=transform,
         )
 
         stmt += f' WHERE {where}'

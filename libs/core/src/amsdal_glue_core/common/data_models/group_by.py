@@ -12,3 +12,9 @@ class GroupByQuery:
     """
 
     field: FieldReference
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, GroupByQuery):
+            return False
+
+        return self.field == other.field

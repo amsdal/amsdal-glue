@@ -22,6 +22,7 @@ from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.containers import Container
 from amsdal_glue_core.queries.planner.data_query_planner import DataQueryPlanner
@@ -117,9 +118,13 @@ def test_query_execute_query_to_single_connection() -> None:
                 table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
                 on=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=FieldReference(field=Field(name='id'), table_name='c'),
+                        right=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                        ),
                     ),
                 ),
                 join_type=JoinType.INNER,
@@ -159,9 +164,13 @@ def test_query_execute_query_to_single_connection_fail_due_to_duplicated_selecti
                 table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
                 on=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=FieldReference(field=Field(name='id'), table_name='c'),
+                        right=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                        ),
                     ),
                 ),
                 join_type=JoinType.INNER,
@@ -207,9 +216,13 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
                         table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
                         where=Conditions(
                             Condition(
-                                field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                                ),
                                 lookup=FieldLookup.EQ,
-                                value=FieldReference(field=Field(name='id'), table_name='c'),
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                                ),
                             ),
                         ),
                     ),
@@ -253,9 +266,13 @@ def test_query_execute_query_to_multiple_connections() -> None:
                 table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
                 on=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=FieldReference(field=Field(name='id'), table_name='c'),
+                        right=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                        ),
                     ),
                 ),
                 join_type=JoinType.INNER,
@@ -305,9 +322,13 @@ def test_query_execute_query_with_subquery_in_from_to_multiple_connections() -> 
                 table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
                 on=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=FieldReference(field=Field(name='id'), table_name='c'),
+                        right=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                        ),
                     ),
                 ),
                 join_type=JoinType.INNER,
@@ -357,9 +378,13 @@ def test_query_execute_query_with_subquery_in_join_to_multiple_connections() -> 
                 ),
                 on=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=FieldReference(field=Field(name='id'), table_name='c'),
+                        right=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                        ),
                     ),
                 ),
                 join_type=JoinType.INNER,
@@ -414,9 +439,13 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
                         table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
                         where=Conditions(
                             Condition(
-                                field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                                ),
                                 lookup=FieldLookup.EQ,
-                                value=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                                ),
                             ),
                         ),
                     ),

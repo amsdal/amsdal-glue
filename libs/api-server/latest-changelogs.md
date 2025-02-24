@@ -1,6 +1,6 @@
-## [v0.0.2](https://pypi.org/project/amsdal-glue-api-server/0.0.2/) - 2024-08-02
+## [v0.1.0](https://pypi.org/project/amsdal-glue-api-server/0.1.0/) - 2025-02-24
 
+### Changed
 
-### Fixed
-
-- Fixed dependencies (fixed-dependencies)
+- Builder helpers
+- Conditions

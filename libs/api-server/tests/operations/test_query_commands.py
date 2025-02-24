@@ -111,9 +111,13 @@ def test_query_customers_annotation(test_client: TestClient) -> None:
                             'where': {
                                 'children': [
                                     {
-                                        'field': {'field': {'name': 'customer_id'}, 'table_name': 'o'},
+                                        'left': {
+                                            'field_reference': {'field': {'name': 'customer_id'}, 'table_name': 'o'}
+                                        },
                                         'lookup': 'EQ',
-                                        'value': {'field': {'name': 'customer_id'}, 'table_name': 'c'},
+                                        'right': {
+                                            'field_reference': {'field': {'name': 'customer_id'}, 'table_name': 'c'}
+                                        },
                                     },
                                 ],
                             },

@@ -16,29 +16,33 @@ from tests.sql.postgres.unit.conftest import MockPostgresConnection
 def test_create_schema(database_connection: MockPostgresConnection) -> None:
     create_user_schema(database_connection)
 
-    database_connection.execute_mock.assert_has_calls([
-        mock.call(
-            'CREATE TABLE "user" ("id" BIGINT NOT NULL, "email" TEXT NOT NULL, "age" BIGINT NOT NULL, '
-            '"first_name" TEXT, "last_name" TEXT, CONSTRAINT pk_user PRIMARY KEY (id) , '
-            'CONSTRAINT uk_user_email UNIQUE (email), CONSTRAINT ck_user_age CHECK ("user"."age" > 18))',
-            (),
-        ),
-        mock.call('CREATE INDEX "idx_user_email" ON "user" (first_name, last_name)', ()),
-    ])
+    database_connection.execute_mock.assert_has_calls(
+        [
+            mock.call(
+                'CREATE TABLE "user" ("id" BIGINT NOT NULL, "email" TEXT NOT NULL, "age" BIGINT NOT NULL, '
+                '"first_name" TEXT, "last_name" TEXT, CONSTRAINT pk_user PRIMARY KEY ("id") , '
+                'CONSTRAINT uk_user_email UNIQUE ("email"), CONSTRAINT ck_user_age CHECK ("user"."age" > 18))',
+                (),
+            ),
+            mock.call('CREATE INDEX "idx_user_email" ON "user" (first_name, last_name)', ()),
+        ]
+    )
 
 
 def test_create_schema_with_namespace(database_connection: MockPostgresConnection) -> None:
     create_user_schema(database_connection, namespace='ns1')
 
-    database_connection.execute_mock.assert_has_calls([
-        mock.call(
-            'CREATE TABLE "ns1"."user" ("id" BIGINT NOT NULL, "email" TEXT NOT NULL, "age" BIGINT NOT NULL, '
-            '"first_name" TEXT, "last_name" TEXT, CONSTRAINT pk_user PRIMARY KEY (id) , '
-            'CONSTRAINT uk_user_email UNIQUE (email), CONSTRAINT ck_user_age CHECK ("ns1"."user"."age" > 18))',
-            (),
-        ),
-        mock.call('CREATE INDEX "ns1"."idx_user_email" ON "ns1"."user" (first_name, last_name)', ()),
-    ])
+    database_connection.execute_mock.assert_has_calls(
+        [
+            mock.call(
+                'CREATE TABLE "ns1"."user" ("id" BIGINT NOT NULL, "email" TEXT NOT NULL, "age" BIGINT NOT NULL, '
+                '"first_name" TEXT, "last_name" TEXT, CONSTRAINT pk_user PRIMARY KEY ("id") , '
+                'CONSTRAINT uk_user_email UNIQUE ("email"), CONSTRAINT ck_user_age CHECK ("ns1"."user"."age" > 18))',
+                (),
+            ),
+            mock.call('CREATE INDEX "ns1"."idx_user_email" ON "ns1"."user" (first_name, last_name)', ()),
+        ]
+    )
 
 
 def test_create_schema_benchmark(database_connection: MockPostgresConnection, benchmark) -> None:
@@ -150,7 +154,7 @@ def test_add_constraint(database_connection: MockPostgresConnection) -> None:
     add_unique_constraint(database_connection)
 
     database_connection.execute_mock.assert_called_once_with(
-        'ALTER TABLE "user" ADD CONSTRAINT uk_user_email_unique UNIQUE (email, age)', ()
+        'ALTER TABLE "user" ADD CONSTRAINT uk_user_email_unique UNIQUE ("email", "age")', ()
     )
 
 
@@ -158,7 +162,7 @@ def test_add_constraint_with_namespace(database_connection: MockPostgresConnecti
     add_unique_constraint(database_connection, namespace='ns1')
 
     database_connection.execute_mock.assert_called_once_with(
-        'ALTER TABLE "ns1"."user" ADD CONSTRAINT uk_user_email_unique UNIQUE (email, age)', ()
+        'ALTER TABLE "ns1"."user" ADD CONSTRAINT uk_user_email_unique UNIQUE ("email", "age")', ()
     )
 
 

@@ -68,6 +68,7 @@ class Schema:
     properties: list['PropertySchema']
     constraints: list[BaseConstraint] | None = None
     indexes: list[IndexSchema] | None = None
+    metadata: dict[str, Any] | None = None
 
     def __hash__(self):
         return hash(repr(self))
@@ -90,6 +91,7 @@ class Schema:
             properties=[copy(prop) for prop in self.properties],
             constraints=[copy(constraint) for constraint in self.constraints] if self.constraints is not None else None,
             indexes=[copy(index) for index in self.indexes] if self.indexes is not None else None,
+            metadata=self.metadata.copy() if self.metadata is not None else None,
         )
 
 
@@ -148,6 +150,7 @@ class SchemaReference:
     version: str | Version
     alias: str | None = None
     namespace: str | None = None
+    metadata: dict[str, Any] | None = None
 
     def __copy__(self):
         return SchemaReference(
@@ -155,6 +158,7 @@ class SchemaReference:
             version=self.version,
             alias=self.alias,
             namespace=self.namespace,
+            metadata=self.metadata,
         )
 
     def __repr__(self):

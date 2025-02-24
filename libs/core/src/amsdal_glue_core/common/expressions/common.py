@@ -1,19 +1,7 @@
-import copy
 from typing import Any
 
-from amsdal_glue_core.common.expressions.base import BaseExpression
+from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.value import Value
-
-
-class Expression(BaseExpression):
-    def __init__(self, output_type: type[Any] | None = None) -> None:
-        self.output_type = output_type
-
-    def to_expression(self) -> 'Expression':
-        return self.copy()
-
-    def copy(self) -> 'Expression':
-        return copy.copy(self)
 
 
 class Combinable:
@@ -32,11 +20,17 @@ class Combinable:
     MOD = '%'
 
     def _combine(self, other: Any, operator: str, *, is_reversed: bool = False) -> Expression:
-        if not hasattr(other, 'to_expression'):
-            other = Value(other)
+        if not isinstance(other, Expression):
+            other = other.to_expression() if hasattr(other, 'to_expression') else Value(other)
+
+        if not isinstance(self, Expression):
+            _self = self.to_expression() if hasattr(self, 'to_expression') else Value(self)
+        else:
+            _self = self
+
         if is_reversed:
-            return CombinedExpression(other, operator, self)
-        return CombinedExpression(self, operator, other)
+            return CombinedExpression(other, operator, _self)
+        return CombinedExpression(_self, operator, other)
 
     def __neg__(self: Any) -> Expression:
         return self._combine(-1, self.MUL, is_reversed=False)
@@ -86,17 +80,17 @@ class CombinedExpression(Expression):
     combined expression.
 
     Attributes:
-        left (Any): The left operand of the combined expression.
+        left (Expression): The left operand of the combined expression.
         operator (str): The operator used to combine the operands.
-        right (Any): The right operand of the combined expression.
+        right (Expression): The right operand of the combined expression.
         output_type (type[Any] | None): The output type of the expression.
     """
 
     def __init__(
         self,
-        left: Any,
+        left: Expression,
         operator: str,
-        right: Any,
+        right: Expression,
         output_type: type[Any] | None = None,
     ) -> None:
         super().__init__(output_type=output_type)

@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Any
 
 import polars as pl
+from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
@@ -17,6 +18,7 @@ from amsdal_glue_core.common.executors.interfaces import AsyncFinalDataQueryExec
 from amsdal_glue_core.common.executors.interfaces import FinalDataQueryExecutor
 from amsdal_glue_core.common.expressions.common import CombinedExpression
 from amsdal_glue_core.common.expressions.common import Expression
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.queries.data_query_nodes import FinalDataQueryNode
 from amsdal_glue_core.queries.final_query_statement import AnnotationQueryNode
@@ -248,6 +250,9 @@ class PolarsFinalQueryDataExecutorMixin:
         if isinstance(expression, FieldReference):
             return self._build_field_reference_stmt(expression)
 
+        if isinstance(expression, FieldReferenceExpression):
+            return self._build_field_reference_stmt(expression.field_reference)
+
         if isinstance(expression, Value):
             return repr(expression)
 
@@ -298,12 +303,12 @@ class PolarsFinalQueryDataExecutorMixin:
                 _stmt.append(f'({self._sql_build_conditions(condition)})')
                 continue
 
-            _field = self._build_field_reference_stmt(condition.field)
             _stmt.append(
                 polars_operator_constructor(
-                    field=_field,
+                    left=condition.left,
                     lookup=condition.lookup,
-                    value=condition.value,
+                    right=condition.right,
+                    transform=get_pg_transform(),
                 )
             )
 

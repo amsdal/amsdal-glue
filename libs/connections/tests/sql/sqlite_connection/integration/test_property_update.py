@@ -37,16 +37,18 @@ def test_update_int_to_str_not_required(database_connection: SqliteConnection) -
             ],
         ),
     )[0]
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name=schema.name, version=schema.version),
-            data=[
-                Data(data={'field_a': 'value1', 'field_b': 1}),
-                Data(data={'field_a': 'value2', 'field_b': 2}),
-                Data(data={'field_a': 'value3', 'field_b': 3}),
-            ],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                data=[
+                    Data(data={'field_a': 'value1', 'field_b': 1}),
+                    Data(data={'field_a': 'value2', 'field_b': 2}),
+                    Data(data={'field_a': 'value3', 'field_b': 3}),
+                ],
+            ),
+        ]
+    )
 
     query = QueryStatement(table=SchemaReference(name=schema.name, version=schema.version))
     result = database_connection.query(query)
@@ -124,16 +126,18 @@ def test_update_int_to_str_required(database_connection: SqliteConnection) -> No
             ],
         ),
     )[0]
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name=schema.name, version=schema.version),
-            data=[
-                Data(data={'field_a': 'value1', 'field_b': 1}),
-                Data(data={'field_a': 'value2', 'field_b': 2}),
-                Data(data={'field_a': 'value3', 'field_b': 3}),
-            ],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                data=[
+                    Data(data={'field_a': 'value1', 'field_b': 1}),
+                    Data(data={'field_a': 'value2', 'field_b': 2}),
+                    Data(data={'field_a': 'value3', 'field_b': 3}),
+                ],
+            ),
+        ]
+    )
 
     query = QueryStatement(table=SchemaReference(name=schema.name, version=schema.version))
     result = database_connection.query(query)
@@ -211,16 +215,18 @@ def test_update_int_to_str(database_connection: SqliteConnection) -> None:
             ],
         ),
     )[0]
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name=schema.name, version=schema.version),
-            data=[
-                Data(data={'field_a': 'value1', 'field_b': 1}),
-                Data(data={'field_a': 'value2', 'field_b': 2}),
-                Data(data={'field_a': 'value3', 'field_b': 3}),
-            ],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                data=[
+                    Data(data={'field_a': 'value1', 'field_b': 1}),
+                    Data(data={'field_a': 'value2', 'field_b': 2}),
+                    Data(data={'field_a': 'value3', 'field_b': 3}),
+                ],
+            ),
+        ]
+    )
 
     query = QueryStatement(table=SchemaReference(name=schema.name, version=schema.version))
     result = database_connection.query(query)
@@ -298,16 +304,18 @@ def test_update_int_to_str_invalid(database_connection: SqliteConnection) -> Non
             ],
         ),
     )[0]
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name=schema.name, version=schema.version),
-            data=[
-                Data(data={'field_a': 'value1', 'field_b': 'a1'}),
-                Data(data={'field_a': 'value2', 'field_b': 'b2'}),
-                Data(data={'field_a': 'value3', 'field_b': 'c3'}),
-            ],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                data=[
+                    Data(data={'field_a': 'value1', 'field_b': 'a1'}),
+                    Data(data={'field_a': 'value2', 'field_b': 'b2'}),
+                    Data(data={'field_a': 'value3', 'field_b': 'c3'}),
+                ],
+            ),
+        ]
+    )
 
     query = QueryStatement(table=SchemaReference(name=schema.name, version=schema.version))
     result = database_connection.query(query)

@@ -36,6 +36,7 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -518,10 +519,18 @@ class SqlOxideParser(SqlParserBase):
                 )
 
             if value['op'].lower() in ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in']:
+                _field = self._identifier_to_field(value['right'], table_name)
+
+                _right = (
+                    FieldReferenceExpression(field_reference=_field) if isinstance(_field, FieldReference) else _field
+                )
+
                 return Condition(
-                    field=self._identifier_to_field_reference(value['left'], table_name),
+                    left=FieldReferenceExpression(
+                        field_reference=self._identifier_to_field_reference(value['left'], table_name)
+                    ),
                     lookup=FieldLookup(value['op'].upper()),
-                    value=self._identifier_to_field(value['right'], table_name),
+                    right=_right,
                 )
 
         if 'Nested' in selection:

@@ -1,3 +1,5 @@
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+
 from amsdal_glue import CheckConstraint
 from amsdal_glue import Condition
 from amsdal_glue import Conditions
@@ -49,9 +51,11 @@ user_schema = Schema(
             name='ck_user_age',
             condition=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='age'), table_name='user'),
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='age'), table_name='user')
+                    ),
                     lookup=FieldLookup.GT,
-                    value=Value(value=18),
+                    right=Value(value=18),
                 ),
             ),
         ),

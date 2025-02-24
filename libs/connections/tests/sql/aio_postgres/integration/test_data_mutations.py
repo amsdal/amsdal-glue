@@ -2,7 +2,6 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -61,40 +60,24 @@ async def test_delete(
     fixture_connection: AsyncGenerator[AsyncPostgresConnection, None],
 ) -> None:
     async for fc in fixture_connection:
-        await fc.run_mutations([
-            InsertData(
-                schema=SchemaReference(name='customers', version=Version.LATEST),
-                data=[
-                    Data(
-                        data={'id': '1', 'name': 'customer'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
+        await fc.run_mutations(
+            [
+                InsertData(
+                    schema=SchemaReference(name='customers', version=Version.LATEST),
+                    data=[
+                        Data(
+                            data={'id': '1', 'name': 'customer'},
                         ),
-                    ),
-                    Data(
-                        data={'id': '2', 'name': 'customer', 'age': 25},
-                        metadata=Metadata(
-                            object_id='2',
-                            object_version='2',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
+                        Data(
+                            data={'id': '2', 'name': 'customer', 'age': 25},
                         ),
-                    ),
-                    Data(
-                        data={'id': '3', 'name': 'customer', 'age': 30},
-                        metadata=Metadata(
-                            object_id='3',
-                            object_version='3',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
+                        Data(
+                            data={'id': '3', 'name': 'customer', 'age': 30},
                         ),
-                    ),
-                ],
-            ),
-        ])
+                    ],
+                ),
+            ]
+        )
         assert await (await fc.execute('SELECT id, name, age FROM customers')).fetchall() == [
             (1, 'customer', None),
             (2, 'customer', 25),

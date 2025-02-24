@@ -8,6 +8,7 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -115,9 +116,11 @@ def test_simple_update_command_condition(benchmark) -> None:
                     ),
                     query=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='id'), table_name='users'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='users')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=Value(value='1'),
+                            right=Value(value='1'),
                         ),
                         connector=FilterConnector.AND,
                     ),
@@ -161,9 +164,11 @@ def test_simple_delete_command_condition(benchmark) -> None:
                     schema=SchemaReference(name='users', version=Version.LATEST),
                     query=Conditions(
                         Condition(
-                            field=FieldReference(field=Field(name='id'), table_name='users'),
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='id'), table_name='users')
+                            ),
                             lookup=FieldLookup.EQ,
-                            value=Value(value='1'),
+                            right=Value(value='1'),
                         ),
                         connector=FilterConnector.AND,
                     ),

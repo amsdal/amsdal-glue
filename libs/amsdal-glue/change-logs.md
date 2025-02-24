@@ -1,9 +1,15 @@
+## [v0.1.0](https://pypi.org/project/amsdal-glue/0.1.0/) - 2025-02-24
+
+### Changed
+
+- Builder helpers
+- Conditions
+
 ## [v0.0.16](https://pypi.org/project/amsdal-glue/0.0.16/) - 2024-10-18
 
 ### Fixed
 
 - Error messages (error-messages)
-
 
 ## [v0.0.15](https://pypi.org/project/amsdal-glue/0.0.15/) - 2024-10-14
 

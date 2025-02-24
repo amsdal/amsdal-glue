@@ -11,10 +11,10 @@ from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -60,12 +60,6 @@ def test_insert_data_single_element() -> None:
                 data=[
                     Data(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
                     )
                 ],
             )
@@ -103,18 +97,14 @@ def test_update_data_single_element() -> None:
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                 data=Data(
                     data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                    metadata=Metadata(
-                        object_id='1',
-                        object_version='1',
-                        created_at='2021-01-01T00:00:00Z',
-                        updated_at='2021-01-01T00:00:00Z',
-                    ),
                 ),
                 query=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value(value='1'),
+                        right=Value(value='1'),
                     ),
                 ),
             )
@@ -153,9 +143,11 @@ def test_delete_data_single_element() -> None:
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                 query=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value(value='1'),
+                        right=Value(value='1'),
                     ),
                 ),
             )
@@ -190,12 +182,6 @@ def test_create_and_update_data_single_element() -> None:
                 data=[
                     Data(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
                     )
                 ],
             ),
@@ -203,18 +189,14 @@ def test_create_and_update_data_single_element() -> None:
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                 data=Data(
                     data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                    metadata=Metadata(
-                        object_id='1',
-                        object_version='1',
-                        created_at='2021-01-01T00:00:00Z',
-                        updated_at='2021-01-01T00:00:00Z',
-                    ),
                 ),
                 query=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value(value='1'),
+                        right=Value(value='1'),
                     ),
                 ),
             ),
@@ -248,12 +230,6 @@ def test_create_and_delete_data_single_element() -> None:
                 data=[
                     Data(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
                     )
                 ],
             ),
@@ -261,9 +237,11 @@ def test_create_and_delete_data_single_element() -> None:
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
                 query=Conditions(
                     Condition(
-                        field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
                         lookup=FieldLookup.EQ,
-                        value=Value(value='1'),
+                        right=Value(value='1'),
                     ),
                 ),
             ),
@@ -299,30 +277,12 @@ def test_create_multiple_data_elements() -> None:
                 data=[
                     Data(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                        metadata=Metadata(
-                            object_id='1',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
                     ),
                     Data(
                         data={'id': '222', 'customer_id': '2', 'status': 'shipped'},
-                        metadata=Metadata(
-                            object_id='2',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
                     ),
                     Data(
                         data={'id': '333', 'customer_id': '3', 'status': 'shipped'},
-                        metadata=Metadata(
-                            object_id='3',
-                            object_version='1',
-                            created_at='2021-01-01T00:00:00Z',
-                            updated_at='2021-01-01T00:00:00Z',
-                        ),
                     ),
                 ],
             )

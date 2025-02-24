@@ -1,6 +1,6 @@
 from typing import Any
 
-from amsdal_glue_core.common.expressions.common import Expression
+from amsdal_glue_core.common.expressions.expression import Expression
 
 
 class RawExpression(Expression):

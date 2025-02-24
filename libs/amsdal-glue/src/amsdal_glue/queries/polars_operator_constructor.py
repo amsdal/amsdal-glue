@@ -1,31 +1,31 @@
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_connections.sql.sql_builders.transform import Transform
 from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.expressions.expression import Expression
 
 
 def polars_operator_constructor(
-    field: str,
+    left: Expression,
     lookup: FieldLookup,
-    value: Value | FieldReference,
+    right: Expression,
+    transform: Transform,
 ) -> str:
     """
     Constructs a Polars operator statement based on the given field, lookup, and value.
 
     Args:
-        field (str): The field to be used in the operator.
+        field (Expression): The field to be used in the operator.
         lookup (FieldLookup): The lookup type for the field.
-        value (Value | FieldReference): The value or field reference to be used in the operator.
+        value (Expression): The value or field reference to be used in the operator.
 
     Returns:
         str: The constructed Polars operator statement.
     """
     _stmt, _ = repr_operator_constructor(
-        field=field,
+        left=left,
         lookup=lookup,
-        value=value,
-        value_placeholder='',
-        table_separator='.',
+        right=right,
+        transform=transform,
     )
 
     return _stmt

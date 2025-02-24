@@ -23,7 +23,6 @@ from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.results.data import DataResult
@@ -48,6 +47,9 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+from amsdal_glue_core.common.expressions.func import Func
+from amsdal_glue_core.common.expressions.jsonb_array import JsonbArrayExpression
 from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -118,13 +120,16 @@ __all__ = [
     'FieldLookup',
     'FieldReference',
     'FieldReferenceAliased',
+    'FieldReferenceExpression',
     'FilterConnector',
     'ForeignKeyConstraint',
+    'Func',
     'GroupByQuery',
     'IndexSchema',
     'InsertData',
     'JoinQuery',
     'JoinType',
+    'JsonbArrayExpression',
     'LimitQuery',
     'LockAction',
     'LockCommand',
@@ -133,7 +138,6 @@ __all__ = [
     'LockResult',
     'LockSchemaReference',
     'Max',
-    'Metadata',
     'Min',
     'OrderByQuery',
     'OrderDirection',

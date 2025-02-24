@@ -15,6 +15,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -141,9 +142,11 @@ def test_simple_create_table_explicit_constraints(benchmark) -> None:
                                 name='',
                                 condition=Conditions(
                                     Condition(
-                                        field=FieldReference(field=Field(name='id'), table_name='users'),
+                                        left=FieldReferenceExpression(
+                                            field_reference=FieldReference(field=Field(name='id'), table_name='users')
+                                        ),
                                         lookup=FieldLookup.GT,
-                                        value=Value('0'),
+                                        right=Value('0'),
                                     )
                                 ),
                             ),
@@ -198,9 +201,11 @@ def test_simple_create_table_explicit_named_constraints(benchmark) -> None:
                                 name='check_id',
                                 condition=Conditions(
                                     Condition(
-                                        field=FieldReference(field=Field(name='id'), table_name='users'),
+                                        left=FieldReferenceExpression(
+                                            field_reference=FieldReference(field=Field(name='id'), table_name='users')
+                                        ),
                                         lookup=FieldLookup.GT,
-                                        value=Value('0'),
+                                        right=Value('0'),
                                     )
                                 ),
                             ),
@@ -432,9 +437,11 @@ def test_fetch_schemas_conditions(benchmark) -> None:
         SchemaQueryOperation(
             filters=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='name'), table_name='amsdal_schema_registry'),
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='name'), table_name='amsdal_schema_registry')
+                    ),
                     lookup=FieldLookup.EQ,
-                    value=Value('users'),
+                    right=Value('users'),
                 )
             ),
         )

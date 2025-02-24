@@ -8,7 +8,6 @@ from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqlit
 from amsdal_glue_core.commands.planner.data_command_planner import AsyncDataCommandPlanner
 from amsdal_glue_core.commands.planner.transaction_command_planner import AsyncTransactionCommandPlanner
 from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.metadata import Metadata
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
@@ -80,12 +79,6 @@ async def test_transaction(register_default_connection: AsyncGenerator[None, Non
                             data=[
                                 Data(
                                     data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                                    metadata=Metadata(
-                                        object_id='1',
-                                        object_version='1',
-                                        created_at='2021-01-01T00:00:00Z',
-                                        updated_at='2021-01-01T00:00:00Z',
-                                    ),
                                 )
                             ],
                         ),
@@ -94,12 +87,6 @@ async def test_transaction(register_default_connection: AsyncGenerator[None, Non
                             data=[
                                 Data(
                                     data={'id': '1', 'name': 'customer'},
-                                    metadata=Metadata(
-                                        object_id='1',
-                                        object_version='1',
-                                        created_at='2021-01-01T00:00:00Z',
-                                        updated_at='2021-01-01T00:00:00Z',
-                                    ),
                                 )
                             ],
                         ),
@@ -156,12 +143,6 @@ async def test_transaction_rollback(register_default_connection: AsyncGenerator[
                             data=[
                                 Data(
                                     data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                                    metadata=Metadata(
-                                        object_id='1',
-                                        object_version='1',
-                                        created_at='2021-01-01T00:00:00Z',
-                                        updated_at='2021-01-01T00:00:00Z',
-                                    ),
                                 )
                             ],
                         ),
@@ -170,12 +151,6 @@ async def test_transaction_rollback(register_default_connection: AsyncGenerator[
                             data=[
                                 Data(
                                     data={'id': '1', 'name': 'customer'},
-                                    metadata=Metadata(
-                                        object_id='1',
-                                        object_version='1',
-                                        created_at='2021-01-01T00:00:00Z',
-                                        updated_at='2021-01-01T00:00:00Z',
-                                    ),
                                 )
                             ],
                         ),
