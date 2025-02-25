@@ -71,6 +71,7 @@ def pg_operator_constructor(  # noqa: C901, PLR0912, PLR0915
         case FieldLookup.LTE:
             right_stmt = f'<= {right_stmt}'
         case FieldLookup.IN:
+            right_stmt = right_stmt.removesuffix('::TEXT')
             right_stmt = f'= ANY({right_stmt})'
         case FieldLookup.CONTAINS:
             right_stmt = f'LIKE {right_stmt}'
