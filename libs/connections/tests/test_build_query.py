@@ -304,12 +304,9 @@ def test_build_sql_query_simple_with_namespace__joins(join_type) -> None:
         transform=get_pg_transform(),
     )
 
-    assert (
-        sql
-        == (
-            f'SELECT * FROM "ns1"."users" AS "u" {join_type.value} JOIN '  # noqa: S608
-            '"ns2"."user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'
-        )
+    assert sql == (
+        f'SELECT * FROM "ns1"."users" AS "u" {join_type.value} JOIN '  # noqa: S608
+        '"ns2"."user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'
     )
     assert value == []
 

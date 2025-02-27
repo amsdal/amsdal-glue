@@ -49,17 +49,18 @@ path = "src/amsdal_glue_connections/__about__.py"
 [tool.hatch.envs.default]
 path = "../../../.venv/connections"
 extra-dependencies = [
-    "mypy>=1.10.1",
+    "mypy>=1.15.0",
     "coverage[toml]>=7.6",
-    "pytest>=8.2.2",
+    "pytest>=8.3.4",
     "pytest-mock>=3.14.0",
-    "pytest-benchmark>=4.0.0",
+    "pytest-benchmark>=5.1.0",
     "pytest-asyncio>=0.24.0",
-    "ruff>=0.5.2",
-    "psycopg[binary,pool]>=3.2.1",
+    "ruff>=0.9.7",
+    "psycopg[binary,pool]>=3.2.5",
     "docker>=7.1.0",
-    "towncrier>=23.11.0",
+    "towncrier>=24.8.0",
     "aiosqlite>=0.20.0",
+    "pandas>=2.2.3",
 ]
 pre-install-commands = [
     "pip install -e ../core/",
@@ -159,6 +160,7 @@ select = [
 ignore = [
     "COM812",
     "ISC001",
+    "A005",
 ]
 unfixable = [
     # Don't touch unused imports
@@ -195,6 +197,9 @@ convention = "google"
 [tool.mypy]
 ignore_missing_imports = true
 check_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source_pkgs = ["amsdal_glue_connections", "tests"]

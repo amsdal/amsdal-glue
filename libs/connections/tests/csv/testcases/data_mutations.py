@@ -12,13 +12,11 @@ from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
 
-from amsdal_glue_connections.sql.connections.postgres_connection import AsyncPostgresConnection
+from amsdal_glue_connections.sql.connections.csv_connection import CsvConnection
 
 
-async def simple_customer_insert(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
-) -> list[list[Data] | None]:
-    return await database_connection.run_mutations([
+def simple_customer_insert(database_connection: CsvConnection, namespace: str = '') -> list[list[Data] | None]:
+    return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
@@ -30,12 +28,12 @@ async def simple_customer_insert(
     ])
 
 
-async def insert_customers_and_orders(
-    database_connection: AsyncPostgresConnection,
+def insert_customers_and_orders(
+    database_connection: CsvConnection,
     namespace_1: str = '',
     namespace_2: str = '',
 ) -> list[list[Data] | None]:
-    return await database_connection.run_mutations([
+    return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
@@ -63,10 +61,8 @@ async def insert_customers_and_orders(
     ])
 
 
-async def update_two_customers(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
-) -> list[list[Data] | None]:
-    return await database_connection.run_mutations([
+def update_two_customers(database_connection: CsvConnection, namespace: str = '') -> list[list[Data] | None]:
+    return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
@@ -84,8 +80,8 @@ async def update_two_customers(
     ])
 
 
-async def delete_customer(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[list[Data] | None]:
-    return await database_connection.run_mutations([
+def delete_customer(database_connection: CsvConnection, namespace: str = '') -> list[list[Data] | None]:
+    return database_connection.run_mutations([
         DeleteData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             query=Conditions(
