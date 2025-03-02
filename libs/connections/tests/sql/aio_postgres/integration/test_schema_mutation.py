@@ -1,4 +1,3 @@
-from collections.abc import AsyncGenerator
 from typing import Union
 
 import pytest
@@ -28,229 +27,219 @@ from tests.sql.aio_postgres.testcases.schema_mutations import update_age_propert
 
 
 @pytest.mark.asyncio
-async def test_create_schema(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await create_user_schema(dc)
+async def test_create_schema(database_connection: AsyncPostgresConnection) -> None:
+    await create_user_schema(database_connection)
 
-        assert await _describe_table(dc, 'user') == [
-            ('id', int),
-            ('age', int),
-            ('email', str),
-            ('first_name', str),
-            ('last_name', str),
-        ]
-
-
-@pytest.mark.asyncio
-async def test_rename_schema(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
-
-        assert await _describe_table(dc, 'user') == [
-            ('id', int),
-            ('age', int),
-            ('email', str),
-        ]
-
-        await rename_user_schema(dc)
-
-        assert await _describe_table(dc, 'user') == []
-
-        assert await _describe_table(dc, 'customer') == [
-            ('id', int),
-            ('age', int),
-            ('email', str),
-        ]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', int),
+        ('age', int),
+        ('email', str),
+        ('first_name', str),
+        ('last_name', str),
+    ]
 
 
 @pytest.mark.asyncio
-async def test_delete_schema(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
+async def test_rename_schema(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
 
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', int),
+        ('age', int),
+        ('email', str),
+    ]
 
-        await delete_user_schema(dc)
+    await rename_user_schema(database_connection)
 
-        assert await _describe_table(dc, 'user') == []
+    assert await _describe_table(database_connection, 'user') == []
 
-
-@pytest.mark.asyncio
-async def test_add_property(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
-
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-
-        await add_last_name_property(dc)
-
-        assert await _describe_table(dc, 'user') == [
-            ('id', int),
-            ('age', int),
-            ('email', str),
-            ('last_name', str),
-        ]
+    assert await _describe_table(database_connection, 'customer') == [
+        ('id', int),
+        ('age', int),
+        ('email', str),
+    ]
 
 
 @pytest.mark.asyncio
-async def test_delete_property(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
+async def test_delete_schema(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
 
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
 
-        await delete_age_property(dc)
+    await delete_user_schema(database_connection)
 
-        assert await _describe_table(dc, 'user') == [('id', int), ('email', str)]
-
-
-@pytest.mark.asyncio
-async def test_update_property(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
-
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-
-        await update_age_property(dc)
-
-        assert await _describe_table(dc, 'user') == [('id', int), ('email', str), ('age', str)]
+    assert await _describe_table(database_connection, 'user') == []
 
 
 @pytest.mark.asyncio
-async def test_add_constraint(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
+async def test_add_property(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
 
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-        assert await _get_constraints(dc, 'user') == []
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
 
-        await add_unique_constraint(dc)
+    await add_last_name_property(database_connection)
 
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-        assert await _get_constraints(dc, 'user') == [('uk_user_email_unique',)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', int),
+        ('age', int),
+        ('email', str),
+        ('last_name', str),
+    ]
 
 
 @pytest.mark.asyncio
-async def test_drop_constraint(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
+async def test_delete_property(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
 
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    AddConstraint(
-                        schema_reference=DEFAULT_SCHEMA_REF,
-                        constraint=UniqueConstraint(
-                            name='uk_user_email_unique',
-                            fields=['email', 'age'],
-                            condition=None,
-                        ),
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+
+    await delete_age_property(database_connection)
+
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str)]
+
+
+@pytest.mark.asyncio
+async def test_update_property(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
+
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+
+    await update_age_property(database_connection)
+
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', str)]
+
+
+@pytest.mark.asyncio
+async def test_add_constraint(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
+
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _get_constraints(database_connection, 'user') == []
+
+    await add_unique_constraint(database_connection)
+
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _get_constraints(database_connection, 'user') == [('uk_user_email_unique',)]
+
+
+@pytest.mark.asyncio
+async def test_drop_constraint(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
+
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                AddConstraint(
+                    schema_reference=DEFAULT_SCHEMA_REF,
+                    constraint=UniqueConstraint(
+                        name='uk_user_email_unique',
+                        fields=['email', 'age'],
+                        condition=None,
                     ),
-                ],
-            ),
-        )
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-        assert await _get_constraints(dc, 'user') == [('uk_user_email_unique',)]
+                ),
+            ],
+        ),
+    )
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _get_constraints(database_connection, 'user') == [('uk_user_email_unique',)]
 
-        await delete_unique_constraint(dc)
+    await delete_unique_constraint(database_connection)
 
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-        assert await _get_constraints(dc, 'user') == []
-
-
-@pytest.mark.asyncio
-async def test_add_index(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-        assert await _get_indexes(dc, 'user') == []
-
-        await add_index(dc)
-
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-        assert await _get_indexes(dc, 'user') == [
-            ('idx_user_email', ['email', 'age']),
-        ]
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _get_constraints(database_connection, 'user') == []
 
 
 @pytest.mark.asyncio
-async def test_delete_index(database_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for dc in database_connection:
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    RegisterSchema(schema=DEFAULT_SCHEMA),
-                ],
-            ),
-        )
+async def test_add_index(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _get_indexes(database_connection, 'user') == []
 
-        await dc.run_schema_command(
-            SchemaCommand(
-                mutations=[
-                    AddIndex(
-                        schema_reference=DEFAULT_SCHEMA_REF,
-                        index=IndexSchema(name='idx_user_email', fields=['email', 'age'], condition=None),
-                    ),
-                ],
-            ),
-        )
+    await add_index(database_connection)
 
-        assert await _describe_table(dc, 'user') == [('id', int), ('age', int), ('email', str)]
-        assert await _get_indexes(dc, 'user') == [
-            ('idx_user_email', ['email', 'age']),
-        ]
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _get_indexes(database_connection, 'user') == [
+        ('idx_user_email', ['email', 'age']),
+    ]
 
-        await delete_index(dc)
 
-        assert await _get_indexes(dc, 'user') == []
+@pytest.mark.asyncio
+async def test_delete_index(database_connection: AsyncPostgresConnection) -> None:
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=DEFAULT_SCHEMA),
+            ],
+        ),
+    )
+
+    await database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                AddIndex(
+                    schema_reference=DEFAULT_SCHEMA_REF,
+                    index=IndexSchema(name='idx_user_email', fields=['email', 'age'], condition=None),
+                ),
+            ],
+        ),
+    )
+
+    assert await _describe_table(database_connection, 'user') == [('id', int), ('age', int), ('email', str)]
+    assert await _get_indexes(database_connection, 'user') == [
+        ('idx_user_email', ['email', 'age']),
+    ]
+
+    await delete_index(database_connection)
+
+    assert await _get_indexes(database_connection, 'user') == []
 
 
 async def _get_indexes(database_connection: AsyncPostgresConnection, table_name: str) -> list[tuple[str, list[str]]]:

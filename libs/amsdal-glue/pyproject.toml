@@ -25,7 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "amsdal-glue-connections>=0.1.0",
-    "polars>=0.20"
+    "polars>=1.20"
 ]
 
 [project.optional-dependencies]
@@ -50,15 +50,17 @@ path = "src/amsdal_glue/__about__.py"
 [tool.hatch.envs.default]
 path = "../../../.venv/glue"
 extra-dependencies = [
-    "mypy>=1.0.0",
+    "mypy>=1.15.0",
     "coverage[toml]>=7.4",
-    "pytest>=8.2.1",
+    "pytest>=8.3.4",
     "pytest-mock>=3.14.0",
+    "pytest-benchmark>=5.1.0",
     "pytest-asyncio>=0.24.0",
-    "ruff>=0.4.5",
+    "ruff>=0.9.7",
     "amsdal-glue[postgres-binary]",
-    "towncrier>=23.11.0",
+    "towncrier>=24.8.0",
     "aiosqlite>=0.20.0",
+    "pandas>=2.2.3",
 ]
 pre-install-commands = [
   "pip install -e ../core/",

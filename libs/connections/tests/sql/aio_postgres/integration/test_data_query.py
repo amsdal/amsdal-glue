@@ -1,5 +1,3 @@
-from collections.abc import AsyncGenerator
-
 import pytest
 
 from amsdal_glue_connections.sql.connections.postgres_connection import AsyncPostgresConnection
@@ -14,26 +12,24 @@ from tests.sql.aio_postgres.testcases.data_query import query_orders_with_custom
 
 
 @pytest.fixture(scope='function')
-async def fixture_connection(
-    database_connection: AsyncGenerator[AsyncPostgresConnection, None],
-) -> AsyncGenerator[AsyncPostgresConnection, None]:
-    async for dc in database_connection:
-        await dc.execute('CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), age INT)')
-        await dc.execute('CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INT, amount INT, date DATE)')
-        await dc.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 1, 'Alice', 25)
-        await dc.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 2, 'Bob', 25)
-        await dc.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 3, 'Charlie', 35)
-        await dc.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 1, 1, 100)
-        await dc.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 2, 1, 200)
-        await dc.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 3, 2, 400)
+async def fixture_connection(database_connection: AsyncPostgresConnection) -> AsyncPostgresConnection:
+    await database_connection.execute('CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), age INT)')
+    await database_connection.execute(
+        'CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INT, amount INT, date DATE)'
+    )
+    await database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 1, 'Alice', 25)
+    await database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 2, 'Bob', 25)
+    await database_connection.execute('INSERT INTO customers (id, name, age) VALUES (%s, %s, %s)', 3, 'Charlie', 35)
+    await database_connection.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 1, 1, 100)
+    await database_connection.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 2, 1, 200)
+    await database_connection.execute('INSERT INTO orders (id, customer_id, amount) VALUES (%s, %s, %s)', 3, 2, 400)
 
-        yield dc
+    return database_connection
 
 
 @pytest.mark.asyncio
-async def test_simple_query(fixture_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for fc in fixture_connection:
-        result_data = await query_customers(fc)
+async def test_simple_query(fixture_connection: AsyncPostgresConnection) -> None:
+    result_data = await query_customers(fixture_connection)
 
     assert [d.data for d in result_data] == [
         {'id': 1, 'name': 'Alice', 'age': 25},
@@ -43,9 +39,8 @@ async def test_simple_query(fixture_connection: AsyncGenerator[AsyncPostgresConn
 
 
 @pytest.mark.asyncio
-async def test_join_query(fixture_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for fc in fixture_connection:
-        result_data = await query_orders_with_customers(fc)
+async def test_join_query(fixture_connection: AsyncPostgresConnection) -> None:
+    result_data = await query_orders_with_customers(fixture_connection)
 
     assert [d.data for d in result_data] == [
         {'id': 1, 'amount': 100, 'customer_id': 1, 'name': 'Alice', 'age': 25},
@@ -55,28 +50,26 @@ async def test_join_query(fixture_connection: AsyncGenerator[AsyncPostgresConnec
 
 
 @pytest.mark.asyncio
-async def test_query_distinct(fixture_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for fc in fixture_connection:
-        result_data = await query_customers_age(fc)
+async def test_query_distinct(fixture_connection: AsyncPostgresConnection) -> None:
+    result_data = await query_customers_age(fixture_connection)
 
-        assert [d.data for d in result_data] == [
-            {'age': 25},
-            {'age': 25},
-            {'age': 35},
-        ]
+    assert [d.data for d in result_data] == [
+        {'age': 25},
+        {'age': 25},
+        {'age': 35},
+    ]
 
-        result_data = await query_customers_age(fc, distinct=True)
+    result_data = await query_customers_age(fixture_connection, distinct=True)
 
-        assert [d.data for d in result_data] == [
-            {'age': 25},
-            {'age': 35},
-        ]
+    assert [d.data for d in result_data] == [
+        {'age': 25},
+        {'age': 35},
+    ]
 
 
 @pytest.mark.asyncio
-async def test_filter_conditions(fixture_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for fc in fixture_connection:
-        result_data = await query_big_orders(fc)
+async def test_filter_conditions(fixture_connection: AsyncPostgresConnection) -> None:
+    result_data = await query_big_orders(fixture_connection)
 
     assert [d.data for d in result_data] == [
         {'id': 2, 'amount': 200, 'customer_id': 1},
@@ -85,9 +78,8 @@ async def test_filter_conditions(fixture_connection: AsyncGenerator[AsyncPostgre
 
 
 @pytest.mark.asyncio
-async def test_filter_conditions_join(fixture_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for fc in fixture_connection:
-        result_data = await query_orders_for_customer(fc)
+async def test_filter_conditions_join(fixture_connection: AsyncPostgresConnection) -> None:
+    result_data = await query_orders_for_customer(fixture_connection)
 
     assert [d.data for d in result_data] == [
         {'id': 1, 'amount': 100, 'customer_id': 1, 'age': 25},
@@ -96,9 +88,8 @@ async def test_filter_conditions_join(fixture_connection: AsyncGenerator[AsyncPo
 
 
 @pytest.mark.asyncio
-async def test_annotation(fixture_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for fc in fixture_connection:
-        result_data = await query_customers_expenses(fc)
+async def test_annotation(fixture_connection: AsyncPostgresConnection) -> None:
+    result_data = await query_customers_expenses(fixture_connection)
 
     assert [d.data for d in result_data] == [
         {'id': 1, 'total_amount': 300},
@@ -108,9 +99,8 @@ async def test_annotation(fixture_connection: AsyncGenerator[AsyncPostgresConnec
 
 
 @pytest.mark.asyncio
-async def test_aggregation(fixture_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for fc in fixture_connection:
-        result_data = await query_expenses_by_customer(fc)
+async def test_aggregation(fixture_connection: AsyncPostgresConnection) -> None:
+    result_data = await query_expenses_by_customer(fixture_connection)
 
     assert [d.data for d in result_data] == [
         {'customer_id': 1, 'total_amount': 300},
@@ -119,9 +109,8 @@ async def test_aggregation(fixture_connection: AsyncGenerator[AsyncPostgresConne
 
 
 @pytest.mark.asyncio
-async def test_aggregation_join(fixture_connection: AsyncGenerator[AsyncPostgresConnection, None]) -> None:
-    async for fc in fixture_connection:
-        result_data = await query_expenses_by_customer_with_name(fc)
+async def test_aggregation_join(fixture_connection: AsyncPostgresConnection) -> None:
+    result_data = await query_expenses_by_customer_with_name(fixture_connection)
 
     assert [d.data for d in result_data] == [
         {'id': 1, 'name': 'Alice', 'sum_amount': 300},

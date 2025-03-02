@@ -62,6 +62,6 @@ class Transform:
 
     def __copy__(self) -> 'Transform':
         _transform = Transform()
-        _transform._registry = self._registry.copy()  # type: ignore[misc]  # noqa: SLF001
+        _transform._registry = self._registry.copy()  # type: ignore[misc]
 
         return _transform
