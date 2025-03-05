@@ -1,7 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import logging
 import pickle
-import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar

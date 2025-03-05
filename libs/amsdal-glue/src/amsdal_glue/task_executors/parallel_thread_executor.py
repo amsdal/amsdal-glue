@@ -26,6 +26,7 @@ class ThreadParallelExecutor(ParallelExecutor):
             lock_id (str | None): The lock ID to be used during execution.
         """
         from concurrent.futures import ThreadPoolExecutor
+
         from amsdal_glue import Container
 
         current_container = Container.__current_container__
