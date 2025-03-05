@@ -33,7 +33,6 @@ class ProcessParallelExecutor(ParallelExecutor):
             lock_id (str | None): The lock ID to be used during execution.
         """
         from concurrent.futures import ProcessPoolExecutor
-
         from amsdal_glue import Container
 
         state = Container.serialize_state()
