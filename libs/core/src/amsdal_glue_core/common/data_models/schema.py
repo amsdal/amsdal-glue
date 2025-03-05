@@ -147,7 +147,7 @@ class SchemaReference:
     """
 
     name: str
-    version: str | Version
+    version: str | Version = Version.LATEST
     alias: str | None = None
     namespace: str | None = None
     metadata: dict[str, Any] | None = None
