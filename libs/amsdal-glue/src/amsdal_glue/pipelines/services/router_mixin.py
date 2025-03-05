@@ -1,7 +1,5 @@
 from typing import Any
 
-from amsdal_glue_core.common.data_models.results.data import DataResult
-
 from amsdal_glue.pipelines.manager import PipelineManager
 
 
