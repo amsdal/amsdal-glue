@@ -55,7 +55,7 @@ class ThreadParallelExecutor(ParallelExecutor):
         """
         from amsdal_glue import Container
 
-        Container.__current_container__ = container_name
+        Container.__current_container__ = container_name  # type: ignore[assignment]
 
         if isinstance(task, ChainTask):
             executor = Container.executors.get(SequentialExecutor)
