@@ -1,7 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import logging
 import pickle
-import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -141,17 +140,6 @@ class ContainerPropertyDescriptor:
         return getattr(cls.__sub_containers__[cls.__current_container__], self.name)
 
 
-class ThreadLocalContainerDescriptor:
-    def __init__(self):
-        self.local = threading.local()
-
-    def __get__(self, instance, owner) -> str | None:
-        return getattr(self.local, '__current_container__', None)
-
-    def __set__(self, instance, value) -> None:
-        self.local.__current_container__ = value
-
-
 class ContextVarDescriptor(Generic[T]):
     def __init__(self, context_var: ContextVar[T]) -> None:
         self.context_var = context_var
@@ -174,7 +162,7 @@ class MetaContainer(type):
         if name == '__current_container__':
             descriptor = cls.__dict__.get('__current_container__')
 
-            if isinstance(descriptor, ThreadLocalContainerDescriptor | ContextVarDescriptor):
+            if isinstance(descriptor, ContextVarDescriptor):
                 descriptor.__set__(None, value)
         else:
             super().__setattr__(name, value)

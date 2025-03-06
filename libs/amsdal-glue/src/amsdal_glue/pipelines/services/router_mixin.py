@@ -1,7 +1,5 @@
 from typing import Any
 
-from amsdal_glue_core.common.data_models.results.data import DataResult
-
 from amsdal_glue.pipelines.manager import PipelineManager
 
 
@@ -23,7 +21,7 @@ class PipelineServiceMixin:
                 service = container.services.get(service_type)
                 _state_result = service.execute(*args, **kwargs)
 
-                if isinstance(_state_result, DataResult) and not _state_result.success:
+                if not _state_result.success:
                     return _state_result
 
         return result
@@ -45,6 +43,9 @@ class AsyncPipelineServiceMixin:
         for container in workflow:
             with Container.switch(container.name):
                 service = container.services.get(service_type)
-                await service.execute(*args, **kwargs)
+                _state_result = await service.execute(*args, **kwargs)
+
+                if not _state_result.success:
+                    return _state_result
 
         return result
