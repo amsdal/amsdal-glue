@@ -59,6 +59,7 @@ class CsvConnection(ConnectionBase):
             )
             raise ImportError(_msg) from None
 
+        db_path = Path(db_path)
         self._db_path = db_path
 
         if not db_path.exists():
@@ -438,6 +439,16 @@ class CsvConnection(ConnectionBase):
                         msg = f'Failed to apply annotation: {e!s}'
                         raise ValueError(msg) from e
 
+            # Handle LimitQuery.limit and LimitQuery.offset
+            if query.limit:
+                try:
+                    limit = query.limit.limit
+                    offset = query.limit.offset
+                    result_df = result_df.iloc[offset : offset + limit]
+                except Exception as e:
+                    msg = f'Failed to apply LIMIT and OFFSET: {e!s}'
+                    raise ValueError(msg) from e
+
             # Convert result to list of Data objects
             if isinstance(result_df, pd.Series):
                 return [Data(data=result_df.to_dict())]
@@ -451,6 +462,9 @@ class CsvConnection(ConnectionBase):
 
     def _find_column_for_field(self, df, field_name, table_name=None):
         """Find the actual column name in a DataFrame for a given field and table."""
+        if field_name == '*':
+            return next(iter(df.columns), None)
+
         # First, check if we have an exact match
         if field_name in df.columns:
             return field_name
