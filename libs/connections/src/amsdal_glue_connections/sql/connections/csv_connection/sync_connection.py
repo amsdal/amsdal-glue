@@ -302,11 +302,11 @@ class CsvConnection(ConnectionBase):
                                 break
 
                     # Then handle table prefix removals for group by fields
-                    for table_field, actual_col in table_field_mapping.items():
+                    for table_field, actual_column in table_field_mapping.items():
                         field_name = table_field.split('.')[-1]  # Get just the field name part
                         # Only rename if not already handled by aggregation aliases and if different
-                        if actual_col != field_name and actual_col not in column_renames:
-                            column_renames[actual_col] = field_name
+                        if actual_column != field_name and actual_column not in column_renames:
+                            column_renames[actual_column] = field_name
 
                     if column_renames:
                         result_df = result_df.rename(columns=column_renames)
@@ -351,7 +351,7 @@ class CsvConnection(ConnectionBase):
                         table_name = field.table_name
 
                         # Find the actual column name in the DataFrame
-                        actual_col = self._find_column_for_field(result_df, field_name, table_name)
+                        actual_col: str | None = self._find_column_for_field(result_df, field_name, table_name)
 
                         if actual_col:
                             selected_columns.append(actual_col)
@@ -460,7 +460,7 @@ class CsvConnection(ConnectionBase):
             logger.exception(msg)
             raise
 
-    def _find_column_for_field(self, df, field_name, table_name=None):
+    def _find_column_for_field(self, df: 'pd.DataFrame', field_name: str, table_name: str | None = None) -> str | None:  # noqa: C901, PLR0911
         """Find the actual column name in a DataFrame for a given field and table."""
         if field_name == '*':
             return next(iter(df.columns), None)

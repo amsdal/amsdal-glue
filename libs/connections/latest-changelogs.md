@@ -1,5 +1,5 @@
-## [v0.1.2](https://pypi.org/project/amsdal-glue-connections/0.1.2/) - 2025-03-02
+## [v0.1.3](https://pypi.org/project/amsdal-glue-connections/0.1.3/) - 2025-03-13
 
-### Added
+### Fixed
 
-- CSV Connection
+- Adjustments for limit in CSV Connection
