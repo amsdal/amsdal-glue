@@ -342,7 +342,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
                 )
             )
 
-        constraints.extend(self._get_unique_constrains(table_sql))
+        constraints.extend(self._get_unique_constrains(table_name, table_sql))
 
         # Get constraints info
         cursor = self.execute(f"PRAGMA foreign_key_list('{table_name}')")
