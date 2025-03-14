@@ -50,12 +50,13 @@ path = "src/amsdal_glue_connections/__about__.py"
 path = "../../../.venv/connections"
 extra-dependencies = [
     "mypy>=1.15.0",
-    "coverage[toml]>=7.6",
-    "pytest>=8.3.4",
+    "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
     "pytest-benchmark>=5.1.0",
     "pytest-asyncio>=0.24.0",
-    "ruff>=0.9.7",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist[psutil]>=3.6.1",
+    "ruff>=0.10.0",
     "psycopg[binary,pool]>=3.2.5",
     "docker>=7.1.0",
     "towncrier>=24.8.0",
@@ -67,16 +68,11 @@ pre-install-commands = [
 ]
 
 [tool.hatch.envs.default.scripts]
-test = "pytest --benchmark-skip {args:tests}"
+test = "pytest -n auto --benchmark-skip {args:tests}"
 benchmark = "pytest --benchmark-only {args:tests}"
-test-cov = "coverage run -m pytest --benchmark-skip {args:tests}"
-cov-report = [
-    "- coverage combine",
-    "coverage report",
-]
+test-cov = "pytest --cov=src -n auto --benchmark-skip {args:tests}"
 cov = [
     "test-cov",
-    "cov-report",
 ]
 typing = "mypy --install-types --non-interactive {args:src/amsdal_glue_connections tests}"
 style = [
@@ -200,6 +196,7 @@ check_untyped_defs = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
 
 [tool.coverage.run]
 source_pkgs = ["amsdal_glue_connections", "tests"]

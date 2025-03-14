@@ -1,5 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import os
+import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
 from contextlib import suppress
@@ -55,10 +56,11 @@ def _register_default_connection() -> Generator[None, None, None]:
     init_default_containers()
     connection_mng = Container.managers.get(ConnectionManager)
     test_db_dsn = os.getenv('TEST_DB_DSN', 'postgres://postgres:example@localhost:5432/')
+    db_name = f'test_db_{uuid.uuid4().hex}'
 
-    with create_database(test_db_dsn, 'test_db'):
+    with create_database(test_db_dsn, db_name):
         connection_mng.register_connection_pool(
-            DefaultConnectionPool(PostgresConnection, dsn=f'{test_db_dsn}test_db'),
+            DefaultConnectionPool(PostgresConnection, dsn=f'{test_db_dsn}{db_name}'),
         )
 
         try:

@@ -51,60 +51,58 @@ async def register_default_connection() -> AsyncGenerator[None, None]:
 
 
 @pytest.mark.asyncio
-async def test_data_command_service(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        service = Container.services.get(AsyncDataCommandService)
-        await service.execute(
-            command=DataCommand(
-                mutations=[
-                    InsertData(
-                        schema=SchemaReference(name='Shipping', version=Version.LATEST),
-                        data=[
-                            Data(
-                                data={'id': 'id-1', 'customer_id': 'customer-1', 'status': 'shipped'},
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-        )
-        connection_mng = Container.managers.get(AsyncConnectionManager)
-        connection = await connection_mng.get_connection_pool('Shipping').get_connection()
-        cursor = await connection.execute('SELECT * FROM Shipping')  # type: ignore[attr-defined]
-        assert await cursor.fetchall() == [('id-1', 'customer-1', 'shipped')]
+async def test_data_command_service(register_default_connection: None) -> None:  # noqa: ARG001
+    service = Container.services.get(AsyncDataCommandService)
+    await service.execute(
+        command=DataCommand(
+            mutations=[
+                InsertData(
+                    schema=SchemaReference(name='Shipping', version=Version.LATEST),
+                    data=[
+                        Data(
+                            data={'id': 'id-1', 'customer_id': 'customer-1', 'status': 'shipped'},
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    )
+    connection_mng = Container.managers.get(AsyncConnectionManager)
+    connection = await connection_mng.get_connection_pool('Shipping').get_connection()
+    cursor = await connection.execute('SELECT * FROM Shipping')  # type: ignore[attr-defined]
+    assert await cursor.fetchall() == [('id-1', 'customer-1', 'shipped')]
 
 
 @pytest.mark.asyncio
-async def test_data_command_service_multiple_databases(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        service = Container.services.get(AsyncDataCommandService)
-        await service.execute(
-            command=DataCommand(
-                mutations=[
-                    InsertData(
-                        schema=SchemaReference(name='Shipping', version=Version.LATEST),
-                        data=[
-                            Data(
-                                data={'id': 'id-1', 'customer_id': 'customer-1', 'status': 'shipped'},
-                            ),
-                        ],
-                    ),
-                    InsertData(
-                        schema=SchemaReference(name='Customer', version=Version.LATEST),
-                        data=[
-                            Data(
-                                data={'id': 'customer-1', 'name': 'John Doe'},
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-        )
-        connection_mng = Container.managers.get(AsyncConnectionManager)
-        connection = await connection_mng.get_connection_pool('Shipping').get_connection()
-        cursor = await connection.execute('SELECT * FROM Shipping')  # type: ignore[attr-defined]
-        assert await cursor.fetchall() == [('id-1', 'customer-1', 'shipped')]
+async def test_data_command_service_multiple_databases(register_default_connection: None) -> None:  # noqa: ARG001
+    service = Container.services.get(AsyncDataCommandService)
+    await service.execute(
+        command=DataCommand(
+            mutations=[
+                InsertData(
+                    schema=SchemaReference(name='Shipping', version=Version.LATEST),
+                    data=[
+                        Data(
+                            data={'id': 'id-1', 'customer_id': 'customer-1', 'status': 'shipped'},
+                        ),
+                    ],
+                ),
+                InsertData(
+                    schema=SchemaReference(name='Customer', version=Version.LATEST),
+                    data=[
+                        Data(
+                            data={'id': 'customer-1', 'name': 'John Doe'},
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    )
+    connection_mng = Container.managers.get(AsyncConnectionManager)
+    connection = await connection_mng.get_connection_pool('Shipping').get_connection()
+    cursor = await connection.execute('SELECT * FROM Shipping')  # type: ignore[attr-defined]
+    assert await cursor.fetchall() == [('id-1', 'customer-1', 'shipped')]
 
-        connection = await connection_mng.get_connection_pool('Customer').get_connection()
-        cursor = await connection.execute('SELECT * FROM Customer')  # type: ignore[attr-defined]
-        assert await cursor.fetchall() == [('customer-1', 'John Doe')]
+    connection = await connection_mng.get_connection_pool('Customer').get_connection()
+    cursor = await connection.execute('SELECT * FROM Customer')  # type: ignore[attr-defined]
+    assert await cursor.fetchall() == [('customer-1', 'John Doe')]

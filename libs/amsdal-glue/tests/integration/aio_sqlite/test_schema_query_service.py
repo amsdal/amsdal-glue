@@ -44,35 +44,33 @@ def _add_shipping_connection():
 
 
 @pytest.mark.asyncio
-async def test_schema_query_service_single_connection(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        query_service = Container.services.get(AsyncSchemaQueryService)
-        result = await query_service.execute(
-            SchemaQueryOperation(filters=None),
-        )
-        assert result.success is True
-        assert result.schemas
-        assert len(result.schemas) == 4
+async def test_schema_query_service_single_connection(register_default_connection: None) -> None:  # noqa: ARG001
+    query_service = Container.services.get(AsyncSchemaQueryService)
+    result = await query_service.execute(
+        SchemaQueryOperation(filters=None),
+    )
+    assert result.success is True
+    assert result.schemas
+    assert len(result.schemas) == 4
 
 
 @pytest.mark.asyncio
 async def test_schema_query_service_multiple_connection(
-    register_default_connection: AsyncGenerator[None, None],
+    register_default_connection: None,  # noqa: ARG001
 ) -> None:
-    async for _ in register_default_connection:
-        _add_shipping_connection()
-        query_service = Container.services.get(AsyncSchemaQueryService)
-        result = await query_service.execute(
-            SchemaQueryOperation(filters=None),
-        )
-        assert result.success is True
-        assert result.schemas
-        assert len(result.schemas) == 5
-        table_names = {item.name if item else None for item in result.schemas}
-        assert table_names == {
-            'customers',
-            'orders',
-            'items',
-            'vendor',
-            'shippings',
-        }
+    _add_shipping_connection()
+    query_service = Container.services.get(AsyncSchemaQueryService)
+    result = await query_service.execute(
+        SchemaQueryOperation(filters=None),
+    )
+    assert result.success is True
+    assert result.schemas
+    assert len(result.schemas) == 5
+    table_names = {item.name if item else None for item in result.schemas}
+    assert table_names == {
+        'customers',
+        'orders',
+        'items',
+        'vendor',
+        'shippings',
+    }

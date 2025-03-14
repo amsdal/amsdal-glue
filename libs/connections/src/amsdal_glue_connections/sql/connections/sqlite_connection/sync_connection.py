@@ -166,7 +166,6 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         try:
             cursor = self.execute(_stmt, *_params)
         except Exception as exc:
-            logger.exception('Error executing query: %s with params: %s', _stmt, _params)
             msg = f'Error "{exc}" raised during executing query: {_stmt} with params: {_params}'
             raise ConnectionError(msg) from exc
 
@@ -243,7 +242,6 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         try:
             self.execute(_stmt, *_params)
         except Exception as exc:
-            logger.exception('Error executing mutation: %s with params: %s', _stmt, _params)
             msg = f'Mutation failed: {exc}'
             raise ConnectionError(msg) from exc
         return None
@@ -290,7 +288,6 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             cursor.execute(query, args)
         except sqlite3.Error as exc:
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
-            logger.exception(msg)
             raise ConnectionError(msg) from exc
 
         return cursor

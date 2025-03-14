@@ -50,16 +50,15 @@ async def register_default_connection() -> AsyncGenerator[None, None]:
 
 
 @pytest.mark.asyncio
-async def test_transaction_service(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        transaction_service = Container.services.get(AsyncTransactionCommandService)
+async def test_transaction_service(register_default_connection: None) -> None:  # noqa: ARG001
+    transaction_service = Container.services.get(AsyncTransactionCommandService)
 
-        transaction_result = await transaction_service.execute(
-            TransactionCommand(
-                transaction_id='transaction_id',
-                schema=SchemaReference(name='shippings', version=Version.LATEST),
-                action=TransactionAction.BEGIN,
-            ),
-        )
-        assert transaction_result.success is True
-        assert transaction_result.result is True
+    transaction_result = await transaction_service.execute(
+        TransactionCommand(
+            transaction_id='transaction_id',
+            schema=SchemaReference(name='shippings', version=Version.LATEST),
+            action=TransactionAction.BEGIN,
+        ),
+    )
+    assert transaction_result.success is True
+    assert transaction_result.result is True

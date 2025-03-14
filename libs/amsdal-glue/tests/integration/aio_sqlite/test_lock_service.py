@@ -50,18 +50,17 @@ async def register_default_connection() -> AsyncGenerator[None, None]:
 
 
 @pytest.mark.asyncio
-async def test_lock_service(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        lock_service = Container.services.get(AsyncLockCommandService)
-        lock_result = await lock_service.execute(
-            LockCommand(
-                lock_id=None,
-                transaction_id=None,
-                action=LockAction.ACQUIRE,
-                mode=LockMode.EXCLUSIVE,
-                parameter=LockParameter.SKIP_LOCKED,
-                locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
-            )
+async def test_lock_service(register_default_connection: None) -> None:  # noqa: ARG001
+    lock_service = Container.services.get(AsyncLockCommandService)
+    lock_result = await lock_service.execute(
+        LockCommand(
+            lock_id=None,
+            transaction_id=None,
+            action=LockAction.ACQUIRE,
+            mode=LockMode.EXCLUSIVE,
+            parameter=LockParameter.SKIP_LOCKED,
+            locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
         )
-        assert lock_result.success is True
-        assert lock_result.result is True
+    )
+    assert lock_result.success is True
+    assert lock_result.result is True

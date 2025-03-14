@@ -35,24 +35,20 @@ path = "src/amsdal_glue_core/__about__.py"
 [tool.hatch.envs.default]
 path = "../../../.venv/core"
 extra-dependencies = [
-    "mypy>=1.0.0",
-    "coverage[toml]>=7.4",
-    "pytest>=8.2.1",
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
-    "ruff>=0.4.5",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist[psutil]>=3.6.1",
+    "ruff>=0.10.0",
     "towncrier>=23.11.0",
 ]
 
 [tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
-cov-report = [
-    "- coverage combine",
-    "coverage report",
-]
+test = "pytest -n auto {args:tests}"
+test-cov = "pytest --cov=src -n auto {args:tests}"
 cov = [
     "test-cov",
-    "cov-report",
 ]
 typing = "mypy --install-types --non-interactive {args:src/amsdal_glue_core tests}"
 style = [
