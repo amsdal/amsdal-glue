@@ -1,4 +1,4 @@
-amsdal-glue>=0.0.2
+amsdal-glue>=0.1.1
 httpx>=0.27.0
 
 

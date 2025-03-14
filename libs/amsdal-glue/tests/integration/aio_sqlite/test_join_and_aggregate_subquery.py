@@ -121,21 +121,20 @@ final_query = QueryStatement(
 
 
 @pytest.mark.asyncio
-async def test_final_query(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        service = Container.services.get(AsyncDataQueryService)
-        data_result = await service.execute(DataQueryOperation(query=final_query))
+async def test_final_query(register_default_connection: None) -> None:  # noqa: ARG001
+    service = Container.services.get(AsyncDataQueryService)
+    data_result = await service.execute(DataQueryOperation(query=final_query))
 
-        if not data_result.success:
-            msg = 'Failed to execute query'
-            raise Exception(msg) from data_result.exception  # noqa: TRY002
+    if not data_result.success:
+        msg = 'Failed to execute query'
+        raise Exception(msg) from data_result.exception  # noqa: TRY002
 
-        assert data_result.data
-        assert len(data_result.data) == 92
-        assert [item.data if item else None for item in data_result.data[:5]] == [
-            {'city_population': 6721891, 'country_code': 'AF', 'non_city_population': 30450495},
-            {'city_population': 4740284, 'country_code': 'AO', 'non_city_population': 26069478},
-            {'city_population': 34064619, 'country_code': 'AR', 'non_city_population': 10429883},
-            {'city_population': 20617835, 'country_code': 'AU', 'non_city_population': 4364853},
-            {'city_population': 4360723, 'country_code': 'AZ', 'non_city_population': 5579077},
-        ]
+    assert data_result.data
+    assert len(data_result.data) == 92
+    assert [item.data if item else None for item in data_result.data[:5]] == [
+        {'city_population': 6721891, 'country_code': 'AF', 'non_city_population': 30450495},
+        {'city_population': 4740284, 'country_code': 'AO', 'non_city_population': 26069478},
+        {'city_population': 34064619, 'country_code': 'AR', 'non_city_population': 10429883},
+        {'city_population': 20617835, 'country_code': 'AU', 'non_city_population': 4364853},
+        {'city_population': 4360723, 'country_code': 'AZ', 'non_city_population': 5579077},
+    ]

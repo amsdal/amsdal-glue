@@ -150,184 +150,180 @@ sum_non_city_population_query = QueryStatement(
 
 
 @pytest.mark.asyncio
-async def test_cities_with_country_code(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        service = Container.services.get(AsyncDataQueryService)
-        data_result = await service.execute(DataQueryOperation(query=cities_with_country_code_query))
-        assert data_result.success is True
-        assert data_result.data
-        assert len(data_result.data) == 123768
-        assert [item.data if item else None for item in data_result.data[:5]] == [
-            {'city_name': 'Acheng', 'city_population': 144665, 'country_code': 'CN', 'country_name': 'China'},
-            {'city_name': 'Aksu', 'city_population': 340020, 'country_code': 'CN', 'country_name': 'China'},
-            {'city_name': 'Altay', 'city_population': 139341, 'country_code': 'CN', 'country_name': 'China'},
-            {'city_name': 'Anbu', 'city_population': 162964, 'country_code': 'CN', 'country_name': 'China'},
-            {'city_name': 'Anda', 'city_population': 181271, 'country_code': 'CN', 'country_name': 'China'},
-        ]
+async def test_cities_with_country_code(register_default_connection: None) -> None:  # noqa: ARG001
+    service = Container.services.get(AsyncDataQueryService)
+    data_result = await service.execute(DataQueryOperation(query=cities_with_country_code_query))
+    assert data_result.success is True
+    assert data_result.data
+    assert len(data_result.data) == 123768
+    assert [item.data if item else None for item in data_result.data[:5]] == [
+        {'city_name': 'Acheng', 'city_population': 144665, 'country_code': 'CN', 'country_name': 'China'},
+        {'city_name': 'Aksu', 'city_population': 340020, 'country_code': 'CN', 'country_name': 'China'},
+        {'city_name': 'Altay', 'city_population': 139341, 'country_code': 'CN', 'country_name': 'China'},
+        {'city_name': 'Anbu', 'city_population': 162964, 'country_code': 'CN', 'country_name': 'China'},
+        {'city_name': 'Anda', 'city_population': 181271, 'country_code': 'CN', 'country_name': 'China'},
+    ]
 
 
 @pytest.mark.asyncio
-async def test_sum_city_population(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        service = Container.services.get(AsyncDataQueryService)
-        data_result = await service.execute(DataQueryOperation(query=sum_city_population_query))
-        assert data_result.success is True, data_result.exception
-        assert data_result.data
-        assert len(data_result.data) == 92
-        assert [item.data if item else None for item in data_result.data[:5]] == [
-            {'city_population': 6721891, 'country_name': 'Afghanistan', 'country_population': 37172386},
-            {'city_population': 4740284, 'country_name': 'Angola', 'country_population': 30809762},
-            {'city_population': 34064619, 'country_name': 'Argentina', 'country_population': 44494502},
-            {'city_population': 20617835, 'country_name': 'Australia', 'country_population': 24982688},
-            {'city_population': 4360723, 'country_name': 'Azerbaijan', 'country_population': 9939800},
-        ]
+async def test_sum_city_population(register_default_connection: None) -> None:  # noqa: ARG001
+    service = Container.services.get(AsyncDataQueryService)
+    data_result = await service.execute(DataQueryOperation(query=sum_city_population_query))
+    assert data_result.success is True, data_result.exception
+    assert data_result.data
+    assert len(data_result.data) == 92
+    assert [item.data if item else None for item in data_result.data[:5]] == [
+        {'city_population': 6721891, 'country_name': 'Afghanistan', 'country_population': 37172386},
+        {'city_population': 4740284, 'country_name': 'Angola', 'country_population': 30809762},
+        {'city_population': 34064619, 'country_name': 'Argentina', 'country_population': 44494502},
+        {'city_population': 20617835, 'country_name': 'Australia', 'country_population': 24982688},
+        {'city_population': 4360723, 'country_name': 'Azerbaijan', 'country_population': 9939800},
+    ]
 
 
 @pytest.mark.asyncio
-async def test_non_city_population(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        service = Container.services.get(AsyncDataQueryService)
-        data_result = await service.execute(DataQueryOperation(query=sum_non_city_population_query))
+async def test_non_city_population(register_default_connection: None) -> None:  # noqa: ARG001
+    service = Container.services.get(AsyncDataQueryService)
+    data_result = await service.execute(DataQueryOperation(query=sum_non_city_population_query))
 
-        if not data_result.success:
-            msg = 'Failed to execute query'
-            raise Exception(msg) from data_result.exception  # noqa: TRY002
+    if not data_result.success:
+        msg = 'Failed to execute query'
+        raise Exception(msg) from data_result.exception  # noqa: TRY002
 
-        assert data_result.data
-        assert len(data_result.data) == 92
-        assert [item.data if item else None for item in data_result.data[:5]] == [
-            {
-                'city_population': 6721891,
-                'country_name': 'Afghanistan',
-                'country_population': 37172386,
-                'non_city_population': 30450495,
-            },
-            {
-                'city_population': 4740284,
-                'country_name': 'Angola',
-                'country_population': 30809762,
-                'non_city_population': 26069478,
-            },
-            {
-                'city_population': 34064619,
-                'country_name': 'Argentina',
-                'country_population': 44494502,
-                'non_city_population': 10429883,
-            },
-            {
-                'city_population': 20617835,
-                'country_name': 'Australia',
-                'country_population': 24982688,
-                'non_city_population': 4364853,
-            },
-            {
-                'city_population': 4360723,
-                'country_name': 'Azerbaijan',
-                'country_population': 9939800,
-                'non_city_population': 5579077,
-            },
-        ]
+    assert data_result.data
+    assert len(data_result.data) == 92
+    assert [item.data if item else None for item in data_result.data[:5]] == [
+        {
+            'city_population': 6721891,
+            'country_name': 'Afghanistan',
+            'country_population': 37172386,
+            'non_city_population': 30450495,
+        },
+        {
+            'city_population': 4740284,
+            'country_name': 'Angola',
+            'country_population': 30809762,
+            'non_city_population': 26069478,
+        },
+        {
+            'city_population': 34064619,
+            'country_name': 'Argentina',
+            'country_population': 44494502,
+            'non_city_population': 10429883,
+        },
+        {
+            'city_population': 20617835,
+            'country_name': 'Australia',
+            'country_population': 24982688,
+            'non_city_population': 4364853,
+        },
+        {
+            'city_population': 4360723,
+            'country_name': 'Azerbaijan',
+            'country_population': 9939800,
+            'non_city_population': 5579077,
+        },
+    ]
 
 
 @pytest.mark.asyncio
-async def test_expressions(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        expressions_query = QueryStatement(
-            only=[
-                FieldReferenceAliased(field=Field(name='population'), table_name='cnt', alias='country_population'),
-            ],
-            annotations=[
-                AnnotationQuery(
-                    value=ExpressionAnnotation(
-                        expression=FieldReference(field=Field(name='population'), table_name='cnt') + 1000,
-                        alias='add',
-                    ),
+async def test_expressions(register_default_connection: None) -> None:  # noqa: ARG001
+    expressions_query = QueryStatement(
+        only=[
+            FieldReferenceAliased(field=Field(name='population'), table_name='cnt', alias='country_population'),
+        ],
+        annotations=[
+            AnnotationQuery(
+                value=ExpressionAnnotation(
+                    expression=FieldReference(field=Field(name='population'), table_name='cnt') + 1000,
+                    alias='add',
                 ),
-                AnnotationQuery(
-                    value=ExpressionAnnotation(
-                        expression=FieldReference(field=Field(name='population'), table_name='cnt') - 1000,
-                        alias='sub',
-                    ),
+            ),
+            AnnotationQuery(
+                value=ExpressionAnnotation(
+                    expression=FieldReference(field=Field(name='population'), table_name='cnt') - 1000,
+                    alias='sub',
                 ),
-                AnnotationQuery(
-                    value=ExpressionAnnotation(
-                        expression=FieldReference(field=Field(name='population'), table_name='cnt') * 1000,
-                        alias='mul',
-                    ),
+            ),
+            AnnotationQuery(
+                value=ExpressionAnnotation(
+                    expression=FieldReference(field=Field(name='population'), table_name='cnt') * 1000,
+                    alias='mul',
                 ),
-                AnnotationQuery(
-                    value=ExpressionAnnotation(
-                        expression=FieldReference(field=Field(name='population'), table_name='cnt') / 1000,
-                        alias='div',
-                    ),
+            ),
+            AnnotationQuery(
+                value=ExpressionAnnotation(
+                    expression=FieldReference(field=Field(name='population'), table_name='cnt') / 1000,
+                    alias='div',
                 ),
-                AnnotationQuery(
-                    value=ExpressionAnnotation(
-                        expression=FieldReference(field=Field(name='population'), table_name='cnt') ** 2,
-                        alias='pow',
-                    ),
+            ),
+            AnnotationQuery(
+                value=ExpressionAnnotation(
+                    expression=FieldReference(field=Field(name='population'), table_name='cnt') ** 2,
+                    alias='pow',
                 ),
-                AnnotationQuery(
-                    value=ExpressionAnnotation(
-                        expression=FieldReference(field=Field(name='population'), table_name='cnt') % 2,
-                        alias='mod',
-                    ),
+            ),
+            AnnotationQuery(
+                value=ExpressionAnnotation(
+                    expression=FieldReference(field=Field(name='population'), table_name='cnt') % 2,
+                    alias='mod',
                 ),
-            ],
-            table=SchemaReference(name='countries', alias='cnt', version=Version.LATEST),
-        )
+            ),
+        ],
+        table=SchemaReference(name='countries', alias='cnt', version=Version.LATEST),
+    )
 
-        service = Container.services.get(AsyncDataQueryService)
-        data_result = await service.execute(DataQueryOperation(query=expressions_query))
+    service = Container.services.get(AsyncDataQueryService)
+    data_result = await service.execute(DataQueryOperation(query=expressions_query))
 
-        if not data_result.success:
-            msg = 'Failed to execute query'
-            raise Exception(msg) from data_result.exception  # noqa: TRY002
+    if not data_result.success:
+        msg = 'Failed to execute query'
+        raise Exception(msg) from data_result.exception  # noqa: TRY002
 
-        assert [item.data if item else None for item in (data_result.data or [])[:5]] == [
-            {
-                'add': 1392731000,
-                'country_population': 1392730000,
-                'div': 1392730,
-                'mod': 0,
-                'mul': 1392730000000,
-                'pow': 1.9396968529e18,
-                'sub': 1392729000,
-            },
-            {
-                'add': 1352618328,
-                'country_population': 1352617328,
-                'div': 1352617,
-                'mod': 0,
-                'mul': 1352617328000,
-                'pow': 1.8295736360058596e18,
-                'sub': 1352616328,
-            },
-            {
-                'add': 326688501,
-                'country_population': 326687501,
-                'div': 326687,
-                'mod': 1,
-                'mul': 326687501000,
-                'pow': 1.0672472330962501e17,
-                'sub': 326686501,
-            },
-            {
-                'add': 267664435,
-                'country_population': 267663435,
-                'div': 267663,
-                'mod': 1,
-                'mul': 267663435000,
-                'pow': 7.1643714435999224e16,
-                'sub': 267662435,
-            },
-            {
-                'add': 212216030,
-                'country_population': 212215030,
-                'div': 212215,
-                'mod': 0,
-                'mul': 212215030000,
-                'pow': 4.5035218957900904e16,
-                'sub': 212214030,
-            },
-        ]
+    assert [item.data if item else None for item in (data_result.data or [])[:5]] == [
+        {
+            'add': 1392731000,
+            'country_population': 1392730000,
+            'div': 1392730,
+            'mod': 0,
+            'mul': 1392730000000,
+            'pow': 1.9396968529e18,
+            'sub': 1392729000,
+        },
+        {
+            'add': 1352618328,
+            'country_population': 1352617328,
+            'div': 1352617,
+            'mod': 0,
+            'mul': 1352617328000,
+            'pow': 1.8295736360058596e18,
+            'sub': 1352616328,
+        },
+        {
+            'add': 326688501,
+            'country_population': 326687501,
+            'div': 326687,
+            'mod': 1,
+            'mul': 326687501000,
+            'pow': 1.0672472330962501e17,
+            'sub': 326686501,
+        },
+        {
+            'add': 267664435,
+            'country_population': 267663435,
+            'div': 267663,
+            'mod': 1,
+            'mul': 267663435000,
+            'pow': 7.1643714435999224e16,
+            'sub': 267662435,
+        },
+        {
+            'add': 212216030,
+            'country_population': 212215030,
+            'div': 212215,
+            'mod': 0,
+            'mul': 212215030000,
+            'pow': 4.5035218957900904e16,
+            'sub': 212214030,
+        },
+    ]

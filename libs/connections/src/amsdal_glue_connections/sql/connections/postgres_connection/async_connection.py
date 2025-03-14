@@ -200,7 +200,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         try:
             cursor = await self.execute(_stmt, *_params)
         except Exception as exc:
-            logger.exception('Error executing query: %s with params: %s', _stmt, _params)
+            logger.debug('Error executing query: %s with params: %s', _stmt, _params)
             msg = f'Query failed: {exc}'
             raise ConnectionError(msg) from exc
 
@@ -281,7 +281,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         try:
             await self.execute(_stmt, *_params)
         except Exception as exc:
-            logger.exception('Error executing mutation: %s with params: %s', _stmt, _params)
+            logger.debug('Error executing mutation: %s with params: %s', _stmt, _params)
             msg = f'Mutation failed: {exc}'
             raise ConnectionError(msg) from exc
         return None

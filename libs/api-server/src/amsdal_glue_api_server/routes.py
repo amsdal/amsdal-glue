@@ -104,7 +104,7 @@ def _get_primary_key_constraint(schema: Schema) -> PrimaryKeyConstraint | None:
 
 
 def _create_pk_parameter(pk_constraint: PrimaryKeyConstraint) -> type[BaseModel]:
-    pk_parameters = {field: (str, None) for field in pk_constraint.fields}
+    pk_parameters = dict.fromkeys(pk_constraint.fields, (str, None))
 
     return create_model('PathParameters', **pk_parameters)  # type: ignore[call-overload]
 

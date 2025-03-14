@@ -1,1 +1,1 @@
-amsdal-glue-api-server>=0.0.2
+amsdal-glue-api-server>=0.1.0

@@ -53,90 +53,88 @@ async def register_default_connection() -> AsyncGenerator[None, None]:
 
 
 @pytest.mark.asyncio
-async def test_data_query_service(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        query = QueryStatement(
-            only=[
-                FieldReference(field=Field(name='id'), table_name='c'),
-                FieldReference(field=Field(name='first_name'), table_name='c'),
-            ],
-            table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-            order_by=[
-                OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='c'),
-                    direction=OrderDirection.ASC,
-                ),
-            ],
-        )
-
-        service = Container.services.get(AsyncDataQueryService)
-        data_result = await service.execute(
-            query_op=DataQueryOperation(
-                query=query,
+async def test_data_query_service(register_default_connection: None) -> None:  # noqa: ARG001
+    query = QueryStatement(
+        only=[
+            FieldReference(field=Field(name='id'), table_name='c'),
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+        ],
+        table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+        order_by=[
+            OrderByQuery(
+                field=FieldReference(field=Field(name='id'), table_name='c'),
+                direction=OrderDirection.ASC,
             ),
-        )
-        assert data_result.success is True
-        assert data_result.data
-        assert [item.data if item else None for item in data_result.data] == [
-            {'id': 1, 'first_name': 'John'},
-            {'id': 2, 'first_name': 'Robert'},
-            {'id': 3, 'first_name': 'David'},
-            {'id': 4, 'first_name': 'John'},
-            {'id': 5, 'first_name': 'Betty'},
-        ]
+        ],
+    )
+
+    service = Container.services.get(AsyncDataQueryService)
+    data_result = await service.execute(
+        query_op=DataQueryOperation(
+            query=query,
+        ),
+    )
+    assert data_result.success is True
+    assert data_result.data
+    assert [item.data if item else None for item in data_result.data] == [
+        {'id': 1, 'first_name': 'John'},
+        {'id': 2, 'first_name': 'Robert'},
+        {'id': 3, 'first_name': 'David'},
+        {'id': 4, 'first_name': 'John'},
+        {'id': 5, 'first_name': 'Betty'},
+    ]
 
 
 @pytest.mark.asyncio
-async def test_data_query_service_multiple_connections(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        query = QueryStatement(
-            only=[
-                FieldReference(field=Field(name='id'), table_name='c'),
-                FieldReference(field=Field(name='first_name'), table_name='c'),
-                FieldReference(field=Field(name='status'), table_name='s'),
-            ],
-            table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-            joins=[
-                JoinQuery(
-                    table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
-                    on=Conditions(
-                        Condition(
-                            left=FieldReferenceExpression(
-                                field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
-                            ),
-                            lookup=FieldLookup.EQ,
-                            right=FieldReferenceExpression(
-                                field_reference=FieldReference(field=Field(name='id'), table_name='c')
-                            ),
+async def test_data_query_service_multiple_connections(register_default_connection: None) -> None:  # noqa: ARG001
+    query = QueryStatement(
+        only=[
+            FieldReference(field=Field(name='id'), table_name='c'),
+            FieldReference(field=Field(name='first_name'), table_name='c'),
+            FieldReference(field=Field(name='status'), table_name='s'),
+        ],
+        table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
+        joins=[
+            JoinQuery(
+                table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
+                on=Conditions(
+                    Condition(
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                        ),
+                        lookup=FieldLookup.EQ,
+                        right=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='c')
                         ),
                     ),
-                    join_type=JoinType.INNER,
                 ),
-            ],
-            order_by=[
-                OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='c'),
-                    direction=OrderDirection.ASC,
-                ),
-                OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='s'),
-                    direction=OrderDirection.ASC,
-                ),
-            ],
-        )
-
-        service = Container.services.get(AsyncDataQueryService)
-        data_result = await service.execute(
-            query_op=DataQueryOperation(
-                query=query,
+                join_type=JoinType.INNER,
             ),
-        )
-        assert data_result.success is True
-        assert data_result.data
-        assert [item.data if item else None for item in data_result.data] == [
-            {'id': 1, 'first_name': 'John', 'status': 'Delivered'},
-            {'id': 2, 'first_name': 'Robert', 'status': 'Pending'},
-            {'id': 3, 'first_name': 'David', 'status': 'Delivered'},
-            {'id': 4, 'first_name': 'John', 'status': 'Pending'},
-            {'id': 5, 'first_name': 'Betty', 'status': 'Pending'},
-        ]
+        ],
+        order_by=[
+            OrderByQuery(
+                field=FieldReference(field=Field(name='id'), table_name='c'),
+                direction=OrderDirection.ASC,
+            ),
+            OrderByQuery(
+                field=FieldReference(field=Field(name='id'), table_name='s'),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+
+    service = Container.services.get(AsyncDataQueryService)
+    data_result = await service.execute(
+        query_op=DataQueryOperation(
+            query=query,
+        ),
+    )
+    assert data_result.success is True
+    assert data_result.data
+    assert [item.data if item else None for item in data_result.data] == [
+        {'id': 1, 'first_name': 'John', 'status': 'Delivered'},
+        {'id': 2, 'first_name': 'Robert', 'status': 'Pending'},
+        {'id': 3, 'first_name': 'David', 'status': 'Delivered'},
+        {'id': 4, 'first_name': 'John', 'status': 'Pending'},
+        {'id': 5, 'first_name': 'Betty', 'status': 'Pending'},
+    ]

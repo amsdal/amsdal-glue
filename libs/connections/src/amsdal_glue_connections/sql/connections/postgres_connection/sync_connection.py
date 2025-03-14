@@ -196,7 +196,6 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         try:
             cursor = self.execute(_stmt, *_params)
         except Exception as exc:
-            logger.exception('Error executing query: %s with params: %s', _stmt, _params)
             msg = f'Query failed: {exc}'
             raise ConnectionError(msg) from exc
 
@@ -277,7 +276,6 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         try:
             self.execute(_stmt, *_params)
         except Exception as exc:
-            logger.exception('Error executing mutation: %s with params: %s', _stmt, _params)
             msg = f'Mutation failed: {exc}'
             raise ConnectionError(msg) from exc
         return None

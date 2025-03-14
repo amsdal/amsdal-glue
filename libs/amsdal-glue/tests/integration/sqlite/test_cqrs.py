@@ -1,6 +1,7 @@
 # mypy: disable-error-code="type-abstract"
 import tempfile
 from collections.abc import Generator
+from time import sleep
 
 import pytest
 from pytest_mock import MockerFixture
@@ -110,6 +111,7 @@ def test_data_command(cqrs_app: CQRSApplication):
     )
 
     assert result.success is True
+    sleep(0.1)  # wait for the background thread to finish
 
     connections = [
         cqrs_app.query_connection_manager.get_connection_pool('customers').get_connection(),
