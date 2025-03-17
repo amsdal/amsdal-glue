@@ -32,14 +32,16 @@ from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.queries.final_query_statement import QueryStatementNode
 
+from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
+
 logger = logging.getLogger(__name__)
 
 
 class DailyTreasureWebCache:
-    _instance: 'DailyTreasureWebCache'
+    _instance: "DailyTreasureWebCache"
 
     def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, 'instance'):
+        if not hasattr(cls, "instance"):
             cls._instance = super(DailyTreasureWebCache, cls).__new__(cls)
         return cls._instance
 
@@ -48,17 +50,19 @@ class DailyTreasureWebCache:
 
 
 class DailyTreasureWebConnection(ConnectionBase):
-    BASE_URL: ClassVar[str] = 'https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml'
+    BASE_URL: ClassVar[str] = (
+        "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
+    )
     TABLES: ClassVar[list[str]] = [
-        'daily_treasury_yield_curve',
-        'daily_treasury_bill_rates',
-        'daily_treasury_long_term_rate',
-        'daily_treasury_real_yield_curve',
-        'daily_treasury_real_long_term',
+        "daily_treasury_yield_curve",
+        "daily_treasury_bill_rates",
+        "daily_treasury_long_term_rate",
+        "daily_treasury_real_yield_curve",
+        "daily_treasury_real_long_term",
     ]
     TABLES_CONTEXT: ClassVar[pl.SQLContext] = pl.SQLContext(
         frames={
-            'schemas': pl.DataFrame({'name': TABLES}),
+            "schemas": pl.DataFrame({"name": TABLES}),
         },
     )
 
@@ -81,15 +85,18 @@ class DailyTreasureWebConnection(ConnectionBase):
         )
 
     def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
-        _statement = 'SELECT name FROM schemas'
+        _statement = "SELECT name FROM schemas"
 
         if filters:
-            _statement += f' WHERE {self._sql_build_conditions(filters)}'
+            _statement += f" WHERE {self._sql_build_conditions(filters)}"
 
         _schemas = self.TABLES_CONTEXT.execute(_statement).collect().to_dicts()  # type: ignore[attr-defined]
 
         return [
-            self.extract_schema(name=_schema['name'], xml_content=self._request_xml(_schema['name'], 2024))
+            self.extract_schema(
+                name=_schema["name"],
+                xml_content=self._request_xml(_schema["name"], 2024),
+            )
             for _schema in _schemas
         ]
 
@@ -98,22 +105,22 @@ class DailyTreasureWebConnection(ConnectionBase):
         raise NotImplementedError(msg)
 
     def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
-        logger.warning('This connection does not support locks')
+        logger.warning("This connection does not support locks")
 
     def release_lock(self, lock: ExecutionLockCommand) -> Any:
-        logger.warning('This connection does not support locks')
+        logger.warning("This connection does not support locks")
 
     def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
-        logger.warning('This connection does not support transactions')
+        logger.warning("This connection does not support transactions")
 
     def rollback_transaction(self, transaction: TransactionCommand | str | None) -> Any:
-        logger.warning('This connection does not support transactions')
+        logger.warning("This connection does not support transactions")
 
     def begin_transaction(self, transaction: TransactionCommand | str | None) -> Any:
-        logger.warning('This connection does not support transactions')
+        logger.warning("This connection does not support transactions")
 
     def revert_transaction(self, transaction: TransactionCommand | str | None) -> Any:
-        logger.warning('This connection does not support transactions')
+        logger.warning("This connection does not support transactions")
 
     def run_schema_command(self, command: SchemaCommand) -> list[Schema | None]:
         msg = f"Schema commands are not supported"
@@ -135,8 +142,8 @@ class DailyTreasureWebConnection(ConnectionBase):
         # check columns duplications
 
         for key in _first_item:
-            if ':' in key:
-                msg = f'Column name {key.split(":", 1)[1]} is duplicated'
+            if ":" in key:
+                msg = f"Column name {key.split(':', 1)[1]} is duplicated"
                 raise ValueError(msg)
 
         return [Data(data=_item) for _item in data] if data is not None else []
@@ -149,28 +156,29 @@ class DailyTreasureWebConnection(ConnectionBase):
 
         for condition in conditions.children:
             if isinstance(condition, Conditions):
-                _stmt.append(f'({self._sql_build_conditions(condition)})')
+                _stmt.append(f"({self._sql_build_conditions(condition)})")
                 continue
 
-            _field = self._build_field_reference_stmt(condition.field)
+            _field = self._build_field_reference_stmt(condition.left.field_reference)
             _stmt.append(
                 polars_operator_constructor(
-                    field=_field,
+                    left=_field,
                     lookup=condition.lookup,
-                    value=condition.value,
+                    right=condition.right,
+                    transform=get_pg_transform(),
                 )
             )
 
-        return f' {conditions.connector.value} '.join(_stmt)
+        return f" {conditions.connector.value} ".join(_stmt)
 
     def _build_field_reference_stmt(
         self,
         field: FieldReference | FieldReferenceAliased,
     ) -> str:
-        _item_stmt = f'{field.table_name}.{self._build_field(field.field)}'
+        _item_stmt = f"{field.table_name}.{self._build_field(field.field)}"
 
         if isinstance(field, FieldReferenceAliased):
-            _item_stmt += f' AS {field.alias}'
+            _item_stmt += f" AS {field.alias}"
 
         return _item_stmt
 
@@ -181,23 +189,23 @@ class DailyTreasureWebConnection(ConnectionBase):
             parts.append(field.name)
             field = field.child  # type: ignore[assignment]
 
-        return '__'.join(parts)
+        return "__".join(parts)
 
     def extract_schema(self, name: str, xml_content: str) -> Schema:
         root = ElementTree.fromstring(xml_content)
         namespaces = dict(re.findall(r'xmlns:?(\w*?)=["\'](.*?)["\']', xml_content))
-        first_entry = root.find('.//{http://www.w3.org/2005/Atom}entry', namespaces)
+        first_entry = root.find(".//{http://www.w3.org/2005/Atom}entry", namespaces)
 
         if first_entry is None:
-            msg = 'No schema found'
+            msg = "No schema found"
             raise ValueError(msg)
 
-        _properties_section = first_entry.find('.//m:properties', namespaces)
+        _properties_section = first_entry.find(".//m:properties", namespaces)
         _properties: list[PropertySchema] = []
 
         for _property in _properties_section:
-            tag_name = _property.tag.split('}')[-1]  # Remove namespace
-            _type = _property.attrib.get('{' + namespaces["m"] + '}type')
+            tag_name = _property.tag.split("}")[-1]  # Remove namespace
+            _type = _property.attrib.get("{" + namespaces["m"] + "}type")
             _properties.append(
                 PropertySchema(
                     name=tag_name,
@@ -215,13 +223,13 @@ class DailyTreasureWebConnection(ConnectionBase):
     @staticmethod
     def _xml_to_python_type(xml_type: str | None) -> Any:
         match xml_type:
-            case 'Edm.DateTime':
+            case "Edm.DateTime":
                 return datetime
-            case 'Edm.Double':
+            case "Edm.Double":
                 return float
-            case 'Edm.Int32':
+            case "Edm.Int32":
                 return int
-            case 'Edm.String':
+            case "Edm.String":
                 return str
             case _:
                 return str
@@ -234,15 +242,19 @@ class DailyTreasureWebConnection(ConnectionBase):
         period_month: int | None = None,
         page: int = 0,
     ) -> str:
-        period_param = 'field_tdr_date_value_month' if period_month else 'field_tdr_date_value'
-        period_value = f'{period_year}{period_month:02d}' if period_month else str(period_year)
+        period_param = (
+            "field_tdr_date_value_month" if period_month else "field_tdr_date_value"
+        )
+        period_value = (
+            f"{period_year}{period_month:02d}" if period_month else str(period_year)
+        )
         params = {
-            'data': name,
+            "data": name,
             period_param: period_value,
         }
 
         if page:
-            params['page'] = page
+            params["page"] = page
 
         response = self._client.get(
             url=self.BASE_URL,
@@ -256,7 +268,7 @@ class DailyTreasureWebConnection(ConnectionBase):
         page = 0
         all_pages = []
 
-        while data := self._load_data(self._request_xml(table_name, 'all', page=page)):
+        while data := self._load_data(self._request_xml(table_name, "all", page=page)):
             all_pages.extend(data)
             page += 1
 
@@ -265,7 +277,7 @@ class DailyTreasureWebConnection(ConnectionBase):
     def _load_data(self, xml_content: str) -> list[dict[str, Any]] | None:
         root = ElementTree.fromstring(xml_content)
         namespaces = dict(re.findall(r'xmlns:?(\w*?)=["\'](.*?)["\']', xml_content))
-        entries = root.findall('.//{' + namespaces[''] + '}entry', namespaces)
+        entries = root.findall(".//{" + namespaces[""] + "}entry", namespaces)
 
         if not entries:
             return None
@@ -273,12 +285,12 @@ class DailyTreasureWebConnection(ConnectionBase):
         data: list[dict[str, Any]] = []
 
         for entry in entries:
-            _properties = entry.find('.//m:properties', namespaces)
+            _properties = entry.find(".//m:properties", namespaces)
             _item = {}
 
             for _property in _properties:
-                tag_name = _property.tag.split('}')[-1]  # Remove namespace
-                _type = _property.attrib.get('{' + namespaces["m"] + '}type')
+                tag_name = _property.tag.split("}")[-1]  # Remove namespace
+                _type = _property.attrib.get("{" + namespaces["m"] + "}type")
                 _value_raw = _property.text
                 _python_type = self._xml_to_python_type(_type)
 
@@ -294,7 +306,7 @@ class DailyTreasureWebConnection(ConnectionBase):
 
     def _build_sql(self, query: QueryStatement) -> str:
         _sql = [
-            'SELECT',
+            "SELECT",
         ]
         _selection_stmt = self._sql_build_selection_stmt(
             query.only,
@@ -302,15 +314,15 @@ class DailyTreasureWebConnection(ConnectionBase):
             query.aggregations,
         )
 
-        _sql.append(_selection_stmt or '*')
-        _sql.append(f'FROM {query.table.alias or query.table.name}')
+        _sql.append(_selection_stmt or "*")
+        _sql.append(f"FROM {query.table.alias or query.table.name}")
         _sql.append(self._sql_build_joins(query.joins))
         _sql.append(self._sql_build_where(query.where))
         _sql.append(self._sql_build_group_by(query.group_by))
         _sql.append(self._sql_build_order_by(query.order_by))
         _sql.append(self._sql_build_limit(query.limit))
 
-        return ' '.join(filter(None, _sql))
+        return " ".join(filter(None, _sql))
 
     def _sql_build_selection_stmt(
         self,
@@ -322,32 +334,36 @@ class DailyTreasureWebConnection(ConnectionBase):
 
         for annotation in annotations or []:
             if isinstance(annotation.value, QueryStatementNode):
-                msg = 'PolarsFinalQueryExecutor does not support subquery annotations'
+                msg = "PolarsFinalQueryExecutor does not support subquery annotations"
                 raise TypeError(msg)
 
             _val = repr(annotation.value.value)
-            _stmt.append(f'{_val} AS {annotation.value.alias}')
+            _stmt.append(f"{_val} AS {annotation.value.alias}")
 
         for aggregation in aggregations or []:
             _aggr_field = self._build_field_reference_stmt(aggregation.field)
-            _stmt.append(f'{aggregation.expression.name}({_aggr_field}) AS {aggregation.alias}')
+            _stmt.append(
+                f"{aggregation.expression.name}({_aggr_field}) AS {aggregation.alias}"
+            )
 
-        return ', '.join(filter(None, _stmt))
+        return ", ".join(filter(None, _stmt))
 
     def _sql_build_joins(
         self,
         joins: list[JoinQuery] | None,
     ) -> str:
         if not joins:
-            return ''
+            return ""
 
         _stmt = []
 
         for join in joins:
             _conditions = self._sql_build_conditions(join.on)
-            _stmt.append(f'{join.join_type.value} JOIN {join.table.alias} ON {_conditions}')
+            _stmt.append(
+                f"{join.join_type.value} JOIN {join.table.alias} ON {_conditions}"
+            )
 
-        return ' '.join(_stmt)
+        return " ".join(_stmt)
 
     def _sql_build_conditions(
         self,
@@ -357,65 +373,73 @@ class DailyTreasureWebConnection(ConnectionBase):
 
         for condition in conditions.children:
             if isinstance(condition, Conditions):
-                _stmt.append(f'({self._sql_build_conditions(condition)})')
+                _stmt.append(f"({self._sql_build_conditions(condition)})")
                 continue
 
-            _field = self._build_field_reference_stmt(condition.field)
+            _field = self._build_field_reference_stmt(condition.left.field_reference)
             _stmt.append(
                 polars_operator_constructor(
-                    field=_field,
+                    left=_field,
                     lookup=condition.lookup,
-                    value=condition.value,
+                    right=condition.right,
+                    transform=get_pg_transform(),
                 )
             )
 
-        return f' {conditions.connector.value} '.join(_stmt)
+        return f" {conditions.connector.value} ".join(_stmt)
 
     def _sql_build_where(
         self,
         where: Conditions | None,
     ) -> str:
         if not where:
-            return ''
+            return ""
 
-        return f'WHERE {self._sql_build_conditions(where)}'
+        return f"WHERE {self._sql_build_conditions(where)}"
 
     def _sql_build_group_by(
         self,
         group_by: list[GroupByQuery] | None,
     ) -> str:
         if not group_by:
-            return ''
+            return ""
 
         _stmt = [self._build_field_reference_stmt(_item.field) for _item in group_by]
 
-        return f'GROUP BY {", ".join(_stmt)}'
+        return f"GROUP BY {', '.join(_stmt)}"
 
     def _sql_build_order_by(
         self,
         order_by: list[OrderByQuery] | None,
     ) -> str:
         if not order_by:
-            return ''
+            return ""
 
         _stmt = []
 
         for field in order_by:
             _item_stmt = self._build_field_reference_stmt(field.field)
-            _stmt.append(f'{_item_stmt} {field.direction.value}')
+            _stmt.append(f"{_item_stmt} {field.direction.value}")
 
-        return f'ORDER BY {", ".join(_stmt)}'
+        return f"ORDER BY {', '.join(_stmt)}"
 
     def _sql_build_limit(
         self,
         limit: LimitQuery | None,
     ) -> str:
         if not limit:
-            return ''
+            return ""
 
-        _stmt = f'LIMIT {limit.limit}'
+        _stmt = f"LIMIT {limit.limit}"
 
         if limit.offset:
-            _stmt += f' OFFSET {limit.offset}'
+            _stmt += f" OFFSET {limit.offset}"
 
         return _stmt
+
+    def queries(self) -> list[str]:
+        return []
+
+    @property
+    def is_alive(self) -> bool:
+        return True

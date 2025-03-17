@@ -54,130 +54,128 @@ async def register_default_connection() -> AsyncGenerator[None, None]:
 
 
 @pytest.mark.asyncio
-async def test_transaction(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        transaction_planner = Container.planners.get(AsyncTransactionCommandPlanner)
-        command_planner = Container.planners.get(AsyncDataCommandPlanner)
-        connection_mng = Container.managers.get(AsyncConnectionManager)
+async def test_transaction(register_default_connection: None) -> None:  # noqa: ARG001
+    transaction_planner = Container.planners.get(AsyncTransactionCommandPlanner)
+    command_planner = Container.planners.get(AsyncDataCommandPlanner)
+    connection_mng = Container.managers.get(AsyncConnectionManager)
 
-        await transaction_planner.plan_transaction(
-            TransactionCommand(
-                transaction_id='transaction_id',
-                schema=SchemaReference(name='shippings', version=Version.LATEST),
-                action=TransactionAction.BEGIN,
+    await transaction_planner.plan_transaction(
+        TransactionCommand(
+            transaction_id='transaction_id',
+            schema=SchemaReference(name='shippings', version=Version.LATEST),
+            action=TransactionAction.BEGIN,
+        )
+    ).execute(transaction_id='transaction_id', lock_id=None)
+
+    await (
+        await command_planner.plan_data_command(
+            DataCommand(
+                lock_id=None,
+                transaction_id=None,
+                mutations=[
+                    InsertData(
+                        schema=SchemaReference(name='shippings', version=Version.LATEST),
+                        data=[
+                            Data(
+                                data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
+                            )
+                        ],
+                    ),
+                    InsertData(
+                        schema=SchemaReference(name='customers', version=Version.LATEST),
+                        data=[
+                            Data(
+                                data={'id': '1', 'name': 'customer'},
+                            )
+                        ],
+                    ),
+                ],
             )
-        ).execute(transaction_id='transaction_id', lock_id=None)
+        )
+    ).execute(transaction_id='transaction_id', lock_id=None)
 
+    await transaction_planner.plan_transaction(
+        TransactionCommand(
+            transaction_id='transaction_id',
+            schema=SchemaReference(name='shippings', version=Version.LATEST),
+            action=TransactionAction.COMMIT,
+        )
+    ).execute(transaction_id='transaction_id', lock_id=None)
+
+    assert await (
         await (
-            await command_planner.plan_data_command(
-                DataCommand(
-                    lock_id=None,
-                    transaction_id=None,
-                    mutations=[
-                        InsertData(
-                            schema=SchemaReference(name='shippings', version=Version.LATEST),
-                            data=[
-                                Data(
-                                    data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                                )
-                            ],
-                        ),
-                        InsertData(
-                            schema=SchemaReference(name='customers', version=Version.LATEST),
-                            data=[
-                                Data(
-                                    data={'id': '1', 'name': 'customer'},
-                                )
-                            ],
-                        ),
-                    ],
-                )
-            )
-        ).execute(transaction_id='transaction_id', lock_id=None)
-
-        await transaction_planner.plan_transaction(
-            TransactionCommand(
-                transaction_id='transaction_id',
-                schema=SchemaReference(name='shippings', version=Version.LATEST),
-                action=TransactionAction.COMMIT,
-            )
-        ).execute(transaction_id='transaction_id', lock_id=None)
-
-        assert await (
+            await connection_mng.get_connection_pool('shippings').get_connection()  # type: ignore[attr-defined]
+        ).execute('SELECT id, customer_id, status FROM shippings')
+    ).fetchall() == [('111', '1', 'shipped')]
+    assert (
+        await (
             await (
-                await connection_mng.get_connection_pool('shippings').get_connection()  # type: ignore[attr-defined]
-            ).execute('SELECT id, customer_id, status FROM shippings')
-        ).fetchall() == [('111', '1', 'shipped')]
-        assert (
-            await (
-                await (
-                    await connection_mng.get_connection_pool('customers').get_connection()  # type: ignore[attr-defined]
-                ).execute('SELECT id, name FROM customers')
-            ).fetchall()
-        ) == [('1', 'customer')]
+                await connection_mng.get_connection_pool('customers').get_connection()  # type: ignore[attr-defined]
+            ).execute('SELECT id, name FROM customers')
+        ).fetchall()
+    ) == [('1', 'customer')]
 
 
 @pytest.mark.asyncio
-async def test_transaction_rollback(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        transaction_planner = Container.planners.get(AsyncTransactionCommandPlanner)
-        command_planner = Container.planners.get(AsyncDataCommandPlanner)
-        connection_mng = Container.managers.get(AsyncConnectionManager)
+async def test_transaction_rollback(register_default_connection: None) -> None:  # noqa: ARG001
+    transaction_planner = Container.planners.get(AsyncTransactionCommandPlanner)
+    command_planner = Container.planners.get(AsyncDataCommandPlanner)
+    connection_mng = Container.managers.get(AsyncConnectionManager)
 
-        await transaction_planner.plan_transaction(
-            TransactionCommand(
+    await transaction_planner.plan_transaction(
+        TransactionCommand(
+            transaction_id='transaction_id',
+            schema=SchemaReference(name='shippings', version=Version.LATEST),
+            action=TransactionAction.BEGIN,
+        )
+    ).execute(transaction_id='transaction_id', lock_id=None)
+
+    await (
+        await command_planner.plan_data_command(
+            DataCommand(
+                lock_id=None,
                 transaction_id='transaction_id',
-                schema=SchemaReference(name='shippings', version=Version.LATEST),
-                action=TransactionAction.BEGIN,
+                mutations=[
+                    InsertData(
+                        schema=SchemaReference(name='shippings', version=Version.LATEST),
+                        data=[
+                            Data(
+                                data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
+                            )
+                        ],
+                    ),
+                    InsertData(
+                        schema=SchemaReference(name='customers', version=Version.LATEST),
+                        data=[
+                            Data(
+                                data={'id': '1', 'name': 'customer'},
+                            )
+                        ],
+                    ),
+                ],
             )
-        ).execute(transaction_id='transaction_id', lock_id=None)
+        )
+    ).execute(transaction_id='transaction_id', lock_id=None)
 
+    await transaction_planner.plan_transaction(
+        TransactionCommand(
+            transaction_id='transaction_id',
+            schema=SchemaReference(name='shippings', version=Version.LATEST),
+            action=TransactionAction.ROLLBACK,
+        )
+    ).execute(transaction_id='transaction_id', lock_id=None)
+
+    assert (
         await (
-            await command_planner.plan_data_command(
-                DataCommand(
-                    lock_id=None,
-                    transaction_id='transaction_id',
-                    mutations=[
-                        InsertData(
-                            schema=SchemaReference(name='shippings', version=Version.LATEST),
-                            data=[
-                                Data(
-                                    data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
-                                )
-                            ],
-                        ),
-                        InsertData(
-                            schema=SchemaReference(name='customers', version=Version.LATEST),
-                            data=[
-                                Data(
-                                    data={'id': '1', 'name': 'customer'},
-                                )
-                            ],
-                        ),
-                    ],
-                )
-            )
-        ).execute(transaction_id='transaction_id', lock_id=None)
-
-        await transaction_planner.plan_transaction(
-            TransactionCommand(
-                transaction_id='transaction_id',
-                schema=SchemaReference(name='shippings', version=Version.LATEST),
-                action=TransactionAction.ROLLBACK,
-            )
-        ).execute(transaction_id='transaction_id', lock_id=None)
-
-        assert (
             await (
-                await (
-                    await connection_mng.get_connection_pool('shippings').get_connection()  # type: ignore[attr-defined]
-                ).execute('SELECT id, customer_id, status FROM shippings')
-            ).fetchall()
-        ) == []
-        assert (
+                await connection_mng.get_connection_pool('shippings').get_connection()  # type: ignore[attr-defined]
+            ).execute('SELECT id, customer_id, status FROM shippings')
+        ).fetchall()
+    ) == []
+    assert (
+        await (
             await (
-                await (
-                    await connection_mng.get_connection_pool('customers').get_connection()  # type: ignore[attr-defined]
-                ).execute('SELECT id, name FROM customers')
-            ).fetchall()
-        ) == []
+                await connection_mng.get_connection_pool('customers').get_connection()  # type: ignore[attr-defined]
+            ).execute('SELECT id, name FROM customers')
+        ).fetchall()
+    ) == []

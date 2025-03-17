@@ -457,7 +457,6 @@ class CsvConnection(ConnectionBase):
 
         except Exception as e:
             msg = f'Error executing query: {e!s}'
-            logger.exception(msg)
             raise
 
     def _find_column_for_field(self, df: 'pd.DataFrame', field_name: str, table_name: str | None = None) -> str | None:  # noqa: C901, PLR0911
@@ -760,7 +759,6 @@ class CsvConnection(ConnectionBase):
 
             except Exception as e:  # noqa: PERF203
                 msg = f'Error executing mutation: {e!s}'
-                logger.exception(msg)
                 raise
 
         return results
@@ -821,7 +819,6 @@ class CsvConnection(ConnectionBase):
 
             except Exception as e:  # noqa: PERF203
                 msg = f'Error executing schema command: {e!s}'
-                logger.exception(msg)
                 raise
 
         return results
@@ -1020,7 +1017,6 @@ class CsvConnection(ConnectionBase):
 
         except Exception as e:
             msg = f'Error processing condition: {e!s}'
-            logger.exception(msg)
             raise ValueError(msg) from e
 
     def _get_conditions(self, conditions: Conditions, df: 'pd.DataFrame') -> 'pd.Series':

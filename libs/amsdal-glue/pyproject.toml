@@ -51,12 +51,13 @@ path = "src/amsdal_glue/__about__.py"
 path = "../../../.venv/glue"
 extra-dependencies = [
     "mypy>=1.15.0",
-    "coverage[toml]>=7.4",
-    "pytest>=8.3.4",
+    "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
     "pytest-benchmark>=5.1.0",
     "pytest-asyncio>=0.24.0",
-    "ruff>=0.9.7",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist[psutil]>=3.6.1",
+    "ruff>=0.10.0",
     "amsdal-glue[postgres-binary]",
     "towncrier>=24.8.0",
     "aiosqlite>=0.20.0",
@@ -68,15 +69,10 @@ pre-install-commands = [
 ]
 
 [tool.hatch.envs.default.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
-cov-report = [
-    "- coverage combine",
-    "coverage report",
-]
+test = "pytest -n auto {args:tests}"
+test-cov = "pytest --cov=src -n auto {args:tests}"
 cov = [
     "test-cov",
-    "cov-report",
 ]
 typing = "mypy --install-types --non-interactive {args:src/amsdal_glue tests}"
 style = [
@@ -94,6 +90,11 @@ all = [
 ]
 change-logs = "towncrier {args:.}"
 release = "rm latest-changelogs.md && towncrier build --yes --version {args:version} && (cat latest-changelogs.md; cat change-logs.md) > temp.md && mv temp.md change-logs.md && git add change-logs.md latest-changelogs.md release_notes && git commit -m 'Updated release notes for amsdal-glue'"
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
 
 
 [tool.ruff]

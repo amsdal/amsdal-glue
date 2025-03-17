@@ -1,8 +1,14 @@
-## [v0.1.4](https://pypi.org/project/amsdal-glue-connections/0.1.4/) - 2025-03-17
+## [v0.1.5](https://pypi.org/project/amsdal-glue-connections/0.1.5/) - 2025-03-17
 
 ### Added
 
 - Support inline unique definition in SQLite
+
+## [v0.1.4](https://pypi.org/project/amsdal-glue-connections/0.1.4/) - 2025-03-14
+
+### Changed
+
+- Remove `exception` logs from connections
 
 ## [v0.1.3](https://pypi.org/project/amsdal-glue-connections/0.1.3/) - 2025-03-13
 

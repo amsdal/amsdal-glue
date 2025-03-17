@@ -43,38 +43,36 @@ def _add_shipping_connection():
 
 
 @pytest.mark.asyncio
-async def test_query_schemas_for_one_connection(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        query_planner = Container.planners.get(AsyncSchemaQueryPlanner)
-        plan = query_planner.plan_schema_query()
-        await plan.execute(transaction_id=None, lock_id=None)
+async def test_query_schemas_for_one_connection(register_default_connection: None) -> None:  # noqa: ARG001
+    query_planner = Container.planners.get(AsyncSchemaQueryPlanner)
+    plan = query_planner.plan_schema_query()
+    await plan.execute(transaction_id=None, lock_id=None)
 
-        result = plan.result
-        assert len(result) == 4
-        table_names = {item.name for item in result}
-        assert table_names == {
-            'customers',
-            'orders',
-            'items',
-            'vendor',
-        }
+    result = plan.result
+    assert len(result) == 4
+    table_names = {item.name for item in result}
+    assert table_names == {
+        'customers',
+        'orders',
+        'items',
+        'vendor',
+    }
 
 
 @pytest.mark.asyncio
-async def test_query_schemas_for_multiple_connections(register_default_connection: AsyncGenerator[None, None]) -> None:
-    async for _ in register_default_connection:
-        _add_shipping_connection()
-        query_planner = Container.planners.get(AsyncSchemaQueryPlanner)
-        plan = query_planner.plan_schema_query()
-        await plan.execute(transaction_id=None, lock_id=None)
+async def test_query_schemas_for_multiple_connections(register_default_connection: None) -> None:  # noqa: ARG001
+    _add_shipping_connection()
+    query_planner = Container.planners.get(AsyncSchemaQueryPlanner)
+    plan = query_planner.plan_schema_query()
+    await plan.execute(transaction_id=None, lock_id=None)
 
-        result = plan.result
-        assert len(result) == 5
-        table_names = {item.name for item in result}
-        assert table_names == {
-            'customers',
-            'orders',
-            'items',
-            'vendor',
-            'shippings',
-        }
+    result = plan.result
+    assert len(result) == 5
+    table_names = {item.name for item in result}
+    assert table_names == {
+        'customers',
+        'orders',
+        'items',
+        'vendor',
+        'shippings',
+    }

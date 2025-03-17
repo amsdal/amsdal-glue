@@ -1,5 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import os
+import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
 from contextlib import suppress
@@ -64,10 +65,12 @@ def _register_default_connection() -> Generator[None, None, None]:
     init_default_containers()
     connection_mng = Container.managers.get(ConnectionManager)
     test_db_dsn = os.getenv('TEST_DB_DSN', 'postgres://postgres:example@localhost:5432/')
+    db_name = f'test_{uuid.uuid4().hex}'
+    db_name_2 = f'test_{uuid.uuid4().hex}'
 
-    with create_database(test_db_dsn, 'customers'):
+    with create_database(test_db_dsn, db_name):
         connection_mng.register_connection_pool(
-            DefaultConnectionPool(PostgresConnection, dsn=f'{test_db_dsn}customers'),
+            DefaultConnectionPool(PostgresConnection, dsn=f'{test_db_dsn}{db_name}'),
         )
 
         Container.planners.get(SchemaCommandPlanner).plan_schema_command(
@@ -254,9 +257,9 @@ def _register_default_connection() -> Generator[None, None, None]:
             )
         ).execute(transaction_id=None, lock_id=None)
 
-        with create_database(test_db_dsn, 'shippings'):
+        with create_database(test_db_dsn, db_name_2):
             connection_mng.register_connection_pool(
-                DefaultConnectionPool(PostgresConnection, dsn=f'{test_db_dsn}shippings'),
+                DefaultConnectionPool(PostgresConnection, dsn=f'{test_db_dsn}{db_name_2}'),
                 schema_name='shippings',
             )
 

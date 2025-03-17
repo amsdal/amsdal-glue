@@ -1,6 +1,12 @@
 from pprint import pprint
 from amsdal_glue import init_default_containers
-from utils import *
+from utils import (
+    register_connections,
+    create_schema_in_new_db,
+    fetch_schemas,
+    create_new_records,
+    fetch_customers_and_their_shipping_status,
+)
 
 
 def main() -> None:
@@ -28,7 +34,7 @@ def main() -> None:
 
     for row in data:
         print(
-            f'{row.data["first_name"]} (ID: {row.data["customer_id"]}) - Shipping status: {row.data["status"]}'
+            f"{row.data['first_name']} (ID: {row.data['customer_id']}) - Shipping status: {row.data['status']}"
         )
 
 

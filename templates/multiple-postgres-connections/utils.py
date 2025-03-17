@@ -1,4 +1,5 @@
 import amsdal_glue
+from amsdal_glue_core.common.services.commands import SchemaCommandService
 from amsdal_glue import Condition
 from amsdal_glue import Conditions
 from amsdal_glue import Data
@@ -15,6 +16,12 @@ from amsdal_glue import QueryStatement
 from amsdal_glue import Schema
 from amsdal_glue import SchemaReference
 from amsdal_glue import Version
+from amsdal_glue import SchemaQueryOperation
+from amsdal_glue import DataQueryOperation
+from amsdal_glue.interfaces import DataCommandService
+from amsdal_glue.interfaces import DataQueryService
+from amsdal_glue.interfaces import SchemaQueryService
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 
 
 def register_connections() -> None:
@@ -58,7 +65,7 @@ def create_schema_in_new_db() -> None:
         ],
     )
 
-    service = amsdal_glue.Container.services.get(amsdal_glue.SchemaCommandService)
+    service = amsdal_glue.Container.services.get(SchemaCommandService)
     result = service.execute(
         amsdal_glue.SchemaCommand(
             mutations=[
@@ -71,9 +78,9 @@ def create_schema_in_new_db() -> None:
 
 
 def fetch_schemas() -> list[Schema]:
-    query_service = amsdal_glue.Container.services.get(amsdal_glue.SchemaQueryService)
+    query_service = amsdal_glue.Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        amsdal_glue.SchemaQueryOperation(filters=None),
+        SchemaQueryOperation(filters=None),
     )
     assert result.success is True, result.message
     assert result.schemas is not None
@@ -82,7 +89,7 @@ def fetch_schemas() -> list[Schema]:
 
 
 def create_new_records() -> None:
-    service = amsdal_glue.Container.services.get(amsdal_glue.DataCommandService)
+    service = amsdal_glue.Container.services.get(DataCommandService)
     result = service.execute(
         command=amsdal_glue.DataCommand(
             mutations=[
@@ -148,12 +155,16 @@ def fetch_customers_and_their_shipping_status() -> list[Data]:
                 ),
                 on=Conditions(
                     Condition(
-                        field=FieldReference(
-                            field=Field(name="customer_id"), table_name="s"
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(
+                                field=Field(name="customer_id"), table_name="s"
+                            )
                         ),
                         lookup=FieldLookup.EQ,
-                        value=FieldReference(
-                            field=Field(name="customer_id"), table_name="c"
+                        right=FieldReferenceExpression(
+                            field_reference=FieldReference(
+                                field=Field(name="customer_id"), table_name="c"
+                            )
                         ),
                     ),
                 ),
@@ -172,9 +183,9 @@ def fetch_customers_and_their_shipping_status() -> list[Data]:
         ],
     )
 
-    service = amsdal_glue.Container.services.get(amsdal_glue.DataQueryService)
+    service = amsdal_glue.Container.services.get(DataQueryService)
     data_result = service.execute(
-        query_op=amsdal_glue.DataQueryOperation(
+        query_op=DataQueryOperation(
             query=query,
         ),
     )

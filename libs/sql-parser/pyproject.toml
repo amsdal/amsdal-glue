@@ -42,12 +42,13 @@ path = "src/amsdal_glue_sql_parser/__about__.py"
 [tool.hatch.envs.default]
 path = "../../../.venv/sql-parser"
 extra-dependencies = [
-    "mypy>=1.10.1",
-    "coverage[toml]>=7.6",
-    "pytest>=8.2.2",
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
-    "pytest-benchmark>=4.0.0",
-    "ruff>=0.5.2",
+    "pytest-benchmark>=5.1.0",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist[psutil]>=3.6.1",
+    "ruff>=0.10.0",
     "sqloxide==0.1.47",
     "towncrier>=23.11.0",
 ]
@@ -58,16 +59,11 @@ pre-install-commands = [
 ]
 
 [tool.hatch.envs.default.scripts]
-test = "pytest --benchmark-disable {args:tests}"
+test = "pytest -n auto --benchmark-disable {args:tests}"
 benchmark = "pytest --benchmark-only {args:tests}"
-test-cov = "coverage run -m pytest --benchmark-disable {args:tests}"
-cov-report = [
-    "- coverage combine",
-    "coverage report",
-]
+test-cov = "pytest --cov=src -n auto --benchmark-skip {args:tests}"
 cov = [
     "test-cov",
-    "cov-report",
 ]
 typing = "mypy --install-types --non-interactive {args:src/amsdal_glue_sql_parser tests}"
 style = [
