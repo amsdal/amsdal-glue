@@ -113,15 +113,39 @@ class SqliteConnectionMixin:
         msg = f'Unsupported type: {property_type}'
         raise ValueError(msg)
 
-    def _get_unique_constrains(self, table_sql: str) -> list[UniqueConstraint]:
+    def _get_unique_constrains(self, table_name: str, table_sql: str) -> list[UniqueConstraint]:
         unique_constraints = []
+        _unique_fields = []
 
         for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_sql):
             fields = FIELDS_RE.findall(field_names)
+            _unique_fields.append(fields)
             unique_constraints.append(
                 UniqueConstraint(
                     name=constraint_name,
                     fields=fields,
+                    condition=None,
+                )
+            )
+
+        # Match unique constraints defined inline within column definitions
+        normalized_table_sql = re.sub(r'\s+', ' ', table_sql.strip())
+        inline_unique_re = re.compile(
+            r'["\']?(?P<name>\w+)["\']?\s+\w+(?:\([^)]*\))?\s*(?:NOT\s+NULL|NULL)?\s+UNIQUE(?:\s|,|\)|$)',
+            re.IGNORECASE,
+        )
+
+        for match in inline_unique_re.finditer(normalized_table_sql):
+            field_name = match.group('name')
+
+            if [field_name] in _unique_fields:
+                continue
+
+            _unique_fields.append([field_name])
+            unique_constraints.append(
+                UniqueConstraint(
+                    name=f'unq_{table_name}_{field_name}',
+                    fields=[field_name],
                     condition=None,
                 )
             )
