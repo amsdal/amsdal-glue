@@ -129,8 +129,11 @@ class SqliteConnectionMixin:
             )
 
         # Match unique constraints defined inline within column definitions
-        inline_unique_re = re.compile(r'["\']?(?P<name>\w+)["\']?\s+\w+.*?\s+UNIQUE', re.IGNORECASE)
-        for match in inline_unique_re.finditer(table_sql):
+        normalized_table_sql = re.sub(r'\s+', ' ', table_sql.strip())
+        print(normalized_table_sql)
+        inline_unique_re = re.compile(r'["\']?(?P<name>\w+)["\']?\s+\w+(?:\([^)]*\))?\s*(?:NOT\s+NULL|NULL)?\s+UNIQUE(?:\s|,|\)|$)', re.IGNORECASE)
+
+        for match in inline_unique_re.finditer(normalized_table_sql):
             field_name = match.group('name')
 
             if [field_name] in _unique_fields:
