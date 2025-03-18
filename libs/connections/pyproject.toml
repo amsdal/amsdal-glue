@@ -37,6 +37,9 @@ postgres-binary = [
 async-sqlite = [
     "aiosqlite>=0.20.0",
 ]
+csv = [
+    "pandas>=2.2.3",
+]
 
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
