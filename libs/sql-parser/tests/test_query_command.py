@@ -1,4 +1,5 @@
 # mypy: disable-error-code="type-abstract"
+import pytest
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
@@ -188,6 +189,78 @@ def test_simple_join(benchmark) -> None:
                             connector=FilterConnector.AND,
                         ),
                         join_type=JoinType.INNER,
+                    ),
+                ],
+                where=Conditions(
+                    Condition(
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
+                        ),
+                        lookup=FieldLookup.EQ,
+                        right=Value('Doe'),
+                    ),
+                    connector=FilterConnector.AND,
+                ),
+            ),
+        ),
+    ]
+
+    assert parser.parse_sql(
+        'SELECT u.first_name, u.last_name, s.* '
+        'FROM users u '
+        'JOIN shippings s ON u.id = s.customer_id '
+        "WHERE u.last_name = 'Doe';"
+    ) == parser.parse_sql(
+        'SELECT u.first_name, u.last_name, s.* '
+        'FROM users u '
+        'INNER JOIN shippings s ON u.id = s.customer_id '
+        "WHERE u.last_name = 'Doe';"
+    )
+
+
+@pytest.mark.parametrize(
+    'sql_type,expected',
+    [
+        ('LEFT JOIN', JoinType.LEFT),
+        ('RIGHT JOIN', JoinType.RIGHT),
+        ('FULL JOIN', JoinType.FULL),
+    ],
+)
+def test_simple_different_join(sql_type: str, expected: JoinType) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    result = parser.parse_sql(
+        'SELECT u.first_name, u.last_name, s.* '  # noqa: S608
+        'FROM users u '
+        f'{sql_type} shippings s ON u.id = s.customer_id '
+        "WHERE u.last_name = 'Doe';"
+    )
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='u'),
+                    FieldReference(field=Field(name='last_name'), table_name='u'),
+                    FieldReference(field=Field(name='*'), table_name='s'),
+                ],
+                joins=[
+                    JoinQuery(
+                        table=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
+                        on=Conditions(
+                            Condition(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                                ),
+                                lookup=FieldLookup.EQ,
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                                ),
+                            ),
+                            connector=FilterConnector.AND,
+                        ),
+                        join_type=expected,
                     ),
                 ],
                 where=Conditions(
