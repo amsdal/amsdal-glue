@@ -38,6 +38,9 @@ postgres-binary = [
 async-sqlite = [
     "amsdal-glue-connections[async-sqlite]",
 ]
+csv = [
+    "amsdal-glue-connections[csv]",
+]
 
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"

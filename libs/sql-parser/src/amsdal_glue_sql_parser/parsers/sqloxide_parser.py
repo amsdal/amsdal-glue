@@ -558,6 +558,24 @@ class SqlOxideParser(SqlParserBase):
                     on=Conditions(self._process_selection(join['join_operator']['Inner']['On'], table_name)),
                     join_type=JoinType.INNER,
                 )
+            elif 'LeftOuter' in join['join_operator']:
+                join_query = JoinQuery(
+                    table=join_schema,
+                    on=Conditions(self._process_selection(join['join_operator']['LeftOuter']['On'], table_name)),
+                    join_type=JoinType.LEFT,
+                )
+            elif 'RightOuter' in join['join_operator']:
+                join_query = JoinQuery(
+                    table=join_schema,
+                    on=Conditions(self._process_selection(join['join_operator']['RightOuter']['On'], table_name)),
+                    join_type=JoinType.RIGHT,
+                )
+            elif 'FullOuter' in join['join_operator']:
+                join_query = JoinQuery(
+                    table=join_schema,
+                    on=Conditions(self._process_selection(join['join_operator']['FullOuter']['On'], table_name)),
+                    join_type=JoinType.FULL,
+                )
             else:
                 msg = 'Unsupported join type'
                 raise ValueError(msg)

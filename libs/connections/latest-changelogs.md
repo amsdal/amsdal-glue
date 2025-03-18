@@ -1,5 +1,5 @@
-## [v0.1.5](https://pypi.org/project/amsdal-glue-connections/0.1.5/) - 2025-03-17
+## [v0.1.6](https://pypi.org/project/amsdal-glue-connections/0.1.6/) - 2025-03-18
 
 ### Added
 
-- Support inline unique definition in SQLite
+- Add `csv` as an optional dependency.
