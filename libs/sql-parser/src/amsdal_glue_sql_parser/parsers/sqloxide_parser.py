@@ -453,7 +453,7 @@ class SqlOxideParser(SqlParserBase):
                 table_name=table_name,
             )
 
-        msg = 'Unsupported identifier'
+        msg = f'Unsupported identifier: {identifier}'
         raise ValueError(msg)
 
     def _identifier_to_field_reference(self, identifier: dict[str, Any], table_name: str) -> FieldReference:

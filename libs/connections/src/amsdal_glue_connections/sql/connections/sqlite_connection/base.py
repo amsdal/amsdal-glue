@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] UNIQUE \((?P<fields>[^)]+)\)')
 PRIMARY_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] PRIMARY KEY')
+FOREIGN_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] FOREIGN KEY')
 FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
 
 
@@ -154,6 +155,12 @@ class SqliteConnectionMixin:
 
     def _get_pk_name(self, table_sql: str) -> str:
         for constraint_name in PRIMARY_KEY_RE.findall(table_sql):
+            return constraint_name
+
+        return ''
+
+    def _get_fk_name(self, table_sql: str, field_name: str) -> str:
+        for constraint_name, _ in FOREIGN_KEY_RE.findall(table_sql):
             return constraint_name
 
         return ''
