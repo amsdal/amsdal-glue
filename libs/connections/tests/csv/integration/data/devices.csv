@@ -1,0 +1,7 @@
+device_id,name,location_id,model_id
+1,device1,1,1
+2,device2,2,2
+3,device3,1,3
+4,device4,2,1
+5,device5,1,2
+6,device6,3,3

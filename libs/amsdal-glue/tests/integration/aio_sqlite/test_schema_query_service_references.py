@@ -4,13 +4,13 @@ from dataclasses import asdict
 from pathlib import Path
 
 import pytest
-import amsdal_glue as glue
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 from amsdal_glue_core.common.services.queries import AsyncSchemaQueryService
 from amsdal_glue_core.containers import Container
 
+import amsdal_glue as glue
 from amsdal_glue.connections.connection_pool import DefaultAsyncConnectionPool
 from amsdal_glue.initialize import init_default_containers
 
@@ -41,9 +41,9 @@ async def test_schema_query_service_references() -> None:
         SchemaQueryOperation(filters=None),
     )
     assert result.success is True
-    assert len(result.schemas) == 4
+    assert len(result.schemas or []) == 4
 
-    assert list(map(asdict, sorted(result.schemas, key=lambda schema: schema.name))) == [
+    assert list(map(asdict, sorted(result.schemas, key=lambda schema: schema.name if schema else None))) == [  # type: ignore[arg-type,return-value]
         {
             'constraints': [{'fields': ['course_id'], 'name': 'pk_courses'}],
             'extends': None,
@@ -52,29 +52,14 @@ async def test_schema_query_service_references() -> None:
             'name': 'courses',
             'namespace': '',
             'properties': [
-                {
-                    'default': None,
-                    'description': None,
-                    'name': 'course_id',
-                    'required': False,
-                    'type': int
-                },
-                {
-                    'default': None,
-                   'description': None,
-                   'name': 'title',
-                   'required': True,
-                   'type': str
-                }
+                {'default': None, 'description': None, 'name': 'course_id', 'required': False, 'type': int},
+                {'default': None, 'description': None, 'name': 'title', 'required': True, 'type': str},
             ],
-            'version': glue.Version.LATEST
+            'version': glue.Version.LATEST,
         },
         {
             'constraints': [
-                {
-                    'fields': ['student_id', 'course_id'],
-                    'name': 'pk_student_courses'
-                },
+                {'fields': ['student_id', 'course_id'], 'name': 'pk_student_courses'},
                 {
                     'fields': ['course_id'],
                     'name': 'fk_course_id',
@@ -84,8 +69,8 @@ async def test_schema_query_service_references() -> None:
                         'metadata': None,
                         'name': 'courses',
                         'namespace': None,
-                        'version': glue.Version.LATEST
-                    }
+                        'version': glue.Version.LATEST,
+                    },
                 },
                 {
                     'fields': ['student_id'],
@@ -96,9 +81,9 @@ async def test_schema_query_service_references() -> None:
                         'metadata': None,
                         'name': 'students',
                         'namespace': None,
-                        'version': glue.Version.LATEST
-                    }
-                }
+                        'version': glue.Version.LATEST,
+                    },
+                },
             ],
             'extends': None,
             'indexes': [],
@@ -106,22 +91,10 @@ async def test_schema_query_service_references() -> None:
             'name': 'student_courses',
             'namespace': '',
             'properties': [
-                {
-                    'default': None,
-                    'description': None,
-                    'name': 'student_id',
-                    'required': False,
-                    'type': int
-                },
-                {
-                    'default': None,
-                   'description': None,
-                   'name': 'course_id',
-                   'required': False,
-                   'type': int
-                }
+                {'default': None, 'description': None, 'name': 'student_id', 'required': False, 'type': int},
+                {'default': None, 'description': None, 'name': 'course_id', 'required': False, 'type': int},
             ],
-            'version': glue.Version.LATEST
+            'version': glue.Version.LATEST,
         },
         {
             'constraints': [
@@ -135,8 +108,8 @@ async def test_schema_query_service_references() -> None:
                         'metadata': None,
                         'name': 'users',
                         'namespace': None,
-                        'version': glue.Version.LATEST
-                    }
+                        'version': glue.Version.LATEST,
+                    },
                 },
             ],
             'extends': None,
@@ -145,29 +118,11 @@ async def test_schema_query_service_references() -> None:
             'name': 'students',
             'namespace': '',
             'properties': [
-                {
-                    'default': None,
-                    'description': None,
-                    'name': 'student_id',
-                    'required': False,
-                    'type': int
-                },
-                {
-                    'default': None,
-                    'description': None,
-                    'name': 'name',
-                    'required': True,
-                    'type': str
-                },
-                {
-                    'default': None,
-                    'description': None,
-                    'name': 'user_id',
-                    'required': False,
-                    'type': int
-                }
+                {'default': None, 'description': None, 'name': 'student_id', 'required': False, 'type': int},
+                {'default': None, 'description': None, 'name': 'name', 'required': True, 'type': str},
+                {'default': None, 'description': None, 'name': 'user_id', 'required': False, 'type': int},
             ],
-            'version': glue.Version.LATEST
+            'version': glue.Version.LATEST,
         },
         {
             'constraints': [{'fields': ['user_id'], 'name': 'pk_users'}],
@@ -177,22 +132,9 @@ async def test_schema_query_service_references() -> None:
             'name': 'users',
             'namespace': '',
             'properties': [
-                {
-                    'default': None,
-                    'description': None,
-                    'name': 'user_id',
-                    'required': False,
-                    'type': int
-                },
-                {
-                    'default': None,
-                    'description': None,
-                    'name': 'username',
-                    'required': True,
-                    'type': str
-                },
+                {'default': None, 'description': None, 'name': 'user_id', 'required': False, 'type': int},
+                {'default': None, 'description': None, 'name': 'username', 'required': True, 'type': str},
             ],
-            'version': glue.Version.LATEST
-        }
+            'version': glue.Version.LATEST,
+        },
     ]
-

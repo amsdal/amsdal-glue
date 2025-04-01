@@ -185,7 +185,7 @@ ignore_missing_imports = true
 check_untyped_defs = true
 
 [tool.coverage.run]
-source_pkgs = ["amsdal_glue_sql_parser", "tests"]
+source_pkgs = ["amsdal_glue_sql_parser"]
 branch = true
 parallel = true
 omit = [
@@ -194,7 +194,6 @@ omit = [
 
 [tool.coverage.paths]
 amsdal_glue_sql_parser = ["src/amsdal_glue_sql_parser"]
-tests = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 def test_create_customer(test_client: TestClient) -> None:
     response = test_client.post('/api/v1/schemas/customers/', json={'name': 'John Doe', 'email': 'e1@example.com'})
-    assert response.status_code == 201
+    assert response.status_code == 201, response.text
     response_json = response.json()
     assert response_json == {'customer_id': None, 'name': 'John Doe', 'email': 'e1@example.com'}
 
@@ -23,7 +23,7 @@ def test_create_customer(test_client: TestClient) -> None:
 
 def test_create_customer_validation_error(test_client: TestClient) -> None:
     response = test_client.post('/api/v1/schemas/customers/', json={'name': 'John Doe', 'email': 1})
-    assert response.status_code == 422
+    assert response.status_code == 422, response.text
     response_json = response.json()
     assert response_json == {
         'detail': [

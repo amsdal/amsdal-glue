@@ -159,8 +159,8 @@ class SqliteConnectionMixin:
 
         return ''
 
-    def _get_fk_name(self, table_sql: str, field_name: str) -> str:
-        for constraint_name, _ in FOREIGN_KEY_RE.findall(table_sql):
+    def _get_fk_name(self, table_sql: str, field_name: str) -> str:  # noqa: ARG002
+        for constraint_name in FOREIGN_KEY_RE.findall(table_sql):
             return constraint_name
 
         return ''

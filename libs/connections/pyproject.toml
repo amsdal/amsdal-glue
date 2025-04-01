@@ -201,25 +201,6 @@ check_untyped_defs = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 
-[tool.coverage.run]
-source_pkgs = ["amsdal_glue_connections", "tests"]
-branch = true
-parallel = true
-omit = [
-    "src/amsdal_glue_connections/__about__.py",
-]
-
-[tool.coverage.paths]
-amsdal_glue_connections = ["src/amsdal_glue_connections"]
-tests = ["tests"]
-
-[tool.coverage.report]
-exclude_lines = [
-    "no cov",
-    "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:",
-]
-
 [tool.towncrier]
 directory = "release_notes"
 name = "AMSDAL GLUE CONNECTIONS"

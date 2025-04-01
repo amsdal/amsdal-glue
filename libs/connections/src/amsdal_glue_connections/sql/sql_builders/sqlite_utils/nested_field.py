@@ -17,14 +17,6 @@ def sqlite_nested_field_transform(
         *fields,
     ])
 
-    if output_type in (int, bool):
-        _cast_type = 'integer'
-    elif output_type is float:
-        _cast_type = 'real'
-
-    else:
-        _cast_type = 'text'
-
     _alias = transform.apply(TransformTypes.TABLE_QUOTE, table_alias)
     _field = transform.apply(TransformTypes.FIELD_QUOTE, field)
     _stmt_field = transform.apply(TransformTypes.TABLE_SEPARATOR, _alias, _field)
