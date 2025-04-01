@@ -1,6 +1,7 @@
 from collections.abc import Generator
 
 import pytest
+from amsdal_glue_core.common.enums import JoinType
 
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from tests.sql.postgres.testcases.data_query import query_big_orders
@@ -38,12 +39,35 @@ def test_simple_query(fixture_connection: PostgresConnection) -> None:
 
 
 def test_join_query(fixture_connection: PostgresConnection) -> None:
-    result_data = query_orders_with_customers(fixture_connection)
+    result_data = query_orders_with_customers(fixture_connection, join_type=JoinType.INNER)
 
     assert [d.data for d in result_data] == [
         {'id': 1, 'amount': 100, 'customer_id': 1, 'name': 'Alice', 'age': 25},
         {'id': 2, 'amount': 200, 'customer_id': 1, 'name': 'Alice', 'age': 25},
         {'id': 3, 'amount': 400, 'customer_id': 2, 'name': 'Bob', 'age': 25},
+    ]
+    result_data = query_orders_with_customers(fixture_connection, join_type=JoinType.LEFT)
+
+    assert [d.data for d in result_data] == [
+        {'id': 1, 'amount': 100, 'customer_id': 1, 'name': 'Alice', 'age': 25},
+        {'id': 2, 'amount': 200, 'customer_id': 1, 'name': 'Alice', 'age': 25},
+        {'id': 3, 'amount': 400, 'customer_id': 2, 'name': 'Bob', 'age': 25},
+    ]
+    result_data = query_orders_with_customers(fixture_connection, join_type=JoinType.RIGHT)
+
+    assert [d.data for d in result_data] == [
+        {'id': 1, 'amount': 100, 'customer_id': 1, 'name': 'Alice', 'age': 25},
+        {'id': 2, 'amount': 200, 'customer_id': 1, 'name': 'Alice', 'age': 25},
+        {'id': 3, 'amount': 400, 'customer_id': 2, 'name': 'Bob', 'age': 25},
+        {'id': None, 'amount': None, 'customer_id': None, 'name': 'Charlie', 'age': 35},
+    ]
+    result_data = query_orders_with_customers(fixture_connection, join_type=JoinType.FULL)
+
+    assert [d.data for d in result_data] == [
+        {'id': 1, 'amount': 100, 'customer_id': 1, 'name': 'Alice', 'age': 25},
+        {'id': 2, 'amount': 200, 'customer_id': 1, 'name': 'Alice', 'age': 25},
+        {'id': 3, 'amount': 400, 'customer_id': 2, 'name': 'Bob', 'age': 25},
+        {'id': None, 'amount': None, 'customer_id': None, 'name': 'Charlie', 'age': 35},
     ]
 
 

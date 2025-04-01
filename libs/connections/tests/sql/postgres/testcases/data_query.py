@@ -36,7 +36,10 @@ def query_customers(database_connection: PostgresConnection, namespace: str = ''
     )
 
 
-def query_orders_with_customers(database_connection: PostgresConnection) -> list[Data]:
+def query_orders_with_customers(
+    database_connection: PostgresConnection,
+    join_type: JoinType = JoinType.INNER,
+) -> list[Data]:
     return database_connection.query(
         QueryStatement(
             table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
@@ -67,7 +70,7 @@ def query_orders_with_customers(database_connection: PostgresConnection) -> list
                             ),
                         ),
                     ),
-                    join_type=JoinType.INNER,
+                    join_type=join_type,
                 ),
             ],
         )

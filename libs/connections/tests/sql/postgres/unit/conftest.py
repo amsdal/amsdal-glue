@@ -20,8 +20,11 @@ class MockPostgresConnection(PostgresConnection):
         return self._connection  # type: ignore[return-value]
 
     def set_cursor_mock(self, cursor_mock: mock.Mock) -> None:
+        self.execute_mock = mock.Mock()
         self.cursor_mock = cursor_mock
+        self.cursor_mock.execute = self.execute_mock
         self._connection.cursor.return_value = self.cursor_mock  # type: ignore[union-attr]
+        self._connection.execute = self.cursor_mock.execute
         self._connection.execute.return_value = self.cursor_mock  # type: ignore[union-attr]
 
 

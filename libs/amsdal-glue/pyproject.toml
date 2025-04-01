@@ -202,7 +202,7 @@ ignore_missing_imports = true
 check_untyped_defs = true
 
 [tool.coverage.run]
-source_pkgs = ["amsdal_glue", "tests"]
+source_pkgs = ["amsdal_glue"]
 branch = true
 parallel = true
 omit = [
@@ -211,7 +211,6 @@ omit = [
 
 [tool.coverage.paths]
 amsdal_glue = ["src/amsdal_glue"]
-tests = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [

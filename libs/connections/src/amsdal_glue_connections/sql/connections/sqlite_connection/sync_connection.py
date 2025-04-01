@@ -349,7 +349,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         constraints.extend(
             [
                 ForeignKeyConstraint(
-                    name=fk[0],
+                    name=self._get_fk_name(table_sql, field_name=fk[3]) or f'fk_{fk[3]}',
                     fields=[fk[3]],
                     reference_schema=SchemaReference(
                         name=fk[2],

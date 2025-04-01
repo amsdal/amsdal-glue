@@ -1,3 +1,9 @@
+## [v0.1.7](https://pypi.org/project/amsdal-glue-connections/0.1.7/) - 2025-01-01
+
+### Fixed
+
+- FK names in SQLite
+
 ## [v0.1.6](https://pypi.org/project/amsdal-glue-connections/0.1.6/) - 2025-03-18
 
 ### Added

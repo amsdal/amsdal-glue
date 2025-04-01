@@ -12,6 +12,7 @@ from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -114,15 +115,11 @@ class CsvConnection(ConnectionBase):
         self._backup_dfs.clear()
 
         if self.db_path.is_file():
-            import pandas as pd
-
-            self._backup_dfs[self.db_path.stem] = pd.read_csv(self.db_path)
+            self._backup_dfs[self.db_path.stem] = self._read_csv(self.db_path)
         elif self.db_path.is_dir():
-            import pandas as pd
-
             for file in self.db_path.iterdir():
                 if file.is_file() and file.suffix == '.csv':
-                    self._backup_dfs[file.stem] = pd.read_csv(file)
+                    self._backup_dfs[file.stem] = self._read_csv(file)
 
         return self._transaction_id
 
@@ -206,13 +203,16 @@ class CsvConnection(ConnectionBase):
                                     right_on.append(right_field)
 
                         # Perform the join
-                        df = pd.merge(
-                            df,
-                            joined_df,
-                            how=join.join_type.value.lower(),
-                            left_on=left_on,
-                            right_on=right_on,
-                            suffixes=(f'_{table_name}', f'_{join_table_name}'),
+                        _join_type = join.join_type.value.lower()
+                        df = self._normalize_df(
+                            pd.merge(
+                                df,
+                                joined_df,
+                                how={'full': 'outer'}.get(_join_type, _join_type),
+                                left_on=left_on,
+                                right_on=right_on,
+                                suffixes=(f'_{table_name}', f'_{join_table_name}'),
+                            )
                         )
 
                         # Store original column names for later use
@@ -349,15 +349,24 @@ class CsvConnection(ConnectionBase):
                     for field in query.only:
                         field_name = field.field.name
                         table_name = field.table_name
+                        _alias: str | None = None
+
+                        if isinstance(field, FieldReferenceAliased):
+                            _alias = field.alias
 
                         # Find the actual column name in the DataFrame
                         actual_col: str | None = self._find_column_for_field(result_df, field_name, table_name)
 
                         if actual_col:
                             selected_columns.append(actual_col)
+
                             # If the column has a prefix or suffix, rename it back to the plain field name
-                            if actual_col != field_name:
+                            if _alias and _alias != actual_col:
+                                column_aliases[actual_col] = _alias
+
+                            elif actual_col != field_name:
                                 column_aliases[actual_col] = field_name
+
                         else:
                             msg = f"Column '{field_name}' from table '{table_name}' not found - skipping"
                             logger.warning(msg)
@@ -464,9 +473,12 @@ class CsvConnection(ConnectionBase):
         if field_name == '*':
             return next(iter(df.columns), None)
 
-        # First, check if we have an exact match
-        if field_name in df.columns:
-            return field_name
+        # Try table-specific patterns
+        if table_name:
+            # Try common suffix patterns
+            for pattern in [f'{field_name}_{table_name}', f'{table_name}_{field_name}', f'{field_name}']:
+                if pattern in df.columns:
+                    return pattern
 
         # Check if we have a mapped column for this table and field
         if table_name and (table_name, field_name) in self._column_mapping_by_table:
@@ -474,12 +486,9 @@ class CsvConnection(ConnectionBase):
             if mapped_col in df.columns:
                 return mapped_col
 
-        # Try table-specific patterns
-        if table_name:
-            # Try common suffix patterns
-            for pattern in [f'{field_name}_{table_name}', f'{table_name}_{field_name}', f'{field_name}']:
-                if pattern in df.columns:
-                    return pattern
+        # Check if we have an exact match
+        if field_name in df.columns:
+            return field_name
 
         # Look for columns with suffixes containing our field
         for col in df.columns:
@@ -671,10 +680,9 @@ class CsvConnection(ConnectionBase):
 
     def _file_path_to_schema(self, file_path: Path) -> Schema:
         """Convert a CSV file path to a Schema object."""
-        import pandas as pd
 
         try:
-            df = pd.read_csv(file_path)
+            df = self._read_csv(file_path)
             schema_name = file_path.stem
 
             # Get properties from DataFrame columns
@@ -894,18 +902,17 @@ class CsvConnection(ConnectionBase):
 
     def _get_df(self, schema_name: str) -> 'pd.DataFrame':
         """Get a DataFrame from a CSV file."""
-        import pandas as pd
 
         try:
             if self.db_path.is_file():
-                return pd.read_csv(self.db_path)
+                return self._read_csv(self.db_path)
 
             file_path = self.db_path / f'{schema_name}.csv'
             if not file_path.exists():
                 msg = f'CSV file not found: {file_path}'
                 raise FileNotFoundError(msg)  # noqa: TRY301
 
-            return pd.read_csv(file_path)
+            return self._read_csv(file_path)
 
         except Exception as e:
             if isinstance(e, FileNotFoundError):
@@ -1091,3 +1098,15 @@ class CsvConnection(ConnectionBase):
         except Exception as e:
             msg = f'Failed to delete data: {e!s}'
             raise ValueError(msg) from e
+
+    def _read_csv(self, path: Path) -> 'pd.DataFrame':
+        """Read a CSV file into a DataFrame."""
+        import pandas as pd
+
+        return self._normalize_df(pd.read_csv(path))
+
+    def _normalize_df(self, df: 'pd.DataFrame') -> 'pd.DataFrame':
+        import numpy as np
+        import pandas as pd
+
+        return df.replace({np.nan: None, pd.NA: None})

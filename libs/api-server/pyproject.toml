@@ -59,8 +59,8 @@ pre-install-commands = [
 
 [tool.hatch.envs.default.scripts]
 server = "python src/amsdal_glue_api_server/main.py"
-test = "pytest  -n auto {args:tests}"
-test-cov = "pytest --cov=src -n auto {args:tests}"
+test = "pytest {args:tests}"
+test-cov = "pytest --cov=src {args:tests}"
 cov = [
     "test-cov",
 ]

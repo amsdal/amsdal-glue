@@ -1,6 +1,8 @@
 from typing import Any
 from unittest import mock
 
+from amsdal_glue_core.common.enums import JoinType
+
 from tests.sql.postgres.testcases.data_query import query_big_orders
 from tests.sql.postgres.testcases.data_query import query_customers
 from tests.sql.postgres.testcases.data_query import query_customers_age
@@ -76,9 +78,7 @@ def _join_query_mock() -> CursorMock:
 
 def test_join_query(database_connection: MockPostgresConnection) -> None:
     database_connection.set_cursor_mock(_join_query_mock())
-
-    result_data = query_orders_with_customers(database_connection)
-
+    result_data = query_orders_with_customers(database_connection, join_type=JoinType.INNER)
     assert [d.data for d in result_data] == [
         {'id': 1, 'amount': 100, 'customer_id': 1, 'name': 'Alice', 'age': 25},
         {'id': 2, 'amount': 200, 'customer_id': 1, 'name': 'Alice', 'age': 25},
@@ -89,6 +89,36 @@ def test_join_query(database_connection: MockPostgresConnection) -> None:
         'SELECT "o"."id", "o"."amount", "o"."customer_id", "c"."name", "c"."age" '
         'FROM "orders" AS "o" '
         'INNER JOIN "customers" AS "c" ON "o"."customer_id" = "c"."id" '
+        'ORDER BY "o"."id" ASC',
+        (),
+    )
+
+    database_connection.set_cursor_mock(_join_query_mock())
+    query_orders_with_customers(database_connection, join_type=JoinType.LEFT)
+    database_connection.connection.execute.assert_called_once_with(
+        'SELECT "o"."id", "o"."amount", "o"."customer_id", "c"."name", "c"."age" '
+        'FROM "orders" AS "o" '
+        'LEFT JOIN "customers" AS "c" ON "o"."customer_id" = "c"."id" '
+        'ORDER BY "o"."id" ASC',
+        (),
+    )
+
+    database_connection.set_cursor_mock(_join_query_mock())
+    query_orders_with_customers(database_connection, join_type=JoinType.RIGHT)
+    database_connection.connection.execute.assert_called_once_with(
+        'SELECT "o"."id", "o"."amount", "o"."customer_id", "c"."name", "c"."age" '
+        'FROM "orders" AS "o" '
+        'RIGHT JOIN "customers" AS "c" ON "o"."customer_id" = "c"."id" '
+        'ORDER BY "o"."id" ASC',
+        (),
+    )
+
+    database_connection.set_cursor_mock(_join_query_mock())
+    query_orders_with_customers(database_connection, join_type=JoinType.FULL)
+    database_connection.connection.execute.assert_called_once_with(
+        'SELECT "o"."id", "o"."amount", "o"."customer_id", "c"."name", "c"."age" '
+        'FROM "orders" AS "o" '
+        'FULL JOIN "customers" AS "c" ON "o"."customer_id" = "c"."id" '
         'ORDER BY "o"."id" ASC',
         (),
     )
