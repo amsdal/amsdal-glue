@@ -62,7 +62,7 @@ class Schema:
     """
 
     name: str
-    version: str | Version
+    version: str | Version = Version.LATEST
     namespace: str = ''
     extends: Optional['SchemaReference'] = None
     properties: list['PropertySchema']
