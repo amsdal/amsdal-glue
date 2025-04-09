@@ -73,7 +73,7 @@ class SqlOxideParser(SqlParserBase):
         if 'Query' in parsed_sql:
             query = self._parsed_sql_query_to_operation(parsed_sql['Query'])
 
-            if query.table.name == SCHEMA_REGISTRY_TABLE:  # type: ignore[union-attr]
+            if isinstance(query.table, SchemaReference) and query.table.name == SCHEMA_REGISTRY_TABLE:  # type: ignore[union-attr]
                 return SchemaQueryOperation(filters=query.where)
 
             return DataQueryOperation(query=query)
@@ -437,7 +437,10 @@ class SqlOxideParser(SqlParserBase):
             if 'Number' in _value:
                 return Value(identifier['Value']['Number'][0])
 
-            msg = 'Unsupported identifier'
+            if 'Boolean' in _value:
+                return Value(identifier['Value']['Boolean'])
+
+            msg = f'Unsupported identifier: {identifier}'
             raise ValueError(msg)
 
         if 'Unnamed' in identifier:
@@ -705,13 +708,27 @@ class SqlOxideParser(SqlParserBase):
         return annotation_queries
 
     def _parsed_sql_query_to_operation(self, parsed_sql: dict[str, Any]) -> QueryStatement:
-        table_description = parsed_sql['body']['Select']['from'][0]['relation']['Table']
-        table_name = table_description['name'][0]['value']
-        schema = SchemaReference(name=table_name, version=Version.LATEST)
+        _relation = parsed_sql['body']['Select']['from'][0]['relation']
 
-        if table_description['alias']:
-            schema.alias = table_description['alias']['name']['value']
-        query = QueryStatement(table=schema)
+        if 'Derived' in _relation:
+            _derived = _relation['Derived']
+            _subquery = _derived['subquery']
+            _alias = _derived['alias']['name']['value']
+            table_name = _alias
+            subquery = self._parsed_sql_query_to_operation(_subquery)
+            table_obj = SubQueryStatement(query=subquery, alias=_alias)
+        elif 'Table' in _relation:
+            table_description = parsed_sql['body']['Select']['from'][0]['relation']['Table']
+            table_name = table_description['name'][0]['value']
+            table_obj = SchemaReference(name=table_name, version=Version.LATEST)
+
+            if table_description['alias']:
+                table_obj.alias = table_description['alias']['name']['value']
+        else:
+            msg = f'Unsupported relation type. Cannot parse FROM statement: {_relation}'
+            raise ValueError(msg)
+
+        query = QueryStatement(table=table_obj)
 
         _distinct = parsed_sql['body']['Select']['distinct']
         if isinstance(_distinct, str) and _distinct == 'Distinct':

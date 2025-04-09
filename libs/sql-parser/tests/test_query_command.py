@@ -781,3 +781,58 @@ def test_select_distinct_on_multiple_fields(benchmark) -> None:
             ),
         )
     ]
+
+
+def test_from_subquery(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT u.first_name '
+            'FROM ('
+                'SELECT first_name, last_name FROM users WHERE is_active = TRUE'
+            ') AS u '
+            "WHERE u.last_name = 'Doe';"
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SubQueryStatement(
+                    query=QueryStatement(
+                        table=SchemaReference(name='users', version=Version.LATEST),
+                        only=[
+                            FieldReference(field=Field(name='first_name'), table_name='users'),
+                            FieldReference(field=Field(name='last_name'), table_name='users'),
+                        ],
+                        where=Conditions(
+                            Condition(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='is_active'), table_name='users')
+                                ),
+                                lookup=FieldLookup.EQ,
+                                right=Value(True),
+                            ),
+                            connector=FilterConnector.AND,
+                        ),
+                    ),
+                    alias='u',
+                ),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='u'),
+                ],
+                where=Conditions(
+                    Condition(
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
+                        ),
+                        lookup=FieldLookup.EQ,
+                        right=Value('Doe'),
+                    ),
+                    connector=FilterConnector.AND,
+                ),
+            ),
+        )
+    ]
