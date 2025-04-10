@@ -783,6 +783,58 @@ def test_select_distinct_on_multiple_fields(benchmark) -> None:
     ]
 
 
+def test_join_subquery_simple(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT u.first_name '
+            'FROM users as u ' 
+            'JOIN ('
+                'SELECT profile.bio '
+                'FROM profile'
+            ') as p ON p.email = u.email'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='u'),
+                ],
+                joins=[
+                    JoinQuery(
+                        table=SubQueryStatement(
+                            query=QueryStatement(
+                                only=[
+                                    FieldReference(field=Field(name='bio'), table_name='profile'),
+                                ],
+                                table=SchemaReference(name='profile', version=Version.LATEST),
+                            ),
+                            alias='p',
+                        ),
+                        on=Conditions(
+                            Condition(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='email'), table_name='p')
+                                ),
+                                lookup=FieldLookup.EQ,
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='email'), table_name='u')
+                                ),
+                            ),
+                        ),
+                        join_type=JoinType.INNER,
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
 def test_from_subquery(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 

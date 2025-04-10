@@ -548,12 +548,25 @@ class SqlOxideParser(SqlParserBase):
 
         join_queries = []
         for join in joins:
-            join_table_description = join['relation']['Table']
-            join_table_name = join_table_description['name'][0]['value']
-            join_schema = SchemaReference(name=join_table_name, version=Version.LATEST)
+            _relation = join['relation']
 
-            if join_table_description['alias']:
-                join_schema.alias = join_table_description['alias']['name']['value']
+            if 'Derived' in _relation:
+                join_table_description = _relation['Derived']
+                join_table_name = join_table_description['alias']['name']['value']
+                join_schema = SubQueryStatement(
+                    query=self._parsed_sql_query_to_operation(join_table_description['subquery']),
+                    alias=join_table_name,
+                )
+            elif 'Table' in _relation:
+                join_table_description = _relation['Table']
+                join_table_name = join_table_description['name'][0]['value']
+                join_schema = SchemaReference(name=join_table_name, version=Version.LATEST)
+
+                if join_table_description['alias']:
+                    join_schema.alias = join_table_description['alias']['name']['value']
+            else:
+                msg = f'Unsupported join relation: {join["relation"]}'
+                raise ValueError(msg)
 
             if 'Inner' in join['join_operator']:
                 join_query = JoinQuery(
