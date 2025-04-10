@@ -949,7 +949,7 @@ def test_select_aggregation_aliased_query(benchmark) -> None:
     [
         ('-', Combinable.SUB),
         ('+', Combinable.ADD),
-        ('/', Combinable.SUB),
+        ('/', Combinable.DIV),
         ('*', Combinable.MUL),
         ('%', Combinable.MOD),
         ('^', Combinable.XOR),
@@ -1025,6 +1025,51 @@ def test_select_math_expression_mixed(benchmark) -> None:
             ),
         )
     ]
+
+def test_complex_math_mixed(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            f'SELECT ((u.total_count * 10.25) - (u.city_count + u.town_count)) AS result '
+            'FROM users AS u'
+        )
+
+    result = benchmark(parse_sql)
+    expected = [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ExpressionAnnotation(
+                            expression=CombinedExpression(
+                                left=CombinedExpression(
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
+                                    ),
+                                    operator=Combinable.MUL,
+                                    right=Value(10.25),
+                                ),
+                                operator=Combinable.SUB,
+                                right=CombinedExpression(
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
+                                    ),
+                                    operator=Combinable.ADD,
+                                    right=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='town_count'), table_name='u')
+                                    ),
+                                ),
+                            ),
+                            alias='result',
+                        ),
+                    ),
+                ],
+            ),
+        ),
+    ]
+    assert result == expected
 
 
 def test_select_pow_expression(benchmark) -> None:
@@ -1125,6 +1170,34 @@ def test_select_value_expression(benchmark, sql_value, python_value) -> None:
                     AnnotationQuery(
                         value=ValueAnnotation(
                             value=Value(python_value),
+                            alias='result',
+                        ),
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
+def test_select_nested_value_expression(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            f'SELECT ((((100)))) AS result '
+            'FROM users AS u'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ValueAnnotation(
+                            value=Value(100),
                             alias='result',
                         ),
                     ),

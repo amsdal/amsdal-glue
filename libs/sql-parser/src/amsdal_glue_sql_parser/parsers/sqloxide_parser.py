@@ -595,7 +595,7 @@ class SqlOxideParser(SqlParserBase):
                 )
 
         if 'Nested' in selection:
-            return Conditions(self._process_selection(selection['Nested'], table_name))
+            return Conditions(self._process_selection(self._unwrap_nested_expression(selection), table_name))
 
         msg = 'Unsupported selection'
         raise ValueError(msg)
@@ -689,6 +689,14 @@ class SqlOxideParser(SqlParserBase):
             offset=int(offset['value']['Value']['Number'][0]) if offset else 0,
         )
 
+    def _unwrap_nested_expression(
+        self,
+        expression: dict[str, Any],
+    ) -> dict[str, Any]:
+        if 'Nested' in expression:
+            return self._unwrap_nested_expression(expression['Nested'])
+        return expression
+
     def _process_aggregations(
         self,
         projections: list[dict[str, Any]],
@@ -702,10 +710,7 @@ class SqlOxideParser(SqlParserBase):
             alias = None
 
             if 'ExprWithAlias' in projection:
-                aggregation = projection['ExprWithAlias']['expr']
-
-                if 'Nested' in aggregation:
-                    aggregation = aggregation['Nested']
+                aggregation = self._unwrap_nested_expression(projection['ExprWithAlias']['expr'])
 
                 alias = projection['ExprWithAlias']['alias']['value']
 
@@ -790,11 +795,9 @@ class SqlOxideParser(SqlParserBase):
 
         if 'ExprWithAlias' in _expression:
             _annotation = _expression['ExprWithAlias']
-            _expression = _annotation['expr']
+            _expression = self._unwrap_nested_expression(_annotation['expr'])
             alias = _annotation['alias']['value']
 
-            if 'Nested' in _expression:
-                _expression = _expression['Nested']
         if 'Value' in _expression:
             _value_expr = _expression['Value']
             _expr_type = next(iter(_value_expr))
