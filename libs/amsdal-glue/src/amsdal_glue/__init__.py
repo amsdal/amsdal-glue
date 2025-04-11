@@ -7,6 +7,7 @@ from amsdal_glue_connections.sql.connections.postgres_connection import AsyncPos
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
+from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
@@ -89,6 +90,7 @@ from amsdal_glue.interfaces import ConnectionManager
 from amsdal_glue.managers.runtime_manager import DefaultRuntimeManager
 
 __all__ = [
+    'SCHEMA_REGISTRY_TABLE',
     'AddConstraint',
     'AddIndex',
     'AddProperty',

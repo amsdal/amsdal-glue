@@ -2,10 +2,13 @@
 import pytest
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
+from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
+from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
@@ -23,6 +26,8 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.common import Combinable
+from amsdal_glue_core.common.expressions.common import CombinedExpression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
@@ -777,6 +782,396 @@ def test_select_distinct_on_multiple_fields(benchmark) -> None:
                 distinct=[
                     FieldReference(field=Field(name='first_name'), table_name='users'),
                     FieldReference(field=Field(name='last_name'), table_name='users'),
+                ],
+            ),
+        )
+    ]
+
+
+def test_join_subquery_simple(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT u.first_name FROM users as u JOIN (SELECT profile.bio FROM profile) as p ON p.email = u.email'
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='u'),
+                ],
+                joins=[
+                    JoinQuery(
+                        table=SubQueryStatement(
+                            query=QueryStatement(
+                                only=[
+                                    FieldReference(field=Field(name='bio'), table_name='profile'),
+                                ],
+                                table=SchemaReference(name='profile', version=Version.LATEST),
+                            ),
+                            alias='p',
+                        ),
+                        on=Conditions(
+                            Condition(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='email'), table_name='p')
+                                ),
+                                lookup=FieldLookup.EQ,
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='email'), table_name='u')
+                                ),
+                            ),
+                        ),
+                        join_type=JoinType.INNER,
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
+def test_from_subquery(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT u.first_name '
+            'FROM ('
+            'SELECT first_name, last_name FROM users WHERE is_active = TRUE'
+            ') AS u '
+            "WHERE u.last_name = 'Doe';"
+        )
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SubQueryStatement(
+                    query=QueryStatement(
+                        table=SchemaReference(name='users', version=Version.LATEST),
+                        only=[
+                            FieldReference(field=Field(name='first_name'), table_name='users'),
+                            FieldReference(field=Field(name='last_name'), table_name='users'),
+                        ],
+                        where=Conditions(
+                            Condition(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='is_active'), table_name='users')
+                                ),
+                                lookup=FieldLookup.EQ,
+                                right=Value(value=True),
+                            ),
+                            connector=FilterConnector.AND,
+                        ),
+                    ),
+                    alias='u',
+                ),
+                only=[
+                    FieldReference(field=Field(name='first_name'), table_name='u'),
+                ],
+                where=Conditions(
+                    Condition(
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
+                        ),
+                        lookup=FieldLookup.EQ,
+                        right=Value('Doe'),
+                    ),
+                    connector=FilterConnector.AND,
+                ),
+            ),
+        )
+    ]
+
+
+def test_select_aliased_query(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT u.first_name AS fname FROM users AS u')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                only=[
+                    FieldReferenceAliased(field=Field(name='first_name'), table_name='u', alias='fname'),
+                ],
+            ),
+        )
+    ]
+
+
+def test_select_aggregation_aliased_query(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT SUM(u.count) AS total_count FROM users AS u')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                aggregations=[
+                    AggregationQuery(
+                        expression=Sum(field=FieldReference(field=Field(name='count'), table_name='u')),
+                        alias='total_count',
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    'math_op,glue_math_op',
+    [
+        ('-', Combinable.SUB),
+        ('+', Combinable.ADD),
+        ('/', Combinable.DIV),
+        ('*', Combinable.MUL),
+        ('%', Combinable.MOD),
+        ('^', Combinable.XOR),
+        ('&', Combinable.AND),
+        ('|', Combinable.OR),
+    ],
+)
+def test_select_math_expression(benchmark, math_op, glue_math_op) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(f'SELECT (u.total_count {math_op} u.city_count) AS diff_count FROM users AS u')  # noqa: S608
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ExpressionAnnotation(
+                            expression=CombinedExpression(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
+                                ),
+                                operator=glue_math_op,
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
+                                ),
+                            ),
+                            alias='diff_count',
+                        ),
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
+def test_select_math_expression_mixed(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT (u.total_count * 10.25) AS diff_count FROM users AS u')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ExpressionAnnotation(
+                            expression=CombinedExpression(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
+                                ),
+                                operator=Combinable.MUL,
+                                right=Value(10.25),
+                            ),
+                            alias='diff_count',
+                        ),
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
+def test_complex_math_mixed(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(
+            'SELECT ((u.total_count * 10.25) - (u.city_count + u.town_count)) AS result FROM users AS u'
+        )
+
+    result = benchmark(parse_sql)
+    expected = [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ExpressionAnnotation(
+                            expression=CombinedExpression(
+                                left=CombinedExpression(
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
+                                    ),
+                                    operator=Combinable.MUL,
+                                    right=Value(10.25),
+                                ),
+                                operator=Combinable.SUB,
+                                right=CombinedExpression(
+                                    left=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
+                                    ),
+                                    operator=Combinable.ADD,
+                                    right=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='town_count'), table_name='u')
+                                    ),
+                                ),
+                            ),
+                            alias='result',
+                        ),
+                    ),
+                ],
+            ),
+        ),
+    ]
+    assert result == expected
+
+
+def test_select_pow_expression(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT POWER(u.total_count, u.city_count) AS result FROM users AS u')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ExpressionAnnotation(
+                            expression=CombinedExpression(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
+                                ),
+                                operator=Combinable.POW,
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
+                                ),
+                            ),
+                            alias='result',
+                        ),
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
+def test_select_power_mixed(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT POWER(u.total_count, 10) AS result FROM users AS u')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ExpressionAnnotation(
+                            expression=CombinedExpression(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
+                                ),
+                                operator=Combinable.POW,
+                                right=Value(value=10),
+                            ),
+                            alias='result',
+                        ),
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    'sql_value,python_value',
+    [
+        (10, 10),
+        (20.5, 20.5),
+        ("'Hello'", 'Hello'),
+        ('TRUE', True),
+    ],
+)
+def test_select_value_expression(benchmark, sql_value, python_value) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql(f'SELECT {sql_value} AS result FROM users AS u')  # noqa: S608
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ValueAnnotation(
+                            value=Value(python_value),
+                            alias='result',
+                        ),
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
+def test_select_nested_value_expression(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT ((((100)))) AS result FROM users AS u')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', alias='u', version=Version.LATEST),
+                annotations=[
+                    AnnotationQuery(
+                        value=ValueAnnotation(
+                            value=Value(100),
+                            alias='result',
+                        ),
+                    ),
                 ],
             ),
         )

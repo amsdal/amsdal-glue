@@ -16,8 +16,12 @@ class Combinable:
     SUB = '-'
     MUL = '*'
     DIV = '/'
-    POW = '^'
     MOD = '%'
+    POW = '**'
+    # Bitwise operators
+    XOR = '^'
+    AND = '&'
+    OR = '|'
 
     def _combine(self, other: Any, operator: str, *, is_reversed: bool = False) -> Expression:
         if not isinstance(other, Expression):
@@ -53,6 +57,15 @@ class Combinable:
     def __pow__(self, other: Any) -> Expression:
         return self._combine(other, self.POW, is_reversed=False)
 
+    def __xor__(self, other: Any) -> Expression:
+        return self._combine(other, self.XOR, is_reversed=False)
+
+    def __and__(self, other: Any) -> Expression:
+        return self._combine(other, self.AND, is_reversed=False)
+
+    def __or__(self, other: Any) -> Expression:
+        return self._combine(other, self.OR, is_reversed=False)
+
     def __radd__(self, other: Any) -> Expression:
         return self._combine(other, self.ADD, is_reversed=True)
 
@@ -70,6 +83,15 @@ class Combinable:
 
     def __rpow__(self, other: 'Combinable') -> Expression:
         return self._combine(other, self.POW, is_reversed=True)
+
+    def __rxor__(self, other: 'Combinable') -> Expression:
+        return self._combine(other, self.XOR, is_reversed=True)
+
+    def __rand__(self, other: 'Combinable') -> Expression:
+        return self._combine(other, self.AND, is_reversed=True)
+
+    def __ror__(self, other: 'Combinable') -> Expression:
+        return self._combine(other, self.OR, is_reversed=True)
 
 
 class CombinedExpression(Expression):
@@ -103,3 +125,9 @@ class CombinedExpression(Expression):
 
     def __str__(self):
         return f'{self.left} {self.operator} {self.right}'
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CombinedExpression):
+            return False
+
+        return self.left == other.left and self.operator == other.operator and self.right == other.right
