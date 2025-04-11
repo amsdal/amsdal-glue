@@ -126,12 +126,8 @@ class CombinedExpression(Expression):
     def __str__(self):
         return f'{self.left} {self.operator} {self.right}'
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, CombinedExpression):
             return False
 
-        return (
-            self.left == other.left
-            and self.operator == other.operator
-            and self.right == other.right
-        )
+        return self.left == other.left and self.operator == other.operator and self.right == other.right

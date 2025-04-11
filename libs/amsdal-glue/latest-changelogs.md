@@ -1,5 +1,5 @@
-## [v0.1.2](https://pypi.org/project/amsdal-glue/0.1.2/) - 2025-03-18
+## [v0.1.3](https://pypi.org/project/amsdal-glue/0.1.3/) - 2025-04-11
 
 ### Added
 
-- Add `csv` as an optional dependency.
+- SCHEMA_REGISTRY_TABLE added to imports

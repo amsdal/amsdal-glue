@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Any
 
 import sqloxide
-
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
@@ -63,6 +62,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
 from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
+
 from amsdal_glue_sql_parser.parsers.base import SqlParserBase
 
 SCHEMA_REGISTRY_TABLE = 'amsdal_schema_registry'
@@ -102,10 +102,7 @@ class SqlOxideParser(SqlParserBase):
         if 'Query' in parsed_sql:
             query = self._parsed_sql_query_to_operation(parsed_sql['Query'])
 
-            if isinstance(
-                query.table,
-                SchemaReference
-            ) and query.table.name == SCHEMA_REGISTRY_TABLE:  # type: ignore[union-attr]
+            if isinstance(query.table, SchemaReference) and query.table.name == SCHEMA_REGISTRY_TABLE:  # type: ignore[union-attr]
                 return SchemaQueryOperation(filters=query.where)
 
             return DataQueryOperation(query=query)
@@ -447,7 +444,7 @@ class SqlOxideParser(SqlParserBase):
             ]
         )
 
-    def _identifier_to_field(self, identifier: dict[str, Any], table_name: str) -> FieldReference | Value:
+    def _identifier_to_field(self, identifier: dict[str, Any], table_name: str) -> FieldReference | Value:  # noqa: C901, PLR0911
         if 'Identifier' in identifier:
             return FieldReference(
                 field=Field(name=identifier['Identifier']['value']),
@@ -607,7 +604,7 @@ class SqlOxideParser(SqlParserBase):
         join_queries = []
         for join in joins:
             _relation = join['relation']
-
+            join_schema: SchemaReference | SubQueryStatement
             if 'Derived' in _relation:
                 join_table_description = _relation['Derived']
                 join_table_name = join_table_description['alias']['name']['value']
@@ -731,8 +728,7 @@ class SqlOxideParser(SqlParserBase):
 
                     expression = agg_function(
                         field=self._identifier_to_field_reference(
-                            function_expression['args']['List']['args'][0],
-                            table_name
+                            function_expression['args']['List']['args'][0], table_name
                         )
                     )
                     field_alias_name = expression.field.field.name if expression.field.field.name != '*' else 'total'
@@ -745,13 +741,12 @@ class SqlOxideParser(SqlParserBase):
                 else:
                     msg = f'Unsupported aggregation function: {aggregation}'
                     raise ValueError(msg)
-            elif 'Subquery' in aggregation:
-                continue
-            elif 'CompoundIdentifier' in aggregation:
-                continue
-            elif 'BinaryOp' in aggregation:
-                continue
-            elif 'Value' in aggregation:
+            elif (
+                'Subquery' in aggregation
+                or 'CompoundIdentifier' in aggregation
+                or 'BinaryOp' in aggregation
+                or 'Value' in aggregation
+            ):
                 continue
             else:
                 msg = f'Unsupported aggregation: {projection}'
@@ -786,7 +781,7 @@ class SqlOxideParser(SqlParserBase):
 
         return annotation_queries
 
-    def _process_annotation_expression(
+    def _process_annotation_expression(  # noqa: PLR0911
         self,
         annotation: dict[str, Any],
     ) -> SubQueryStatement | ValueAnnotation | ExpressionAnnotation | None:
@@ -804,25 +799,22 @@ class SqlOxideParser(SqlParserBase):
             _expr_value = _value_expr[_expr_type]
             _value_type = VALUE_TYPE_MAPPING[_expr_type]
 
-            if _value_type in (bool, str):
-                _value = _expr_value
-            else:
-                _value = _value_type(_expr_value[0])
+            _value = _expr_value if _value_type in (bool, str) else _value_type(_expr_value[0])  # type: ignore[operator]
 
             return ValueAnnotation(
                 value=Value(_value),
-                alias=alias,
+                alias=alias,  # type: ignore[arg-type]
             )
-        elif 'Subquery' in _expression:
+        if 'Subquery' in _expression:
             sub_query = _expression['Subquery']
             query = self._parsed_sql_query_to_operation(sub_query)
-            return SubQueryStatement(query=query, alias=alias)
-        elif 'BinaryOp' in _expression:
+            return SubQueryStatement(query=query, alias=alias)  # type: ignore[arg-type]
+        if 'BinaryOp' in _expression:
             return ExpressionAnnotation(
                 expression=self._process_binary_op_expression(_expression),
-                alias=alias,
+                alias=alias,  # type: ignore[arg-type]
             )
-        elif 'Function' in _expression:
+        if 'Function' in _expression:
             function_expression = _expression['Function']
 
             if 'name' not in function_expression:
@@ -845,16 +837,15 @@ class SqlOxideParser(SqlParserBase):
                         operator=Combinable.POW,
                         right=_right,
                     ),
-                    alias=alias,
+                    alias=alias,  # type: ignore[arg-type]
                 )
-            else:
-                return ExpressionAnnotation(
-                    expression=Func(
-                        name=name,
-                        args=[self._process_binary_op_expression(arg) for arg in _args],
-                    ),
-                    alias=alias,
-                )
+            return ExpressionAnnotation(
+                expression=Func(
+                    name=name,
+                    args=[self._process_binary_op_expression(arg) for arg in _args],
+                ),
+                alias=alias,  # type: ignore[arg-type]
+            )
         return None
 
     def _process_binary_op_expression(self, binary_operation: dict[str, Any]) -> Expression:
@@ -905,10 +896,7 @@ class SqlOxideParser(SqlParserBase):
             _expr_value = _value_expr[_expr_type]
             _value_type = VALUE_TYPE_MAPPING[_expr_type]
 
-            if _value_type in (bool, str):
-                _value = _expr_value
-            else:
-                _value = _value_type(_expr_value[0])
+            _value = _expr_value if _value_type in (bool, str) else _value_type(_expr_value[0])  # type: ignore[operator]
 
             return Value(_value)
 
@@ -918,6 +906,7 @@ class SqlOxideParser(SqlParserBase):
     def _parsed_sql_query_to_operation(self, parsed_sql: dict[str, Any]) -> QueryStatement:
         _relation = parsed_sql['body']['Select']['from'][0]['relation']
 
+        table_obj: SchemaReference | SubQueryStatement
         if 'Derived' in _relation:
             _derived = _relation['Derived']
             _subquery = _derived['subquery']

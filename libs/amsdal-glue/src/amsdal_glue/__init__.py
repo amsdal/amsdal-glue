@@ -90,6 +90,7 @@ from amsdal_glue.interfaces import ConnectionManager
 from amsdal_glue.managers.runtime_manager import DefaultRuntimeManager
 
 __all__ = [
+    'SCHEMA_REGISTRY_TABLE',
     'AddConstraint',
     'AddIndex',
     'AddProperty',
@@ -174,5 +175,4 @@ __all__ = [
     'ValueAnnotation',
     'Version',
     'init_default_containers',
-    'SCHEMA_REGISTRY_TABLE',
 ]

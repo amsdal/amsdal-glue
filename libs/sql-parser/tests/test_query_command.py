@@ -793,12 +793,7 @@ def test_join_subquery_simple(benchmark) -> None:
 
     def parse_sql() -> list[Operation]:
         return parser.parse_sql(
-            'SELECT u.first_name '
-            'FROM users as u '
-            'JOIN ('
-            'SELECT profile.bio '
-            'FROM profile'
-            ') as p ON p.email = u.email'
+            'SELECT u.first_name FROM users as u JOIN (SELECT profile.bio FROM profile) as p ON p.email = u.email'
         )
 
     result = benchmark(parse_sql)
@@ -870,7 +865,7 @@ def test_from_subquery(benchmark) -> None:
                                     field_reference=FieldReference(field=Field(name='is_active'), table_name='users')
                                 ),
                                 lookup=FieldLookup.EQ,
-                                right=Value(True),
+                                right=Value(value=True),
                             ),
                             connector=FilterConnector.AND,
                         ),
@@ -899,10 +894,7 @@ def test_select_aliased_query(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql(
-            'SELECT u.first_name AS fname '
-            'FROM users AS u'
-        )
+        return parser.parse_sql('SELECT u.first_name AS fname FROM users AS u')
 
     result = benchmark(parse_sql)
 
@@ -922,10 +914,7 @@ def test_select_aggregation_aliased_query(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql(
-            'SELECT SUM(u.count) AS total_count '
-            'FROM users AS u'
-        )
+        return parser.parse_sql('SELECT SUM(u.count) AS total_count FROM users AS u')
 
     result = benchmark(parse_sql)
 
@@ -961,10 +950,7 @@ def test_select_math_expression(benchmark, math_op, glue_math_op) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql(
-            f'SELECT (u.total_count {math_op} u.city_count) AS diff_count '
-            'FROM users AS u'
-        )
+        return parser.parse_sql(f'SELECT (u.total_count {math_op} u.city_count) AS diff_count FROM users AS u')  # noqa: S608
 
     result = benchmark(parse_sql)
 
@@ -997,10 +983,7 @@ def test_select_math_expression_mixed(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql(
-            f'SELECT (u.total_count * 10.25) AS diff_count '
-            'FROM users AS u'
-        )
+        return parser.parse_sql('SELECT (u.total_count * 10.25) AS diff_count FROM users AS u')
 
     result = benchmark(parse_sql)
 
@@ -1026,13 +1009,13 @@ def test_select_math_expression_mixed(benchmark) -> None:
         )
     ]
 
+
 def test_complex_math_mixed(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
         return parser.parse_sql(
-            f'SELECT ((u.total_count * 10.25) - (u.city_count + u.town_count)) AS result '
-            'FROM users AS u'
+            'SELECT ((u.total_count * 10.25) - (u.city_count + u.town_count)) AS result FROM users AS u'
         )
 
     result = benchmark(parse_sql)
@@ -1076,10 +1059,7 @@ def test_select_pow_expression(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql(
-            f'SELECT POWER(u.total_count, u.city_count) AS result '
-            'FROM users AS u'
-        )
+        return parser.parse_sql('SELECT POWER(u.total_count, u.city_count) AS result FROM users AS u')
 
     result = benchmark(parse_sql)
 
@@ -1112,10 +1092,7 @@ def test_select_power_mixed(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql(
-            f'SELECT POWER(u.total_count, 10) AS result '
-            'FROM users AS u'
-        )
+        return parser.parse_sql('SELECT POWER(u.total_count, 10) AS result FROM users AS u')
 
     result = benchmark(parse_sql)
 
@@ -1155,10 +1132,7 @@ def test_select_value_expression(benchmark, sql_value, python_value) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql(
-            f'SELECT {sql_value} AS result '
-            'FROM users AS u'
-        )
+        return parser.parse_sql(f'SELECT {sql_value} AS result FROM users AS u')  # noqa: S608
 
     result = benchmark(parse_sql)
 
@@ -1183,10 +1157,7 @@ def test_select_nested_value_expression(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 
     def parse_sql() -> list[Operation]:
-        return parser.parse_sql(
-            f'SELECT ((((100)))) AS result '
-            'FROM users AS u'
-        )
+        return parser.parse_sql('SELECT ((((100)))) AS result FROM users AS u')
 
     result = benchmark(parse_sql)
 
