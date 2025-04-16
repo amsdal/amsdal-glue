@@ -14,9 +14,10 @@ def polars_operator_constructor(
     Constructs a Polars operator statement based on the given field, lookup, and value.
 
     Args:
-        field (Expression): The field to be used in the operator.
+        left (Expression): The field to be used in the operator.
         lookup (FieldLookup): The lookup type for the field.
-        value (Expression): The value or field reference to be used in the operator.
+        right (Expression): The value or field reference to be used in the operator.
+        transform (Transform): The transform SQL to database specific.
 
     Returns:
         str: The constructed Polars operator statement.

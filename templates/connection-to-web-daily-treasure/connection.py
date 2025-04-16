@@ -35,7 +35,7 @@ from amsdal_glue_core.queries.final_query_statement import QueryStatementNode
 from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
 
 logger = logging.getLogger(__name__)
-
+MAX_PAGE = 5
 
 class DailyTreasureWebCache:
     _instance: "DailyTreasureWebCache"
@@ -80,6 +80,7 @@ class DailyTreasureWebConnection(ConnectionBase):
 
         sql = self._build_sql(query)
         sql_context = pl.SQLContext(frames=self.cache_service.cache)
+
         return self.process_results(
             sql_context.execute(sql).collect().to_dicts(),  # type: ignore[attr-defined]
         )
@@ -147,29 +148,6 @@ class DailyTreasureWebConnection(ConnectionBase):
                 raise ValueError(msg)
 
         return [Data(data=_item) for _item in data] if data is not None else []
-
-    def _sql_build_conditions(
-        self,
-        conditions: Conditions,
-    ) -> str:
-        _stmt = []
-
-        for condition in conditions.children:
-            if isinstance(condition, Conditions):
-                _stmt.append(f"({self._sql_build_conditions(condition)})")
-                continue
-
-            _field = self._build_field_reference_stmt(condition.left.field_reference)
-            _stmt.append(
-                polars_operator_constructor(
-                    left=_field,
-                    lookup=condition.lookup,
-                    right=condition.right,
-                    transform=get_pg_transform(),
-                )
-            )
-
-        return f" {conditions.connector.value} ".join(_stmt)
 
     def _build_field_reference_stmt(
         self,
@@ -272,6 +250,9 @@ class DailyTreasureWebConnection(ConnectionBase):
             all_pages.extend(data)
             page += 1
 
+            if page >= MAX_PAGE:
+                break
+
         return pl.DataFrame(all_pages)
 
     def _load_data(self, xml_content: str) -> list[dict[str, Any]] | None:
@@ -305,7 +286,7 @@ class DailyTreasureWebConnection(ConnectionBase):
         return data
 
     def _build_sql(self, query: QueryStatement) -> str:
-        _sql = [
+        _sql: list[str] = [
             "SELECT",
         ]
         _selection_stmt = self._sql_build_selection_stmt(
@@ -365,6 +346,15 @@ class DailyTreasureWebConnection(ConnectionBase):
 
         return " ".join(_stmt)
 
+    def _sql_build_where(
+        self,
+        where: Conditions | None,
+    ) -> str:
+        if not where:
+            return ""
+
+        return f"WHERE {self._sql_build_conditions(where)}"
+
     def _sql_build_conditions(
         self,
         conditions: Conditions,
@@ -376,10 +366,9 @@ class DailyTreasureWebConnection(ConnectionBase):
                 _stmt.append(f"({self._sql_build_conditions(condition)})")
                 continue
 
-            _field = self._build_field_reference_stmt(condition.left.field_reference)
             _stmt.append(
                 polars_operator_constructor(
-                    left=_field,
+                    left=condition.left,
                     lookup=condition.lookup,
                     right=condition.right,
                     transform=get_pg_transform(),
@@ -387,15 +376,6 @@ class DailyTreasureWebConnection(ConnectionBase):
             )
 
         return f" {conditions.connector.value} ".join(_stmt)
-
-    def _sql_build_where(
-        self,
-        where: Conditions | None,
-    ) -> str:
-        if not where:
-            return ""
-
-        return f"WHERE {self._sql_build_conditions(where)}"
 
     def _sql_build_group_by(
         self,
