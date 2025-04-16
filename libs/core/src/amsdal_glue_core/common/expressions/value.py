@@ -30,8 +30,8 @@ class Value(Expression):
                 _value = _value.isoformat()
 
             if self.output_type is date:
-                return f"DATE {repr(_value)}"
-            return f"TIMESTAMP {repr(_value)}"
+                return f'DATE {_value!r}'
+            return f'TIMESTAMP {_value!r}'
         return repr(self.value)
 
     def __hash__(self):
