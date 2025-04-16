@@ -1,5 +1,5 @@
-## [v0.1.2](https://pypi.org/project/amsdal-glue-core/0.1.2/) - 2025-04-11
+## [v0.1.3](https://pypi.org/project/amsdal-glue-core/0.1.3/) - 2025-04-16
 
 ### Changed
 
-- Updates for `Combinable`
+- Changes for polars
