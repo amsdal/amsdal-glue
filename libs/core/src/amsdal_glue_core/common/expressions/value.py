@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import date
+from datetime import datetime
 from typing import Any
 
 from amsdal_glue_core.common.expressions.expression import Expression
@@ -19,6 +21,17 @@ class Value(Expression):
         self.value = value
 
     def __repr__(self) -> str:
+        if self.output_type in (date, datetime):
+            _value = self.value
+
+            if isinstance(_value, datetime):
+                _value = _value.date().isoformat()
+            elif isinstance(_value, date):
+                _value = _value.isoformat()
+
+            if self.output_type is date:
+                return f"DATE {repr(_value)}"
+            return f"TIMESTAMP {repr(_value)}"
         return repr(self.value)
 
     def __hash__(self):
