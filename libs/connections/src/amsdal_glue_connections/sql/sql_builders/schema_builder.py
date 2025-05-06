@@ -175,7 +175,7 @@ def build_constraint(constraint: BaseConstraint, transform: Transform) -> tuple[
         return (
             f"CONSTRAINT '{constraint.name}' "
             f'FOREIGN KEY ({fields_str}) '
-            f'REFERENCES {constraint.reference_schema.name} ({", ".join(constraint.reference_fields)})'
+            f"REFERENCES '{constraint.reference_schema.name}' ({', '.join(constraint.reference_fields)})"
         ), []
     if isinstance(constraint, UniqueConstraint):
         fields_str = ', '.join(f"'{field}'" for field in constraint.fields)
