@@ -2,13 +2,10 @@ import json
 import logging
 import re
 from contextlib import suppress
-from copy import copy
 from datetime import date
 from datetime import datetime
 from typing import Any
 
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
@@ -19,7 +16,6 @@ from amsdal_glue_core.common.data_models.schema import DictSchemaModel
 from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
@@ -66,7 +62,9 @@ def get_sqlite_transform() -> Transform:
 
 
 class SqliteConnectionMixin:
-    TABLE_SQL = f'SELECT * FROM (SELECT name AS table_name FROM sqlite_master WHERE type="table") AS {SCHEMA_REGISTRY_TABLE}'
+    TABLE_SQL = (
+        f'SELECT * FROM (SELECT name AS table_name FROM sqlite_master WHERE type="table") AS {SCHEMA_REGISTRY_TABLE}'  # noqa: S608
+    )
 
     def __init__(self) -> None:
         self._queries: list[str] = []

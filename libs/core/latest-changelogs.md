@@ -1,5 +1,5 @@
-## [v0.1.3](https://pypi.org/project/amsdal-glue-core/0.1.3/) - 2025-04-16
+## [v0.1.4](https://pypi.org/project/amsdal-glue-core/0.1.4/) - 2025-05-14
 
 ### Changed
 
-- Changes for polars
+- Changes for Schema comparison

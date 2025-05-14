@@ -7,8 +7,6 @@ from datetime import datetime
 from functools import partial
 from typing import Any
 
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -22,7 +20,6 @@ from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
@@ -75,7 +72,10 @@ def get_pg_transform_repr() -> Transform:
 
 
 class PostgresConnectionMixin:
-    TABLE_SQL = f"SELECT * FROM (SELECT table_name FROM information_schema.tables WHERE table_schema = 'public') AS {SCHEMA_REGISTRY_TABLE}"
+    TABLE_SQL = (
+        f'SELECT * FROM (SELECT table_name FROM information_schema.tables '  # noqa: S608
+        f"WHERE table_schema = 'public') AS {SCHEMA_REGISTRY_TABLE}"
+    )
 
     def __init__(self) -> None:
         self._queries: list[str] = []

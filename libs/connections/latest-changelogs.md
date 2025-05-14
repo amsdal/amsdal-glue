@@ -1,5 +1,5 @@
-## [v0.1.8](https://pypi.org/project/amsdal-glue-connections/0.1.8/) - 2025-05-06
+## [v0.1.9](https://pypi.org/project/amsdal-glue-connections/0.1.9/) - 2025-05-14
 
-### Fixed
+### Changed
 
-- Fixed 'references' SQL
+- Changes for tables retrieval

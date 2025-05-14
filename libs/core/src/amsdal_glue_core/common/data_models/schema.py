@@ -94,7 +94,7 @@ class Schema:
             metadata=self.metadata.copy() if self.metadata is not None else None,
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Schema):
             return False
 
@@ -104,7 +104,10 @@ class Schema:
             and self.namespace == other.namespace
             and self.extends == other.extends
             and sorted(self.properties, key=lambda p: p.name) == sorted(other.properties, key=lambda p: p.name)
-            and sorted(self.constraints or [], key=lambda c: c.name) == sorted(other.constraints or [], key=lambda c: c.name)
+            and (
+                sorted(self.constraints or [], key=lambda c: c.name)
+                == sorted(other.constraints or [], key=lambda c: c.name)
+            )
             and sorted(self.indexes or [], key=lambda i: i.name) == sorted(other.indexes or [], key=lambda i: i.name)
         )
 
