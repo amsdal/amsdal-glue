@@ -190,12 +190,11 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         Returns:
             list[Schema]: The list of schemas matching the filters.
         """
-        stmt = 'SELECT name FROM sqlite_master WHERE type="table"'
+        stmt = self.TABLE_SQL
 
         if filters and filters.children:
-            _filters = self._replace_table_name(filters, 'sqlite_master')
-            where, values = build_where(_filters, transform=get_sqlite_transform())
-            stmt += f' AND {where}'
+            where, values = build_where(filters, transform=get_sqlite_transform())
+            stmt += f' WHERE {where}'
         else:
             values = []
 

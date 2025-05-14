@@ -54,7 +54,7 @@ class RegisterSchema(SchemaMutation):
         return self.schema.name
 
     def get_schema_reference(self) -> SchemaReference:
-        return SchemaReference(name=self.schema.name, version=self.schema.version)
+        return SchemaReference(name=self.schema.name, version=self.schema.version, metadata=self.schema.metadata)
 
     def __copy__(self):
         return RegisterSchema(schema=copy(self.schema))

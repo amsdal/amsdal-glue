@@ -75,46 +75,10 @@ def get_pg_transform_repr() -> Transform:
 
 
 class PostgresConnectionMixin:
+    TABLE_SQL = f"SELECT * FROM (SELECT table_name FROM information_schema.tables WHERE table_schema = 'public') AS {SCHEMA_REGISTRY_TABLE}"
+
     def __init__(self) -> None:
         self._queries: list[str] = []
-
-    @classmethod
-    def _adjust_schema_filters(cls, filters: Conditions | None) -> None:
-        """
-        Transform "name" attribute of the filters to the correct column name: "table_name"
-        """
-
-        if filters is None:
-            return
-
-        for _filter in filters.children:
-            if isinstance(_filter, Conditions):
-                cls._adjust_schema_filters(_filter)
-                continue
-
-            if not isinstance(_filter.left, FieldReferenceExpression):
-                continue
-
-            if _filter.left.field_reference.field.name == 'name':
-                _filter.left.field_reference.field.name = 'table_name'
-
-    def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
-        items: list[Conditions | Condition] = []
-
-        for _child in conditions.children:
-            if isinstance(_child, Conditions):
-                items.append(self._replace_table_name(_child, replace_name))
-            elif (
-                isinstance(_child.left, FieldReferenceExpression)
-                and _child.left.field_reference.table_name == SCHEMA_REGISTRY_TABLE
-            ):
-                _copy = copy(_child)
-                _copy.left.field_reference.table_name = replace_name  # type: ignore[attr-defined]
-                items.append(_copy)
-            else:
-                items.append(_child)
-
-        return Conditions(*items, connector=conditions.connector, negated=conditions.negated)
 
     @staticmethod
     def build_data(data: dict[str, Any]) -> Data:

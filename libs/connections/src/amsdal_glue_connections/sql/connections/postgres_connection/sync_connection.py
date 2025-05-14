@@ -222,17 +222,14 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         Returns:
             list[Schema]: The result of the schema query.
         """
-        self._adjust_schema_filters(filters)
-
-        stmt = "SELECT table_name FROM information_schema.tables AS inf_schema WHERE table_schema = 'public'"
+        stmt = self.TABLE_SQL
 
         if filters and filters.children:
-            _filters = self._replace_table_name(filters, 'inf_schema')
             where, values = build_where(
-                _filters,
+                filters,
                 transform=get_pg_transform(),
             )
-            stmt += f' AND ({where})'
+            stmt += f' WHERE {where}'
         else:
             values = []
 
