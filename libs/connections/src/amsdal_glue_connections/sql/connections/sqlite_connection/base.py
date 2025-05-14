@@ -2,13 +2,10 @@ import json
 import logging
 import re
 from contextlib import suppress
-from copy import copy
 from datetime import date
 from datetime import datetime
 from typing import Any
 
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
@@ -19,7 +16,6 @@ from amsdal_glue_core.common.data_models.schema import DictSchemaModel
 from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
@@ -66,6 +62,10 @@ def get_sqlite_transform() -> Transform:
 
 
 class SqliteConnectionMixin:
+    TABLE_SQL = (
+        f'SELECT * FROM (SELECT name AS table_name FROM sqlite_master WHERE type="table") AS {SCHEMA_REGISTRY_TABLE}'  # noqa: S608
+    )
+
     def __init__(self) -> None:
         self._queries: list[str] = []
 
@@ -187,24 +187,6 @@ class SqliteConnectionMixin:
 
         msg = f'Unsupported type: {sql_type}'
         raise ValueError(msg)
-
-    def _replace_table_name(self, conditions: Conditions, replace_name: str) -> Conditions:
-        items: list[Conditions | Condition] = []
-
-        for _child in conditions.children:
-            if isinstance(_child, Conditions):
-                items.append(self._replace_table_name(_child, replace_name))
-            elif (
-                isinstance(_child.left, FieldReferenceExpression)
-                and _child.left.field_reference.table_name == SCHEMA_REGISTRY_TABLE
-            ):
-                _copy = copy(_child)
-                _copy.left.field_reference.table_name = replace_name  # type: ignore[attr-defined]
-                items.append(_copy)
-            else:
-                items.append(_child)
-
-        return Conditions(*items, connector=conditions.connector, negated=conditions.negated)
 
     @property
     def queries(self) -> list[str]:
