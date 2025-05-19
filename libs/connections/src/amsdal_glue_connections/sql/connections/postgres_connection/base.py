@@ -113,10 +113,10 @@ class PostgresConnectionMixin:
         _stmt += f'{" NOT NULL" if column.required and not force_nullable else ""}'
 
         if column.default is not None:
-            _stmt += " DEFAULT "
+            _stmt += ' DEFAULT '
             if isinstance(column.default, bool):
                 _stmt += f'{"TRUE" if column.default else "FALSE"}'
-            elif isinstance(column.default, (int, float)):
+            elif isinstance(column.default, int | float):
                 _stmt += f'{column.default}'
             elif isinstance(column.default, bytes):
                 hex_value = column.default.hex()
@@ -125,7 +125,7 @@ class PostgresConnectionMixin:
                 escaped_value = column.default.replace("'", "''")
                 _stmt += f"'{escaped_value}'"
             else:
-                _stmt += f"'{str(column.default)}'"
+                _stmt += f"'{column.default!s}'"
 
         return _stmt
 
@@ -144,7 +144,7 @@ class PostgresConnectionMixin:
             _stm += f', ALTER COLUMN "{column.name}" SET DEFAULT '
             if isinstance(column.default, bool):
                 _stm += f'{"TRUE" if column.default else "FALSE"}'
-            elif isinstance(column.default, (int, float)):
+            elif isinstance(column.default, int | float):
                 _stm += f'{column.default}'
             elif isinstance(column.default, bytes):
                 hex_value = column.default.hex()
@@ -153,7 +153,7 @@ class PostgresConnectionMixin:
                 escaped_value = column.default.replace("'", "''")
                 _stm += f"'{escaped_value}'"
             else:
-                _stm += f"'{str(column.default)}'"
+                _stm += f"'{column.default!s}'"
 
         return _stm
 

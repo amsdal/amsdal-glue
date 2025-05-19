@@ -1,7 +1,6 @@
 import logging
 import sqlite3
 import uuid
-import datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +16,6 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
-from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
-from amsdal_glue_core.common.data_models.schema import DictSchemaModel
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -502,7 +498,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             if new_property.required and new_property.default is None:
                 msg = (
                     f'Cannot update {mutation.property.name} column. '
-                   f'SQLite doesn\'t support ALTER COLUMN with required=True and no default value.'
+                    f"SQLite doesn't support ALTER COLUMN with required=True and no default value."
                 )
                 raise ValueError(msg)
 

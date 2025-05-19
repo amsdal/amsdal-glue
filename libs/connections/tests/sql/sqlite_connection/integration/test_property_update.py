@@ -1,5 +1,4 @@
 import pytest
-
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -146,46 +145,23 @@ def test_update_int_to_str_required(database_connection: SqliteConnection) -> No
         {'field_a': 'value3', 'field_b': 3},
     ]
 
-    database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                UpdateProperty(
-                    schema_reference=SchemaReference(name=schema.name, version=schema.version),
-                    property=PropertySchema(name='field_b', type=str, required=True),
-                ),
-            ],
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot update field_b column. SQLite doesn't support ALTER COLUMN with required=True and no default value."
         ),
-    )[0]
+    ):
+        database_connection.run_schema_command(
+            SchemaCommand(
+                mutations=[
+                    UpdateProperty(
+                        schema_reference=SchemaReference(name=schema.name, version=schema.version),
+                        property=PropertySchema(name='field_b', type=str, required=True),
+                    ),
+                ],
+            ),
+        )[0]
 
-    query = QueryStatement(table=SchemaReference(name=schema.name, version=schema.version))
-    result = database_connection.query(query)
-    stored_data = [data.data for data in result]
-    assert stored_data == [
-        {'field_a': 'value1', 'field_b': '1'},
-        {'field_a': 'value2', 'field_b': '2'},
-        {'field_a': 'value3', 'field_b': '3'},
-    ]
-
-    assert database_connection.query_schema() == [
-        Schema(
-            name='TestTable',
-            version=Version.LATEST,
-            properties=[
-                PropertySchema(
-                    name='field_a',
-                    type=str,
-                    required=True,
-                ),
-                PropertySchema(
-                    name='field_b',
-                    type=str,
-                    required=False,
-                ),
-            ],
-            constraints=[],
-            indexes=[],
-        )
-    ]
 
 def test_change_required_str(database_connection: SqliteConnection) -> None:
     schema: Schema = database_connection.run_schema_command(  # type: ignore[assignment]

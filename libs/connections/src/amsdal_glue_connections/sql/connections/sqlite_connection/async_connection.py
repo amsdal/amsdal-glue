@@ -518,7 +518,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             if new_property.required and new_property.default is None:
                 msg = (
                     f'Cannot update {mutation.property.name} column. '
-                   f'SQLite doesn\'t support ALTER COLUMN with required=True and no default value.'
+                    f"SQLite doesn't support ALTER COLUMN with required=True and no default value."
                 )
                 raise ValueError(msg)
 

@@ -196,9 +196,9 @@ def build_column(column: PropertySchema, type_transform: Callable[[Any], str]) -
     if column.default is not None:
         if isinstance(column.default, bool):
             # SQLite doesn't have boolean, store as 1 or 0
-            _stmt += f" DEFAULT {1 if column.default else 0}"
-        elif isinstance(column.default, (int, float)):
-            _stmt += f" DEFAULT {column.default}"
+            _stmt += f' DEFAULT {1 if column.default else 0}'
+        elif isinstance(column.default, int | float):
+            _stmt += f' DEFAULT {column.default}'
         elif isinstance(column.default, bytes):
             # For BLOB data, use hex notation
             hex_value = column.default.hex()
@@ -209,7 +209,7 @@ def build_column(column: PropertySchema, type_transform: Callable[[Any], str]) -
             _stmt += f" DEFAULT '{escaped_value}'"
         else:
             # For any other type, convert to string and quote it
-            _stmt += f" DEFAULT '{str(column.default)}'"
+            _stmt += f" DEFAULT '{column.default!s}'"
 
     return _stmt
 
