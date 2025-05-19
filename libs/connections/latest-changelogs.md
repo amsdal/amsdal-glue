@@ -1,5 +1,6 @@
-## [v0.1.9](https://pypi.org/project/amsdal-glue-connections/0.1.9/) - 2025-05-14
+## [v0.1.10](https://pypi.org/project/amsdal-glue-connections/0.1.10/) - 2025-05-19
 
-### Changed
+### Added
 
-- Changes for tables retrieval
+- Raise NOT NULL constraint failed for SQLite update column
+- Added DEFAULT for column in sql builder

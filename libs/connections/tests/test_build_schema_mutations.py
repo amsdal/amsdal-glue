@@ -38,7 +38,7 @@ def test_build_schema_mutation__register_schema() -> None:
             "CREATE TABLE 'Person' ("
             "'id' INTEGER NOT NULL, "
             "'name' TEXT NOT NULL, "
-            "'age' INTEGER, "
+            "'age' INTEGER DEFAULT 18, "
             "CONSTRAINT 'pk_person' PRIMARY KEY ('id')"
             ')',
             [],
@@ -76,7 +76,7 @@ def test_build_schema_mutation_with_namespace__register_schema() -> None:
             "CREATE TABLE 'ns1'.'Person' ("
             "'id' INTEGER NOT NULL, "
             "'name' TEXT NOT NULL, "
-            "'age' INTEGER, "
+            "'age' INTEGER DEFAULT 18, "
             "CONSTRAINT 'pk_person' PRIMARY KEY ('id')"
             ')',
             [],

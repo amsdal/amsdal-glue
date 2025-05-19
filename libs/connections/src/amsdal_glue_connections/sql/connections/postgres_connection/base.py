@@ -109,17 +109,51 @@ class PostgresConnectionMixin:
         return False
 
     def _build_column(self, column: PropertySchema, *, force_nullable: bool = False) -> str:
-        return (
-            f'"{column.name}" {self._to_sql_type(column.type)}'
-            f'{" NOT NULL" if column.required and not force_nullable else ""}'
-        )
+        _stmt = f'"{column.name}" {self._to_sql_type(column.type)}'
+        _stmt += f'{" NOT NULL" if column.required and not force_nullable else ""}'
+
+        if column.default is not None:
+            _stmt += ' DEFAULT '
+            if isinstance(column.default, bool):
+                _stmt += f'{"TRUE" if column.default else "FALSE"}'
+            elif isinstance(column.default, int | float):
+                _stmt += f'{column.default}'
+            elif isinstance(column.default, bytes):
+                hex_value = column.default.hex()
+                _stmt += f"X'{hex_value}'"
+            elif isinstance(column.default, str):
+                escaped_value = column.default.replace("'", "''")
+                _stmt += f"'{escaped_value}'"
+            else:
+                _stmt += f"'{column.default!s}'"
+
+        return _stmt
 
     def _build_column_update(self, column: PropertySchema) -> str:
         sql_type = self._to_sql_type(column.type)
-        _stm = f'"{column.name}" TYPE {sql_type}{" NOT NULL" if column.required else ""}'
+
+        _stm = f'ALTER COLUMN "{column.name}" TYPE {sql_type}'
 
         if sql_type in ['DOUBLE PRECISION', 'BIGINT']:
             _stm += f' USING "{column.name}"::{sql_type}'
+
+        if column.required:
+            _stm += f', ALTER COLUMN "{column.name}" SET NOT NULL'
+
+        if column.default is not None:
+            _stm += f', ALTER COLUMN "{column.name}" SET DEFAULT '
+            if isinstance(column.default, bool):
+                _stm += f'{"TRUE" if column.default else "FALSE"}'
+            elif isinstance(column.default, int | float):
+                _stm += f'{column.default}'
+            elif isinstance(column.default, bytes):
+                hex_value = column.default.hex()
+                _stm += f"X'{hex_value}'"
+            elif isinstance(column.default, str):
+                escaped_value = column.default.replace("'", "''")
+                _stm += f"'{escaped_value}'"
+            else:
+                _stm += f"'{column.default!s}'"
 
         return _stm
 

@@ -191,7 +191,27 @@ def build_constraint(constraint: BaseConstraint, transform: Transform) -> tuple[
 
 
 def build_column(column: PropertySchema, type_transform: Callable[[Any], str]) -> str:
-    return f"'{column.name}' {type_transform(column.type)}{' NOT NULL' if column.required else ''}"
+    _stmt = f"'{column.name}' {type_transform(column.type)}{' NOT NULL' if column.required else ''}"
+
+    if column.default is not None:
+        if isinstance(column.default, bool):
+            # SQLite doesn't have boolean, store as 1 or 0
+            _stmt += f' DEFAULT {1 if column.default else 0}'
+        elif isinstance(column.default, int | float):
+            _stmt += f' DEFAULT {column.default}'
+        elif isinstance(column.default, bytes):
+            # For BLOB data, use hex notation
+            hex_value = column.default.hex()
+            _stmt += f" DEFAULT X'{hex_value}'"
+        elif isinstance(column.default, str):
+            # Escape single quotes in string values
+            escaped_value = column.default.replace("'", "''")
+            _stmt += f" DEFAULT '{escaped_value}'"
+        else:
+            # For any other type, convert to string and quote it
+            _stmt += f" DEFAULT '{column.default!s}'"
+
+    return _stmt
 
 
 def build_drop_table(schema_reference: SchemaReference) -> tuple[str, list[Any]]:

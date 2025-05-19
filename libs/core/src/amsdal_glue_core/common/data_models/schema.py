@@ -1,3 +1,4 @@
+import json
 from copy import copy
 from dataclasses import dataclass
 from typing import Any
@@ -129,6 +130,18 @@ class PropertySchema:
     required: bool
     description: str | None = None
     default: Any | None = None
+
+    def __post_init__(self) -> None:
+        # normalize default. Usually it requires after returning schema from database
+        if not isinstance(self.default, str):
+            return
+
+        try:
+            _parsed = json.loads(self.default.replace("'", '"'))
+        except json.JSONDecodeError:
+            ...
+        else:
+            self.default = _parsed
 
     def __ne__(self, other):
         return not self.__eq__(other)

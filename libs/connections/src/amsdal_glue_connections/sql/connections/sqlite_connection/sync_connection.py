@@ -495,13 +495,12 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             new_property = mutation.property.__copy__()
             new_property.name = new_uuid
 
-            if new_property.required:
+            if new_property.required and new_property.default is None:
                 msg = (
-                    f'Trying to update a property "{mutation.property.name}" ({mutation.schema_reference}) to required,'
-                    f' which is not supported. Setting it to False.'
+                    f'Cannot update {mutation.property.name} column. '
+                    f"SQLite doesn't support ALTER COLUMN with required=True and no default value."
                 )
-                logger.warning(msg)
-                new_property.required = False
+                raise ValueError(msg)
 
             statements = [
                 build_add_column(mutation.schema_reference, new_property, type_transform=self.to_sql_type),

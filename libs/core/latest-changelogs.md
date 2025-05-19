@@ -1,5 +1,5 @@
-## [v0.1.4](https://pypi.org/project/amsdal-glue-core/0.1.4/) - 2025-05-14
+## [v0.1.5](https://pypi.org/project/amsdal-glue-core/0.1.5/) - 2025-05-19
 
-### Changed
+### Fixed
 
-- Changes for Schema comparison
+- Fixed copy of DeleteSchema mutation

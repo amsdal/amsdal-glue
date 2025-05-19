@@ -675,7 +675,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         _column = self._build_column_update(_property)
         _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
 
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ALTER COLUMN {_column}'
+        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" {_column}'
         self.execute(stmt)
 
     def _add_constraint(self, schema_reference: SchemaReference, constraint: BaseConstraint) -> None:

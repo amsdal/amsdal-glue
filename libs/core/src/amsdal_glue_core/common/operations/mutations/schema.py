@@ -87,6 +87,9 @@ class DeleteSchema(ChangeSchema):
     def get_schema_name(self) -> str:
         return self.schema_reference.name
 
+    def __copy__(self):
+        return DeleteSchema(schema_reference=copy(self.schema_reference))
+
 
 @dataclass(kw_only=True)
 class RenameSchema(ChangeSchema):
