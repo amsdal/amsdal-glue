@@ -414,7 +414,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                 return True
         return False
 
-    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
+    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
         """
         Acquires a lock on the SQLite database.
 
@@ -424,10 +424,12 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         Returns:
             Any: The result of the lock acquisition.
         """
+        if lock.mode == 'EXCLUSIVE':
+            await self.connection.execute('BEGIN EXCLUSIVE')
 
         return True
 
-    async def release_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
+    async def release_lock(self, lock: ExecutionLockCommand) -> Any:
         """
         Releases a lock on the SQLite database.
 
@@ -437,6 +439,8 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         Returns:
             Any: The result of the lock release.
         """
+        if lock.mode == 'EXCLUSIVE':
+            await self.connection.execute('COMMIT')
 
         return True
 
@@ -511,13 +515,12 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             new_property = mutation.property.__copy__()
             new_property.name = new_uuid
 
-            if new_property.required:
+            if new_property.required and new_property.default is None:
                 msg = (
-                    f'Trying to update a property "{mutation.property.name}" ({mutation.schema_reference}) to required,'
-                    f' which is not supported. Setting it to False.'
+                    f'Cannot update {mutation.property.name} column. '
+                   f'SQLite doesn\'t support ALTER COLUMN with required=True and no default value.'
                 )
-                logger.warning(msg)
-                new_property.required = False
+                raise ValueError(msg)
 
             statements = [
                 build_add_column(mutation.schema_reference, new_property, type_transform=self.to_sql_type),

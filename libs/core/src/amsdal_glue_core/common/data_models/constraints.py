@@ -72,7 +72,7 @@ class ForeignKeyConstraint(BaseConstraint):
         return (
             self.name == other.name
             and self.fields == other.fields
-            and self.reference_schema == other.reference_schema
+            and self.reference_schema.name == other.reference_schema.name
             and self.reference_fields == other.reference_fields
         )
 

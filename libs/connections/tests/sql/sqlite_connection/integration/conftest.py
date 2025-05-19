@@ -9,7 +9,8 @@ from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConn
 
 @pytest.fixture(scope='function')
 def database_connection() -> Generator[SqliteConnection, None, None]:
-    with tempfile.TemporaryDirectory() as temp_dir:
+    Path('.tmp').mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(dir='.tmp') as temp_dir:
         db_path = Path(temp_dir) / 'test.db'
 
         connection = SqliteConnection()
