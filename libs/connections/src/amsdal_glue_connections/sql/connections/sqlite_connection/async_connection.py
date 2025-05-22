@@ -414,7 +414,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                 return True
         return False
 
-    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
         """
         Acquires a lock on the SQLite database.
 
@@ -425,13 +425,13 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             Any: The result of the lock acquisition.
         """
 
-        # TODO: add "BEGIN EXCLUSIVE" similar to sync version
+        # TODO: add "BEGIN EXCLUSIVE" similar to sync version  # noqa: FIX002, TD002, TD003
         # Currently it does not work, probably due to re-using the same connection in
         # different async contexts. Need to investigate and fix it.
 
         return True
 
-    async def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    async def release_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
         """
         Releases a lock on the SQLite database.
 
@@ -442,7 +442,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             Any: The result of the lock release.
         """
 
-        # TODO: add "COMMIT" for "EXCLUSIVE" mode similar to sync version
+        # TODO: add "COMMIT" for "EXCLUSIVE" mode similar to sync version  # noqa: FIX002, TD002, TD003
         # Currently it does not work, probably due to re-using the same connection in
         # different async contexts. Need to investigate and fix it.
 
