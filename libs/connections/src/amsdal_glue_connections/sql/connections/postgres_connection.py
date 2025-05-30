@@ -848,6 +848,8 @@ class PostgresConnection(ConnectionBase):
 
         if sql_type in ['DOUBLE PRECISION', 'BIGINT']:
             _stm += f' USING "{column.name}"::{sql_type}'
+        elif sql_type == 'JSONB':
+            _stm += f' USING convert_from("{column.name}", \'UTF8\')::jsonb'
 
         return _stm
 
@@ -1724,6 +1726,8 @@ class AsyncPostgresConnection(AsyncConnectionBase):
 
         if sql_type in ['DOUBLE PRECISION', 'BIGINT']:
             _stm += f' USING "{column.name}"::{sql_type}'
+        elif sql_type == 'JSONB':
+            _stm += f' USING convert_from("{column.name}", \'UTF8\')::jsonb'
 
         return _stm
 
