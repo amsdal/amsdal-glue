@@ -298,7 +298,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         return cursor
 
-    async def get_table_info(
+    async def get_table_info(  # noqa: C901
         self,
         table_name: str,
     ) -> tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]:
@@ -362,8 +362,8 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             if fk_id not in fk_groups:
                 fk_groups[fk_id] = {
                     'table': fk[2],  # Referenced table
-                    'fields': [],    # Fields in this table
-                    'ref_fields': [] # Fields in referenced table
+                    'fields': [],  # Fields in this table
+                    'ref_fields': [],  # Fields in referenced table
                 }
             fk_groups[fk_id]['fields'].append(fk[3])
             fk_groups[fk_id]['ref_fields'].append(fk[4])
@@ -380,7 +380,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                     constraint_name = f'fk_{primary_field}'
                 else:
                     # For composite keys, include all field names in the constraint name
-                    constraint_name = f"fk_{'_'.join(fk_group['fields'])}"
+                    constraint_name = f'fk_{"_".join(fk_group["fields"])}'
 
             constraints.append(
                 ForeignKeyConstraint(

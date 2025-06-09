@@ -352,8 +352,8 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             if fk_id not in fk_groups:
                 fk_groups[fk_id] = {
                     'table': fk[2],  # Referenced table
-                    'fields': [],    # Fields in this table
-                    'ref_fields': [] # Fields in referenced table
+                    'fields': [],  # Fields in this table
+                    'ref_fields': [],  # Fields in referenced table
                 }
             fk_groups[fk_id]['fields'].append(fk[3])
             fk_groups[fk_id]['ref_fields'].append(fk[4])
@@ -370,7 +370,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
                     constraint_name = f'fk_{primary_field}'
                 else:
                     # For composite keys, include all field names in the constraint name
-                    constraint_name = f"fk_{'_'.join(fk_group['fields'])}"
+                    constraint_name = f'fk_{"_".join(fk_group["fields"])}'
 
             constraints.append(
                 ForeignKeyConstraint(
