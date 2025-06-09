@@ -298,7 +298,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         return cursor
 
-    async def get_table_info(
+    async def get_table_info(  # noqa: C901
         self,
         table_name: str,
     ) -> tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]:
@@ -355,20 +355,44 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         foreign_keys = await cursor.fetchall()
         await cursor.close()
 
-        constraints.extend(
-            [
+        # Group foreign keys by their ID to handle composite foreign keys
+        fk_groups = {}
+        for fk in foreign_keys:
+            fk_id = fk[0]  # ID of the foreign key constraint
+            if fk_id not in fk_groups:
+                fk_groups[fk_id] = {
+                    'table': fk[2],  # Referenced table
+                    'fields': [],  # Fields in this table
+                    'ref_fields': [],  # Fields in referenced table
+                }
+            fk_groups[fk_id]['fields'].append(fk[3])
+            fk_groups[fk_id]['ref_fields'].append(fk[4])
+
+        # Create foreign key constraints
+        for fk_group in fk_groups.values():
+            # For composite keys, use the first field for naming if no constraint name is found
+            primary_field = fk_group['fields'][0]
+            constraint_name = self._get_fk_name(table_sql, field_name=primary_field)
+
+            # If no constraint name is found, generate one based on the fields
+            if not constraint_name:
+                if len(fk_group['fields']) == 1:
+                    constraint_name = f'fk_{primary_field}'
+                else:
+                    # For composite keys, include all field names in the constraint name
+                    constraint_name = f'fk_{"_".join(fk_group["fields"])}'
+
+            constraints.append(
                 ForeignKeyConstraint(
-                    name=self._get_fk_name(table_sql, field_name=fk[3]) or f'fk_{fk[3]}',
-                    fields=[fk[3]],
+                    name=constraint_name,
+                    fields=fk_group['fields'],
                     reference_schema=SchemaReference(
-                        name=fk[2],
+                        name=fk_group['table'],
                         version=Version.LATEST,
                     ),
-                    reference_fields=[fk[4]],
+                    reference_fields=fk_group['ref_fields'],
                 )
-                for fk in foreign_keys
-            ],
-        )
+            )
 
         # Get indexes info
         cursor = await self.execute(f"PRAGMA index_list('{table_name}')")

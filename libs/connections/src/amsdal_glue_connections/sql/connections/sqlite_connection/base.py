@@ -32,7 +32,10 @@ logger = logging.getLogger(__name__)
 
 UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] UNIQUE \((?P<fields>[^)]+)\)')
 PRIMARY_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] PRIMARY KEY')
-FOREIGN_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] FOREIGN KEY')
+FOREIGN_KEY_RE = re.compile(
+    r'CONSTRAINT\s+["\'](?P<name>\w+)["\']\s+FOREIGN\s+KEY\s*\(\s*["\']?(?P<fields>[^)]+)["\']?\s*\)',
+    re.IGNORECASE,
+)
 FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
 
 
@@ -159,9 +162,20 @@ class SqliteConnectionMixin:
 
         return ''
 
-    def _get_fk_name(self, table_sql: str, field_name: str) -> str:  # noqa: ARG002
-        for constraint_name in FOREIGN_KEY_RE.findall(table_sql):
-            return constraint_name
+    def _get_fk_name(self, table_sql: str, field_name: str) -> str:
+        # Look for a foreign key constraint that includes this field
+        pattern = re.compile(
+            r'CONSTRAINT\s+["\'](?P<name>\w+)["\']\s+FOREIGN\s+KEY\s*\(\s*["\']?(?P<fields>[^)]+)["\']?\s*\)',
+            re.IGNORECASE,
+        )
+
+        for match in pattern.finditer(table_sql):
+            constraint_name = match.group('name')
+            fields_str = match.group('fields')
+            fields = [f.strip(' "\'') for f in fields_str.split(',')]
+
+            if field_name in fields:
+                return constraint_name
 
         return ''
 
