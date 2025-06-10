@@ -7,6 +7,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any
 
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import JsonType
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -227,7 +228,7 @@ class PostgresConnectionMixin:
         if sql_type == 'BOOLEAN':
             return bool
         if sql_type in ['JSON', 'JSONB']:
-            return dict
+            return JsonType
         if sql_type == 'BYTEA':
             return bytes
         if sql_type == 'TIMESTAMP' or sql_type.startswith('TIMESTAMP'):
