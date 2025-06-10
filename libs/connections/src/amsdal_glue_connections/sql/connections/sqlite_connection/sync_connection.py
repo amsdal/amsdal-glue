@@ -534,7 +534,9 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             ]
         else:
             statements = build_schema_mutation(
-                mutation, type_transform=self.to_sql_type, transform=get_sqlite_transform()
+                mutation,
+                type_transform=self.to_sql_type,
+                transform=get_sqlite_transform(),
             )
 
         for stmt, values in statements:

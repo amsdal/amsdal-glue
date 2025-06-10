@@ -21,6 +21,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import JsonType
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
 from amsdal_glue_connections.sql.sql_builders.math_operator_transform import pg_math_operator_transform
@@ -227,7 +228,7 @@ class PostgresConnectionMixin:
         if sql_type == 'BOOLEAN':
             return bool
         if sql_type in ['JSON', 'JSONB']:
-            return dict
+            return JsonType
         if sql_type == 'BYTEA':
             return bytes
         if sql_type == 'TIMESTAMP' or sql_type.startswith('TIMESTAMP'):
