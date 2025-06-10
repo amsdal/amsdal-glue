@@ -1,5 +1,5 @@
-## [v0.1.12](https://pypi.org/project/amsdal-glue-connections/0.1.12/) - 2025-06-09
+## [v0.1.13](https://pypi.org/project/amsdal-glue-connections/0.1.13/) - 2025-06-10
 
 ### Fixed
 
-- Fix for SQLite table info retrieval
+- Fixes for JSON in connections

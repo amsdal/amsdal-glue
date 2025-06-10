@@ -7,7 +7,6 @@ from datetime import datetime
 from functools import partial
 from typing import Any
 
-from amsdal_glue_connections.sql.connections.sqlite_connection.base import JsonType
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -22,6 +21,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import JsonType
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
 from amsdal_glue_connections.sql.sql_builders.math_operator_transform import pg_math_operator_transform

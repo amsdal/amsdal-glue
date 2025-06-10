@@ -1,3 +1,9 @@
+## [v0.1.13](https://pypi.org/project/amsdal-glue-connections/0.1.13/) - 2025-06-10
+
+### Fixed
+
+- Fixes for JSON in connections
+
 ## [v0.1.12](https://pypi.org/project/amsdal-glue-connections/0.1.12/) - 2025-06-09
 
 ### Fixed
