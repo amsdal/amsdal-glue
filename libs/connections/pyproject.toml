@@ -71,7 +71,7 @@ pre-install-commands = [
 ]
 
 [tool.hatch.envs.default.scripts]
-sync = "uv sync --extra dev --extra csv  --extra async-sqlite --extra postgres-binary"
+sync = "uv sync --extra dev --extra csv --extra async-sqlite --extra postgres-binary"
 lock = "uv lock"
 lock-upgrade = "uv lock --upgrade"
 test = "pytest -n auto --benchmark-skip {args:tests}"
