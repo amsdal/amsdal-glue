@@ -24,17 +24,8 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
-[project.urls]
-Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
-Issues = "https://github.com/amsdal/amsdal-glue/issues"
-Source = "https://github.com/amsdal/amsdal-glue/"
-
-[tool.hatch.version]
-path = "src/amsdal_glue_core/__about__.py"
-
-[tool.hatch.envs.default]
-path = "../../../.venv/core"
-extra-dependencies = [
+[project.optional-dependencies]
+dev = [
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
@@ -45,7 +36,23 @@ extra-dependencies = [
     "towncrier>=23.11.0",
 ]
 
+[project.urls]
+Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
+Issues = "https://github.com/amsdal/amsdal-glue/issues"
+Source = "https://github.com/amsdal/amsdal-glue/"
+
+[tool.hatch.version]
+path = "src/amsdal_glue_core/__about__.py"
+
+[tool.hatch.envs.default]
+features = ["dev"]
+installer = "uv"
+path = ".venv"
+
 [tool.hatch.envs.default.scripts]
+sync = "uv sync --extra dev"
+lock = "uv lock"
+lock-upgrade = "uv lock --upgrade"
 test = "pytest -n auto {args:tests}"
 test-cov = "pytest --cov=src -n auto {args:tests}"
 cov = [
