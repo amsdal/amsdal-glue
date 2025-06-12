@@ -37,14 +37,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install hatch
+      - name: Hatch and UV setup
         run: |
-          python -m pip install hatch
+          pip install --upgrade uv hatch
+          cd libs/amsdal-glue
+          hatch env prune
+          hatch env create
+          hatch run sync
 
       - name: Hatch run all
         run: |
           cd libs/amsdal-glue
-          hatch env prune
           hatch run all
 
       - name: Hatch run test
@@ -82,14 +85,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install hatch
+      - name: Hatch and UV setup
         run: |
-          python -m pip install hatch
+          pip install --upgrade uv hatch
+          cd libs/connections
+          hatch env prune
+          hatch env create
+          hatch run sync
 
       - name: Hatch run all
         run: |
           cd libs/connections
-          hatch env prune
           hatch run all
 
       - name: Hatch run test
@@ -113,14 +119,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install hatch
+      - name: Hatch and UV setup
         run: |
-          python -m pip install hatch
+          pip install --upgrade uv hatch
+          cd libs/core
+          hatch env prune
+          hatch env create
+          hatch run sync
 
       - name: Hatch run all
         run: |
           cd libs/core
-          hatch env prune
           hatch run all
 
   sql_parser:
@@ -139,20 +148,22 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install hatch
+      - name: Hatch and UV setup
         run: |
-          python -m pip install hatch
+          pip install --upgrade uv hatch
+          cd libs/sql-parser
+          hatch env prune
+          hatch env create
+          hatch run sync
 
       - name: Hatch run all
         run: |
           cd libs/sql-parser
-          hatch env prune
           hatch run all
 
       - name: Hatch run test
         run: |
           cd libs/sql-parser
-          hatch env prune
           hatch run test
 
   api_server:
@@ -171,18 +182,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install hatch
+      - name: Hatch and UV setup
         run: |
-          python -m pip install hatch
+          pip install --upgrade uv hatch
+          cd libs/api-server
+          hatch env prune
+          hatch env create
+          hatch run sync
 
       - name: Hatch run all
         run: |
           cd libs/api-server
-          hatch env prune
           hatch run all
 
       - name: Hatch run test
         run: |
           cd libs/api-server
-          hatch env prune
           hatch run test
