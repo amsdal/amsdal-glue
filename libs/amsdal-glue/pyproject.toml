@@ -50,7 +50,6 @@ dev = [
     "pytest-cov>=6.0.0",
     "pytest-xdist[psutil]>=3.6.1",
     "ruff>=0.10.0",
-    "amsdal-glue[postgres-binary]",
     "towncrier>=24.8.0",
     "types-pytz",
 ]

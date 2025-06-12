@@ -35,7 +35,6 @@ csv = [
     { name = "amsdal-glue-connections", extra = ["csv"] },
 ]
 dev = [
-    { name = "amsdal-glue-connections", extra = ["postgres-binary"] },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -59,7 +58,6 @@ requires-dist = [
     { name = "amsdal-glue-connections", specifier = ">=0.1.0" },
     { name = "amsdal-glue-connections", extras = ["async-sqlite"], marker = "extra == 'async-sqlite'" },
     { name = "amsdal-glue-connections", extras = ["csv"], marker = "extra == 'csv'" },
-    { name = "amsdal-glue-connections", extras = ["postgres-binary"], marker = "extra == 'dev'" },
     { name = "amsdal-glue-connections", extras = ["postgres-binary"], marker = "extra == 'postgres-binary'" },
     { name = "amsdal-glue-connections", extras = ["postgres-c"], marker = "extra == 'postgres'" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15.0" },
