@@ -33,6 +33,14 @@ async-sqlite = [
 csv = [
     { name = "pandas" },
 ]
+postgres-binary = [
+    { name = "psycopg", extra = ["binary", "pool"] },
+]
+postgres-c = [
+    { name = "psycopg", extra = ["c", "pool"] },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "docker" },
     { name = "mypy" },
@@ -46,33 +54,31 @@ dev = [
     { name = "ruff" },
     { name = "towncrier" },
 ]
-postgres-binary = [
-    { name = "psycopg", extra = ["binary", "pool"] },
-]
-postgres-c = [
-    { name = "psycopg", extra = ["c", "pool"] },
-]
 
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite", marker = "extra == 'async-sqlite'", specifier = ">=0.20.0" },
     { name = "amsdal-glue-core", specifier = ">=0.1.0" },
-    { name = "docker", marker = "extra == 'dev'", specifier = ">=7.1.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15.0" },
     { name = "pandas", marker = "extra == 'csv'", specifier = ">=2.2.3" },
-    { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'dev'", specifier = ">=3.2.5" },
     { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'postgres-binary'", specifier = ">=3.2.1" },
     { name = "psycopg", extras = ["c", "pool"], marker = "extra == 'postgres-c'", specifier = ">=3.2.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.5" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
-    { name = "pytest-benchmark", marker = "extra == 'dev'", specifier = ">=5.1.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
-    { name = "pytest-xdist", extras = ["psutil"], marker = "extra == 'dev'", specifier = ">=3.6.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.10.0" },
-    { name = "towncrier", marker = "extra == 'dev'", specifier = ">=24.8.0" },
 ]
-provides-extras = ["async-sqlite", "csv", "dev", "postgres-binary", "postgres-c"]
+provides-extras = ["async-sqlite", "csv", "postgres-binary", "postgres-c"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "docker", specifier = ">=7.1.0" },
+    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.5" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-benchmark", specifier = ">=5.1.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
+    { name = "ruff", specifier = ">=0.10.0" },
+    { name = "towncrier", specifier = ">=24.8.0" },
+]
 
 [[package]]
 name = "amsdal-glue-core"

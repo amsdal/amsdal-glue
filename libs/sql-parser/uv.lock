@@ -44,6 +44,11 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+sqloxide = [
+    { name = "sqloxide" },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -54,24 +59,25 @@ dev = [
     { name = "ruff" },
     { name = "towncrier" },
 ]
-sqloxide = [
-    { name = "sqloxide" },
-]
 
 [package.metadata]
 requires-dist = [
     { name = "amsdal-glue", specifier = ">=0.1.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.5" },
-    { name = "pytest-benchmark", marker = "extra == 'dev'", specifier = ">=5.1.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
-    { name = "pytest-xdist", extras = ["psutil"], marker = "extra == 'dev'", specifier = ">=3.6.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.10.0" },
     { name = "sqloxide", marker = "extra == 'sqloxide'", specifier = "==0.1.47" },
-    { name = "towncrier", marker = "extra == 'dev'", specifier = ">=23.11.0" },
 ]
-provides-extras = ["dev", "sqloxide"]
+provides-extras = ["sqloxide"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-benchmark", specifier = ">=5.1.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
+    { name = "ruff", specifier = ">=0.10.0" },
+    { name = "towncrier", specifier = ">=23.11.0" },
+]
 
 [[package]]
 name = "click"
