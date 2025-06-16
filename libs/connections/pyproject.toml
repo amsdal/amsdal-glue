@@ -41,17 +41,11 @@ csv = [
     "pandas>=2.2.3",
 ]
 
-[project.urls]
-Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
-Issues = "https://github.com/amsdal/amsdal-glue/issues"
-Source = "https://github.com/amsdal/amsdal-glue/"
-
-[tool.hatch.version]
-path = "src/amsdal_glue_connections/__about__.py"
-
-[tool.hatch.envs.default]
-path = "../../../.venv/connections"
-extra-dependencies = [
+[dependency-groups]
+dev = [
+    "amsdal-glue-connections[csv]",
+    "amsdal-glue-connections[async-sqlite]",
+    "amsdal-glue-connections[postgres-binary]",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
@@ -63,14 +57,27 @@ extra-dependencies = [
     "psycopg[binary,pool]>=3.2.5",
     "docker>=7.1.0",
     "towncrier>=24.8.0",
-    "aiosqlite>=0.20.0",
-    "pandas>=2.2.3",
 ]
+
+[project.urls]
+Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
+Issues = "https://github.com/amsdal/amsdal-glue/issues"
+Source = "https://github.com/amsdal/amsdal-glue/"
+
+[tool.hatch.version]
+path = "src/amsdal_glue_connections/__about__.py"
+
+[tool.hatch.envs.default]
+installer = "uv"
+path = ".venv"
 pre-install-commands = [
-    "pip install -e ../core/",
+    "uv pip install -e ../core/",
 ]
 
 [tool.hatch.envs.default.scripts]
+sync = "uv sync --group dev"
+lock = "uv lock"
+lock-upgrade = "uv lock --upgrade"
 test = "pytest -n auto --benchmark-skip {args:tests}"
 benchmark = "pytest --benchmark-only {args:tests}"
 test-cov = "pytest --cov=src -n auto --benchmark-skip {args:tests}"

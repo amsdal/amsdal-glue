@@ -29,6 +29,18 @@ dependencies = [
     "uvicorn>=0.30.3",
 ]
 
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "pytest-mock>=3.14.0",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist[psutil]>=3.6.1",
+    "ruff>=0.10.0",
+    "httpx==0.27.0",
+    "towncrier>=23.11.0",
+]
+
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
 Issues = "https://github.com/amsdal/amsdal-glue/issues"
@@ -38,26 +50,19 @@ Source = "https://github.com/amsdal/amsdal-glue/"
 path = "src/amsdal_glue_api_server/__about__.py"
 
 [tool.hatch.envs.default]
-path = "../../.venv/amsdal_glue_api_server"
-extra-dependencies = [
-    "mypy>=1.15.0",
-    "pytest>=8.3.5",
-    "pytest-mock>=3.14.0",
-    "pytest-cov>=6.0.0",
-    "pytest-xdist[psutil]>=3.6.1",
-    "ruff>=0.10.0",
-    "sqloxide==0.1.47",
-    "httpx==0.27.0",
-    "towncrier>=23.11.0",
-]
+installer = "uv"
+path = ".venv"
 pre-install-commands = [
-  "pip install -e ../core/",
-  "pip install -e ../connections/",
-  "pip install -e ../amsdal-glue/",
-  "pip install -e ../sql-parser/",
+  "uv pip install -e ../core/",
+  "uv pip install -e ../connections/",
+  "uv pip install -e ../amsdal-glue/",
+  "uv pip install -e '../sql-parser/[sqloxide]'",
 ]
 
 [tool.hatch.envs.default.scripts]
+sync = "uv sync --group dev"
+lock = "uv lock"
+lock-upgrade = "uv lock --upgrade"
 server = "python src/amsdal_glue_api_server/main.py"
 test = "pytest {args:tests}"
 test-cov = "pytest --cov=src {args:tests}"

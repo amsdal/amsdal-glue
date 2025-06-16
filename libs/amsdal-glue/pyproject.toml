@@ -30,7 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = [
-    "amsdal-glue-connections[postgres]",
+    "amsdal-glue-connections[postgres-c]",
 ]
 postgres-binary = [
     "amsdal-glue-connections[postgres-binary]",
@@ -42,6 +42,23 @@ csv = [
     "amsdal-glue-connections[csv]",
 ]
 
+[dependency-groups]
+dev = [
+    "amsdal-glue[csv]",
+    "amsdal-glue[async-sqlite]",
+    "amsdal-glue[postgres-binary]",
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "pytest-mock>=3.14.0",
+    "pytest-benchmark>=5.1.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist[psutil]>=3.6.1",
+    "ruff>=0.10.0",
+    "towncrier>=24.8.0",
+    "types-pytz",
+]
+
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
 Issues = "https://github.com/amsdal/amsdal-glue/issues"
@@ -51,27 +68,17 @@ Source = "https://github.com/amsdal/amsdal-glue/"
 path = "src/amsdal_glue/__about__.py"
 
 [tool.hatch.envs.default]
-path = "../../../.venv/glue"
-extra-dependencies = [
-    "mypy>=1.15.0",
-    "pytest>=8.3.5",
-    "pytest-mock>=3.14.0",
-    "pytest-benchmark>=5.1.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=6.0.0",
-    "pytest-xdist[psutil]>=3.6.1",
-    "ruff>=0.10.0",
-    "amsdal-glue[postgres-binary]",
-    "towncrier>=24.8.0",
-    "aiosqlite>=0.20.0",
-    "pandas>=2.2.3",
-]
+installer = "uv"
+path = ".venv"
 pre-install-commands = [
-  "pip install -e ../core/",
-  "pip install -e ../connections/",
+  "uv pip install -e ../core/",
+  "uv pip install -e ../connections/",
 ]
 
 [tool.hatch.envs.default.scripts]
+sync = "uv sync --group dev"
+lock = "uv lock"
+lock-upgrade = "uv lock --upgrade"
 test = "pytest -n auto {args:tests}"
 test-cov = "pytest --cov=src -n auto {args:tests}"
 cov = [
