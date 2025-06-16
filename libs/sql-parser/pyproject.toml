@@ -33,6 +33,7 @@ sqloxide = [
 
 [dependency-groups]
 dev = [
+    "amsdal-glue-sql-parser[sqloxide]",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
@@ -52,7 +53,6 @@ Source = "https://github.com/amsdal/amsdal-glue/"
 path = "src/amsdal_glue_sql_parser/__about__.py"
 
 [tool.hatch.envs.default]
-features = ["sqloxide"]
 installer = "uv"
 path = ".venv"
 pre-install-commands = [
@@ -62,7 +62,7 @@ pre-install-commands = [
 ]
 
 [tool.hatch.envs.default.scripts]
-sync = "uv sync --group dev --extra sqloxide"
+sync = "uv sync --group dev"
 lock = "uv lock"
 lock-upgrade = "uv lock --upgrade"
 test = "pytest -n auto --benchmark-disable {args:tests}"

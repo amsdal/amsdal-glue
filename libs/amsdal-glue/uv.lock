@@ -43,6 +43,7 @@ postgres-binary = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "amsdal-glue", extra = ["async-sqlite", "csv", "postgres-binary"] },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -68,6 +69,9 @@ provides-extras = ["async-sqlite", "csv", "postgres", "postgres-binary"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "amsdal-glue", extras = ["async-sqlite"] },
+    { name = "amsdal-glue", extras = ["csv"] },
+    { name = "amsdal-glue", extras = ["postgres-binary"] },
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },

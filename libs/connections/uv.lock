@@ -42,6 +42,7 @@ postgres-c = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "amsdal-glue-connections", extra = ["async-sqlite", "csv", "postgres-binary"] },
     { name = "docker" },
     { name = "mypy" },
     { name = "psycopg", extra = ["binary", "pool"] },
@@ -67,6 +68,9 @@ provides-extras = ["async-sqlite", "csv", "postgres-binary", "postgres-c"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "amsdal-glue-connections", extras = ["async-sqlite"] },
+    { name = "amsdal-glue-connections", extras = ["csv"] },
+    { name = "amsdal-glue-connections", extras = ["postgres-binary"] },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.5" },

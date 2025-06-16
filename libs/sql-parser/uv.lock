@@ -50,6 +50,7 @@ sqloxide = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "amsdal-glue-sql-parser", extra = ["sqloxide"] },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
@@ -69,6 +70,7 @@ provides-extras = ["sqloxide"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "amsdal-glue-sql-parser", extras = ["sqloxide"] },
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-benchmark", specifier = ">=5.1.0" },
