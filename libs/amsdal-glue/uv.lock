@@ -34,6 +34,14 @@ async-sqlite = [
 csv = [
     { name = "amsdal-glue-connections", extra = ["csv"] },
 ]
+postgres = [
+    { name = "amsdal-glue-connections", extra = ["postgres-c"] },
+]
+postgres-binary = [
+    { name = "amsdal-glue-connections", extra = ["postgres-binary"] },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -46,12 +54,6 @@ dev = [
     { name = "towncrier" },
     { name = "types-pytz" },
 ]
-postgres = [
-    { name = "amsdal-glue-connections", extra = ["postgres-c"] },
-]
-postgres-binary = [
-    { name = "amsdal-glue-connections", extra = ["postgres-binary"] },
-]
 
 [package.metadata]
 requires-dist = [
@@ -60,19 +62,23 @@ requires-dist = [
     { name = "amsdal-glue-connections", extras = ["csv"], marker = "extra == 'csv'" },
     { name = "amsdal-glue-connections", extras = ["postgres-binary"], marker = "extra == 'postgres-binary'" },
     { name = "amsdal-glue-connections", extras = ["postgres-c"], marker = "extra == 'postgres'" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15.0" },
     { name = "polars", specifier = ">=1.20" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.5" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
-    { name = "pytest-benchmark", marker = "extra == 'dev'", specifier = ">=5.1.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
-    { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
-    { name = "pytest-xdist", extras = ["psutil"], marker = "extra == 'dev'", specifier = ">=3.6.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.10.0" },
-    { name = "towncrier", marker = "extra == 'dev'", specifier = ">=24.8.0" },
-    { name = "types-pytz", marker = "extra == 'dev'" },
 ]
-provides-extras = ["async-sqlite", "csv", "dev", "postgres", "postgres-binary"]
+provides-extras = ["async-sqlite", "csv", "postgres", "postgres-binary"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-benchmark", specifier = ">=5.1.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
+    { name = "ruff", specifier = ">=0.10.0" },
+    { name = "towncrier", specifier = ">=24.8.0" },
+    { name = "types-pytz" },
+]
 
 [[package]]
 name = "amsdal-glue-connections"
@@ -204,7 +210,7 @@ name = "exceptiongroup"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0b/9f/a65090624ecf468cdca03533906e7c69ed7588582240cfe7cc9e770b50eb/exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88", size = 29749, upload-time = "2025-05-10T17:42:51.123Z" }
 wheels = [

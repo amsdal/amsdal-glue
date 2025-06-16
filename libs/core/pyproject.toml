@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "mypy>=1.15.0",
     "pytest>=8.3.5",
@@ -45,12 +45,11 @@ Source = "https://github.com/amsdal/amsdal-glue/"
 path = "src/amsdal_glue_core/__about__.py"
 
 [tool.hatch.envs.default]
-features = ["dev"]
 installer = "uv"
 path = ".venv"
 
 [tool.hatch.envs.default.scripts]
-sync = "uv sync --extra dev"
+sync = "uv sync --group dev"
 lock = "uv lock"
 lock-upgrade = "uv lock --upgrade"
 test = "pytest -n auto {args:tests}"

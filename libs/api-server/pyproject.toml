@@ -29,7 +29,7 @@ dependencies = [
     "uvicorn>=0.30.3",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "mypy>=1.15.0",
     "pytest>=8.3.5",
@@ -50,7 +50,6 @@ Source = "https://github.com/amsdal/amsdal-glue/"
 path = "src/amsdal_glue_api_server/__about__.py"
 
 [tool.hatch.envs.default]
-features = ["dev"]
 installer = "uv"
 path = ".venv"
 pre-install-commands = [
@@ -61,7 +60,7 @@ pre-install-commands = [
 ]
 
 [tool.hatch.envs.default.scripts]
-sync = "uv sync --extra dev"
+sync = "uv sync --group dev"
 lock = "uv lock"
 lock-upgrade = "uv lock --upgrade"
 server = "python src/amsdal_glue_api_server/main.py"

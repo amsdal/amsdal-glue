@@ -41,6 +41,8 @@ async-sqlite = [
 csv = [
     "amsdal-glue-connections[csv]",
 ]
+
+[dependency-groups]
 dev = [
     "mypy>=1.15.0",
     "pytest>=8.3.5",
@@ -63,7 +65,7 @@ Source = "https://github.com/amsdal/amsdal-glue/"
 path = "src/amsdal_glue/__about__.py"
 
 [tool.hatch.envs.default]
-features = ["dev", "csv", "async-sqlite", "postgres-binary"]
+features = ["csv", "async-sqlite", "postgres-binary"]
 installer = "uv"
 path = ".venv"
 pre-install-commands = [
@@ -72,7 +74,7 @@ pre-install-commands = [
 ]
 
 [tool.hatch.envs.default.scripts]
-sync = "uv sync --extra dev --extra csv --extra async-sqlite --extra postgres-binary"
+sync = "uv sync --group dev --extra csv --extra async-sqlite --extra postgres-binary"
 lock = "uv lock"
 lock-upgrade = "uv lock --upgrade"
 test = "pytest -n auto {args:tests}"
