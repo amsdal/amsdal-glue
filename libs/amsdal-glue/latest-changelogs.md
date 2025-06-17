@@ -1,5 +1,5 @@
-## [v0.1.3](https://pypi.org/project/amsdal-glue/0.1.3/) - 2025-04-11
+## [v0.1.4](https://pypi.org/project/amsdal-glue/0.1.4/) - 2025-06-17
 
-### Added
+### Changed
 
-- SCHEMA_REGISTRY_TABLE added to imports
+- Update package manager to `uv` for better performance and compatibility.
