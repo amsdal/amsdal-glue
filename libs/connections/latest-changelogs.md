@@ -1,5 +1,6 @@
-## [v0.1.13](https://pypi.org/project/amsdal-glue-connections/0.1.13/) - 2025-06-10
+## [v0.1.14](https://pypi.org/project/amsdal-glue-connections/0.1.14/) - 2025-06-17
 
-### Fixed
+### Changed
 
-- Fixes for JSON in connections
+- Update package manager to `uv` for better performance and compatibility.
+
