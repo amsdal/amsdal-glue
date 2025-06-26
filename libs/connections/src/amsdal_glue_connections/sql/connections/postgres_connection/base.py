@@ -20,6 +20,7 @@ from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.schema import VectorSchemaModel
 
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import JsonType
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
@@ -202,13 +203,21 @@ class PostgresConnectionMixin:
 
     def _to_sql_type(
         self,
-        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+        property_type: Schema
+        | SchemaReference
+        | NestedSchemaModel
+        | ArraySchemaModel
+        | DictSchemaModel
+        | VectorSchemaModel
+        | type[Any],
     ) -> str:
         with suppress(ValueError):
             return pg_value_type_transform(property_type)  # type: ignore[arg-type]
 
         if isinstance(property_type, Schema | SchemaReference):
             return 'TEXT'
+        if isinstance(property_type, VectorSchemaModel):
+            return f'vector({property_type.dimensions})'
         if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
             logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
             return 'JSONB'
@@ -216,7 +225,12 @@ class PostgresConnectionMixin:
         msg = f'Unsupported type: {property_type}'
         raise ValueError(msg)
 
-    def _to_python_type(self, sql_type: str) -> type[Any]:  # noqa: PLR0911
+    def _to_python_type(  # noqa: PLR0911
+        self,
+        sql_type: str,
+        udt_name: str | None,
+        info: dict[str, Any],
+    ) -> type[Any] | VectorSchemaModel:
         sql_type = sql_type.upper()
 
         if sql_type in ['TEXT', 'CHARACTER VARYING'] or sql_type.startswith('VARCHAR'):
@@ -235,6 +249,9 @@ class PostgresConnectionMixin:
             return datetime
         if sql_type == 'DATE':
             return date
+
+        if sql_type == 'USER-DEFINED' and udt_name == 'vector':
+            return VectorSchemaModel(dimensions=info['typmod'])
 
         msg = f'Unsupported type: {sql_type}'
         raise ValueError(msg)

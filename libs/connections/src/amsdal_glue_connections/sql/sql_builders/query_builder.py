@@ -128,6 +128,7 @@ def build_annotations(
                 annotation.value.expression,
                 transform=transform,
             )
+            _values = [transform.apply(TransformTypes.VALUE, _value) for _value in _values]
             items.append(f'({_expression}) AS {_alias}')
             values.extend(_values)
         elif isinstance(annotation.value, ValueAnnotation):

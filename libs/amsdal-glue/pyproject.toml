@@ -59,6 +59,11 @@ dev = [
     "types-pytz",
 ]
 
+
+[tool.uv.sources]
+amsdal-glue-core = { path = "../core" }
+amsdal-glue-connections = { path = "../connections" }
+
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
 Issues = "https://github.com/amsdal/amsdal-glue/issues"
@@ -171,6 +176,7 @@ select = [
 ignore = [
     "COM812",
     "ISC001",
+    "PLC0415",
 ]
 unfixable = [
     # Don't touch unused imports

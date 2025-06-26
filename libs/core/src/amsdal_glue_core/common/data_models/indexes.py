@@ -36,3 +36,6 @@ class IndexSchema:
             fields=copy(self.fields),
             condition=copy(self.condition) if self.condition is not None else None,
         )
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.fields, self.condition))

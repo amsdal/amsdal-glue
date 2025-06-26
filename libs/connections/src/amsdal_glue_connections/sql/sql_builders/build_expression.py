@@ -7,13 +7,14 @@ from amsdal_glue_core.common.expressions.field_reference import FieldReferenceEx
 from amsdal_glue_core.common.expressions.func import Func
 from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.expressions.vector import VectorExpression
 
 from amsdal_glue_connections.sql.sql_builders.build_field import build_field
 from amsdal_glue_connections.sql.sql_builders.transform import Transform
 from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 
-def build_expression(
+def build_expression(  # noqa: PLR0911
     expression: Expression,
     transform: Transform,
     *,
@@ -56,6 +57,15 @@ def build_expression(
         right_stmt, right_params = build_expression(expression.right, transform, embed_values=embed_values)
 
         stmt = transform.apply(TransformTypes.MATH_OPERATOR, left_stmt, expression.operator, right_stmt)
+        stmt = transform.apply(TransformTypes.CAST, stmt, expression.output_type)
+
+        return stmt, left_params + right_params
+
+    if isinstance(expression, VectorExpression):
+        left_stmt, left_params = build_expression(expression.left, transform, embed_values=embed_values)
+        right_stmt, right_params = build_expression(expression.right, transform, embed_values=embed_values)
+
+        stmt = transform.apply(TransformTypes.VECTOR_OPERATOR, left_stmt, expression.operator, right_stmt)
         stmt = transform.apply(TransformTypes.CAST, stmt, expression.output_type)
 
         return stmt, left_params + right_params

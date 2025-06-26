@@ -52,6 +52,9 @@ class Condition:
             and self.negate == __value.negate
         )
 
+    def __hash__(self) -> int:
+        return hash((self.left, self.lookup, self.right, self.negate))
+
 
 class Conditions:
     """Represents a collection of conditions in a query.
@@ -262,3 +265,6 @@ class Conditions:
             and self.connector == __value.connector
             and self.negated == __value.negated
         )
+
+    def __hash__(self) -> int:
+        return hash((self.children, self.connector, self.negated))

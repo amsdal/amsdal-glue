@@ -38,6 +38,9 @@ class Field:
 
         return self.name == other.name and repr(self) == repr(other)
 
+    def __hash__(self) -> int:
+        return hash(repr(self))
+
 
 @dataclass(kw_only=True)
 class FieldReference(Combinable):

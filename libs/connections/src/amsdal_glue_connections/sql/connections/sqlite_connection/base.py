@@ -43,6 +43,9 @@ class JsonTypeMeta(type):
     def __eq__(cls, other: object) -> bool:
         return other in (list, dict)
 
+    def __hash__(cls) -> int:
+        return super().__hash__()
+
 
 class JsonType(dict, metaclass=JsonTypeMeta): ...  # type: ignore[misc]
 

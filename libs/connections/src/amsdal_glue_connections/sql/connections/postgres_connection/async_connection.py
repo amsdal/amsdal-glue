@@ -349,16 +349,43 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         columns = await cursor.fetchall()
         await cursor.close()
 
-        properties = [
-            PropertySchema(
-                name=column[1],
-                type=self._to_python_type(column[2]),
-                required=column[3].lower() == 'no',  # means is nullable
-                description=None,
-                default=column[4],
+        properties: list[PropertySchema] = []
+        for column in columns:
+            column_name = column[1]
+            info = await (
+                await self.execute(
+                    'SELECT c.relname as table_name, a.attname AS column_name, t.typname AS data_type, '  # noqa: S608
+                    'a.atttypmod AS typmod '
+                    'FROM pg_attribute a '
+                    'JOIN pg_class c ON a.attrelid = c.oid '
+                    'JOIN pg_type t ON a.atttypid = t.oid '
+                    f"WHERE c.relname = '{table_name}' "
+                    f"AND a.attname = '{column_name}';"
+                )
+            ).fetchone()
+
+            _info = (
+                {
+                    'table_name': info[0],
+                    'column_name': info[1],
+                    'data_type': info[2],
+                    'typmod': info[3],
+                }
+                if info
+                else {}
             )
-            for column in columns
-        ]
+            udt_name = column[5] if len(column) > 5 else None  # noqa: PLR2004
+
+            properties.append(
+                PropertySchema(
+                    name=column[1],
+                    type=self._to_python_type(column[2], udt_name, _info),
+                    required=column[3].lower() == 'no',  # means is nullable
+                    description=None,
+                    default=column[4],
+                )
+            )
+
         fid_to_name: dict[int, str] = {column[0]: column[1] for column in columns}
 
         # Get constraints info

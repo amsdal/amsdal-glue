@@ -10,7 +10,13 @@ from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.enums import Version
 
-FIELD_TYPE: TypeAlias = Union['NestedSchemaModel', 'ArraySchemaModel', 'DictSchemaModel', type[Any]]
+FIELD_TYPE: TypeAlias = Union[
+    'NestedSchemaModel',
+    'ArraySchemaModel',
+    'DictSchemaModel',
+    'VectorSchemaModel',
+    type[Any],
+]
 
 
 @dataclass(kw_only=True)
@@ -22,6 +28,17 @@ class NestedSchemaModel:
     """
 
     properties: dict[str, FIELD_TYPE]
+
+
+@dataclass(kw_only=True)
+class VectorSchemaModel:
+    """Represents a vector defined data structure.
+
+    Attributes:
+        dimensions (int): The number of dimensions in the vector.
+    """
+
+    dimensions: int
 
 
 @dataclass(kw_only=True)
@@ -163,6 +180,9 @@ class PropertySchema:
             description=self.description,
             default=self.default,
         )
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.type, self.required, self.description, self.default))
 
 
 @dataclass(kw_only=True)
