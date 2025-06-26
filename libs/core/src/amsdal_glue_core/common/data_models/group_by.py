@@ -18,3 +18,6 @@ class GroupByQuery:
             return False
 
         return self.field == other.field
+
+    def __hash__(self) -> int:
+        return hash(self.field)

@@ -47,6 +47,9 @@ class PrimaryKeyConstraint(BaseConstraint):
             fields=copy(self.fields),
         )
 
+    def __hash__(self) -> int:
+        return hash((self.name, self.fields))
+
 
 @dataclass(kw_only=True)
 class ForeignKeyConstraint(BaseConstraint):
@@ -84,6 +87,9 @@ class ForeignKeyConstraint(BaseConstraint):
             reference_fields=copy(self.reference_fields),
         )
 
+    def __hash__(self) -> int:
+        return hash((self.name, self.fields, self.reference_schema, self.reference_fields))
+
 
 @dataclass(kw_only=True)
 class UniqueConstraint(BaseConstraint):
@@ -113,6 +119,9 @@ class UniqueConstraint(BaseConstraint):
             condition=copy(self.condition),
         )
 
+    def __hash__(self) -> int:
+        return hash((self.name, self.fields, self.condition))
+
 
 @dataclass(kw_only=True)
 class CheckConstraint(BaseConstraint):
@@ -138,3 +147,6 @@ class CheckConstraint(BaseConstraint):
             name=self.name,
             condition=copy(self.condition),
         )
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.condition))

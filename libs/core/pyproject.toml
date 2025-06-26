@@ -139,6 +139,7 @@ select = [
 ignore = [
     "COM812",
     "ISC001",
+    "PLC0415",
 ]
 unfixable = [
     # Don't touch unused imports

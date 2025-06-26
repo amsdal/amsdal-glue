@@ -59,6 +59,9 @@ dev = [
     "towncrier>=24.8.0",
 ]
 
+[tool.uv.sources]
+amsdal-glue-core = { path = "../core" }
+
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
 Issues = "https://github.com/amsdal/amsdal-glue/issues"
@@ -167,6 +170,7 @@ ignore = [
     "COM812",
     "ISC001",
     "A005",
+    "PLC0415",
 ]
 unfixable = [
     # Don't touch unused imports

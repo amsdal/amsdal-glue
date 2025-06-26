@@ -336,23 +336,46 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
                                                                                   and indexes of the table.
         """
         cursor = self.execute(
-            'SELECT ordinal_position, column_name, data_type, is_nullable, column_default '  # noqa: S608
+            'SELECT ordinal_position, column_name, data_type, is_nullable, column_default, udt_name '  # noqa: S608
             'FROM information_schema.columns '
             f"WHERE table_name = '{table_name}';"
         )
         columns = cursor.fetchall()
         cursor.close()
 
-        properties = [
-            PropertySchema(
-                name=column[1],
-                type=self._to_python_type(column[2]),
-                required=column[3].lower() == 'no',  # means is nullable
-                description=None,
-                default=column[4],
+        properties: list[PropertySchema] = []
+        for column in columns:
+            column_name = column[1]
+            info = self.execute(
+                'SELECT c.relname as table_name, a.attname AS column_name, t.typname AS data_type, '  # noqa: S608
+                'a.atttypmod AS typmod '
+                'FROM pg_attribute a '
+                'JOIN pg_class c ON a.attrelid = c.oid '
+                'JOIN pg_type t ON a.atttypid = t.oid '
+                f"WHERE c.relname = '{table_name}' "
+                f"AND a.attname = '{column_name}';"
+            ).fetchone()
+            _info = (
+                {
+                    'table_name': info[0],
+                    'column_name': info[1],
+                    'data_type': info[2],
+                    'typmod': info[3],
+                }
+                if info
+                else {}
             )
-            for column in columns
-        ]
+            udt_name = column[5] if len(column) > 5 else None  # noqa: PLR2004
+
+            properties.append(
+                PropertySchema(
+                    name=column[1],
+                    type=self._to_python_type(column[2], udt_name, _info),
+                    required=column[3].lower() == 'no',  # means is nullable
+                    description=None,
+                    default=column[4],
+                )
+            )
         fid_to_name: dict[int, str] = {column[0]: column[1] for column in columns}
 
         # Get constraints info

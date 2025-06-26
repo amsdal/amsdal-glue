@@ -13,6 +13,7 @@ class TransformTypes(Enum):
     VALUE_PLACEHOLDER = 'value_placeholder'
     VALUE = 'value'
     MATH_OPERATOR = 'math_operator'
+    VECTOR_OPERATOR = 'vector_operator'
     OPERATOR_CONSTRUCTOR = 'operator_constructor'
     BUILD_ONLY = 'build_only'
     NULL_VALUE = 'null_value'
@@ -47,6 +48,7 @@ class Transform:
 
         self._registry = self._registry.copy()  # type: ignore[misc]
         self._registry[TransformTypes.MATH_OPERATOR] = default_math_operator_transform
+        self._registry[TransformTypes.VECTOR_OPERATOR] = default_math_operator_transform
         self._registry[TransformTypes.NESTED_FIELD] = default_nested_field_transform
         self._registry[TransformTypes.BUILD_ONLY] = default_build_only
         self._registry[TransformTypes.OPERATOR_CONSTRUCTOR] = default_operator_constructor

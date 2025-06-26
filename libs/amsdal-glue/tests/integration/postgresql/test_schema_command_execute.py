@@ -22,6 +22,7 @@ from amsdal_glue_core.common.data_models.schema import DictSchemaModel
 from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
+from amsdal_glue_core.common.data_models.schema import VectorSchemaModel
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
@@ -42,7 +43,11 @@ def create_database(dsn: str, database: str) -> Generator[None, None, None]:
     conn = psycopg.connect(dsn, autocommit=True)
 
     with suppress(psycopg.errors.DuplicateDatabase):
-        conn.execute(f'CREATE DATABASE "{database}"')
+        conn.execute(f'CREATE DATABASE "{database}";')
+
+    db_conn = psycopg.connect(f'{dsn}{database}', autocommit=True)
+    db_conn.execute('CREATE EXTENSION IF NOT EXISTS vector;')
+    db_conn.close()
 
     try:
         yield
@@ -237,4 +242,44 @@ def test_create_schema_complex_types() -> None:
         'dictionary': dict,
         'array': dict,
         'nested_schema': dict,
+    }
+
+
+def test_create_schema_embeddings() -> None:
+    connection_mng = Container.managers.get(ConnectionManager)
+    schema = Schema(
+        name='user',
+        version=Version.LATEST,
+        properties=[
+            PropertySchema(
+                name='embedding',
+                type=VectorSchemaModel(dimensions=3),
+                required=True,
+            ),
+            PropertySchema(
+                name='name',
+                type=str,
+                required=True,
+            ),
+        ],
+    )
+
+    planner = Container.planners.get(SchemaCommandPlanner)
+    plan = planner.plan_schema_command(
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(schema=schema),
+            ],
+        ),
+    )
+    plan.execute(transaction_id=None, lock_id=None)
+
+    conn = connection_mng.get_connection_pool('user').get_connection()
+    result = conn.query_schema(filters=None)
+    assert len(result) == 1
+    _schema = result[0]
+    assert _schema.name == 'user'
+    assert {prop.name: prop.type for prop in _schema.properties} == {
+        'embedding': VectorSchemaModel(dimensions=3),
+        'name': str,
     }

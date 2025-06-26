@@ -131,3 +131,6 @@ class CombinedExpression(Expression):
             return False
 
         return self.left == other.left and self.operator == other.operator and self.right == other.right
+
+    def __hash__(self) -> int:
+        return hash((self.left, self.operator, self.right))
