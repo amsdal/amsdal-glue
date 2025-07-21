@@ -56,7 +56,7 @@ def _fetch_schemas() -> list[Schema | None]:
 
 def model_from_schema(schema: Schema) -> type[BaseModel]:
     properties = {}
-    _type: type[BaseModel | Any] | GenericAlias | None
+    _type: Any
     for prop in schema.properties:
         if isinstance(prop.type, Schema):
             _type = model_from_schema(prop.type)
@@ -77,7 +77,7 @@ def model_from_schema(schema: Schema) -> type[BaseModel]:
 
 def _complex_type_to_type(
     field_name: str,
-    complex_type: NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+    complex_type: Any,
 ) -> type[BaseModel | Any] | GenericAlias:
     if isinstance(complex_type, NestedSchemaModel):
         return create_model(  # type: ignore[call-overload]
