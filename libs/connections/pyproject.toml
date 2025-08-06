@@ -40,12 +40,16 @@ async-sqlite = [
 csv = [
     "pandas>=2.2.3",
 ]
+elasticsearch = [
+    "elasticsearch>=8.18.1,<9.0.0",
+]
 
 [dependency-groups]
 dev = [
     "amsdal-glue-connections[csv]",
     "amsdal-glue-connections[async-sqlite]",
     "amsdal-glue-connections[postgres-binary]",
+    "amsdal-glue-connections[elasticsearch]",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
@@ -82,6 +86,7 @@ sync = "uv sync --group dev"
 lock = "uv lock"
 lock-upgrade = "uv lock --upgrade"
 test = "pytest -n auto --benchmark-skip {args:tests}"
+test-single = "pytest --benchmark-skip {args:tests}"
 benchmark = "pytest --benchmark-only {args:tests}"
 test-cov = "pytest --cov=src -n auto --benchmark-skip {args:tests}"
 cov = [
@@ -171,6 +176,9 @@ ignore = [
     "ISC001",
     "A005",
     "PLC0415",
+    "TD002",
+    "TD003",
+    "FIX002",
 ]
 unfixable = [
     # Don't touch unused imports
