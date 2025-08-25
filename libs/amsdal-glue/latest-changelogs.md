@@ -1,5 +1,5 @@
-## [v0.1.4](https://pypi.org/project/amsdal-glue/0.1.4/) - 2025-06-17
+## [v0.1.5](https://pypi.org/project/amsdal-glue/0.1.5/) - 2025-08-25
 
 ### Changed
 
-- Update package manager to `uv` for better performance and compatibility.
+- Ignore `KeyError` when popping from connections in `ConnectionPool`.
