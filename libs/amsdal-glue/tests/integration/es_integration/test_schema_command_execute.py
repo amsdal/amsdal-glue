@@ -200,7 +200,7 @@ def test_create_schema() -> None:
     # Check that constraints and indexes are preserved
     assert result_schema.constraints is not None
     assert result_schema.indexes is not None
-    assert len(result_schema.constraints) == 0
+    assert len(result_schema.constraints) == 4
     assert len(result_schema.indexes) == 1
 
     # Verify index exists

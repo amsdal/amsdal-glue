@@ -109,7 +109,10 @@ class DefaultConnectionPool(ConnectionPoolBase):
                 with contextlib.suppress(Exception):
                     connection.rollback_transaction(transaction_id)
 
-                self.connections.pop(transaction_id)
+                try:
+                    self.connections.pop(transaction_id)
+                except KeyError:  # noqa: S112
+                    continue
 
                 return connection
 
@@ -232,7 +235,10 @@ class DefaultAsyncConnectionPool(AsyncConnectionPoolBase):
                 with contextlib.suppress(Exception):
                     await connection.rollback_transaction(transaction_id)
 
-                self.connections.pop(transaction_id)
+                try:
+                    self.connections.pop(transaction_id)
+                except KeyError:  # noqa: S112
+                    continue
 
                 return connection
 
