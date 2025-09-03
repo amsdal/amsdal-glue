@@ -30,10 +30,14 @@ from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 logger = logging.getLogger(__name__)
 
-UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] UNIQUE \((?P<fields>[^)]+)\)')
-PRIMARY_KEY_RE = re.compile(r'CONSTRAINT ["\'](?P<name>\w+)["\'] PRIMARY KEY')
+UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT\s["\']?(?P<name>\w+)["\']?\s+UNIQUE\s+\((?P<fields>[^)]+)\)')
+PRIMARY_KEY_RE = re.compile(r'CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+PRIMARY KEY', re.IGNORECASE)
 FOREIGN_KEY_RE = re.compile(
-    r'CONSTRAINT\s+["\'](?P<name>\w+)["\']\s+FOREIGN\s+KEY\s*\(\s*["\']?(?P<fields>[^)]+)["\']?\s*\)',
+    r'CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+FOREIGN\s+KEY\s*\(\s*["\']?(?P<fields>[^)]+)["\']?\s*\)',
+    re.IGNORECASE,
+)
+FOREIGN_KEY_INLINE_RE = re.compile(
+    r'(?P<field>\w+)\s+(\w+\s+)*CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+REFERENCES',
     re.IGNORECASE,
 )
 FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
@@ -167,15 +171,18 @@ class SqliteConnectionMixin:
 
     def _get_fk_name(self, table_sql: str, field_name: str) -> str:
         # Look for a foreign key constraint that includes this field
-        pattern = re.compile(
-            r'CONSTRAINT\s+["\'](?P<name>\w+)["\']\s+FOREIGN\s+KEY\s*\(\s*["\']?(?P<fields>[^)]+)["\']?\s*\)',
-            re.IGNORECASE,
-        )
-
-        for match in pattern.finditer(table_sql):
+        for match in FOREIGN_KEY_RE.finditer(table_sql):
             constraint_name = match.group('name')
             fields_str = match.group('fields')
             fields = [f.strip(' "\'') for f in fields_str.split(',')]
+
+            if field_name in fields:
+                return constraint_name
+
+        for match in FOREIGN_KEY_INLINE_RE.finditer(table_sql):
+            constraint_name = match.group('name')
+            field_str = match.group('field')
+            fields = [field_str]
 
             if field_name in fields:
                 return constraint_name
