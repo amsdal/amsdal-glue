@@ -127,14 +127,16 @@ def test_delete_property_benchmark(database_connection: MockPostgresConnection, 
 def test_update_property(database_connection: MockPostgresConnection) -> None:
     update_age_property(database_connection)
 
-    database_connection.execute_mock.assert_called_once_with('ALTER TABLE "user" ALTER COLUMN "age" TYPE TEXT', ())
+    database_connection.execute_mock.assert_called_once_with(
+        'ALTER TABLE "user" ALTER COLUMN "age" TYPE TEXT, ALTER COLUMN "age" DROP NOT NULL', ()
+    )
 
 
 def test_update_property_with_namespace(database_connection: MockPostgresConnection) -> None:
     update_age_property(database_connection, namespace='ns1')
 
     database_connection.execute_mock.assert_called_once_with(
-        'ALTER TABLE "ns1"."user" ALTER COLUMN "age" TYPE TEXT',
+        'ALTER TABLE "ns1"."user" ALTER COLUMN "age" TYPE TEXT, ALTER COLUMN "age" DROP NOT NULL',
         (),
     )
 

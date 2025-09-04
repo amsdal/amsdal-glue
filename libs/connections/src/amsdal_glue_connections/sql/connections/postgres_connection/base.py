@@ -141,6 +141,8 @@ class PostgresConnectionMixin:
 
         if column.required:
             _stm += f', ALTER COLUMN "{column.name}" SET NOT NULL'
+        else:
+            _stm += f', ALTER COLUMN "{column.name}" DROP NOT NULL'
 
         if column.default is not None:
             _stm += f', ALTER COLUMN "{column.name}" SET DEFAULT '
