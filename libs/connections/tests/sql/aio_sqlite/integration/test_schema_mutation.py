@@ -140,7 +140,6 @@ async def test_update_property(database_connection: AsyncSqliteConnection) -> No
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason='Not implemented')
 async def test_add_constraint(database_connection: AsyncSqliteConnection) -> None:
     await database_connection.run_schema_command(
         SchemaCommand(
@@ -160,7 +159,6 @@ async def test_add_constraint(database_connection: AsyncSqliteConnection) -> Non
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason='Not implemented')
 async def test_drop_constraint(database_connection: AsyncSqliteConnection) -> None:
     await database_connection.run_schema_command(
         SchemaCommand(
@@ -185,18 +183,18 @@ async def test_drop_constraint(database_connection: AsyncSqliteConnection) -> No
         ),
     )
     assert await _describe_table(database_connection, 'user') == [
-        ('id', 'bigint'),
-        ('age', 'bigint'),
-        ('email', 'text'),
+        ('id', int),
+        ('email', str),
+        ('age', int),
     ]
     assert await _get_constraints(database_connection, 'user') == [('uk_user_email_unique',)]
 
     await delete_unique_constraint(database_connection)
 
     assert await _describe_table(database_connection, 'user') == [
-        ('id', 'bigint'),
-        ('age', 'bigint'),
-        ('email', 'text'),
+        ('id', int),
+        ('email', str),
+        ('age', int),
     ]
     assert await _get_constraints(database_connection, 'user') == []
 

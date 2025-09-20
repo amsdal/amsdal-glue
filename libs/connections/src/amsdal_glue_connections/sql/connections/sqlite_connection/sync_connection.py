@@ -21,6 +21,8 @@ from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
+from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
+from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
@@ -31,6 +33,8 @@ from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_d
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_add_column
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_create_indexes
+from amsdal_glue_connections.sql.sql_builders.schema_builder import build_create_table
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_drop_column
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_migrate_column
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_rename_column
@@ -532,6 +536,9 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
                 build_drop_column(mutation.schema_reference, mutation.property.name),
                 build_rename_column(mutation.schema_reference, new_uuid, mutation.property.name),
             ]
+        elif isinstance(mutation, AddConstraint | DeleteConstraint):
+            self._recreate_table_with_constraints(mutation)
+            return None
         else:
             statements = build_schema_mutation(
                 mutation,
@@ -546,3 +553,92 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             return mutation.schema
 
         return None
+
+    def _recreate_table_with_constraints(self, mutation: AddConstraint | DeleteConstraint) -> None:
+        table_name = mutation.schema_reference.name
+        namespace = mutation.schema_reference.namespace
+
+        current_schemas = self.query_schema()
+        current_schema = None
+        for schema in current_schemas:
+            schema_namespace = schema.namespace
+            if schema.name == table_name and (
+                (namespace is None and (schema_namespace is None or schema_namespace == ''))
+                or (namespace == '' and (schema_namespace is None or schema_namespace == ''))
+                or (namespace == schema_namespace)
+            ):
+                current_schema = schema
+                break
+
+        if current_schema is None:
+            msg = f'Table {table_name} not found. Available tables: {[(s.name, s.namespace) for s in current_schemas]}'
+            raise ValueError(msg)
+
+        new_constraints = list(current_schema.constraints or [])
+
+        if isinstance(mutation, AddConstraint):
+            new_constraints.append(mutation.constraint)
+        elif isinstance(mutation, DeleteConstraint):
+            new_constraints = [c for c in new_constraints if c.name != mutation.constraint_name]
+
+        new_schema = Schema(
+            name=current_schema.name,
+            namespace=current_schema.namespace,
+            version=current_schema.version,
+            properties=current_schema.properties,
+            constraints=new_constraints,
+            indexes=current_schema.indexes,
+        )
+
+        temp_table_name = f'temp_{table_name}_{uuid.uuid4().hex[:8]}'
+        temp_schema = Schema(
+            name=temp_table_name,
+            namespace=namespace or '',
+            version=new_schema.version,
+            properties=new_schema.properties,
+            constraints=new_schema.constraints,
+            indexes=[],
+        )
+
+        self.connection.execute('BEGIN')
+
+        try:
+            create_temp_stmt, create_temp_values = build_create_table(
+                temp_schema,
+                type_transform=self.to_sql_type,
+                transform=get_sqlite_transform(),
+            )
+            self.execute(create_temp_stmt, *create_temp_values)
+
+            namespace_prefix = f"'{namespace}'." if namespace else ''
+            column_names = [prop.name for prop in current_schema.properties]
+            columns_str_quoted = ', '.join(f"'{col}'" for col in column_names)
+            columns_str_unquoted = ', '.join(f'"{col}"' for col in column_names)
+
+            copy_stmt = (
+                f"INSERT INTO {namespace_prefix}'{temp_table_name}' ({columns_str_quoted}) "  # noqa: S608
+                f"SELECT {columns_str_unquoted} FROM {namespace_prefix}'{table_name}'"
+            )
+            self.execute(copy_stmt)
+
+            drop_stmt = f"DROP TABLE {namespace_prefix}'{table_name}'"
+            self.execute(drop_stmt)
+
+            rename_stmt = f"ALTER TABLE {namespace_prefix}'{temp_table_name}' RENAME TO '{table_name}'"
+            self.execute(rename_stmt)
+
+            if current_schema.indexes:
+                index_statements = build_create_indexes(
+                    table_name,
+                    namespace or '',
+                    current_schema.indexes,
+                    transform=get_sqlite_transform(),
+                )
+                for index_stmt, index_values in index_statements:
+                    self.execute(index_stmt, *index_values)
+
+            self.connection.execute('COMMIT')
+
+        except Exception:
+            self.connection.execute('ROLLBACK')
+            raise
