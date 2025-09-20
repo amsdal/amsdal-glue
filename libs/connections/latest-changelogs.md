@@ -1,5 +1,5 @@
-## [v0.1.18](https://pypi.org/project/amsdal-glue-connections/0.1.18/) - 2025-09-04
+## [v0.1.19](https://pypi.org/project/amsdal-glue-connections/0.1.19/) - 2025-09-20
 
-### Fixed
+### Changed
 
-- Fixed drop null in the postgres connection
+- Recreate table in sqlite on constraint changes
