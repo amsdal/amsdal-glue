@@ -1,5 +1,5 @@
-## [v0.1.19](https://pypi.org/project/amsdal-glue-connections/0.1.19/) - 2025-09-20
+## [v0.1.20](https://pypi.org/project/amsdal-glue-connections/0.1.20/) - 2025-09-21
 
-### Changed
+### Fixed
 
-- Recreate table in sqlite on constraint changes
+- Fix for nested transactions in SQLite connection during schema migration
