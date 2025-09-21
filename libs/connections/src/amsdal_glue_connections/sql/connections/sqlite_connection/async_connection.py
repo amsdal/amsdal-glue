@@ -578,7 +578,16 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         return None
 
-    async def _recreate_table_with_constraints(self, mutation: AddConstraint | DeleteConstraint) -> None:
+    async def _recreate_table_with_constraints(self, mutation: AddConstraint | DeleteConstraint) -> None:  # noqa: C901, PLR0912, PLR0915
+        try:
+            import aiosqlite
+        except ImportError:
+            _msg = (
+                '"aiosqlite" package is required for AsyncSqliteConnection. '
+                'Use "pip install amsdal-glue-connections[async-sqlite]" to install it.'
+            )
+            raise ImportError(_msg) from None
+
         table_name = mutation.schema_reference.name
         namespace = mutation.schema_reference.namespace
 
@@ -624,7 +633,16 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             indexes=[],
         )
 
-        await self.connection.execute('BEGIN')
+        # Check if we're already in a transaction by testing if we can start one
+        # If we can't start a transaction, we're already in one
+        in_transaction = False
+        try:
+            await self.connection.execute('BEGIN')
+        except aiosqlite.OperationalError as e:
+            if 'cannot start a transaction within a transaction' in str(e):
+                in_transaction = True
+            else:
+                raise
 
         try:
             create_temp_stmt, create_temp_values = build_create_table(
@@ -661,8 +679,12 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                 for index_stmt, index_values in index_statements:
                     await self.execute(index_stmt, *index_values)
 
-            await self.connection.execute('COMMIT')
+            # Only commit if we started the transaction
+            if not in_transaction:
+                await self.connection.execute('COMMIT')
 
         except Exception:
-            await self.connection.execute('ROLLBACK')
+            # Only rollback if we started the transaction
+            if not in_transaction:
+                await self.connection.execute('ROLLBACK')
             raise

@@ -554,7 +554,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
         return None
 
-    def _recreate_table_with_constraints(self, mutation: AddConstraint | DeleteConstraint) -> None:
+    def _recreate_table_with_constraints(self, mutation: AddConstraint | DeleteConstraint) -> None:  # noqa: C901, PLR0912
         table_name = mutation.schema_reference.name
         namespace = mutation.schema_reference.namespace
 
@@ -600,7 +600,16 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             indexes=[],
         )
 
-        self.connection.execute('BEGIN')
+        # Check if we're already in a transaction by testing if we can start one
+        # If we can't start a transaction, we're already in one
+        in_transaction = False
+        try:
+            self.connection.execute('BEGIN')
+        except sqlite3.OperationalError as e:
+            if 'cannot start a transaction within a transaction' in str(e):
+                in_transaction = True
+            else:
+                raise
 
         try:
             create_temp_stmt, create_temp_values = build_create_table(
@@ -637,8 +646,12 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
                 for index_stmt, index_values in index_statements:
                     self.execute(index_stmt, *index_values)
 
-            self.connection.execute('COMMIT')
+            # Only commit if we started the transaction
+            if not in_transaction:
+                self.connection.execute('COMMIT')
 
         except Exception:
-            self.connection.execute('ROLLBACK')
+            # Only rollback if we started the transaction
+            if not in_transaction:
+                self.connection.execute('ROLLBACK')
             raise
