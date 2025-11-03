@@ -342,7 +342,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
                                                                                   and indexes of the table.
         """
         cursor = await self.execute(
-            'SELECT ordinal_position, column_name, data_type, is_nullable, column_default '  # noqa: S608
+            'SELECT ordinal_position, column_name, data_type, is_nullable, column_default, udt_name '  # noqa: S608
             'FROM information_schema.columns '
             f"WHERE table_name = '{table_name}';"
         )
