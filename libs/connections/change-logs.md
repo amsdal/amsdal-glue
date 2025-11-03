@@ -1,3 +1,9 @@
+## [v0.1.21](https://pypi.org/project/amsdal-glue-connections/0.1.21/) - 2025-11-03
+
+### Fixed
+
+- Fix for vector async operations
+
 ## [v0.1.20](https://pypi.org/project/amsdal-glue-connections/0.1.20/) - 2025-09-21
 
 ### Fixed
