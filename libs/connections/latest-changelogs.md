@@ -1,5 +1,5 @@
-## [v0.1.21](https://pypi.org/project/amsdal-glue-connections/0.1.21/) - 2025-11-03
+## [v0.1.22](https://pypi.org/project/amsdal-glue-connections/0.1.22/) - 2025-12-21
 
-### Fixed
+### Changed
 
-- Fix for vector async operations
+- Libs update

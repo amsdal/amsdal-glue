@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(hatch run test:*)",
+      "Bash(hatch run fmt:*)",
+      "Bash(hatch run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

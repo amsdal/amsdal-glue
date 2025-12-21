@@ -124,7 +124,7 @@ async def _postgres_server_run() -> AsyncGenerator[None, None]:
 
         client = docker.from_env()
         (
-            db_host,
+            _,
             db_port,
             db_user,
             db_password,

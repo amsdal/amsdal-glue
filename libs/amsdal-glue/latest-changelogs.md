@@ -1,5 +1,5 @@
-## [v0.1.5](https://pypi.org/project/amsdal-glue/0.1.5/) - 2025-08-25
+## [v0.1.6](https://pypi.org/project/amsdal-glue/0.1.6/) - 2025-12-21
 
 ### Changed
 
-- Ignore `KeyError` when popping from connections in `ConnectionPool`.
+- Libs updated

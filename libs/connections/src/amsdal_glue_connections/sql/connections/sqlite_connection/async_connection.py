@@ -1,5 +1,8 @@
 import logging
+import sqlite3
 import uuid
+from datetime import date
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
@@ -132,6 +135,14 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         if self._connection is not None:
             msg = 'Connection already established'
             raise ConnectionError(msg)
+
+        # Disable the deprecated adapters
+        sqlite3.register_adapter(date, lambda val: val.isoformat())
+        sqlite3.register_adapter(datetime, lambda val: val.isoformat())
+
+        # Register converters if you need to read datetime from DB
+        sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
+        sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 

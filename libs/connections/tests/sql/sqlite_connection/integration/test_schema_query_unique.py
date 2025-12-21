@@ -18,7 +18,7 @@ def test__inline_unique_field_returned(database_connection: SqliteConnection) ->
     """
     database_connection.execute(create_table_sql)
 
-    props, constraints, indexes = database_connection.get_table_info('members')
+    _, constraints, _ = database_connection.get_table_info('members')
     unique_constraints = [constraint for constraint in constraints if isinstance(constraint, UniqueConstraint)]
     assert unique_constraints == [
         UniqueConstraint(
@@ -42,7 +42,7 @@ def test__inline_unique_field_not_null_returned(database_connection: SqliteConne
     """
     database_connection.execute(create_table_sql)
 
-    props, constraints, indexes = database_connection.get_table_info('members')
+    _, constraints, _ = database_connection.get_table_info('members')
     unique_constraints = [constraint for constraint in constraints if isinstance(constraint, UniqueConstraint)]
     assert unique_constraints == [
         UniqueConstraint(
@@ -61,7 +61,7 @@ def test__without_inline_unique(database_connection: SqliteConnection) -> None:
     )
     database_connection.execute(create_table_sql)
 
-    props, constraints, indexes = database_connection.get_table_info('Fixture')
+    _, constraints, _ = database_connection.get_table_info('Fixture')
     unique_constraints = [constraint for constraint in constraints if isinstance(constraint, UniqueConstraint)]
     assert unique_constraints == [
         UniqueConstraint(
