@@ -148,7 +148,8 @@ def test_update_int_to_str_required(database_connection: SqliteConnection) -> No
     with pytest.raises(
         ValueError,
         match=(
-            "Cannot update field_b column. SQLite doesn't support ALTER COLUMN with required=True and no default value."
+            r"Cannot update field_b column. SQLite doesn't support "
+            'ALTER COLUMN with required=True and no default value.'
         ),
     ):
         database_connection.run_schema_command(

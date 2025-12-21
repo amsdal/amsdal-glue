@@ -793,7 +793,8 @@ class CsvConnection(ConnectionBase):
                         new_data[col] = None
 
                 # Concatenate with existing data
-                df = pd.concat([df, new_data], ignore_index=True)
+                if not new_data.empty:
+                    df = new_data if df.empty else pd.concat([df, new_data], ignore_index=True)
 
             # Save the updated DataFrame
             self._save_df(df, mutation.schema.name)

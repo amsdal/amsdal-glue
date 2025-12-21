@@ -1,3 +1,9 @@
+## [v0.1.8](https://pypi.org/project/amsdal-glue-core/0.1.8/) - 2025-12-21
+
+### Changed
+
+- Update libs
+
 ## [v0.1.7](https://pypi.org/project/amsdal-glue-core/0.1.7/) - 2025-06-26
 
 ### Added
