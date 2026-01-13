@@ -23,7 +23,7 @@ def test_create_schema(database_connection: MockPostgresConnection) -> None:
             'CONSTRAINT uk_user_email UNIQUE ("email"), CONSTRAINT ck_user_age CHECK ("user"."age" > 18))',
             (),
         ),
-        mock.call('CREATE INDEX "idx_user_email" ON "user" (first_name, last_name)', ()),
+        mock.call('CREATE INDEX "idx_user_email" ON "user" ("first_name", "last_name")', ()),
     ])
 
 
@@ -37,7 +37,7 @@ def test_create_schema_with_namespace(database_connection: MockPostgresConnectio
             'CONSTRAINT uk_user_email UNIQUE ("email"), CONSTRAINT ck_user_age CHECK ("ns1"."user"."age" > 18))',
             (),
         ),
-        mock.call('CREATE INDEX "ns1"."idx_user_email" ON "ns1"."user" (first_name, last_name)', ()),
+        mock.call('CREATE INDEX "ns1"."idx_user_email" ON "ns1"."user" ("first_name", "last_name")', ()),
     ])
 
 
@@ -197,14 +197,16 @@ def test_drop_constraint_benchmark(database_connection: MockPostgresConnection, 
 def test_add_index(database_connection: MockPostgresConnection) -> None:
     add_index(database_connection)
 
-    database_connection.execute_mock.assert_called_once_with('CREATE INDEX "idx_user_email" ON "user" (email, age)', ())
+    database_connection.execute_mock.assert_called_once_with(
+        'CREATE INDEX "idx_user_email" ON "user" ("email", "age")', ()
+    )
 
 
 def test_add_index_with_namespace(database_connection: MockPostgresConnection) -> None:
     add_index(database_connection, namespace='ns1')
 
     database_connection.execute_mock.assert_called_once_with(
-        'CREATE INDEX "ns1"."idx_user_email" ON "ns1"."user" (email, age)',
+        'CREATE INDEX "ns1"."idx_user_email" ON "ns1"."user" ("email", "age")',
         (),
     )
 
