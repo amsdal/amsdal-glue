@@ -189,10 +189,8 @@ class PostgresConnectionMixin:
 
     def _build_index(self, schema_name: str, namespace: str, index: IndexSchema) -> str:
         _namespace_prefix = f'"{namespace}".' if namespace else ''
-        _index = (
-            f'CREATE INDEX {_namespace_prefix}"{index.name}" '
-            f'ON {_namespace_prefix}"{schema_name}" ({", ".join(index.fields)})'
-        )
+        _fields = ', '.join(f'"{field}"' for field in index.fields)
+        _index = f'CREATE INDEX {_namespace_prefix}"{index.name}" ON {_namespace_prefix}"{schema_name}" ({_fields})'
 
         if index.condition:
             where, _ = build_where(

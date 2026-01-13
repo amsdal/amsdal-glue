@@ -1,3 +1,9 @@
+## [v0.1.23](https://pypi.org/project/amsdal-glue-connections/0.1.23/) - 2026-01-13
+
+### Fixed
+
+- Fix for creating index in postgres
+
 ## [v0.1.22](https://pypi.org/project/amsdal-glue-connections/0.1.22/) - 2025-12-21
 
 ### Changed
