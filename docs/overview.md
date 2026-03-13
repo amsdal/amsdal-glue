@@ -1,11 +1,15 @@
-# AMSDAL Glue project overview
+---
+title: AMSDAL Glue Project Overview
+description: The AMSDAL Glue project is a comprehensive Python interface that includes three main packages: `amsdal-glue-core`, `amsdal-glue-connections`, and `amsdal-glue`. These packages work together to provide a high-level abstraction for interacting with multiple databases simultaneously, simplifying the development and maintenance process of database-related tasks in Python applications.
+amsdal_docs:
+  target: glue/api/architecture/architecture.md
+  nav_title: Architecture
+  nav_section: Glue (ETL)
+  nav_path: ["API Reference"]
+  nav_order: 1
+---
 
-## Table of Contents
-
-- [Packages overview](#packages-overview)
-- [Repository structure](#repository-structure)
-- [Architecture overview](#architecture-overview)
-- [Quick start](#quick-start)
+# AMSDAL Glue Project Overview
 
 ## Packages overview
 
@@ -36,7 +40,7 @@ and simplify the process of writing and maintaining database-related code.
 
 - `/libs/core/`: Contains the source code for the `amsdal-glue-core` package.
 - `/libs/connections/`: Contains the source code for the `amsdal-glue-connections` package.
-- `/libs/glue/`: Contains the source code for the `amsdal-glue` package.
+- `/libs/amsdal-glue/`: Contains the source code for the `amsdal-glue` package.
 
 ## Architecture overview
 
@@ -56,12 +60,10 @@ implemented.
 
 Here is a diagram that illustrates the architecture of the Queries in the AMSDAL Glue project:
 
-<div style="text-align: center; margin-top: 20px;">
-    <figure>
-        <img src="architecture-query.png" alt="Architecture diagram" style="max-width: 100%; height: auto;">
-        <figcaption>Architecture diagram</figcaption>
-    </figure>
-</div>
+<figure markdown>
+![AMSDAL Glue query architecture](../../../media/images/dark/architecture-query.png#only-dark){ width="500" }
+![AMSDAL Glue query architecture](../../../media/images/light/architecture-query.png#only-light){ width="500" }
+</figure>
 
 In this diagram, we can see there are four main components:
 
@@ -94,17 +96,15 @@ pool, which provides an ability to reuse connections and manage their lifecycle 
 
 The similar architecture is applied to the Commands in the AMSDAL Glue project:
 
-<div style="text-align: center; margin-top: 20px;">
-    <figure>
-        <img src="architecture-command.png" alt="Architecture diagram" style="max-width: 100%; height: auto;">
-        <figcaption>Architecture diagram</figcaption>
-    </figure>
-</div>
+<figure markdown>
+![AMSDAL Glue command architecture](../../../media/images/dark/architecture-command.png#only-dark){ width="500" }
+![AMSDAL Glue command architecture](../../../media/images/light/architecture-command.png#only-light){ width="500" }
+</figure>
 
 As we can see, there are more services for commands, that includes services for locking, transactions, schema and data
 management commands.
 
-# Quick start
+## Quick start
 
 To get started with the AMSDAL Glue project, you need to:
 
@@ -118,7 +118,7 @@ without having to write any custom code.
 Here is an example of how to get started with the AMSDAL Glue project using the `amsdal-glue` package:
 
 ```python
-from amsdal_glue.initialize import init_default_containers
+from amsdal_glue import init_default_containers
 
 init_default_containers()
 ```
@@ -129,10 +129,7 @@ pools via the ConnectionManager and begin interacting with databases using the h
 `amsdal-glue` package:
 
 ```python
-from amsdal_glue import DefaultConnectionPool
-from amsdal_glue import SqliteConnection
-from amsdal_glue import Container
-from amsdal_glue.interfaces import ConnectionManager
+from amsdal_glue import Container, ConnectionManager, DefaultConnectionPool, SqliteConnection
 
 sql_connection_pool = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
 connection_mng = Container.managers.get(ConnectionManager)
@@ -142,7 +139,6 @@ connection_mng.register_connection_pool(sql_connection_pool)
 ```
 
 Read more about connection manager, pools and multiple databases connections in
-the [Multiple connections](multiple-connections.md) section.
+the [Multiple connections](../../multiple-connections.md) section.
 
-More examples of queries and commands can be found in the [Examples](examples.md) section.
-
+More examples of queries and commands can be found in the [Examples](../../examples.md) section.

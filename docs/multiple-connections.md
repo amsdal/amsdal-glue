@@ -1,3 +1,13 @@
+---
+title: Multiple Connections - AMSDAL Glue
+description: AMSDAL Glue Support for multiple simultaneously data connections
+amsdal_docs:
+  target: glue/multiple-connections.md
+  nav_title: Connections
+  nav_section: Glue (ETL)
+  nav_order: 2
+---
+
 # Multiple Connections support
 
 The AMSDAL Glue supports multiple connections to the same or different databases. This is useful when you need to
@@ -8,12 +18,21 @@ connect to multiple databases in the same application.
 The AMSDAL Glue uses a connection manager to manage connections. To get the connection manager, you can use the
 following code:
 
-```python
-from amsdal_glue import Container
-from amsdal_glue.interfaces import ConnectionManager
+=== "Sync"
 
-connection_mng = Container.managers.get(ConnectionManager)
-```
+    ```python
+    from amsdal_glue import Container, ConnectionManager
+
+    connection_mng = Container.managers.get(ConnectionManager)
+    ```
+
+=== "Async"
+
+    ```python
+    from amsdal_glue import Container, AsyncConnectionManager
+
+    connection_mng = Container.managers.get(AsyncConnectionManager)
+    ```
 
 Using the connection manager, you can register new connections, get existing ones, and close them all.
 The connection manager operates with the connection pools.
@@ -23,37 +42,79 @@ The connection manager operates with the connection pools.
 The AMSDAL Glue uses a connection pool to manage connections.
 Here is an example of how to create a connection pool and register it in the connection manager:
 
-```python
-from amsdal_glue import DefaultConnectionPool
-from amsdal_glue import SqliteConnection
-from amsdal_glue import Container
-from amsdal_glue.interfaces import ConnectionManager
+=== "Sync"
 
-sql_connection_pool = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
+    ```python
+    from amsdal_glue import Container, ConnectionManager, DefaultConnectionPool,  SqliteConnection
 
-connection_mng = Container.managers.get(ConnectionManager)
+    sql_connection_pool = DefaultConnectionPool(
+        SqliteConnection,
+        db_path='customers.sqlite',
+        check_same_thread=False
+    )
 
-# Register the connection pool as default one (not related to any schema)
-connection_mng.register_connection_pool(sql_connection_pool)
+    connection_mng = Container.managers.get(ConnectionManager)
 
-# Register the connection pool as 'customers' schema
-connection_mng.register_connection_pool(sql_connection_pool, 'customers')
-```
+    # Register the connection pool as default one (not related to any schema)
+    connection_mng.register_connection_pool(sql_connection_pool)
+
+    # Register the connection pool as 'customers' schema
+    connection_mng.register_connection_pool(sql_connection_pool, 'customers')
+    ```
+
+=== "Async"
+
+    ```python
+    from amsdal_glue import Container, AsyncConnectionManager, DefaultAsyncConnectionPool,  AsyncSqliteConnection
+
+    sql_connection_pool = DefaultAsyncConnectionPool(
+        AsyncSqliteConnection,
+        db_path='customers.sqlite',
+        check_same_thread=False
+    )
+
+    connection_mng = Container.managers.get(AsyncConnectionManager)
+
+    # Register the connection pool as default one (not related to any schema)
+    connection_mng.register_connection_pool(sql_connection_pool)
+
+    # Register the connection pool as 'customers' schema
+    connection_mng.register_connection_pool(sql_connection_pool, 'customers')
+    ```
 
 Now, you can get the connection pool from the connection manager by the schema name:
 
-```python
-from amsdal_glue import DefaultConnectionPool
-from amsdal_glue import SqliteConnection
-from amsdal_glue import Container
-from amsdal_glue.interfaces import ConnectionManager
+=== "Sync"
 
-sql_connection_pool = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
+    ```python
+    from amsdal_glue import Container, ConnectionManager, DefaultConnectionPool, SqliteConnection
 
-connection_mng = Container.managers.get(ConnectionManager)
+    sql_connection_pool = DefaultConnectionPool(
+        SqliteConnection,
+        db_path='customers.sqlite',
+        check_same_thread=False
+    )
 
-sqlite_connection_pool = connection_mng.get_connection_pool('customers')
-```
+    connection_mng = Container.managers.get(ConnectionManager)
+
+    sqlite_connection_pool = connection_mng.get_connection_pool('customers')
+    ```
+
+=== "Async"
+
+    ```python
+    from amsdal_glue import Container, AsyncConnectionManager, DefaultAsyncConnectionPool, AsyncSqliteConnection
+
+    sql_connection_pool = DefaultAsyncConnectionPool(
+        AsyncSqliteConnection,
+        db_path='customers.sqlite',
+        check_same_thread=False
+    )
+
+    connection_mng = Container.managers.get(AsyncConnectionManager)
+
+    sqlite_connection_pool = connection_mng.get_connection_pool('customers')
+    ```
 
 Note, the ConnectionManager is a singleton, so once you register a connection pool, you can get it from any place in
 your application.
@@ -66,23 +127,55 @@ you need to connect to multiple databases in the same application.
 
 Here is an example of how to register multiple connection pools:
 
-```python
-from amsdal_glue import DefaultConnectionPool
-from amsdal_glue import SqliteConnection
-from amsdal_glue import Container
-from amsdal_glue.interfaces import ConnectionManager
+=== "Sync"
 
-sql_customers_db = DefaultConnectionPool(SqliteConnection, db_path='customers.sqlite', check_same_thread=False)
-sql_orders_db = DefaultConnectionPool(SqliteConnection, db_path='orders.sqlite', check_same_thread=False)
+    ```python
+    from amsdal_glue import Container, ConnectionManager, DefaultConnectionPool,  SqliteConnection
 
-connection_mng = Container.managers.get(ConnectionManager)
+    sql_customers_db = DefaultConnectionPool(
+        SqliteConnection,
+        db_path='customers.sqlite',
+        check_same_thread=False
+    )
+    sql_orders_db = DefaultConnectionPool(
+        SqliteConnection,
+        db_path='orders.sqlite',
+        check_same_thread=False
+    )
 
-# Register the sql_customers_db connection pool as default one (not related to any schema)
-connection_mng.register_connection_pool(sql_customers_db)
+    connection_mng = Container.managers.get(ConnectionManager)
 
-# Register the sql_orders_db connection pool as 'orders' schema
-connection_mng.register_connection_pool(sql_orders_db, 'orders')
-```
+    # Register the sql_customers_db connection pool as default one (not related to any schema)
+    connection_mng.register_connection_pool(sql_customers_db)
+
+    # Register the sql_orders_db connection pool as 'orders' schema
+    connection_mng.register_connection_pool(sql_orders_db, 'orders')
+    ```
+
+=== "Async"
+
+    ```python
+    from amsdal_glue import Container, AsyncConnectionManager, DefaultAsyncConnectionPool, AsyncSqliteConnection
+
+    sql_customers_db = DefaultAsyncConnectionPool(
+        AsyncSqliteConnection,
+        db_path='customers.sqlite',
+        check_same_thread=False
+    )
+    sql_orders_db = DefaultAsyncConnectionPool(
+        AsyncSqliteConnection,
+        db_path='orders.sqlite',
+        check_same_thread=False
+    )
+
+    connection_mng = Container.managers.get(AsyncConnectionManager)
+
+    # Register the sql_customers_db connection pool as default one (not related to any schema)
+    connection_mng.register_connection_pool(sql_customers_db)
+
+    # Register the sql_orders_db connection pool as 'orders' schema
+    connection_mng.register_connection_pool(sql_orders_db, 'orders')
+    ```
 
 Now, when you will request the connection pool by the schema name, you will get the corresponding connection pool.
 
@@ -94,15 +187,8 @@ subqueries or joins between tables from different databases.
 Here is an example of how to query multiple databases:
 
 ```python
-from amsdal_glue import Condition
-from amsdal_glue import Conditions
-from amsdal_glue import Field
-from amsdal_glue import FieldReference
-from amsdal_glue import JoinQuery
-from amsdal_glue import QueryStatement
-from amsdal_glue import SchemaReference
-from amsdal_glue import FieldLookup
-from amsdal_glue import Version
+from amsdal_glue import Conditions, Condition, FieldReference, Field
+from amsdal_glue import QueryStatement, JoinQuery, SchemaReference, FieldLookup, Version
 
 query = QueryStatement(
     only=[
@@ -112,10 +198,17 @@ query = QueryStatement(
     table=SchemaReference(name='customers', version=Version.LATEST, alias='c'),
     joins=[
         JoinQuery(
-            table=SchemaReference(name='orders', version=Version.LATEST, alias='o'),
+            table=SchemaReference(
+                name='orders',
+                version=Version.LATEST,
+                alias='o',
+            ),
             on=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                    field=FieldReference(
+                        field=Field(name='customer_id'),
+                        table_name='o',
+                    ),
                     lookup=FieldLookup.EQ,
                     value=FieldReference(field=Field(name='id'), table_name='c'),
                 ),

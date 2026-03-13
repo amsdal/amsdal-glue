@@ -1,33 +1,57 @@
+---
+title: Examples - AMSDAL Glue
+description: AMSDAL Glue example code for for querying data and schemas as well as running data and schema commands
+amsdal_docs:
+  target: glue/examples.md
+  nav_title: Queries & Commands
+  nav_section: Glue (ETL)
+  nav_order: 3
+---
+
 # AMSDAL Glue examples
 
 ## Querying data
 
 The initiation of data querying is predicated on the definition of a query using the
-[QueryStatement](../libs/core/src/amsdal_glue_core/common/data_models/query.py#L17).
+[QueryStatement](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/data_models/query.py#L17).
 
-Then you need to build [DataQueryOperation](../libs/core/src/amsdal_glue_core/common/operations/queries.py#L19) and put
+Then you need to build [DataQueryOperation](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/operations/queries.py#L19) and put
 it to corresponding service:
 
-```python
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.operations.queries import DataQueryOperation
-from amsdal_glue_core.common.services.queries import DataQueryService
-from amsdal_glue_core.containers import Container
+=== "Sync"
 
-query = QueryStatement(...)
-operation = DataQueryOperation(
-    query=query,
-)
-service = Container.services.get(DataQueryService)
-data_result = service.execute(query_op=operation)
-```
+    ```python
+    from amsdal_glue import Container
+    from amsdal_glue import QueryStatement, DataQueryOperation
+    from amsdal_glue.interfaces import DataQueryService
+
+    query = QueryStatement(...)
+    operation = DataQueryOperation(
+        query=query,
+    )
+    service = Container.services.get(DataQueryService)
+    data_result = service.execute(query_op=operation)
+    ```
+
+=== "Async"
+
+    ```python
+    from amsdal_glue import Container
+    from amsdal_glue import QueryStatement, DataQueryOperation
+    from amsdal_glue.interfaces import AsyncDataQueryService
+
+    query = QueryStatement(...)
+    operation = DataQueryOperation(
+        query=query,
+    )
+    service = Container.services.get(AsyncDataQueryService)
+    data_result = await service.execute(query_op=operation)
+    ```
 
 The simplest `SELECT * FROM table` query can be defined as follows:
 
 ```python
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
+from amsdal_glue import QueryStatement, SchemaReference, Version
 
 query = QueryStatement(
     table=SchemaReference(name='table', version=Version.LATEST),
@@ -39,17 +63,9 @@ The next SQL query is a bit more complex, as it includes a `WHERE` clause:
 `SELECT name, 2024 AS year FROM table WHERE age > 18`
 
 ```python
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue import QueryStatement, SchemaReference, Version
+from amsdal_glue import AnnotationQuery, ValueAnnotation, FieldReference, Field
+from amsdal_glue import Conditions, Condition, FieldLookup, Value
 
 query = QueryStatement(
     only=[FieldReference(field=Field(name='name'), table_name='table')],
@@ -72,15 +88,10 @@ Here is an example of a query that includes a `JOIN` clause:
 `SELECT t1.name, t2.age FROM table1 t1 JOIN table2 t2 ON t1.id = t2.id`
 
 ```python
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.join import JoinQuery
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.enums import Version
+from amsdal_glue import QueryStatement, SchemaReference, Version
+from amsdal_glue import JoinQuery, FieldReference, Field
+from amsdal_glue import Conditions, Condition, FieldLookup
+
 
 query = QueryStatement(
     only=[
@@ -108,15 +119,9 @@ The subquery can be defined as follows:
 `SELECT t1.name, (SELECT COUNT(id) FROM books) as books_num FROM (SELECT * FROM table) AS t1`
 
 ```python
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.expressions.aggregation import Count
+from amsdal_glue import QueryStatement, SchemaReference, SubQueryStatement, Version
+from amsdal_glue import AnnotationQuery, AggregationQuery, FieldReference, Field, Count
+
 
 query = QueryStatement(
     only=[
@@ -155,33 +160,52 @@ The DataCommand class is used to execute data mutation operations in the AMSDAL 
 updating, and deleting data.
 
 In order to run a data mutation command, you need to define a mutation operation using one of
-[DataMutation](../libs/core/src/amsdal_glue_core/common/operations/mutations/data.py#L14) subclasses and put it to the
+[DataMutation](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/operations/mutations/data.py#L14) subclasses and put it to the
 corresponding service:
 
-```python
-from amsdal_glue_core.common.data_models.results.data import DataResult
-from amsdal_glue_core.common.operations.commands import DataCommand
-from amsdal_glue_core.common.services.commands import DataCommandService
-from amsdal_glue_core.containers import Container
+=== "Sync"
 
-data_mutation = ...  # Initialize the mutation object
-command = DataCommand(
-    mutations=[
-        data_mutation,
-        ...  # You can pass in multiple mutations in this list
-    ],
-)
-service = Container.services.get(DataCommandService)
-data_result: DataResult = service.execute(command=command)
-```
+    ```python
+    from amsdal_glue import Container
+    from amsdal_glue import DataCommand, DataResult
+    from amsdal_glue.interfaces import DataCommandService
+
+
+    data_mutation = ...  # Initialize the mutation object
+    command = DataCommand(
+        mutations=[
+            data_mutation,
+            ...  # You can pass in multiple mutations in this list
+        ],
+    )
+    service = Container.services.get(DataCommandService)
+    data_result: DataResult = service.execute(command=command)
+    ```
+
+=== "Async"
+
+    ```python
+    from amsdal_glue import Container
+    from amsdal_glue import DataCommand, DataResult
+    from amsdal_glue.interfaces import AsyncDataCommandService
+
+
+    data_mutation = ...  # Initialize the mutation object
+    command = DataCommand(
+        mutations=[
+            data_mutation,
+            ...  # You can pass in multiple mutations in this list
+        ],
+    )
+    service = Container.services.get(AsyncDataCommandService)
+    data_result: DataResult = await service.execute(command=command)
+    ```
 
 Here is an example of inserting data into a table:
 
 ```python
-from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.data import InsertData
+from amsdal_glue import SchemaReference, Version
+from amsdal_glue import InsertData, Data
 
 mutation = InsertData(
     schema=SchemaReference(name='table', version=Version.LATEST),
@@ -213,16 +237,9 @@ VALUES ('John Doe', 30),
 Here is an example of updating data in a table:
 
 ```python
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.expressions.value import Value
-from amsdal_glue_core.common.operations.mutations.data import UpdateData
+from amsdal_glue import SchemaReference, Version
+from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value
+from amsdal_glue import UpdateData, Data
 
 mutation = UpdateData(
     schema=SchemaReference(name='table', version=Version.LATEST),
@@ -252,15 +269,10 @@ WHERE name = 'John Doe';
 Here is an example of deleting data from a table:
 
 ```python
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.expressions.value import Value
-from amsdal_glue_core.common.operations.mutations.data import DeleteData
+from amsdal_glue import SchemaReference, Version
+from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value
+from amsdal_glue import DeleteData
+
 
 mutation = DeleteData(
     schema=SchemaReference(name='table', version=Version.LATEST),
@@ -285,13 +297,12 @@ WHERE name = 'John Doe';
 ## Query schemas
 
 In order to fetch available schemas, you need to define a schema query operation using the
-[SchemaQueryOperation](../libs/core/src/amsdal_glue_core/common/operations/queries.py#L14)
+[SchemaQueryOperation](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/operations/queries.py#L14)
 and put it to the corresponding service:
 
 ```python
-from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
-from amsdal_glue_core.common.services.queries import SchemaQueryService
-from amsdal_glue_core.containers import Container
+from amsdal_glue import Container, SchemaQueryOperation
+from amsdal_glue.interfaces import SchemaQueryService
 
 operation = SchemaQueryOperation(filters=None)
 service = Container.services.get(SchemaQueryService)
@@ -301,13 +312,9 @@ schemas_result = service.execute(query_op=operation)
 You can specify filters to filter schemas by name:
 
 ```python
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.enums import FieldLookup
-from amsdal_glue_core.common.expressions.value import Value
-from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
+from amsdal_glue import SchemaQueryOperation
+from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value
+
 
 # the operation to get all schemas that start with 'user'
 operation = SchemaQueryOperation(
@@ -328,31 +335,46 @@ command pattern used in the project, where each command represents an operation 
 
 Here's an example of how to use SchemaCommand to run schema mutation commands:
 
-```python
-from amsdal_glue_core.common.data_models.results.schema import SchemaResult
-from amsdal_glue_core.common.operations.commands import SchemaCommand
-from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
-from amsdal_glue_core.common.services.commands import SchemaCommandService
-from amsdal_glue_core.containers import Container
+=== "Sync"
 
-mutation: SchemaMutation = ...  # Initialize the mutation object
+    ```python
+    from amsdal_glue import Container, SchemaCommand
+    from amsdal_glue import SchemaResult, SchemaMutation
+    from amsdal_glue.interfaces import SchemaCommandService
 
-command = SchemaCommand(
-    mutations=[mutation]  # You can pass in multiple mutations in this list
-)
-service = Container.services.get(SchemaCommandService)
-schema_result: SchemaResult = service.execute(command=command)
-```
+
+    mutation: SchemaMutation = ...  # Initialize the mutation object
+
+    command = SchemaCommand(
+        mutations=[mutation]  # You can pass in multiple mutations in this list
+    )
+    service = Container.services.get(SchemaCommandService)
+    schema_result: SchemaResult = service.execute(command=command)
+    ```
+
+=== "Async"
+
+    ```python
+    from amsdal_glue import Container, SchemaCommand
+    from amsdal_glue import SchemaResult, SchemaMutation
+    from amsdal_glue.interfaces import AsyncSchemaCommandService
+
+
+    mutation: SchemaMutation = ...  # Initialize the mutation object
+
+    command = SchemaCommand(
+        mutations=[mutation]  # You can pass in multiple mutations in this list
+    )
+    service = Container.services.get(AsyncSchemaCommandService)
+    schema_result: SchemaResult = await service.execute(command=command)
+    ```
 
 Here is an example of creating a new schema:
 
 ```python
-from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.indexes import IndexSchema
-from amsdal_glue_core.common.data_models.schema import PropertySchema
-from amsdal_glue_core.common.data_models.schema import Schema
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+from amsdal_glue import RegisterSchema
+from amsdal_glue import PrimaryKeyConstraint, IndexSchema, Schema, PropertySchema, Version
+
 
 mutation = RegisterSchema(
     schema=Schema(
@@ -389,9 +411,7 @@ CREATE TABLE Person
 Here is an example of renaming an existing schema:
 
 ```python
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
+from amsdal_glue import RenameSchema, SchemaReference, Version
 
 mutation = RenameSchema(
     schema_reference=SchemaReference(name='OldUser', version=Version.LATEST),
@@ -408,10 +428,8 @@ ALTER TABLE OldUser RENAME TO User;
 Here is an example of adding a new property to an existing schema:
 
 ```python
-from amsdal_glue_core.common.data_models.schema import PropertySchema
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import AddProperty
+from amsdal_glue import AddProperty, SchemaReference, PropertySchema, Version
+
 
 mutation = AddProperty(
     schema_reference=SchemaReference(name='User', version=Version.LATEST),
@@ -429,9 +447,8 @@ ALTER TABLE User
 Here is an example of renaming an existing property in a schema:
 
 ```python
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
+from amsdal_glue import RenameProperty, SchemaReference, Version
+
 
 mutation = RenameProperty(
     schema_reference=SchemaReference(name='User', version=Version.LATEST),
@@ -450,9 +467,8 @@ ALTER TABLE User
 Here is an example of removing an existing property from a schema:
 
 ```python
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import DeleteProperty
+from amsdal_glue import DeleteProperty, SchemaReference, Version
+
 
 mutation = DeleteProperty(
     schema_reference=SchemaReference(name='User', version=Version.LATEST),
@@ -471,10 +487,8 @@ COLUMN email_address;
 Here is an example of adding a new constraint to an existing schema:
 
 ```python
-from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
+from amsdal_glue import AddConstraint, SchemaReference, Version, UniqueConstraint
+
 
 mutation = AddConstraint(
     schema_reference=SchemaReference(name='User', version=Version.LATEST),
@@ -492,9 +506,8 @@ ALTER TABLE User
 Here is an example of removing an existing constraint from a schema:
 
 ```python
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
+from amsdal_glue import DeleteConstraint, SchemaReference, Version
+
 
 mutation = DeleteConstraint(
     schema_reference=SchemaReference(name='User', version=Version.LATEST),
@@ -513,10 +526,8 @@ CONSTRAINT uk_user_email;
 Here is an example of adding a new index to an existing schema:
 
 ```python
-from amsdal_glue_core.common.data_models.indexes import IndexSchema
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import AddIndex
+from amsdal_glue import AddIndex, SchemaReference, Version, IndexSchema
+
 
 mutation = AddIndex(
     schema_reference=SchemaReference(name='User', version=Version.LATEST),
@@ -534,9 +545,7 @@ CREATE INDEX idx_user_email
 Here is an example of removing an existing index from a schema:
 
 ```python
-from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.mutations.schema import DeleteIndex
+from amsdal_glue import DeleteIndex, SchemaReference, Version
 
 mutation = DeleteIndex(
     schema_reference=SchemaReference(name='User', version=Version.LATEST),
@@ -549,4 +558,3 @@ The SQL equivalent of the above command can be represented as:
 ```sql
 DROP INDEX idx_user_email;
 ```
-
