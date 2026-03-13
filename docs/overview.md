@@ -1,6 +1,6 @@
 ---
 title: AMSDAL Glue Project Overview
-description: The AMSDAL Glue project is a comprehensive Python interface that includes three main packages: `amsdal-glue-core`, `amsdal-glue-connections`, and `amsdal-glue`. These packages work together to provide a high-level abstraction for interacting with multiple databases simultaneously, simplifying the development and maintenance process of database-related tasks in Python applications.
+description: "The AMSDAL Glue project is a comprehensive Python interface that includes three main packages: amsdal-glue-core, amsdal-glue-connections, and amsdal-glue. These packages work together to provide a high-level abstraction for interacting with multiple databases simultaneously, simplifying the development and maintenance process of database-related tasks in Python applications."
 amsdal_docs:
   target: glue/api/architecture/architecture.md
   nav_title: Architecture

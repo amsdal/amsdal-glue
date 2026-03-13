@@ -1,5 +1,5 @@
 ---
-title: AMSDAL Glue: a Python ETL library
+title: "AMSDAL Glue: a Python ETL library"
 description: AMSDAL Glue is a flexible, lightweight, powerful and easy to use opensource ETL interface, built on top of the Python programming language.
 amsdal_docs:
   target: glue/background.md
