@@ -55,6 +55,7 @@ from amsdal_glue_core.common.expressions.func import Func
 from amsdal_glue_core.common.expressions.jsonb_array import JsonbArrayExpression
 from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import LockSchemaReference
@@ -78,6 +79,8 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
+from amsdal_glue_core.common.services.queries import AsyncDataQueryService
+from amsdal_glue_core.common.services.queries import DataQueryService
 from amsdal_glue_core.containers import Container
 from amsdal_glue_core.containers import Singleton
 
@@ -98,6 +101,8 @@ __all__ = [
     'AnnotationQuery',
     'AsyncPostgresConnection',
     'AsyncSqliteConnection',
+    'AsyncDataQueryService',
+    'AsyncConnectionManager',
     'Avg',
     'ChangeSchema',
     'CheckConstraint',
@@ -109,6 +114,7 @@ __all__ = [
     'CsvConnection',
     'Data',
     'DataCommand',
+    'DataQueryService',
     'DataQueryOperation',
     'DataResult',
     'DefaultAsyncConnectionManager',

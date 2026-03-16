@@ -61,7 +61,7 @@ the `postgres` or `postgres-binary` extra dependency:
 ```bash
 # It will install the `psycopg` package, usually it will build from source, that is slower than the `postgres-binary`
 # package, but it is recommended for production use.
-pip install amsdal-glue[postgres]
+pip install amsdal-glue[postgres-c]
 
 # Or you can install the `psycopg-binary` dependency, it is faster than the `psycopg` package installation.
 pip install amsdal-glue[postgres-binary]
@@ -160,7 +160,7 @@ Here is a simple example of how to use the `amsdal-glue` package to connect to a
             amsdal_glue.DefaultAsyncConnectionPool(
                 amsdal_glue.AsyncSqliteConnection,
                 db_path='customers.sqlite',
-                check_same_thread=False,  # The default parallel executor works on top of threads
+                check_same_thread=False,
             ),
         )
 

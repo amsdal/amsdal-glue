@@ -187,7 +187,7 @@ subqueries or joins between tables from different databases.
 Here is an example of how to query multiple databases:
 
 ```python
-from amsdal_glue import Conditions, Condition, FieldReference, Field
+from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldReferenceExpression
 from amsdal_glue import QueryStatement, JoinQuery, SchemaReference, FieldLookup, Version
 
 query = QueryStatement(
@@ -205,12 +205,12 @@ query = QueryStatement(
             ),
             on=Conditions(
                 Condition(
-                    field=FieldReference(
+                    left=FieldReferenceExpression(field_reference=FieldReference(
                         field=Field(name='customer_id'),
                         table_name='o',
-                    ),
+                    )),
                     lookup=FieldLookup.EQ,
-                    value=FieldReference(field=Field(name='id'), table_name='c'),
+                    right=FieldReferenceExpression(field_reference=FieldReference(field=Field(name='id'), table_name='c')),
                 ),
             ),
         ),

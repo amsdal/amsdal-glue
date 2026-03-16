@@ -15,7 +15,7 @@ amsdal_docs:
 The initiation of data querying is predicated on the definition of a query using the
 [QueryStatement](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/data_models/query.py#L17).
 
-Then you need to build [DataQueryOperation](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/operations/queries.py#L19) and put
+Then you need to build [DataQueryOperation](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/operations/queries.py#L25) and put
 it to corresponding service:
 
 === "Sync"
@@ -65,7 +65,7 @@ The next SQL query is a bit more complex, as it includes a `WHERE` clause:
 ```python
 from amsdal_glue import QueryStatement, SchemaReference, Version
 from amsdal_glue import AnnotationQuery, ValueAnnotation, FieldReference, Field
-from amsdal_glue import Conditions, Condition, FieldLookup, Value
+from amsdal_glue import Conditions, Condition, FieldLookup, Value, FieldReferenceExpression
 
 query = QueryStatement(
     only=[FieldReference(field=Field(name='name'), table_name='table')],
@@ -75,9 +75,9 @@ query = QueryStatement(
     ],
     where=Conditions(
         Condition(
-            field=FieldReference(field=Field(name='age'), table_name='table'),
+            left=FieldReferenceExpression(field_reference=FieldReference(field=Field(name='age'), table_name='table')),
             lookup=FieldLookup.GT,
-            value=Value(18),
+            right=Value(18),
         ),
     ),
 )
@@ -90,7 +90,7 @@ Here is an example of a query that includes a `JOIN` clause:
 ```python
 from amsdal_glue import QueryStatement, SchemaReference, Version
 from amsdal_glue import JoinQuery, FieldReference, Field
-from amsdal_glue import Conditions, Condition, FieldLookup
+from amsdal_glue import Conditions, Condition, FieldLookup, FieldReferenceExpression
 
 
 query = QueryStatement(
@@ -104,9 +104,9 @@ query = QueryStatement(
             table=SchemaReference(name='table2', version=Version.LATEST, alias='t2'),
             on=Conditions(
                 Condition(
-                    field=FieldReference(field=Field(name='id'), table_name='t1'),
+                    left=FieldReferenceExpression(field_reference=FieldReference(field=Field(name='id'), table_name='t1')),
                     lookup=FieldLookup.EQ,
-                    value=FieldReference(field=Field(name='id'), table_name='t2'),
+                    right=FieldReferenceExpression(field_reference=FieldReference(field=Field(name='id'), table_name='t2')),
                 ),
             ),
         ),
@@ -160,7 +160,7 @@ The DataCommand class is used to execute data mutation operations in the AMSDAL 
 updating, and deleting data.
 
 In order to run a data mutation command, you need to define a mutation operation using one of
-[DataMutation](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/operations/mutations/data.py#L14) subclasses and put it to the
+[DataMutation](https://github.com/amsdal/amsdal-glue/blob/main/libs/core/src/amsdal_glue_core/common/operations/mutations/data.py#L10) subclasses and put it to the
 corresponding service:
 
 === "Sync"
@@ -238,7 +238,7 @@ Here is an example of updating data in a table:
 
 ```python
 from amsdal_glue import SchemaReference, Version
-from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value
+from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value, FieldReferenceExpression
 from amsdal_glue import UpdateData, Data
 
 mutation = UpdateData(
@@ -250,9 +250,9 @@ mutation = UpdateData(
     ),
     query=Conditions(
         Condition(
-            field=FieldReference(field=Field(name='name'), table_name='table'),
+            left=FieldReferenceExpression(field_reference=FieldReference(field=Field(name='name'), table_name='table')),
             lookup=FieldLookup.EQ,
-            value=Value('John Doe'),
+            right=Value('John Doe'),
         ),
     ),
 )
@@ -270,7 +270,7 @@ Here is an example of deleting data from a table:
 
 ```python
 from amsdal_glue import SchemaReference, Version
-from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value
+from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value, FieldReferenceExpression
 from amsdal_glue import DeleteData
 
 
@@ -278,9 +278,9 @@ mutation = DeleteData(
     schema=SchemaReference(name='table', version=Version.LATEST),
     query=Conditions(
         Condition(
-            field=FieldReference(field=Field(name='name'), table_name='table'),
+            left=FieldReferenceExpression(field_reference=FieldReference(field=Field(name='name'), table_name='table')),
             lookup=FieldLookup.EQ,
-            value=Value('John Doe'),
+            right=Value('John Doe'),
         ),
     ),
 )
@@ -313,16 +313,16 @@ You can specify filters to filter schemas by name:
 
 ```python
 from amsdal_glue import SchemaQueryOperation
-from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value
+from amsdal_glue import Conditions, Condition, FieldReference, Field, FieldLookup, Value, FieldReferenceExpression
 
 
 # the operation to get all schemas that start with 'user'
 operation = SchemaQueryOperation(
     filters=Conditions(
         Condition(
-            field=FieldReference(field=Field(name='name'), table_name=''),
+            left=FieldReferenceExpression(field_reference=FieldReference(field=Field(name='name'), table_name='')),
             lookup=FieldLookup.STARTSWITH,
-            value=Value('user'),
+            right=Value('user'),
         )
     ),
 )

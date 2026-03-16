@@ -1,6 +1,6 @@
 ---
 title: Benchmarking - AMSDAL Glue
-description: AMSDAL Glue is designed to be highly performant. At it's core (amsdal-glue-core) is simply provides you a common interface to interact with all of your data, allowing you to delegate as much of the workload to the underlying database technology as possible.
+description: AMSDAL Glue is designed to be highly performant. At its core (amsdal-glue-core) it simply provides you a common interface to interact with all of your data, allowing you to delegate as much of the workload to the underlying database technology as possible.
 amsdal_docs:
   target: glue/benchmarking.md
   nav_title: Benchmarking
@@ -10,7 +10,7 @@ amsdal_docs:
 
 # AMSDAL Glue Benchmarking
 
-AMSDAL Glue is designed to be highly performant. At it's core (amsdal-glue-core) is simply provides you a common interface to interact with all of your data, allowing you to delegate as much of the workload to the underlying database technology as possible.
+AMSDAL Glue is designed to be highly performant. At its core (amsdal-glue-core) it simply provides you a common interface to interact with all of your data, allowing you to delegate as much of the workload to the underlying database technology as possible.
 
 **Benchmarking**
 
