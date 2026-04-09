@@ -1,5 +1,6 @@
 from copy import copy
 from dataclasses import dataclass
+from typing import Any
 
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -12,9 +13,11 @@ class DataMutation:
 
     Attributes:
         schema (SchemaReference): The schema reference associated with the data mutation.
+        metadata (dict[str, Any] | None): Optional metadata for passing additional context through the pipeline.
     """
 
     schema: SchemaReference
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass(kw_only=True)
@@ -28,7 +31,11 @@ class InsertData(DataMutation):
     data: list[Data]
 
     def __copy__(self):
-        return InsertData(schema=copy(self.schema), data=[copy(data) for data in self.data])
+        return InsertData(
+            schema=copy(self.schema),
+            data=[copy(data) for data in self.data],
+            metadata=copy(self.metadata) if self.metadata else None,
+        )
 
 
 @dataclass(kw_only=True)
@@ -45,7 +52,10 @@ class UpdateData(DataMutation):
 
     def __copy__(self):
         return UpdateData(
-            schema=copy(self.schema), data=copy(self.data), query=copy(self.query) if self.query else None
+            schema=copy(self.schema),
+            data=copy(self.data),
+            query=copy(self.query) if self.query else None,
+            metadata=copy(self.metadata) if self.metadata else None,
         )
 
 
@@ -60,4 +70,8 @@ class DeleteData(DataMutation):
     query: Conditions | None = None
 
     def __copy__(self):
-        return DeleteData(schema=copy(self.schema), query=copy(self.query) if self.query else None)
+        return DeleteData(
+            schema=copy(self.schema),
+            query=copy(self.query) if self.query else None,
+            metadata=copy(self.metadata) if self.metadata else None,
+        )
