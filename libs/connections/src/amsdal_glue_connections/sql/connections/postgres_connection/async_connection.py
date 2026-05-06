@@ -15,6 +15,8 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.exceptions import AmsdalGlueError
+from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
@@ -277,6 +279,8 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
 
         try:
             await self.execute(_stmt, *_params)
+        except AmsdalGlueError:
+            raise
         except Exception as exc:
             logger.debug('Error executing mutation: %s with params: %s', _stmt, _params)
             msg = f'Mutation failed: {exc}'
@@ -322,6 +326,8 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
                 self._queries.append(query)
 
             cursor = await self.connection.execute(query, args)
+        except psycopg.errors.UniqueViolation as exc:
+            raise UniqueViolationError(str(exc)) from exc
         except psycopg.Error as exc:
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc

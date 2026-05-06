@@ -1,5 +1,5 @@
-## [v0.1.23](https://pypi.org/project/amsdal-glue-connections/0.1.23/) - 2026-01-13
+## [v0.1.24](https://pypi.org/project/amsdal-glue-connections/0.1.24/) - 2026-05-06
 
-### Fixed
+### Changed
 
-- Fix for creating index in postgres
+- Postgres and SQLite (sync + async) connections now raise `UniqueViolationError` on unique constraint violations.
