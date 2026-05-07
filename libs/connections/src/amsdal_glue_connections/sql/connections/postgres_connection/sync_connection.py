@@ -275,6 +275,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         try:
             self.execute(_stmt, *_params)
         except AmsdalGlueError:
+            # Typed glue errors (e.g. UniqueViolationError) bubble unchanged.
             raise
         except Exception as exc:
             msg = f'Mutation failed: {exc}'

@@ -41,6 +41,54 @@ def test_build_sql_query_simple() -> None:
     assert value == []
 
 
+def test_build_sql_query_pg_regex_uses_tilde_operator() -> None:
+    """Postgres uses `~` / `~*` for regex matching, NOT `REGEXP`
+    (`REGEXP` is SQLite/MySQL syntax and raises a syntax error on Postgres)."""
+    sql, value = build_sql_query(
+        query=QueryStatement(
+            table=SchemaReference(name='users', version=Version.LATEST),
+            where=Conditions(
+                Condition(
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='title'), table_name='users'),
+                    ),
+                    lookup=FieldLookup.REGEX,
+                    right=Value(value='^foo'),
+                ),
+            ),
+        ),
+        transform=get_pg_transform(),
+    )
+
+    assert 'REGEXP' not in sql
+    assert ' ~ ' in sql
+    assert value == ['^foo']
+
+
+def test_build_sql_query_pg_iregex_uses_case_insensitive_tilde_operator() -> None:
+    """`IREGEX` maps to Postgres `~*` (case-insensitive regex), without lowering
+    the regex pattern itself — that would corrupt metacharacters like `\\D`."""
+    sql, value = build_sql_query(
+        query=QueryStatement(
+            table=SchemaReference(name='users', version=Version.LATEST),
+            where=Conditions(
+                Condition(
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='title'), table_name='users'),
+                    ),
+                    lookup=FieldLookup.IREGEX,
+                    right=Value(value='(FREE RMD|Market Value)'),
+                ),
+            ),
+        ),
+        transform=get_pg_transform(),
+    )
+
+    assert 'REGEXP' not in sql
+    assert ' ~* ' in sql
+    assert value == ['(FREE RMD|Market Value)']
+
+
 def test_build_sql_query_simple__only() -> None:
     sql, value = build_sql_query(
         query=QueryStatement(

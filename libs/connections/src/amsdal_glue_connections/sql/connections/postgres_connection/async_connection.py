@@ -280,6 +280,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         try:
             await self.execute(_stmt, *_params)
         except AmsdalGlueError:
+            # Typed glue errors (e.g. UniqueViolationError) bubble unchanged.
             raise
         except Exception as exc:
             logger.debug('Error executing mutation: %s with params: %s', _stmt, _params)
