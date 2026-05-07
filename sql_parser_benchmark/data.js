@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775749762581,
+  "lastUpdate": 1778163122061,
   "repoUrl": "https://github.com/amsdal/amsdal-glue",
   "entries": {
     "SQL Parser Benchmark": [
@@ -21516,6 +21516,478 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 5.664947393470796e-7",
             "extra": "mean: 2.393754121344488 usec\nrounds: 64903"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "emil.temirov@litslink.com",
+            "name": "Emil Temirov",
+            "username": "emilt27"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b1f9d9c6c614289e6880c5f86dfdc71f953ac135",
+          "message": "Merge pull request #114 from amsdal/feature/unique-violation-error\n\nRelease amsdal-glue-core v0.1.10 + amsdal-glue-connections v0.1.24",
+          "timestamp": "2026-05-07T17:11:22+03:00",
+          "tree_id": "0f35bfe788fd92fa3de5c258f16318795945111c",
+          "url": "https://github.com/amsdal/amsdal-glue/commit/b1f9d9c6c614289e6880c5f86dfdc71f953ac135"
+        },
+        "date": 1778163121059,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_data_mutations.py::test_simple_insert_command",
+            "value": 70816.88239975089,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007633799837777634",
+            "extra": "mean: 14.12092662248455 usec\nrounds: 61"
+          },
+          {
+            "name": "tests/test_data_mutations.py::test_multiple_inserts",
+            "value": 63443.83397952508,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023475385564212376",
+            "extra": "mean: 15.761973028343858 usec\nrounds: 22467"
+          },
+          {
+            "name": "tests/test_data_mutations.py::test_simple_update_command",
+            "value": 90454.78626479219,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001780190134708231",
+            "extra": "mean: 11.055246950367634 usec\nrounds: 8037"
+          },
+          {
+            "name": "tests/test_data_mutations.py::test_simple_update_command_condition",
+            "value": 55131.977364251245,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023686345143266584",
+            "extra": "mean: 18.138293741817098 usec\nrounds: 10142"
+          },
+          {
+            "name": "tests/test_data_mutations.py::test_simple_delete_command",
+            "value": 178239.27496746232,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010452804977239642",
+            "extra": "mean: 5.6104357481399685 usec\nrounds: 27634"
+          },
+          {
+            "name": "tests/test_data_mutations.py::test_simple_delete_command_condition",
+            "value": 73483.07706578524,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002206396657252872",
+            "extra": "mean: 13.60857546976097 usec\nrounds: 12168"
+          },
+          {
+            "name": "tests/test_query_command.py::test_simple_query_command",
+            "value": 100603.22688594092,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000015335645552526167",
+            "extra": "mean: 9.94003901220536 usec\nrounds: 8675"
+          },
+          {
+            "name": "tests/test_query_command.py::test_only_select_query_command",
+            "value": 64391.679649192716,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000024501172408620766",
+            "extra": "mean: 15.529956749816467 usec\nrounds: 12341"
+          },
+          {
+            "name": "tests/test_query_command.py::test_conditions",
+            "value": 20105.453586566637,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004844416145585737",
+            "extra": "mean: 49.73774880006414 usec\nrounds: 6707"
+          },
+          {
+            "name": "tests/test_query_command.py::test_simple_alias",
+            "value": 39054.96220412211,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003238905002885264",
+            "extra": "mean: 25.604940923344525 usec\nrounds: 11639"
+          },
+          {
+            "name": "tests/test_query_command.py::test_simple_join",
+            "value": 24367.143322377746,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004720137228834915",
+            "extra": "mean: 41.038868888731926 usec\nrounds: 7750"
+          },
+          {
+            "name": "tests/test_query_command.py::test_multiple_joins",
+            "value": 17105.440731607876,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000060014645350490515",
+            "extra": "mean: 58.460931565018036 usec\nrounds: 683"
+          },
+          {
+            "name": "tests/test_query_command.py::test_query_ordering",
+            "value": 13547.93560247923,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006568423470271987",
+            "extra": "mean: 73.81198356279485 usec\nrounds: 6636"
+          },
+          {
+            "name": "tests/test_query_command.py::test_simple_query_limit",
+            "value": 80412.18714083158,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001854064471472334",
+            "extra": "mean: 12.435925890793504 usec\nrounds: 18247"
+          },
+          {
+            "name": "tests/test_query_command.py::test_simple_query_limit_offset",
+            "value": 71470.41301321067,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000021684262260151525",
+            "extra": "mean: 13.991803850569031 usec\nrounds: 18891"
+          },
+          {
+            "name": "tests/test_query_command.py::test_simple_group_by",
+            "value": 34328.01120846427,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000035057860244905495",
+            "extra": "mean: 29.13072924403583 usec\nrounds: 9112"
+          },
+          {
+            "name": "tests/test_query_command.py::test_simple_aggregate",
+            "value": 17080.12826950534,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000565219576408008",
+            "extra": "mean: 58.547569679871096 usec\nrounds: 5633"
+          },
+          {
+            "name": "tests/test_query_command.py::test_aggregation_with_joins",
+            "value": 20662.438059032724,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000530441783456707",
+            "extra": "mean: 48.39699928648271 usec\nrounds: 7476"
+          },
+          {
+            "name": "tests/test_query_command.py::test_simple_annotation",
+            "value": 24342.402891308175,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004373989129637657",
+            "extra": "mean: 41.080578793520225 usec\nrounds: 8541"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_distinct_single_field",
+            "value": 80798.24944424733,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000016745511776578836",
+            "extra": "mean: 12.37650576439807 usec\nrounds: 19811"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_distinct_on",
+            "value": 57679.76865232345,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000021433112849422294",
+            "extra": "mean: 17.337101437207618 usec\nrounds: 16575"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_distinct_multiple_fields",
+            "value": 68414.42063992514,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000019092155657173563",
+            "extra": "mean: 14.616801408918489 usec\nrounds: 19973"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_distinct_on_multiple_fields",
+            "value": 53543.730714039266,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022542731307867393",
+            "extra": "mean: 18.676322823687705 usec\nrounds: 18392"
+          },
+          {
+            "name": "tests/test_query_command.py::test_join_subquery_simple",
+            "value": 26045.078685428995,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004530189151713582",
+            "extra": "mean: 38.39496943272639 usec\nrounds: 7599"
+          },
+          {
+            "name": "tests/test_query_command.py::test_from_subquery",
+            "value": 23577.874021786316,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000485996803983515",
+            "extra": "mean: 42.41264496858303 usec\nrounds: 8528"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_aliased_query",
+            "value": 65843.12819219456,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000019369706103474463",
+            "extra": "mean: 15.18761376405178 usec\nrounds: 17259"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_aggregation_aliased_query",
+            "value": 50853.79717559436,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025471170389863698",
+            "extra": "mean: 19.664214975866496 usec\nrounds: 11846"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression[---]",
+            "value": 48015.5219016098,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023900198538612283",
+            "extra": "mean: 20.826598574709514 usec\nrounds: 11930"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression[+-+]",
+            "value": 48506.37063893573,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027119247326109693",
+            "extra": "mean: 20.615848739614975 usec\nrounds: 13491"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression[/-/]",
+            "value": 47555.39959035118,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003274259682290062",
+            "extra": "mean: 21.02810634784144 usec\nrounds: 14246"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression[*-*]",
+            "value": 47946.95048187756,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026078361806107224",
+            "extra": "mean: 20.856383773102912 usec\nrounds: 14512"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression[%-%]",
+            "value": 48507.87865819021,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002694710203760892",
+            "extra": "mean: 20.61520783142219 usec\nrounds: 14679"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression[^-^]",
+            "value": 48368.0641136641,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025785159528141526",
+            "extra": "mean: 20.674798926209196 usec\nrounds: 14471"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression[&-&]",
+            "value": 48408.33656058968,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026132918692378283",
+            "extra": "mean: 20.657598898246846 usec\nrounds: 14484"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression[|-|]",
+            "value": 47568.33303938317,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027021403409378587",
+            "extra": "mean: 21.022388974027567 usec\nrounds: 12001"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_math_expression_mixed",
+            "value": 47795.66183831479,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026830180754677977",
+            "extra": "mean: 20.922400936362024 usec\nrounds: 12061"
+          },
+          {
+            "name": "tests/test_query_command.py::test_complex_math_mixed",
+            "value": 32318.10085242517,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000036352294533181858",
+            "extra": "mean: 30.942412258886165 usec\nrounds: 10359"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_pow_expression",
+            "value": 42776.0994073257,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000029905329808345093",
+            "extra": "mean: 23.37754058587079 usec\nrounds: 12928"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_power_mixed",
+            "value": 44257.86202773209,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002891637213444571",
+            "extra": "mean: 22.594855562010597 usec\nrounds: 11684"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_value_expression[10-10]",
+            "value": 67225.84156883947,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002055261873756813",
+            "extra": "mean: 14.875232152742882 usec\nrounds: 17520"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_value_expression[20.5-20.5]",
+            "value": 61849.31192262181,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000022674278713991694",
+            "extra": "mean: 16.168328618612215 usec\nrounds: 17070"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_value_expression['Hello'-Hello]",
+            "value": 67408.98990207672,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002110990423772115",
+            "extra": "mean: 14.83481656456615 usec\nrounds: 15350"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_value_expression[TRUE-True]",
+            "value": 66852.9994707687,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000020530940106213833",
+            "extra": "mean: 14.958191972182899 usec\nrounds: 18364"
+          },
+          {
+            "name": "tests/test_query_command.py::test_select_nested_value_expression",
+            "value": 56656.57741586215,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002353909388881376",
+            "extra": "mean: 17.65020136426437 usec\nrounds: 14431"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_simple_create_table_command",
+            "value": 42620.24917363864,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003204612990668481",
+            "extra": "mean: 23.463025660077964 usec\nrounds: 513"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_simple_create_table_primary_key",
+            "value": 48572.695958918805,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023385379241533677",
+            "extra": "mean: 20.587698093714366 usec\nrounds: 10463"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_simple_create_table_explicit_constraints",
+            "value": 27382.36222225701,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004233306256045093",
+            "extra": "mean: 36.51985872815521 usec\nrounds: 7220"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_simple_create_table_explicit_named_constraints",
+            "value": 25260.270409642966,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004470223684091187",
+            "extra": "mean: 39.58785807844146 usec\nrounds: 8464"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_create_index",
+            "value": 126057.52988840437,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000013011890115288564",
+            "extra": "mean: 7.932885888572269 usec\nrounds: 23959"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_create_index_multi_column",
+            "value": 102632.76538327699,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000014258335477584335",
+            "extra": "mean: 9.743477107584011 usec\nrounds: 32010"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_update_schema_add_property",
+            "value": 129193.12127727024,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000003327993257237308",
+            "extra": "mean: 7.740350183612572 usec\nrounds: 835"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_update_schema_drop_property",
+            "value": 171472.26972468145,
+            "unit": "iter/sec",
+            "range": "stddev: 9.674060356898796e-7",
+            "extra": "mean: 5.831846756362505 usec\nrounds: 38131"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_update_schema_rename_property",
+            "value": 155924.62136112087,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000010376804036633183",
+            "extra": "mean: 6.4133553204788845 usec\nrounds: 31455"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_update_schema_rename_table",
+            "value": 176233.67714245306,
+            "unit": "iter/sec",
+            "range": "stddev: 9.988360336749968e-7",
+            "extra": "mean: 5.674284371832523 usec\nrounds: 35754"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_delete_schema",
+            "value": 240367.46191833433,
+            "unit": "iter/sec",
+            "range": "stddev: 9.133724820422399e-7",
+            "extra": "mean: 4.160296872210405 usec\nrounds: 38359"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_add_pk_constraint",
+            "value": 106361.3824423542,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001470458210397917",
+            "extra": "mean: 9.401908634856083 usec\nrounds: 17153"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_delete_constraint",
+            "value": 154505.04020938143,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000014601811390790789",
+            "extra": "mean: 6.472280766017888 usec\nrounds: 34301"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_fetch_schemas",
+            "value": 94424.54100131724,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001484535323357397",
+            "extra": "mean: 10.590467153936705 usec\nrounds: 10858"
+          },
+          {
+            "name": "tests/test_schema_operations.py::test_fetch_schemas_conditions",
+            "value": 55230.443204702824,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000237431962404133",
+            "extra": "mean: 18.105956461251985 usec\nrounds: 9249"
+          },
+          {
+            "name": "tests/test_transaction_operations.py::test_begin_command",
+            "value": 382494.6786788759,
+            "unit": "iter/sec",
+            "range": "stddev: 6.317678646553699e-7",
+            "extra": "mean: 2.614415456586134 usec\nrounds: 10414"
+          },
+          {
+            "name": "tests/test_transaction_operations.py::test_begin_nested_transaction_command",
+            "value": 308287.2915437603,
+            "unit": "iter/sec",
+            "range": "stddev: 6.720251583643016e-7",
+            "extra": "mean: 3.243727611970192 usec\nrounds: 63732"
+          },
+          {
+            "name": "tests/test_transaction_operations.py::test_rollback_transaction_command",
+            "value": 374007.2442116342,
+            "unit": "iter/sec",
+            "range": "stddev: 8.433031604709564e-7",
+            "extra": "mean: 2.673745002206813 usec\nrounds: 50213"
+          },
+          {
+            "name": "tests/test_transaction_operations.py::test_rollback_nested_transaction_command",
+            "value": 255070.8928798252,
+            "unit": "iter/sec",
+            "range": "stddev: 7.55283781130614e-7",
+            "extra": "mean: 3.9204786900994724 usec\nrounds: 48194"
+          },
+          {
+            "name": "tests/test_transaction_operations.py::test_commit_transaction",
+            "value": 415688.0812075494,
+            "unit": "iter/sec",
+            "range": "stddev: 5.629863476538359e-7",
+            "extra": "mean: 2.405649921679397 usec\nrounds: 67924"
           }
         ]
       }
