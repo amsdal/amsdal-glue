@@ -20,6 +20,8 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.exceptions import AmsdalGlueError
+from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
@@ -253,6 +255,9 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         try:
             await self.execute(_stmt, *_params)
+        except AmsdalGlueError:
+            # Typed glue errors (e.g. UniqueViolationError) bubble unchanged.
+            raise
         except Exception as exc:
             msg = f'Mutation failed: {exc}'
             raise ConnectionError(msg) from exc
@@ -307,6 +312,11 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                 self._queries.append(query)
 
             await cursor.execute(query, args)
+        except aiosqlite.IntegrityError as exc:
+            if 'UNIQUE constraint failed' in str(exc):
+                raise UniqueViolationError(str(exc)) from exc
+            msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
+            raise ConnectionError(msg) from exc
         except aiosqlite.Error as exc:
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc

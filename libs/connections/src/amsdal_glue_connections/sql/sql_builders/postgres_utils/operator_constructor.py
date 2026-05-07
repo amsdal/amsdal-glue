@@ -103,10 +103,9 @@ def pg_operator_constructor(  # noqa: C901, PLR0912, PLR0915
             _null_value = transform.apply(TransformTypes.NULL_VALUE)
             right_stmt = f'IS {_null_value}' if right.value else f'IS NOT {_null_value}'  # type: ignore[union-attr]
         case FieldLookup.REGEX:
-            right_stmt = f'REGEXP {right_stmt}'
+            right_stmt = f'~ {right_stmt}'
         case FieldLookup.IREGEX:
-            left_stmt = f'LOWER({left_stmt})'
-            right_stmt = f'REGEXP {right_stmt.lower()}'
+            right_stmt = f'~* {right_stmt}'
         case _:
             msg = f'{lookup} not supported'
             raise ValueError(msg)
