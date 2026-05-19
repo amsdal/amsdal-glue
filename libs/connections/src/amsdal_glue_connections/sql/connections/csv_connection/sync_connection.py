@@ -321,7 +321,7 @@ class CsvConnection(ConnectionBase):
                     for agg in query.aggregations:
                         field_name = agg.expression.field.field.name
                         table_name = agg.expression.field.table_name
-                        alias = agg.alias if agg.alias else field_name
+                        alias = agg.alias or field_name
 
                         # Find the actual column name in the DataFrame
                         actual_field_name = self._find_column_for_field(df, field_name, table_name)

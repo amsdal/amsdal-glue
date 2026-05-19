@@ -128,3 +128,17 @@ def test_and_conditions_flatten() -> None:
         Conditions(c2, c2_n, connector=FilterConnector.AND),
         connector=FilterConnector.OR,
     )
+
+
+def test_root_negated_survives_construction() -> None:
+    """`negated=True` on construction is preserved when no nested Conditions to absorb into."""
+    field_a = FieldReferenceExpression(field_reference=FieldReference(field=Field(name='a'), table_name='t'))
+    field_b = FieldReferenceExpression(field_reference=FieldReference(field=Field(name='b'), table_name='t'))
+    c = Conditions(
+        Condition(left=field_a, lookup=FieldLookup.EQ, right=Value(value=1)),
+        Condition(left=field_b, lookup=FieldLookup.EQ, right=Value(value=2)),
+        negated=True,
+    )
+
+    assert c.negated is True
+    assert len(c.children) == 2

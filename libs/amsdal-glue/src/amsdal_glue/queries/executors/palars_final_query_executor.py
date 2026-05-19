@@ -6,6 +6,7 @@ from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_t
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
+from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -302,6 +303,10 @@ class PolarsFinalQueryDataExecutorMixin:
             if isinstance(condition, Conditions):
                 _stmt.append(f'({self._sql_build_conditions(condition)})')
                 continue
+
+            if not isinstance(condition, Condition):
+                msg = f'Cross-database query does not support Expression child: {type(condition).__name__}'
+                raise NotImplementedError(msg)
 
             _stmt.append(
                 polars_operator_constructor(

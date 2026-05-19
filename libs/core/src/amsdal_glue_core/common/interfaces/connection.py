@@ -150,6 +150,19 @@ class ConnectionBase(Connectable, ABC):
         """
         ...
 
+    @property
+    def queries_params(self) -> list[tuple[Any, ...]]:
+        """
+        Returns the parameters bound to each captured query, aligned by index with ``queries``.
+
+        Default implementation returns an empty list; concrete connections that capture
+        bound parameters should override this property.
+
+        Returns:
+            list[tuple[Any, ...]]: The query parameters, in the same order as ``queries``.
+        """
+        return []
+
 
 class AsyncConnectionBase(AsyncConnectable, ABC):
     """Abstract base class for async database connections."""
@@ -286,3 +299,16 @@ class AsyncConnectionBase(AsyncConnectable, ABC):
             list[str]: The queries executed.
         """
         ...
+
+    @property
+    def queries_params(self) -> list[tuple[Any, ...]]:
+        """
+        Returns the parameters bound to each captured query, aligned by index with ``queries``.
+
+        Default implementation returns an empty list; concrete connections that capture
+        bound parameters should override this property.
+
+        Returns:
+            list[tuple[Any, ...]]: The query parameters, in the same order as ``queries``.
+        """
+        return []

@@ -16,7 +16,7 @@ def pg_value_transform(value: Any, value_type: type | None = None) -> Any:
     if value_type is str and value.startswith('"') and value.endswith('"'):
         return Json(value[1:-1])
 
-    if isinstance(value, Vector) or value_type in (Vector,):
+    if isinstance(value, Vector) or value_type in (Vector,):  # noqa: FURB171
         return str(value)
 
     return value
