@@ -425,7 +425,14 @@ def test_query_execute_query_to_single_connection() -> None:
 
 
 def test_query_execute_query_to_single_connection_fail_due_to_duplicated_selections() -> None:
+    # Explicit `only=` of both `id` columns is required to trigger duplicate
+    # detection: default projection is now `<base>.*` (qualified to one table)
+    # so it no longer drags in joined-table columns.
     query = QueryStatement(
+        only=[
+            FieldReference(field=Field(name='id'), table_name='c'),
+            FieldReference(field=Field(name='id'), table_name='o'),
+        ],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         joins=[
             JoinQuery(

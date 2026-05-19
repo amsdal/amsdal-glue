@@ -4,6 +4,7 @@ import logging
 import uuid
 from typing import Any
 
+from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -304,7 +305,12 @@ class ElasticsearchConnection(ConnectionBase):
             if isinstance(child, Conditions):
                 return self._conditions_to_es_query(child)
 
-            # Now we know it's a Condition
+            if not isinstance(child, Condition):
+                # Boolean Expression children (e.g. `Exists`) cannot be translated
+                # to ES DSL — they require running a subquery against another backend.
+                msg = f'ES connection does not support Expression children in conditions: {type(child).__name__}'
+                raise NotImplementedError(msg)
+
             condition = child
             field_name = condition.left.field_reference.field.name  # type: ignore[union-attr,attr-defined]
             value = condition.right.value  # type: ignore[union-attr,attr-defined]
@@ -564,18 +570,23 @@ class ElasticsearchConnection(ConnectionBase):
             key=lambda x: [(-val if isinstance(val, int | float) and desc else val, desc) for val, desc in sort_key(x)],
         )
 
-    def _evaluate_conditions_on_data(self, data: dict, conditions: Conditions) -> bool:  # noqa: C901, PLR0911, PLR0912
+    def _evaluate_conditions_on_data(self, data: dict, conditions: Conditions) -> bool:  # noqa: C901, PLR0912
         """Evaluate conditions against a data dictionary."""
         # For now, implement basic condition evaluation
         # This is a simplified version - in a full implementation you'd handle all condition types
+        result = True
         for child in conditions.children:
             # Handle nested Conditions recursively
             if isinstance(child, Conditions):
                 if not self._evaluate_conditions_on_data(data, child):
-                    return False
+                    result = False
+                    break
                 continue
 
-            # Now we know it's a Condition
+            if not isinstance(child, Condition):
+                msg = f'ES connection does not support Expression children in conditions: {type(child).__name__}'
+                raise NotImplementedError(msg)
+
             condition = child
             # Get left value
             if hasattr(condition.left, 'field_reference'):
@@ -588,26 +599,28 @@ class ElasticsearchConnection(ConnectionBase):
             right_value = condition.right.value if hasattr(condition.right, 'value') else condition.right
 
             # Apply the condition
+            matched = True
             if condition.lookup == FieldLookup.EQ:
-                if left_value != right_value:
-                    return False
+                matched = left_value == right_value
             elif condition.lookup == FieldLookup.GT:
-                if not (left_value is not None and left_value > right_value):
-                    return False
+                matched = left_value is not None and left_value > right_value
             elif condition.lookup == FieldLookup.LT:
-                if not (left_value is not None and left_value < right_value):
-                    return False
+                matched = left_value is not None and left_value < right_value
             elif condition.lookup == FieldLookup.GTE:
-                if not (left_value is not None and left_value >= right_value):
-                    return False
+                matched = left_value is not None and left_value >= right_value
             elif condition.lookup == FieldLookup.LTE:
-                if not (left_value is not None and left_value <= right_value):
-                    return False
-            elif condition.lookup == FieldLookup.NEQ and left_value == right_value:
-                return False
+                matched = left_value is not None and left_value <= right_value
+            elif condition.lookup == FieldLookup.NEQ:
+                matched = left_value != right_value
             # Add more condition types as needed
 
-        return True
+            if not matched:
+                result = False
+                break
+
+        if conditions.negated:
+            result = not result
+        return result
 
     def _evaluate_expression(self, expression, result_dict: dict):
         """Evaluate an expression against a result dictionary."""
@@ -837,55 +850,59 @@ class ElasticsearchConnection(ConnectionBase):
         Check if a row matches the given conditions.
         """
         # Handle single condition
+        result = True
         if hasattr(conditions, 'children') and conditions.children:
             child = conditions.children[0]
 
             # Handle nested Conditions recursively
             if isinstance(child, Conditions):
-                return self._row_matches_conditions(row, child)
+                result = self._row_matches_conditions(row, child)
+            elif not isinstance(child, Condition):
+                msg = f'ES connection does not support Expression children in conditions: {type(child).__name__}'
+                raise NotImplementedError(msg)
+            else:
+                condition = child
 
-            # Now we know it's a Condition
-            condition = child
+                # Get field value from row
+                if hasattr(condition.left, 'field_reference'):
+                    field_name = condition.left.field_reference.field.name
+                    table_alias = condition.left.field_reference.table_name
 
-            # Get field value from row
-            if hasattr(condition.left, 'field_reference'):
-                field_name = condition.left.field_reference.field.name
-                table_alias = condition.left.field_reference.table_name
+                    # Look for field in row data (could be prefixed with table alias)
+                    if table_alias and f'{table_alias}_{field_name}' in row:
+                        field_value = row[f'{table_alias}_{field_name}']
+                    elif field_name in row:
+                        field_value = row[field_name]
+                    else:
+                        field_value = None
 
-                # Look for field in row data (could be prefixed with table alias)
-                if table_alias and f'{table_alias}_{field_name}' in row:
-                    field_value = row[f'{table_alias}_{field_name}']
-                elif field_name in row:
-                    field_value = row[field_name]
-                else:
-                    field_value = None
-
-                # Get expected value
-                if hasattr(condition.right, 'value'):  # Value expression
-                    expected_value = condition.right.value
-                elif hasattr(condition.right, 'field_reference'):  # Field reference
-                    expected_field = condition.right.field_reference.field.name
-                    expected_table = condition.right.field_reference.table_name
-                    if expected_table and f'{expected_table}_{expected_field}' in row:
-                        expected_value = row[f'{expected_table}_{expected_field}']
-                    elif expected_field in row:
-                        expected_value = row[expected_field]
+                    # Get expected value
+                    if hasattr(condition.right, 'value'):  # Value expression
+                        expected_value = condition.right.value
+                    elif hasattr(condition.right, 'field_reference'):  # Field reference
+                        expected_field = condition.right.field_reference.field.name
+                        expected_table = condition.right.field_reference.table_name
+                        if expected_table and f'{expected_table}_{expected_field}' in row:
+                            expected_value = row[f'{expected_table}_{expected_field}']
+                        elif expected_field in row:
+                            expected_value = row[expected_field]
+                        else:
+                            expected_value = None
                     else:
                         expected_value = None
-                else:
-                    expected_value = None
 
-                # Apply lookup comparison
-                if condition.lookup.value == 'EQ':
-                    return field_value == expected_value
-                if condition.lookup.value == 'GT':
-                    return field_value is not None and expected_value is not None and field_value > expected_value
-                if condition.lookup.value == 'LT':
-                    return field_value is not None and expected_value is not None and field_value < expected_value
-                # Add more lookups as needed
+                    # Apply lookup comparison
+                    if condition.lookup.value == 'EQ':
+                        result = field_value == expected_value
+                    elif condition.lookup.value == 'GT':
+                        result = field_value is not None and expected_value is not None and field_value > expected_value
+                    elif condition.lookup.value == 'LT':
+                        result = field_value is not None and expected_value is not None and field_value < expected_value
+                    # Add more lookups as needed
 
-        # Default to True if we can't process the condition
-        return True
+        if conditions.negated:
+            result = not result
+        return result
 
     def _execute_annotation_query(self, query: QueryStatement) -> list[Data]:
         """
@@ -1050,7 +1067,10 @@ class ElasticsearchConnection(ConnectionBase):
                     child, main_result, main_table_alias, field_alias_map
                 )
 
-            # Now we know it's a Condition
+            if not isinstance(child, Condition):
+                msg = f'ES connection does not support Expression children in conditions: {type(child).__name__}'
+                raise NotImplementedError(msg)
+
             condition = child
 
             # Check if this condition references the main table

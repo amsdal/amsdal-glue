@@ -28,12 +28,18 @@ def _resolve_base_table_alias(
     table: SchemaReference | SubQueryStatement,
     transform: Transform,
 ) -> str | None:
-    """Return the quoted alias/name of the base table for default-projection qualification."""
+    """Return the quoted alias/name of the base table for default-projection qualification.
+
+    Returns None when no usable identifier exists (empty name/alias), so callers
+    fall back to bare ``*`` instead of emitting invalid ``.*``.
+    """
     if isinstance(table, SchemaReference):
         alias = table.alias or table.name
-        return transform.apply(TransformTypes.TABLE_QUOTE, alias)
+        quoted = transform.apply(TransformTypes.TABLE_QUOTE, alias)
+        return quoted or None
     if isinstance(table, SubQueryStatement):
-        return transform.apply(TransformTypes.TABLE_QUOTE, table.alias)
+        quoted = transform.apply(TransformTypes.TABLE_QUOTE, table.alias)
+        return quoted or None
     return None
 
 

@@ -455,6 +455,9 @@ def test_query_execute_query_to_single_connection() -> None:
 
 
 def test_query_execute_query_to_single_connection_fail_due_to_duplicated_selections() -> None:
+    # ES executor does its own row-level duplicate detection that only runs
+    # when `only=None` (see ElasticsearchConnection._execute_simple_query).
+    # The SQL-builder default-projection change does not apply to ES.
     query = QueryStatement(
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         joins=[

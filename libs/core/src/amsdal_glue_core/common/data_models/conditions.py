@@ -178,10 +178,14 @@ class Conditions:
 
     def __split_by_or(self) -> None:
         if self.connector == FilterConnector.AND:
+            # Only distribute over OR children that are NOT negated. A negated OR
+            # represents `NOT (A OR B)`; flat distribution would silently drop
+            # that negation (yielding `(C AND A) OR (C AND B)` instead of
+            # `C AND NOT(A OR B)`).
             or_children = [
                 child
                 for child in self.children
-                if isinstance(child, Conditions) and child.connector == FilterConnector.OR
+                if isinstance(child, Conditions) and child.connector == FilterConnector.OR and not child.negated
             ]
 
             if or_children:
@@ -225,6 +229,18 @@ class Conditions:
         return self.__class__(left, right, connector=connector, negated=self.negated)
 
     def _negate(self) -> None:
+        # Local import to avoid circular dependency with QueryStatement → Conditions.
+        from amsdal_glue_core.common.expressions.exists import Exists
+
+        # If any child is an Expression we cannot flip in-place (e.g. Func,
+        # RawExpression, CombinedExpression), fall back to wrapping the whole
+        # node with an outer NOT — SQL builders honor `Conditions.negated` at
+        # every level. Distributing De Morgan in this case would silently drop
+        # the negation for the unflippable child.
+        if any(not isinstance(child, (Conditions, Condition, Exists)) for child in self.children):
+            self.negated = not self.negated
+            return
+
         if self.connector == FilterConnector.AND:
             self.connector = FilterConnector.OR
         else:
@@ -235,6 +251,8 @@ class Conditions:
                 child._negate()  # noqa: SLF001
             elif isinstance(child, Condition):
                 child.negate = not child.negate
+            elif isinstance(child, Exists):
+                child.negated = not child.negated
 
         self.__split_by_or()
 
@@ -286,4 +304,4 @@ class Conditions:
         )
 
     def __hash__(self) -> int:
-        return hash((self.children, self.connector, self.negated))
+        return hash((tuple(self.children), self.connector, self.negated))
