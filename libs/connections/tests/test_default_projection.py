@@ -116,6 +116,28 @@ def test_explicit_only_unchanged_regression() -> None:
     assert '*' not in sql.split('FROM')[0]
 
 
+def test_subquery_from_empty_alias_falls_back_to_plain_asterisk() -> None:
+    """`SubQueryStatement.alias=''` must NOT emit invalid `.*` — fall back to `*`."""
+    inner = QueryStatement(table=SchemaReference(name='Company'))
+    query = QueryStatement(
+        only=None,
+        table=SubQueryStatement(query=inner, alias=''),
+        joins=[
+            JoinQuery(
+                table=SchemaReference(name='Employee', alias='rev_1'),
+                on=_trivial_on(),
+                join_type=JoinType.INNER,
+            )
+        ],
+    )
+
+    sql, _ = build_sql_query(query=query, transform=get_sqlite_transform())
+
+    projection = sql.split('FROM')[0]
+    assert '.*' not in projection, f'Invalid `.*` (empty alias) in: {sql!r}'
+    assert 'SELECT *' in projection
+
+
 def test_only_field_reference_aliased_unchanged() -> None:
     """Aliased projection survives unchanged."""
     query = QueryStatement(

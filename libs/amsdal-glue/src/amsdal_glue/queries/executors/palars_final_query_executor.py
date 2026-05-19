@@ -317,7 +317,10 @@ class PolarsFinalQueryDataExecutorMixin:
                 )
             )
 
-        return f' {conditions.connector.value} '.join(_stmt)
+        joined = f' {conditions.connector.value} '.join(_stmt)
+        if conditions.negated and joined:
+            return f'NOT ({joined})'
+        return joined
 
     def _sql_build_where(
         self,
