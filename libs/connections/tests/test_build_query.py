@@ -321,7 +321,8 @@ def test_build_sql_query_simple__joins(join_type) -> None:
     )
 
     assert (
-        sql == f'SELECT * FROM "users" AS "u" {join_type.value} JOIN "user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'  # noqa: S608
+        sql
+        == f'SELECT "u".* FROM "users" AS "u" {join_type.value} JOIN "user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'  # noqa: S608
     )
     assert value == []
 
@@ -353,7 +354,7 @@ def test_build_sql_query_simple_with_namespace__joins(join_type) -> None:
     )
 
     assert sql == (
-        f'SELECT * FROM "ns1"."users" AS "u" {join_type.value} JOIN '  # noqa: S608
+        f'SELECT "u".* FROM "ns1"."users" AS "u" {join_type.value} JOIN '  # noqa: S608
         '"ns2"."user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'
     )
     assert value == []
@@ -502,7 +503,7 @@ def test_build_sql_query_complex_joins() -> None:
     )
 
     assert sql == (
-        'SELECT * FROM '
+        'SELECT "sub".* FROM '
         '(SELECT * FROM "users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
         'LEFT JOIN (SELECT "ur"."role" FROM "user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
@@ -572,7 +573,7 @@ def test_build_sql_query_complex_joins_with_namespace() -> None:
     )
 
     assert sql == (
-        'SELECT * FROM '
+        'SELECT "sub".* FROM '
         '(SELECT * FROM "ns1"."users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
         'LEFT JOIN (SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
@@ -643,7 +644,7 @@ def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
     )
 
     assert sql == (
-        'SELECT * FROM '
+        'SELECT "sub".* FROM '
         '(SELECT * FROM "ns1"."users" WHERE "ns1"."users"."age" >= %s) AS "sub" '
         'LEFT JOIN ('
         'SELECT "ns2"."user_roles"."role" FROM "ns2"."user_roles" WHERE "ns2"."user_roles"."role" LIKE %s) AS "ur" '

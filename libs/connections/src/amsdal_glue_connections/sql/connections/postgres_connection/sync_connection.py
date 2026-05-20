@@ -319,6 +319,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         try:
             if self.debug_queries:
                 self._queries.append(query)
+                self._queries_params.append(args)
 
             cursor = self.connection.execute(query, args)
         except psycopg.errors.UniqueViolation as exc:

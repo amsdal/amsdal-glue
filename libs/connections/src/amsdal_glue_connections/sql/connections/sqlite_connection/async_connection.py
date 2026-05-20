@@ -310,6 +310,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         try:
             if self.debug_queries:
                 self._queries.append(query)
+                self._queries_params.append(args)
 
             await cursor.execute(query, args)
         except aiosqlite.IntegrityError as exc:

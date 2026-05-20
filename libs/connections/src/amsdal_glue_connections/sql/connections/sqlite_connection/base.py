@@ -78,6 +78,7 @@ class SqliteConnectionMixin:
 
     def __init__(self) -> None:
         self._queries: list[str] = []
+        self._queries_params: list[tuple[Any, ...]] = []
 
     @staticmethod
     def build_data(data: dict[str, Any]) -> Data:
@@ -221,3 +222,13 @@ class SqliteConnectionMixin:
             list[str]: The queries executed.
         """
         return self._queries
+
+    @property
+    def queries_params(self) -> list[tuple[Any, ...]]:
+        """
+        Returns the parameters bound to each captured query, aligned by index with ``queries``.
+
+        Returns:
+            list[tuple[Any, ...]]: The query parameters, in the same order as ``queries``.
+        """
+        return self._queries_params

@@ -50,6 +50,7 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.exists import Exists
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.func import Func
 from amsdal_glue_core.common.expressions.jsonb_array import JsonbArrayExpression
@@ -127,6 +128,7 @@ __all__ = [
     'DeleteIndex',
     'DeleteProperty',
     'DeleteSchema',
+    'Exists',
     'ExpressionAnnotation',
     'Field',
     'FieldLookup',

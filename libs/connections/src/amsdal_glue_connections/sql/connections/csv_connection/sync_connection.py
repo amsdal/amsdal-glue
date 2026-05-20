@@ -321,7 +321,7 @@ class CsvConnection(ConnectionBase):
                     for agg in query.aggregations:
                         field_name = agg.expression.field.field.name
                         table_name = agg.expression.field.table_name
-                        alias = agg.alias if agg.alias else field_name
+                        alias = agg.alias or field_name
 
                         # Find the actual column name in the DataFrame
                         actual_field_name = self._find_column_for_field(df, field_name, table_name)
@@ -592,6 +592,10 @@ class CsvConnection(ConnectionBase):
         for i, condition in enumerate(conditions.children):
             if isinstance(condition, Conditions):
                 self._update_conditions_with_row_values(condition, row)
+            elif not isinstance(condition, Condition):
+                # Non-Condition Expression children (e.g. `Exists`) have no `.right`;
+                # leave them in place — they are evaluated elsewhere.
+                continue
             # Check if right side is a field reference that needs to be replaced with a value
             elif isinstance(condition.right, FieldReferenceExpression):
                 field_name = condition.right.field_reference.field.name
@@ -628,6 +632,12 @@ class CsvConnection(ConnectionBase):
             if isinstance(condition, Conditions):
                 on.extend(self._process_on(condition, left_on=left_on))
                 continue
+
+            if not isinstance(condition, Condition):
+                # Boolean Expression children (e.g. `Exists`) have no `.left`/`.right`;
+                # they cannot participate in CSV JOIN ON evaluation.
+                msg = f'CSV connection does not support Expression children in JOIN ON: {type(condition).__name__}'
+                raise NotImplementedError(msg)
 
             if left_on:
                 if isinstance(condition.left, FieldReferenceExpression):
@@ -1040,9 +1050,15 @@ class CsvConnection(ConnectionBase):
             if isinstance(condition, Conditions):
                 # Process nested conditions recursively
                 condition_result = self._get_conditions(condition, df)
-            else:
+            elif isinstance(condition, Condition):
                 # Process individual condition
                 condition_result = self._process_condition(condition, df)
+            else:
+                # Boolean Expression children (e.g. `Exists`) cannot be evaluated
+                # against a pandas DataFrame without executing a subquery — the CSV
+                # connection does not support correlated subqueries.
+                msg = f'CSV connection does not support Expression children in conditions: {type(condition).__name__}'
+                raise NotImplementedError(msg)
 
             # Combine with previous results based on operator
             if result is None:
@@ -1052,7 +1068,10 @@ class CsvConnection(ConnectionBase):
             elif conditions.connector == 'OR':
                 result = result | condition_result
 
-        return result if result is not None else pd.Series([True] * len(df))
+        mask = result if result is not None else pd.Series([True] * len(df))
+        if conditions.negated:
+            mask = ~mask
+        return mask
 
     def _run_update_data(self, mutation: UpdateData) -> None:
         """Update data in a CSV file."""

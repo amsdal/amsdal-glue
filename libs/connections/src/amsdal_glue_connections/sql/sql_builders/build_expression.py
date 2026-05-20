@@ -2,6 +2,7 @@ from typing import Any
 
 from amsdal_glue_core.common.data_models.output_type import OutputType
 from amsdal_glue_core.common.expressions.common import CombinedExpression
+from amsdal_glue_core.common.expressions.exists import Exists
 from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.func import Func
@@ -20,6 +21,9 @@ def build_expression(  # noqa: PLR0911
     *,
     embed_values: bool = False,
 ) -> tuple[str, list[Any]]:
+    if isinstance(expression, Exists):
+        return _build_exists(expression, transform)
+
     if isinstance(expression, FieldReferenceExpression):
         return build_field(expression.field_reference, transform, output_type=expression.output_type), []
 
@@ -94,3 +98,16 @@ def build_function(
     stmt = transform.apply(TransformTypes.CAST, stmt, output_type)
 
     return stmt, values
+
+
+def _build_exists(
+    expression: Exists,
+    transform: Transform,
+) -> tuple[str, list[Any]]:
+    """Render an `Exists` expression as `EXISTS (...)` or `NOT EXISTS (...)`."""
+    from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
+
+    sub_sql, sub_values = build_sql_query(query=expression.query, transform=transform)
+    keyword = 'NOT EXISTS' if expression.negated else 'EXISTS'
+
+    return f'{keyword} ({sub_sql})', sub_values

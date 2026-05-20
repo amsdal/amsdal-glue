@@ -325,6 +325,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         try:
             if self.debug_queries:
                 self._queries.append(query)
+                self._queries_params.append(args)
 
             cursor = await self.connection.execute(query, args)
         except psycopg.errors.UniqueViolation as exc:

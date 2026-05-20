@@ -5,6 +5,7 @@ from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
+from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.join import JoinQuery
@@ -23,19 +24,65 @@ if TYPE_CHECKING:
     from amsdal_glue_connections.sql.sql_builders.operator_constructor import OperatorConstructor
 
 
+def _resolve_base_table_alias(
+    table: SchemaReference | SubQueryStatement,
+    transform: Transform,
+) -> str | None:
+    """Return the quoted alias/name of the base table for default-projection qualification.
+
+    Returns None when no usable identifier exists (empty name/alias), so callers
+    fall back to bare ``*`` instead of emitting invalid ``.*``.
+    """
+    if isinstance(table, SchemaReference):
+        alias = table.alias or table.name
+        quoted = transform.apply(TransformTypes.TABLE_QUOTE, alias)
+        return quoted or None
+    if isinstance(table, SubQueryStatement):
+        quoted = transform.apply(TransformTypes.TABLE_QUOTE, table.alias)
+        return quoted or None
+    return None
+
+
+def _default_projection_with_joins(query: QueryStatement, transform: Transform) -> str:
+    """Default projection for `only=None`.
+
+    Without joins, returns bare ``*``. With joins, qualifies the projection
+    to the base table (``<base>.*``) to avoid duplicate-column collisions
+    when joined tables share column names.
+    """
+    if not query.joins:
+        return '*'
+
+    base_alias = _resolve_base_table_alias(query.table, transform)
+    if base_alias is None:
+        return '*'
+
+    return f'{base_alias}.*'
+
+
 def build_sql_query(
     query: QueryStatement,
     transform: Transform,
 ) -> tuple[str, list[Any]]:
-    """
-    Builds an SQL query for the given query statement.
+    """Render a `QueryStatement` to SQL.
+
+    Default projection (`only=None`):
+        - Without joins: ``SELECT *``.
+        - With joins: ``SELECT <base_table>.*`` — qualified to avoid
+          duplicate-column collisions when joined tables share column names.
+          The base-table token comes from ``query.table.alias`` (falling
+          back to ``query.table.name`` for ``SchemaReference``, or
+          ``query.table.alias`` for ``SubQueryStatement``).
+
+    Explicit ``only=[...]`` projections are emitted as written; no
+    qualification is added.
 
     Args:
-        query (QueryStatement): The query statement to be converted to an SQL query.
-        transform: (Transform): The transform object to transform database specific SQL parts.
+        query: The query statement to be converted to an SQL query.
+        transform: The transform object to render database-specific SQL parts.
 
     Returns:
-        tuple[str, list[Any]]: The SQL query and the list of values.
+        The SQL query string and the list of parameter values.
     """
     values = []
     stmt_parts: list[str | None] = [
@@ -59,7 +106,10 @@ def build_sql_query(
 
     smtp_selection.append(_annotations)
     _cleaned_smtp_selection = list(filter(None, smtp_selection))
-    stmt_parts.append(', '.join(_cleaned_smtp_selection) if _cleaned_smtp_selection else '*')
+    if _cleaned_smtp_selection:
+        stmt_parts.append(', '.join(_cleaned_smtp_selection))
+    else:
+        stmt_parts.append(_default_projection_with_joins(query, transform))
 
     # From
     _from, _values = build_from(
@@ -254,6 +304,16 @@ def build_conditions(
             values.extend(_values)
             continue
 
+        if not isinstance(condition, Condition):
+            _statement, _values = build_expression(
+                condition,
+                transform=transform,
+                embed_values=embed_values,
+            )
+            items.append(_statement)
+            values.extend(_values)
+            continue
+
         operator_constructor: OperatorConstructor = transform.resolve(TransformTypes.OPERATOR_CONSTRUCTOR)
         _statement, _values = operator_constructor(
             condition.left,
@@ -269,7 +329,10 @@ def build_conditions(
         items.append(_statement)
         values.extend(_values)
 
-    return f' {conditions.connector.value} '.join(items), values
+    sql = f' {conditions.connector.value} '.join(items)
+    if sql and conditions.negated:
+        sql = f'NOT ({sql})'
+    return sql, values
 
 
 def build_where(

@@ -302,6 +302,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         try:
             if self.debug_queries:
                 self._queries.append(query)
+                self._queries_params.append(args)
 
             cursor.execute(query, args)
         except sqlite3.IntegrityError as exc:

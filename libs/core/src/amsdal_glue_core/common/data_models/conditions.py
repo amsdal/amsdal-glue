@@ -1,5 +1,6 @@
 from copy import copy
 from dataclasses import dataclass
+from typing import cast
 from typing import Union
 
 from amsdal_glue_core.common.enums import FieldLookup
@@ -57,17 +58,32 @@ class Condition:
 
 
 class Conditions:
-    """Represents a collection of conditions in a query.
+    """A collection of conditions joined by AND/OR with optional outer negation.
+
+    Construction normalizes the tree:
+    - Single nested `Conditions` is flattened; inner negation is absorbed into
+      the outer negation following De Morgan's law (parent negated → child
+      negation flipped).
+    - Sibling `Conditions` with the same connector and no negation are merged.
+    - AND-over-OR is distributed (CNF transformation) where safe.
+
+    The `negated` flag survives normalization at the outermost level that
+    cannot be absorbed without changing semantics. SQL builders honor
+    `negated` at every level — both inner nested `Conditions` and the root
+    are wrapped with `NOT (...)` when their `negated` is True.
+
+    Children may be `Conditions`, `Condition`, or any `Expression` that
+    evaluates to a boolean (e.g., `Exists`).
 
     Attributes:
-        children (list[Union[Conditions, Condition]]): The list of child conditions.
-        connector (FilterConnector): The connector type (AND/OR) for the conditions.
-        negated (bool): Whether the conditions are negated. Defaults to False.
+        children: The list of child conditions / expressions.
+        connector: Logical connector (AND / OR) joining children.
+        negated: When True, the rendered SQL is wrapped in `NOT (...)`.
     """
 
     def __init__(
         self,
-        *args: Union['Conditions', Condition, object],
+        *args: Union['Conditions', Condition, Expression, object],
         connector: FilterConnector = FilterConnector.AND,
         negated: bool = False,
     ) -> None:
@@ -85,8 +101,8 @@ class Conditions:
 
     @staticmethod
     def _parse_args(
-        args: tuple[Union['Conditions', Condition, object]],
-    ) -> tuple[bool, list[Union['Conditions', Condition]]]:
+        args: tuple[Union['Conditions', Condition, Expression, object]],
+    ) -> tuple[bool, list[Union['Conditions', Condition, Expression]]]:
         if _SKIP_FLATTEN in args:
             return True, [arg for arg in args if arg is not _SKIP_FLATTEN]  # type: ignore[misc]
 
@@ -135,9 +151,9 @@ class Conditions:
         if not all_conditions or not all_positive or not same_connector:
             return
 
-        new_children: list[Conditions | Condition] = []
-        for child in self.children:
-            new_children.extend(child.children)  # type: ignore[union-attr]
+        new_children: list[Conditions | Condition | Expression] = []
+        for child in cast('list[Conditions]', self.children):
+            new_children.extend(child.children)
 
         self.children = new_children
 
@@ -162,10 +178,14 @@ class Conditions:
 
     def __split_by_or(self) -> None:
         if self.connector == FilterConnector.AND:
+            # Only distribute over OR children that are NOT negated. A negated OR
+            # represents `NOT (A OR B)`; flat distribution would silently drop
+            # that negation (yielding `(C AND A) OR (C AND B)` instead of
+            # `C AND NOT(A OR B)`).
             or_children = [
                 child
                 for child in self.children
-                if isinstance(child, Conditions) and child.connector == FilterConnector.OR
+                if isinstance(child, Conditions) and child.connector == FilterConnector.OR and not child.negated
             ]
 
             if or_children:
@@ -209,6 +229,18 @@ class Conditions:
         return self.__class__(left, right, connector=connector, negated=self.negated)
 
     def _negate(self) -> None:
+        # Local import to avoid circular dependency with QueryStatement → Conditions.
+        from amsdal_glue_core.common.expressions.exists import Exists
+
+        # If any child is an Expression we cannot flip in-place (e.g. Func,
+        # RawExpression, CombinedExpression), fall back to wrapping the whole
+        # node with an outer NOT — SQL builders honor `Conditions.negated` at
+        # every level. Distributing De Morgan in this case would silently drop
+        # the negation for the unflippable child.
+        if any(not isinstance(child, (Conditions, Condition, Exists)) for child in self.children):
+            self.negated = not self.negated
+            return
+
         if self.connector == FilterConnector.AND:
             self.connector = FilterConnector.OR
         else:
@@ -217,8 +249,10 @@ class Conditions:
         for child in self.children:
             if isinstance(child, Conditions):
                 child._negate()  # noqa: SLF001
-            else:
+            elif isinstance(child, Condition):
                 child.negate = not child.negate
+            elif isinstance(child, Exists):
+                child.negated = not child.negated
 
         self.__split_by_or()
 
@@ -235,9 +269,12 @@ class Conditions:
         return q_obj
 
     def __copy__(self) -> 'Conditions':
+        copied_children = [
+            child.__copy__() if isinstance(child, (Conditions, Condition)) else copy(child) for child in self.children
+        ]
         return self.__class__(
             _SKIP_FLATTEN,
-            *[child.__copy__() for child in self.children],
+            *copied_children,
             connector=self.connector,
             negated=self.negated,
         )
@@ -267,4 +304,4 @@ class Conditions:
         )
 
     def __hash__(self) -> int:
-        return hash((self.children, self.connector, self.negated))
+        return hash((tuple(self.children), self.connector, self.negated))
