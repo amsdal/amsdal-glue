@@ -1,18 +1,10 @@
-## [v0.1.25](https://pypi.org/project/amsdal-glue-connections/0.1.25/) - 2026-05-20
+## [v0.1.26](https://pypi.org/project/amsdal-glue-connections/0.1.26/) - 2026-06-15
 
 ### Added
 
-- `Exists` subquery support across SQL, CSV, and Elasticsearch connections.
-- JSONB array expression support for Postgres.
-- Polars final query executor with negation-aware in-memory join and filter.
-- Default projection handling in query builder.
-- Nested subquery support in query builder.
+- Fixed-precision decimal support via `DecimalSchemaModel`: Postgres maps to `NUMERIC(precision, scale)` and SQLite to `DECIMAL_TEXT(precision, scale)`.
+- `Decimal` value type transform for Postgres (`NUMERIC`) and SQLite (`DECIMAL_TEXT`), with SQLite storing decimals as text to preserve precision.
 
 ### Changed
 
-- Improved query builder for subqueries and conditions.
-
-### Fixed
-
-- CSV and Elasticsearch conditions safety (proper negation handling).
-- Postgres value transform edge cases.
+- Postgres and SQLite type introspection now reconstructs `DecimalSchemaModel` (with `precision`/`scale`) when reading back `NUMERIC` / `DECIMAL_TEXT` columns instead of coercing them to `float`.

@@ -15,6 +15,7 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
+from amsdal_glue_core.common.data_models.schema import DecimalSchemaModel
 from amsdal_glue_core.common.data_models.schema import DictSchemaModel
 from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -39,6 +40,9 @@ from amsdal_glue_connections.sql.sql_builders.transform import Transform
 from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 logger = logging.getLogger(__name__)
+
+# PostgreSQL encodes NUMERIC precision/scale in atttypmod offset by the VARHDRSZ header (4 bytes).
+_NUMERIC_TYPMOD_OFFSET = 4
 
 _pg_transform = None
 
@@ -137,7 +141,7 @@ class PostgresConnectionMixin:
 
         _stm = f'ALTER COLUMN "{column.name}" TYPE {sql_type}'
 
-        if sql_type in ['DOUBLE PRECISION', 'BIGINT']:
+        if sql_type in ['DOUBLE PRECISION', 'BIGINT'] or sql_type.startswith('NUMERIC'):
             _stm += f' USING "{column.name}"::{sql_type}'
 
         if column.required:
@@ -210,11 +214,16 @@ class PostgresConnectionMixin:
         | ArraySchemaModel
         | DictSchemaModel
         | VectorSchemaModel
+        | DecimalSchemaModel
         | type[Any],
     ) -> str:
         with suppress(ValueError):
             return pg_value_type_transform(property_type)  # type: ignore[arg-type]
 
+        if isinstance(property_type, DecimalSchemaModel):
+            if property_type.precision is not None and property_type.scale is not None:
+                return f'NUMERIC({property_type.precision}, {property_type.scale})'
+            return 'NUMERIC'
         if isinstance(property_type, Schema | SchemaReference):
             return 'TEXT'
         if isinstance(property_type, VectorSchemaModel):
@@ -226,20 +235,26 @@ class PostgresConnectionMixin:
         msg = f'Unsupported type: {property_type}'
         raise ValueError(msg)
 
-    def _to_python_type(  # noqa: PLR0911
+    def _to_python_type(  # noqa: PLR0911, C901
         self,
         sql_type: str,
         udt_name: str | None,
         info: dict[str, Any],
-    ) -> type[Any] | VectorSchemaModel:
+    ) -> type[Any] | VectorSchemaModel | DecimalSchemaModel:
         sql_type = sql_type.upper()
 
         if sql_type in ['TEXT', 'CHARACTER VARYING'] or sql_type.startswith('VARCHAR'):
             return str
         if sql_type in ('BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
             return int
-        if sql_type in ('DOUBLE PRECISION', 'REAL', 'NUMERIC', 'DECIMAL'):
+        if sql_type in ('DOUBLE PRECISION', 'REAL'):
             return float
+        if sql_type in ('NUMERIC', 'DECIMAL'):
+            typmod = info.get('typmod')
+            if isinstance(typmod, int) and typmod >= _NUMERIC_TYPMOD_OFFSET:
+                adjusted = typmod - _NUMERIC_TYPMOD_OFFSET
+                return DecimalSchemaModel(precision=(adjusted >> 16) & 0xFFFF, scale=adjusted & 0xFFFF)
+            return DecimalSchemaModel(precision=None, scale=None)
         if sql_type == 'BOOLEAN':
             return bool
         if sql_type in ['JSON', 'JSONB']:
