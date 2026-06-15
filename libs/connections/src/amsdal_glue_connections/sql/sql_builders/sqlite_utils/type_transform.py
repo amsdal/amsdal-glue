@@ -1,5 +1,6 @@
 from datetime import date
 from datetime import datetime
+from decimal import Decimal
 
 
 def sqlite_value_type_transform(value_type: type) -> str:  # noqa: PLR0911
@@ -19,6 +20,8 @@ def sqlite_value_type_transform(value_type: type) -> str:  # noqa: PLR0911
         return 'TIMESTAMP'
     if value_type == date:
         return 'DATE'
+    if value_type is Decimal:
+        return 'DECIMAL_TEXT'
 
     msg = f'Unsupported type: {value_type}'
     raise ValueError(msg)
