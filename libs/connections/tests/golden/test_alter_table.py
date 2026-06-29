@@ -25,11 +25,21 @@ instead of an exact byte-for-byte match.
 """
 
 import pytest
+from amsdal_glue_core.common.data_models.conditions import Condition
+from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.constraints import CheckConstraint
+from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
+from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
+from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
 from amsdal_glue_core.common.operations.mutations.schema import AddProperty
@@ -51,6 +61,19 @@ from ._harness import pg_ddl
 
 def _ref() -> SchemaReference:
     return SchemaReference(name='Person', version=Version.LATEST)
+
+
+def _gt_condition(table: str, field: str, value: object) -> Conditions:
+    """Return a Conditions wrapping a single field > value check."""
+    return Conditions(
+        Condition(
+            left=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name=field), table_name=table),
+            ),
+            lookup=FieldLookup.GT,
+            right=Value(value=value),
+        )
+    )
 
 
 # ===========================================================================
@@ -193,6 +216,61 @@ def test_add_constraint_pg() -> None:
     # inconsistency.  The Rust generator is expected to fix this.
     assert pg_ddl(m) == [
         ('ALTER TABLE "Person" ADD CONSTRAINT uq_person_email UNIQUE ("email")', []),
+    ]
+
+
+def test_add_constraint_pg_primary_key() -> None:
+    m = AddConstraint(
+        schema_reference=_ref(),
+        constraint=PrimaryKeyConstraint(name='pk_person', fields=['id']),
+    )
+    # KNOWN-DIVERGENCE (migration): PG _build_constraint for PrimaryKeyConstraint does
+    # NOT quote the constraint name and appends a trailing space.  Current output:
+    # `CONSTRAINT pk_person PRIMARY KEY ("id") ` (unquoted name, trailing space).
+    # Correct PG: `CONSTRAINT "pk_person" PRIMARY KEY ("id")` (quoted name, no trailing space).
+    # FK constraint names ARE quoted in PG (see test_add_constraint_pg_foreign_key),
+    # making this an internal inconsistency.  The Rust generator is expected to fix this.
+    assert pg_ddl(m) == [
+        ('ALTER TABLE "Person" ADD CONSTRAINT pk_person PRIMARY KEY ("id") ', []),
+    ]
+
+
+def test_add_constraint_pg_foreign_key() -> None:
+    m = AddConstraint(
+        schema_reference=_ref(),
+        constraint=ForeignKeyConstraint(
+            name='fk_person_address',
+            fields=['address_id'],
+            reference_schema=SchemaReference(name='Address', version=Version.LATEST),
+            reference_fields=['id'],
+        ),
+    )
+    # FK constraint names are correctly quoted in PG — clean characterization, no divergence.
+    assert pg_ddl(m) == [
+        (
+            'ALTER TABLE "Person" ADD CONSTRAINT "fk_person_address"'
+            ' FOREIGN KEY ("address_id") REFERENCES "Address" ("id")',
+            [],
+        ),
+    ]
+
+
+def test_add_constraint_pg_check() -> None:
+    m = AddConstraint(
+        schema_reference=_ref(),
+        constraint=CheckConstraint(
+            name='chk_age_positive',
+            condition=_gt_condition('Person', 'age', 0),
+        ),
+    )
+    # KNOWN-DIVERGENCE (migration): PG _build_constraint for CheckConstraint does
+    # NOT quote the constraint name.  Current output:
+    # `CONSTRAINT chk_age_positive CHECK ("Person"."age" > 0)` (unquoted name).
+    # Correct PG: `CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)`.
+    # FK constraint names ARE quoted in PG (see test_add_constraint_pg_foreign_key),
+    # making this an internal inconsistency.  The Rust generator is expected to fix this.
+    assert pg_ddl(m) == [
+        ('ALTER TABLE "Person" ADD CONSTRAINT chk_age_positive CHECK ("Person"."age" > 0)', []),
     ]
 
 
