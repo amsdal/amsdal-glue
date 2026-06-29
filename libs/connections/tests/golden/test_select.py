@@ -1,3 +1,5 @@
+import pytest
+
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -43,6 +45,13 @@ def test_select_distinct_pg() -> None:
     assert pg(q) == ('SELECT * FROM "users"', [])
 
 
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D1')
+def test_select_distinct_star_pg_correct_behaviour() -> None:
+    # D1: distinct=True with empty only must emit DISTINCT, not be dropped.
+    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
+    assert pg(q) == ('SELECT DISTINCT * FROM "users"', [])
+
+
 def test_select_distinct_on_pg() -> None:
     # KNOWN-DIVERGENCE (migration): current builder silently ignores distinct — no DISTINCT emitted.
     # Correct SQL should be: 'SELECT DISTINCT ON ("users"."country") * FROM "users"'. This locked
@@ -55,6 +64,16 @@ def test_select_distinct_on_pg() -> None:
         distinct=[_ref('country')],
     )
     assert pg(q) == ('SELECT * FROM "users"', [])
+
+
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D1')
+def test_select_distinct_on_star_pg_correct_behaviour() -> None:
+    # D1: PG DISTINCT ON with empty only must emit DISTINCT ON, not be dropped.
+    q = QueryStatement(
+        table=SchemaReference(name='users', version=Version.LATEST),
+        distinct=[_ref('country')],
+    )
+    assert pg(q) == ('SELECT DISTINCT ON ("users"."country") * FROM "users"', [])
 
 
 def test_select_star_sqlite() -> None:
@@ -85,3 +104,10 @@ def test_select_distinct_sqlite() -> None:
     # re-baseline this test at that point.
     q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
     assert lite(q) == ("SELECT * FROM 'users'", [])
+
+
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D1')
+def test_select_distinct_star_sqlite_correct_behaviour() -> None:
+    # D1: SQLite distinct=True with empty only must emit DISTINCT.
+    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
+    assert lite(q) == ("SELECT DISTINCT * FROM 'users'", [])
