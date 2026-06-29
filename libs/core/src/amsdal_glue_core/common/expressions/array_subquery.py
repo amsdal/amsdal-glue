@@ -10,6 +10,5 @@ if TYPE_CHECKING:
 
 
 @dataclass(kw_only=True)
-class Exists(Expression):
+class ArraySubquery(Expression):
     subquery: SubQueryStatement
-    negated: bool = False
