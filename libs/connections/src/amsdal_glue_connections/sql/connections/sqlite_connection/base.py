@@ -12,6 +12,7 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
+from amsdal_glue_core.common.data_models.schema import DecimalSchemaModel
 from amsdal_glue_core.common.data_models.schema import DictSchemaModel
 from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -41,6 +42,7 @@ FOREIGN_KEY_INLINE_RE = re.compile(
     re.IGNORECASE,
 )
 FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
+DECIMAL_TEXT_RE = re.compile(r'\((\d+)\s*,\s*(\d+)\)')
 
 
 class JsonTypeMeta(type):
@@ -111,11 +113,21 @@ class SqliteConnectionMixin:
 
     @staticmethod
     def to_sql_type(
-        property_type: Schema | SchemaReference | NestedSchemaModel | ArraySchemaModel | DictSchemaModel | type[Any],
+        property_type: Schema
+        | SchemaReference
+        | NestedSchemaModel
+        | ArraySchemaModel
+        | DictSchemaModel
+        | DecimalSchemaModel
+        | type[Any],
     ) -> str:
         with suppress(ValueError):
             return sqlite_value_type_transform(property_type)  # type: ignore[arg-type]
 
+        if isinstance(property_type, DecimalSchemaModel):
+            if property_type.precision is not None and property_type.scale is not None:
+                return f'DECIMAL_TEXT({property_type.precision}, {property_type.scale})'
+            return 'DECIMAL_TEXT'
         if isinstance(property_type, Schema | SchemaReference):
             return 'TEXT'
         if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
@@ -190,9 +202,14 @@ class SqliteConnectionMixin:
 
         return ''
 
-    def to_python_type(self, sql_type: str) -> type[Any]:  # noqa: PLR0911
+    def to_python_type(self, sql_type: str) -> type[Any] | DecimalSchemaModel:  # noqa: PLR0911, C901
         sql_type = sql_type.upper()
 
+        if sql_type.startswith('DECIMAL_TEXT'):
+            match = DECIMAL_TEXT_RE.search(sql_type)
+            if match:
+                return DecimalSchemaModel(precision=int(match.group(1)), scale=int(match.group(2)))
+            return DecimalSchemaModel(precision=None, scale=None)
         if sql_type == 'TEXT' or sql_type.startswith('VARCHAR'):
             return str
         if sql_type in ('INTEGER', 'INT'):

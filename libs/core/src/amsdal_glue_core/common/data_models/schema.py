@@ -15,6 +15,7 @@ FIELD_TYPE: TypeAlias = Union[
     'ArraySchemaModel',
     'DictSchemaModel',
     'VectorSchemaModel',
+    'DecimalSchemaModel',
     type[Any],
 ]
 
@@ -39,6 +40,19 @@ class VectorSchemaModel:
     """
 
     dimensions: int
+
+
+@dataclass(kw_only=True)
+class DecimalSchemaModel:
+    """Represents a fixed-precision decimal data structure.
+
+    Attributes:
+        precision (int | None): Total number of significant digits (NUMERIC precision).
+        scale (int | None): Number of digits after the decimal point (NUMERIC scale).
+    """
+
+    precision: int | None = None
+    scale: int | None = None
 
 
 @dataclass(kw_only=True)
