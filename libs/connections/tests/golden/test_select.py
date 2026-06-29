@@ -35,13 +35,21 @@ def test_select_aliased_column_pg() -> None:
 
 
 def test_select_distinct_pg() -> None:
-    # The current builder silently ignores distinct=True (no DISTINCT keyword emitted).
+    # KNOWN-DIVERGENCE (migration): current builder silently ignores distinct — no DISTINCT emitted.
+    # Correct SQL should be: 'SELECT DISTINCT * FROM "users"'. This locked value characterises the
+    # CURRENT bug and is EXPECTED TO CHANGE when the Rust/qcraft generator implements DISTINCT;
+    # re-baseline this test at that point.
     q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
     assert pg(q) == ('SELECT * FROM "users"', [])
 
 
 def test_select_distinct_on_pg() -> None:
-    # The current builder silently ignores distinct=[fields] (no DISTINCT ON emitted).
+    # KNOWN-DIVERGENCE (migration): current builder silently ignores distinct — no DISTINCT emitted.
+    # Correct SQL should be: 'SELECT DISTINCT ON ("users"."country") * FROM "users"'. This locked
+    # value characterises the CURRENT bug and is EXPECTED TO CHANGE when the Rust/qcraft generator
+    # implements DISTINCT; re-baseline this test at that point.
+    # Note: xfail does not apply here because the builder fails SILENTLY (returns wrong SQL) rather
+    # than raising an exception.
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
         distinct=[_ref('country')],
@@ -62,7 +70,18 @@ def test_select_only_columns_sqlite() -> None:
     assert lite(q) == ("SELECT 'users'.'id', 'users'.'name' FROM 'users'", [])
 
 
+def test_select_aliased_column_sqlite() -> None:
+    q = QueryStatement(
+        table=SchemaReference(name='users', version=Version.LATEST),
+        only=[FieldReferenceAliased(field=Field(name='name'), table_name='users', alias='full_name')],
+    )
+    assert lite(q) == ("SELECT 'users'.'name' AS 'full_name' FROM 'users'", [])
+
+
 def test_select_distinct_sqlite() -> None:
-    # The current builder silently ignores distinct=True (no DISTINCT keyword emitted).
+    # KNOWN-DIVERGENCE (migration): current builder silently ignores distinct — no DISTINCT emitted.
+    # Correct SQL should be: "SELECT DISTINCT * FROM 'users'". This locked value characterises the
+    # CURRENT bug and is EXPECTED TO CHANGE when the Rust/qcraft generator implements DISTINCT;
+    # re-baseline this test at that point.
     q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
     assert lite(q) == ("SELECT * FROM 'users'", [])
