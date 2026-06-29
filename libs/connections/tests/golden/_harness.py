@@ -7,16 +7,11 @@ asserted against a captured literal in the feature tests.
 from typing import Any
 
 from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
-from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import PostgresConnection
 from amsdal_glue_connections.sql.connections.sqlite_connection import get_sqlite_transform
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import SqliteConnection
 from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
-
-# PostgresConnectionMixin._to_sql_type is an instance method (not a staticmethod/classmethod),
-# so we instantiate once and bind the method for use as a type_transform callable.
-_pg_mixin = PostgresConnectionMixin()
 
 
 def pg(query: Any) -> tuple[str, list[Any]]:
@@ -35,17 +30,49 @@ def lite_cmd(mutation: Any) -> tuple[str, list[Any]]:
     return build_sql_data_command(mutation=mutation, transform=get_sqlite_transform())
 
 
+# DDL / lock / transaction SQL is built INLINE inside the connection and sent straight to
+# execute() — Postgres does NOT route DDL through build_schema_mutation, and it quotes
+# identifiers with double quotes ("users"). The true oracle is what reaches execute().
+# Recording connections drive the real connection path with an execute() that records
+# (sql, params) instead of hitting a DB. No live DB needed for build->execute paths.
+class _RecordingPG(PostgresConnection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.captured: list[tuple[str, list[Any]]] = []
+
+    def execute(self, query: str, *args: Any) -> Any:
+        self.captured.append((query, list(args)))
+        return None
+
+
+class _RecordingSqlite(SqliteConnection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.captured: list[tuple[str, list[Any]]] = []
+
+    def execute(self, query: str, *args: Any) -> Any:
+        self.captured.append((query, list(args)))
+        return None
+
+
 def pg_ddl(mutation: Any) -> list[tuple[str, list[Any]]]:
-    return build_schema_mutation(
-        mutation,
-        type_transform=_pg_mixin._to_sql_type,
-        transform=get_pg_transform(),
-    )
+    conn = _RecordingPG()
+    conn._run_schema_mutation(mutation)
+    return conn.captured
 
 
 def lite_ddl(mutation: Any) -> list[tuple[str, list[Any]]]:
-    return build_schema_mutation(
-        mutation,
-        type_transform=SqliteConnection.to_sql_type,
-        transform=get_sqlite_transform(),
-    )
+    conn = _RecordingSqlite()
+    conn._run_schema_mutation(mutation)
+    return conn.captured
+
+
+def pg_record() -> _RecordingPG:
+    """Postgres connection whose execute() records (sql, params). For lock/transaction
+    characterization (Task 14): call the connection method, then read .captured."""
+    return _RecordingPG()
+
+
+def lite_record() -> _RecordingSqlite:
+    """SQLite recording connection — same usage as pg_record()."""
+    return _RecordingSqlite()
