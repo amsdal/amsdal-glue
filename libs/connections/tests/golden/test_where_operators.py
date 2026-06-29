@@ -142,3 +142,10 @@ def test_where_in_pg_params_correct_behaviour() -> None:
     # D2: = ANY(%s) must receive [[1, 2, 3]] (psycopg passes [1, 2, 3]), not [[[1, 2, 3]]].
     sql, params = pg(_where(FieldLookup.IN, [1, 2, 3]))
     assert (sql, params) == ('SELECT * FROM "users" WHERE "users"."age" = ANY(%s)', [[1, 2, 3]])
+
+
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D3')
+def test_where_contains_pg_wildcard_correct_behaviour() -> None:
+    # D3: PG LIKE must use '%' wildcards, not '*' (which match literal asterisks).
+    sql, params = pg(_where(FieldLookup.CONTAINS, 'oo'))
+    assert (sql, params) == ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['%oo%'])
