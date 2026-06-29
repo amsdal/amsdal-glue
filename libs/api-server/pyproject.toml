@@ -12,6 +12,7 @@ description = 'AMSDAL Glue API Server is a web API interface over AMSDAL Glue, p
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE.txt" }
+license-files = ["LICENSE.txt", "NOTICE.txt"]
 keywords = []
 authors = []
 classifiers = [

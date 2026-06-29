@@ -12,6 +12,7 @@ description = 'AMSDAL Glue is a Python interface providing high-level abstractio
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE.txt" }
+license-files = ["LICENSE.txt", "NOTICE.txt"]
 keywords = []
 authors = []
 classifiers = [
