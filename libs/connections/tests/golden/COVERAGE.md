@@ -66,7 +66,9 @@ Each cell shows: **covered** | `xfail:<reason>` | `skip:<reason>` | **DIVERGENCE
 | **ALTER — RenameProperty** | covered | covered | |
 | **ALTER — UpdateProperty** | DIVERGENCE | covered (shape) | PG: multi-ALTER comma-join; SQLite: UUID temp col |
 | **ALTER — AddConstraint (UniqueConstraint)** | DIVERGENCE | `xfail`: live-DB | PG: unquoted name; see §3-D7; SQLite needs live DB |
-| **ALTER — AddConstraint (PK/FK/CHECK)** | NOT TESTED | NOT TESTED | gap; see §4 |
+| **ALTER — AddConstraint (PrimaryKeyConstraint)** | DIVERGENCE | `xfail`: live-DB | PG: unquoted name + trailing space; see §3-D12; SQLite needs live DB |
+| **ALTER — AddConstraint (ForeignKeyConstraint)** | covered | `xfail`: live-DB | PG: clean; SQLite needs live DB |
+| **ALTER — AddConstraint (CheckConstraint)** | DIVERGENCE | `xfail`: live-DB | PG: unquoted name; see §3-D13; SQLite needs live DB |
 | **ALTER — DeleteConstraint** | covered | `xfail`: live-DB | SQLite needs live DB |
 | **ALTER — AddIndex** | covered | covered | |
 | **ALTER — DeleteIndex** | covered | covered | |
@@ -75,10 +77,14 @@ Each cell shows: **covered** | `xfail:<reason>` | `skip:<reason>` | **DIVERGENCE
 | **Lock — EXCLUSIVE acquire** | DIVERGENCE | `xfail`: live-DB | PG sync: `BEGIN EXCLUSIVE`; see §3-D10 |
 | **Lock — EXCLUSIVE release** | DIVERGENCE | `xfail`: live-DB | PG sync: `COMMIT`; see §3-D10 |
 | **Lock — SHARED (acquire/release)** | covered (no-op) | covered (no-op) | |
-| **Lock — async PG SELECT…FOR UPDATE** | NOT TESTED | n/a | gap; see §4 |
+| **Lock — async PG SELECT…FOR UPDATE** | covered | n/a | `test_lock.py` async tests; see §3 for clean characterization |
 
-**async variants:** all synthetic tests target the sync connection path via the recording
-harness; the async PG and async SQLite paths are SQL-text captured by the corpus (Task 16–17) — params are not asserted by the corpus gate (see §4.1).
+**Golden suite (current):** 155 passed, 4 xfailed.
+
+**async variants:** the async PG lock path (`SELECT … FOR UPDATE`) is now covered by synthetic
+tests via `_RecordingAsyncPG` in the recording harness (Task 21). All other async PG/SQLite
+paths are SQL-text captured by the corpus (Tasks 16–17) — params are not asserted by the
+corpus gate (see §4.1).
 
 ---
 
@@ -145,8 +151,10 @@ re-baselined in Plan 3.
 | D9 | `test_create_table.py:328-344` | PG CheckConstraint: `CONSTRAINT chk_age_positive CHECK (…)` (unquoted) | `CONSTRAINT "chk_age_positive" CHECK (…)` |
 | D10 | `test_lock.py:9,58,75` | PG sync `acquire_lock` emits `BEGIN EXCLUSIVE`; `release_lock` emits `COMMIT` | PG native: `SELECT … FOR UPDATE` / `COMMIT` (transaction context) |
 | D11 | `test_alter_table.py:149` | PG UpdateProperty: `ALTER TABLE … ALTER COLUMN TYPE …, ALTER COLUMN … DROP NOT NULL` (comma-joined) | correct multi-ALTER syntax — verify at re-baseline |
+| D12 | `test_alter_table.py:233-235` | PG PrimaryKeyConstraint ALTER-AddConstraint: `CONSTRAINT pk_person PRIMARY KEY ("id") ` (unquoted name + trailing space) | `CONSTRAINT "pk_person" PRIMARY KEY ("id")` (quoted, no trailing space) |
+| D13 | `test_alter_table.py:272-274` | PG CheckConstraint ALTER-AddConstraint: `CONSTRAINT chk_age_positive CHECK ("Person"."age" > 0)` (unquoted name) | `CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)` |
 
-**Total registered divergences: 11** (D1 covers 3 test lines, D4 covers 2 dialect branches, D7 covers 2 files).
+**Total registered divergences: 13** (D1 covers 3 test lines, D4 covers 2 dialect branches, D7 covers 2 files).
 
 ---
 
@@ -155,13 +163,18 @@ re-baselined in Plan 3.
 | Gap | Source | Impact for Plan 3 |
 |-----|--------|-------------------|
 | SQLite `AddConstraint` / `DeleteConstraint` (any constraint type) | Requires live DB (`_recreate_table_with_constraints` hits `self.connection.execute('BEGIN')` on raw sqlite3.Connection); marked `xfail(strict=True)` | Must verify via corpus/integration tests post-migration |
-| PG `AddConstraint` — only `UniqueConstraint` tested (`test_alter_table.py`) | PrimaryKeyConstraint / ForeignKeyConstraint / CheckConstraint not exercised via golden harness | Re-baseline when adding Rust support for those |
-| Async PG `SELECT … FOR UPDATE` (lock path) | `async_connection.py` ~491–504 not reachable via sync recording harness | Must be caught by corpus (glue.jsonl includes pg_async rows) or integration tests |
 | No namespace-prefix variants | `_rename_column` computes a namespace prefix but never uses it (latent bug noted in Task 13); no golden tests with non-default namespace | Document as open risk; verify manually |
 | Elasticsearch (22 tests) | No ES container | Out of scope for SQL golden tests |
 | CSV backend | No SQL emitted | Out of scope |
 | `PRAGMA` statements | 196 (glue) + 254 (amsdal_data) corpus rows are PRAGMA; not in synthetic suite | SQLite-specific; covered by corpus only |
 | `LIMIT`/`OFFSET` inlining | Values inlined (not parameterised); if Rust switches to parameterised LIMIT/OFFSET, corpus rows will mismatch | Watch during Plan 3 re-baseline |
+
+**CLOSED gaps (no longer open):**
+
+| Gap | Closed by |
+|-----|-----------|
+| Async PG `SELECT … FOR UPDATE` (lock path) | `test_lock.py`: `test_pg_async_acquire_lock_emits_for_update`, `test_pg_async_acquire_lock_no_query_is_noop`, `test_pg_async_release_lock_is_noop` (Task 21) |
+| PG `AddConstraint` — PrimaryKeyConstraint / ForeignKeyConstraint / CheckConstraint not exercised | `test_alter_table.py`: `test_add_constraint_pg_primary_key`, `test_add_constraint_pg_foreign_key`, `test_add_constraint_pg_check` (Task 21) |
 
 ### 4.1 Parity gate limitations
 
@@ -190,6 +203,8 @@ corpus SQL and the live observed SQL before comparison. Recommended regex:
 
 ```python
 import re
+
+
 def normalise(sql: str) -> str:
     return re.sub(r'__v__[0-9a-f]{32}', '__v__HASH', sql)
 ```

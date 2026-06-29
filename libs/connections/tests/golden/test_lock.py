@@ -26,20 +26,19 @@ connection captures nothing.
 
 import pytest
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
+from amsdal_glue_core.common.data_models.conditions import Condition
+from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
 from amsdal_glue_core.common.enums import LockParameter
 from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.operations.commands import LockSchemaReference
-
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.operations.commands import LockSchemaReference
 
 from ._harness import lite_record
 from ._harness import pg_async_record
