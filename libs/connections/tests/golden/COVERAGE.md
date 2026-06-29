@@ -34,13 +34,13 @@ Each cell shows: **covered** | `xfail:<reason>` | `skip:<reason>` | **DIVERGENCE
 | **Conditions — double negation** | covered | covered | elim. correct |
 | **JOINs — INNER** | covered | covered | `test_joins.py` |
 | **JOINs — LEFT** | covered | covered | |
-| **JOINs — RIGHT** | covered | DIVERGENCE | SQLite ≥3.39.0 only; see §3-D4 |
-| **JOINs — FULL** | covered | DIVERGENCE | SQLite unsupported; see §3-D4 |
+| **JOINs — RIGHT** | covered | covered | SQLite ≥3.39.0; floor ≥3.45.0 (JSONB) means emitting is always correct — see §3-D4 |
+| **JOINs — FULL** | covered | covered | SQLite ≥3.39.0; floor ≥3.45.0 (JSONB) means emitting is always correct — see §3-D4 |
 | **JOINs — multiple** | covered | covered | |
 | **JOINs — subquery** | covered | covered | |
 | **Aggregations — COUNT/SUM/AVG/MIN/MAX** | covered | covered | `test_aggregations.py` |
 | **GROUP BY — single field** | covered | covered | |
-| **GROUP BY — multi field** | DIVERGENCE | covered | `SELECT *` with no agg is invalid PG; see §3-D5 |
+| **GROUP BY — multi field** | by-design | covered | `SELECT *` under GROUP BY is caller's responsibility (use `only=[...]`); see §3-D5 |
 | **GROUP BY — multi field + agg** | covered | covered | realistic case |
 | **ORDER BY — ASC/DESC** | covered | covered | `test_order_limit.py` |
 | **ORDER BY — multi field** | covered | covered | |
@@ -140,21 +140,39 @@ re-baselined in Plan 3.
 
 | ID | File : Lines | Current (buggy) output | Correct SQL after migration |
 |----|-------------|------------------------|----------------------------|
-| D1 | `test_select.py:38,47,82` | `SELECT * FROM "users"` / `SELECT * FROM 'users'` (no DISTINCT) | `SELECT DISTINCT * FROM …` / `SELECT DISTINCT ON (…) * FROM …` |
+| D1 | `test_select.py:38,47,82` | `SELECT * FROM "users"` / `SELECT * FROM 'users'` (no DISTINCT) | `SELECT DISTINCT * FROM …` / `SELECT DISTINCT ON (…) * FROM …`; see §3.1 |
 | D2 | `test_where_operators.py:60-64` | PG IN params `[[[1, 2, 3]]]` | `[[1, 2, 3]]` |
-| D3 | `test_where_operators.py:65-70` | PG CONTAINS: `LIKE %s` with `'*oo*'` | `LIKE %s` with `'%oo%'` |
-| D4 | `test_joins.py:54-78` | SQLite emits `RIGHT JOIN` / `FULL JOIN` without error | RIGHT JOIN requires ≥3.39.0; FULL JOIN needs UNION workaround |
-| D5 | `test_aggregations.py:92-98` | PG `SELECT * FROM "orders" GROUP BY …` (no agg/only) | `SELECT "orders"."customer_id", … FROM "orders" GROUP BY …` |
+| D3 | `test_where_operators.py:65-70` | PG CONTAINS: `LIKE %s` with `'*oo*'` | `LIKE %s` with `'%oo%'`; see §3.1 |
+| D4 | `test_joins.py:54-78` | SQLite emits `RIGHT JOIN` / `FULL JOIN` — characterization only (**NOT a divergence**) | NOT a bug — tests document correct behaviour; see §3.1 |
+| D5 | `test_aggregations.py:92-98` | PG `SELECT * FROM "orders" GROUP BY …` — by-design (**caller must supply `only`**) | by-design — caller's responsibility; not a generator bug; see §3.1 |
 | D6 | `test_create_table.py:113-128` | PG PrimaryKeyConstraint: `CONSTRAINT pk_person PRIMARY KEY ("id") ` (unquoted + trailing space) | `CONSTRAINT "pk_person" PRIMARY KEY ("id")` |
 | D7 | `test_create_table.py:179-195`, `test_alter_table.py:184-190` | PG UniqueConstraint: `CONSTRAINT uq_person_email UNIQUE (…)` (unquoted) | `CONSTRAINT "uq_person_email" UNIQUE (…)` |
 | D8 | `test_create_table.py:223-234` | SQLite FK reference_fields: `(id)` unquoted | `('id')` |
 | D9 | `test_create_table.py:328-344` | PG CheckConstraint: `CONSTRAINT chk_age_positive CHECK (…)` (unquoted) | `CONSTRAINT "chk_age_positive" CHECK (…)` |
-| D10 | `test_lock.py:9,58,75` | PG sync `acquire_lock` emits `BEGIN EXCLUSIVE`; `release_lock` emits `COMMIT` | PG native: `SELECT … FOR UPDATE` / `COMMIT` (transaction context) |
+| D10 | `test_lock.py:9,58,75` | PG sync `acquire_lock` emits `BEGIN EXCLUSIVE`; `release_lock` emits `COMMIT` | PG native: `SELECT … FOR UPDATE` / `COMMIT` (transaction context); see §3.1 |
 | D11 | `test_alter_table.py:149` | PG UpdateProperty: `ALTER TABLE … ALTER COLUMN TYPE …, ALTER COLUMN … DROP NOT NULL` (comma-joined) | correct multi-ALTER syntax — verify at re-baseline |
 | D12 | `test_alter_table.py:233-235` | PG PrimaryKeyConstraint ALTER-AddConstraint: `CONSTRAINT pk_person PRIMARY KEY ("id") ` (unquoted name + trailing space) | `CONSTRAINT "pk_person" PRIMARY KEY ("id")` (quoted, no trailing space) |
 | D13 | `test_alter_table.py:272-274` | PG CheckConstraint ALTER-AddConstraint: `CONSTRAINT chk_age_positive CHECK ("Person"."age" > 0)` (unquoted name) | `CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)` |
 
 **Total registered divergences: 13** (D1 covers 3 test lines, D4 covers 2 dialect branches, D7 covers 2 files).
+**Real-bug count after reclassification: 11** — D4 and D5 are non-bugs; their characterization tests document correct behaviour and must NOT be re-baselined for correct Rust output.
+
+### 3.1 Classification notes
+
+**D1 — refined description:**
+DISTINCT (and DISTINCT ON) are dropped ONLY when only is empty (SELECT *), for BOTH dialects — build_only_constructor.py returns None before the distinct branch. Safe to fix additively: amsdal never forwards distinct into glue QueryStatement (confirmed: no distinct= kwarg reaches glue.QueryStatement(...) in amsdal_models/amsdal_data).
+
+**D3 — CONTAINS operator (SQLite path is correct):**
+SQLite path is CORRECT — GLOB uses '*' as its wildcard (operator_constructor.py:158). Only the PG path is wrong (postgres_utils/operator_constructor.py:76-78 uses LIKE with '*' instead of '%').
+
+**D4 — NOT a divergence (characterization only):**
+SQLite floor enforced at >=3.45.0 (amsdal_data sqlite_historical.py:38 / async_sqlite_historical.py:46, JSONB requirement); RIGHT/FULL JOIN need only 3.39.0, so emitting them is always correct. The existing characterization tests now document correct behaviour, not a bug.
+
+**D5 — by-design (caller must supply only):**
+The generator renders the QueryStatement literally; SELECT * under GROUP BY is invalid in PG, but choosing the projection is the caller's responsibility (set only=[...]). The Rust generator emits the same SELECT *. Not a generator bug.
+
+**D10 — migration design requirement:**
+LockCommand is intended to map to an advisory lock (e.g. pg_advisory_lock); none exists in the stack today (grep found no advisory/pg_advisory/GET_LOCK). Row-level SELECT ... FOR UPDATE will be added later as a QueryStatement, not a LockCommand. Both the sync BEGIN EXCLUSIVE and the async historical FOR UPDATE override (amsdal_data postgresql_historical.py:455) diverge from this intent: AsyncPostgresHistoricalConnection overrides acquire_lock with FOR UPDATE, while the SYNC PostgresHistoricalConnection inherits glue's broken BEGIN EXCLUSIVE.
 
 ---
 
