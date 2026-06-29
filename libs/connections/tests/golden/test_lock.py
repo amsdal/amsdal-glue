@@ -23,8 +23,8 @@ raises ``ConnectionError('Connection not established')`` immediately.  These cas
 SHARED-mode locks are no-ops for both backends: neither emits SQL, and the recording
 connection captures nothing.
 """
-import pytest
 
+import pytest
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import LockAction

@@ -20,6 +20,7 @@ harness generates SQL without connecting to any DB, capturing those
 paths here is out of scope.  They are covered by the corpus/integration
 capture instead (Tasks 16-18).
 """
+
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -42,10 +43,10 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from ._harness import lite_ddl
 from ._harness import pg_ddl
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _gt_condition(table: str, field: str, value: object) -> Conditions:
     """Return a Conditions wrapping a single field > value check."""
@@ -63,6 +64,7 @@ def _gt_condition(table: str, field: str, value: object) -> Conditions:
 # ---------------------------------------------------------------------------
 # PRIMARY KEY + column defaults + CREATE INDEX
 # ---------------------------------------------------------------------------
+
 
 def test_register_schema_sqlite() -> None:
     stmts = lite_ddl(
@@ -136,6 +138,7 @@ def test_register_schema_pg() -> None:
 # UNIQUE constraint
 # ---------------------------------------------------------------------------
 
+
 def test_unique_constraint_sqlite() -> None:
     stmts = lite_ddl(
         RegisterSchema(
@@ -198,6 +201,7 @@ def test_unique_constraint_pg() -> None:
 # ---------------------------------------------------------------------------
 # FOREIGN KEY constraint
 # ---------------------------------------------------------------------------
+
 
 def test_foreign_key_constraint_sqlite() -> None:
     stmts = lite_ddl(
@@ -273,6 +277,7 @@ def test_foreign_key_constraint_pg() -> None:
 # CHECK constraint
 # ---------------------------------------------------------------------------
 
+
 def test_check_constraint_sqlite() -> None:
     stmts = lite_ddl(
         RegisterSchema(
@@ -347,6 +352,7 @@ def test_check_constraint_pg() -> None:
 # ---------------------------------------------------------------------------
 # Standalone CREATE INDEX (AddIndex mutation)
 # ---------------------------------------------------------------------------
+
 
 def test_add_index_sqlite() -> None:
     stmts = lite_ddl(

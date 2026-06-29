@@ -22,7 +22,8 @@ def test_sqlite_simple_select() -> None:
 def test_pg_ddl_uses_double_quoted_identifiers() -> None:
     """Proves pg_ddl characterises the REAL Postgres inline DDL path (double quotes),
     not build_schema_mutation (single quotes)."""
-    from amsdal_glue_core.common.data_models.schema import PropertySchema, Schema
+    from amsdal_glue_core.common.data_models.schema import PropertySchema
+    from amsdal_glue_core.common.data_models.schema import Schema
     from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
     stmts = pg_ddl(

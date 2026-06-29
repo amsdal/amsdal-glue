@@ -11,7 +11,7 @@ _CONNECTIONS_DIR = Path(__file__).parent.parent.parent
 
 # A throwaway test module the plugin can instrument: open an in-memory SQLite
 # connection and run one query so execute() fires at least once.
-_PROBE = textwrap.dedent('''
+_PROBE = textwrap.dedent("""
     from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import SqliteConnection
     from amsdal_glue_core.common.data_models.query import QueryStatement
     from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -25,7 +25,7 @@ _PROBE = textwrap.dedent('''
         # a real query through the builder->execute path
         conn.query(QueryStatement(table=SchemaReference(name='users', version=Version.LATEST)))
         conn.disconnect()
-''')
+""")
 
 
 def _base_args(probe: Path) -> list:
@@ -47,7 +47,7 @@ def test_capture_then_assert_roundtrips(tmp_path: Path) -> None:
     base = _base_args(probe)
     env = _env()
 
-    cap = subprocess.run(
+    cap = subprocess.run(  # noqa: S603, PLW1510
         [sys.executable, '-m', 'pytest', *base, f'--capture-sql={corpus}'],
         capture_output=True,
         cwd=str(_CONNECTIONS_DIR),
@@ -57,7 +57,7 @@ def test_capture_then_assert_roundtrips(tmp_path: Path) -> None:
     assert corpus.exists() and corpus.read_text().strip(), 'corpus should be non-empty'
     rows = [json.loads(line) for line in corpus.read_text().splitlines()]
     assert any('users' in r['sql'] for r in rows), 'expected captured SQL referencing users'
-    asrt = subprocess.run(
+    asrt = subprocess.run(  # noqa: S603, PLW1510
         [sys.executable, '-m', 'pytest', *base, f'--assert-sql={corpus}'],
         capture_output=True,
         cwd=str(_CONNECTIONS_DIR),
@@ -80,7 +80,7 @@ def test_assert_is_order_independent(tmp_path: Path) -> None:
     base = _base_args(probe)
     env = _env()
 
-    cap = subprocess.run(
+    cap = subprocess.run(  # noqa: S603, PLW1510
         [sys.executable, '-m', 'pytest', *base, f'--capture-sql={corpus}'],
         capture_output=True,
         cwd=str(_CONNECTIONS_DIR),
@@ -91,11 +91,11 @@ def test_assert_is_order_independent(tmp_path: Path) -> None:
     assert len(lines) >= 2, 'probe must emit at least two execute() calls for this test to be meaningful'
 
     # Swap the first two rows — same multiset, different order in the corpus file.
-    swapped = [lines[1], lines[0]] + lines[2:]
+    swapped = [lines[1], lines[0], *lines[2:]]
     reordered = tmp_path / 'corpus_reordered.jsonl'
     reordered.write_text('\n'.join(swapped) + '\n')
 
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603, PLW1510
         [sys.executable, '-m', 'pytest', *base, f'--assert-sql={reordered}'],
         capture_output=True,
         cwd=str(_CONNECTIONS_DIR),
@@ -128,7 +128,7 @@ def test_assert_is_two_sided(tmp_path: Path) -> None:
     env = _env()
 
     # Step 1: capture a clean corpus.
-    cap = subprocess.run(
+    cap = subprocess.run(  # noqa: S603, PLW1510
         [sys.executable, '-m', 'pytest', *base, f'--capture-sql={corpus}'],
         capture_output=True,
         cwd=str(_CONNECTIONS_DIR),
@@ -144,7 +144,7 @@ def test_assert_is_two_sided(tmp_path: Path) -> None:
     truncated = tmp_path / 'corpus_truncated.jsonl'
     truncated.write_text('\n'.join(lines[:-1]) + '\n')
 
-    result_a = subprocess.run(
+    result_a = subprocess.run(  # noqa: S603, PLW1510
         [sys.executable, '-m', 'pytest', *base, f'--assert-sql={truncated}'],
         capture_output=True,
         cwd=str(_CONNECTIONS_DIR),
@@ -154,9 +154,7 @@ def test_assert_is_two_sided(tmp_path: Path) -> None:
     assert result_a.returncode != 0, (
         f'expected assert run to FAIL on truncated corpus (removed-sql detection), got exit 0.\n{output_a}'
     )
-    assert 'mismatch' in output_a.lower(), (
-        f'expected "mismatch" in output for removed-sql case, got:\n{output_a}'
-    )
+    assert 'mismatch' in output_a.lower(), f'expected "mismatch" in output for removed-sql case, got:\n{output_a}'
 
     # ------------------------------------------------------------------ Case B
     # Append a bogus entry for a nodeid that never runs → expected count 1,
@@ -171,7 +169,7 @@ def test_assert_is_two_sided(tmp_path: Path) -> None:
     extended = tmp_path / 'corpus_extended.jsonl'
     extended.write_text(corpus.read_text() + bogus + '\n')
 
-    result_b = subprocess.run(
+    result_b = subprocess.run(  # noqa: S603, PLW1510
         [sys.executable, '-m', 'pytest', *base, f'--assert-sql={extended}'],
         capture_output=True,
         cwd=str(_CONNECTIONS_DIR),
@@ -181,9 +179,7 @@ def test_assert_is_two_sided(tmp_path: Path) -> None:
     assert result_b.returncode != 0, (
         f'expected assert run to FAIL on corpus with bogus entry (extra-sql detection), got exit 0.\n{output_b}'
     )
-    assert 'mismatch' in output_b.lower(), (
-        f'expected "mismatch" in output for extra-sql case, got:\n{output_b}'
-    )
+    assert 'mismatch' in output_b.lower(), f'expected "mismatch" in output for extra-sql case, got:\n{output_b}'
 
     # ------------------------------------------------------------------ Case C
     # Modify the sql field of the first corpus row → the expected multiset has
@@ -191,20 +187,16 @@ def test_assert_is_two_sided(tmp_path: Path) -> None:
     # original (count 1) but not the altered → two-entry mismatch.
     first_row = json.loads(lines[0])
     first_row['sql'] = 'SELECT CHANGED_SENTINEL FROM nowhere'
-    changed_lines = [json.dumps(first_row)] + lines[1:]
+    changed_lines = [json.dumps(first_row), *lines[1:]]
     changed = tmp_path / 'corpus_changed.jsonl'
     changed.write_text('\n'.join(changed_lines) + '\n')
 
-    result_c = subprocess.run(
+    result_c = subprocess.run(  # noqa: S603, PLW1510
         [sys.executable, '-m', 'pytest', *base, f'--assert-sql={changed}'],
         capture_output=True,
         cwd=str(_CONNECTIONS_DIR),
         env=env,
     )
     output_c = (result_c.stdout + result_c.stderr).decode()
-    assert result_c.returncode != 0, (
-        f'expected assert run to FAIL on corpus with changed sql, got exit 0.\n{output_c}'
-    )
-    assert 'mismatch' in output_c.lower(), (
-        f'expected "mismatch" in output for changed-sql case, got:\n{output_c}'
-    )
+    assert result_c.returncode != 0, f'expected assert run to FAIL on corpus with changed sql, got exit 0.\n{output_c}'
+    assert 'mismatch' in output_c.lower(), f'expected "mismatch" in output for changed-sql case, got:\n{output_c}'

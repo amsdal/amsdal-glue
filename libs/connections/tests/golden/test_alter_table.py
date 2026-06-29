@@ -23,8 +23,8 @@ The SQLite UpdateProperty path generates a temporary column name using
 verifies the structural shape (4 statements, correct prefixes/suffixes)
 instead of an exact byte-for-byte match.
 """
-import pytest
 
+import pytest
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -44,10 +44,10 @@ from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from ._harness import lite_ddl
 from ._harness import pg_ddl
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _ref() -> SchemaReference:
     return SchemaReference(name='Person', version=Version.LATEST)
@@ -56,6 +56,7 @@ def _ref() -> SchemaReference:
 # ===========================================================================
 # AddProperty
 # ===========================================================================
+
 
 def test_add_property_sqlite() -> None:
     m = AddProperty(
@@ -77,6 +78,7 @@ def test_add_property_pg() -> None:
 # DeleteProperty
 # ===========================================================================
 
+
 def test_delete_property_sqlite() -> None:
     m = DeleteProperty(schema_reference=_ref(), property_name='email')
     assert lite_ddl(m) == [("ALTER TABLE 'Person' DROP COLUMN 'email'", [])]
@@ -90,6 +92,7 @@ def test_delete_property_pg() -> None:
 # ===========================================================================
 # RenameProperty
 # ===========================================================================
+
 
 def test_rename_property_sqlite() -> None:
     m = RenameProperty(schema_reference=_ref(), old_name='email', new_name='email_address')
@@ -108,6 +111,7 @@ def test_rename_property_pg() -> None:
 # ===========================================================================
 # UpdateProperty
 # ===========================================================================
+
 
 def test_update_property_sqlite() -> None:
     """SQLite UpdateProperty: 4-step column-type migration.
@@ -150,8 +154,7 @@ def test_update_property_pg() -> None:
     # as a comma-separated sequence within a single ALTER TABLE statement.
     assert pg_ddl(m) == [
         (
-            'ALTER TABLE "Person" ALTER COLUMN "email" TYPE TEXT, '
-            'ALTER COLUMN "email" DROP NOT NULL',
+            'ALTER TABLE "Person" ALTER COLUMN "email" TYPE TEXT, ALTER COLUMN "email" DROP NOT NULL',
             [],
         ),
     ]
@@ -160,6 +163,7 @@ def test_update_property_pg() -> None:
 # ===========================================================================
 # AddConstraint
 # ===========================================================================
+
 
 @pytest.mark.xfail(
     strict=True,
@@ -196,6 +200,7 @@ def test_add_constraint_pg() -> None:
 # DeleteConstraint
 # ===========================================================================
 
+
 @pytest.mark.xfail(
     strict=True,
     reason='requires live-DB schema introspection; covered by corpus/integration Tasks 16-18',
@@ -218,6 +223,7 @@ def test_delete_constraint_pg() -> None:
 # ===========================================================================
 # AddIndex
 # ===========================================================================
+
 
 def test_add_index_sqlite() -> None:
     m = AddIndex(
@@ -243,6 +249,7 @@ def test_add_index_pg() -> None:
 # DeleteIndex
 # ===========================================================================
 
+
 def test_delete_index_sqlite() -> None:
     m = DeleteIndex(schema_reference=_ref(), index_name='idx_person_email')
     assert lite_ddl(m) == [("DROP INDEX 'idx_person_email'", [])]
@@ -257,6 +264,7 @@ def test_delete_index_pg() -> None:
 # DeleteSchema  (DROP TABLE)
 # ===========================================================================
 
+
 def test_drop_table_sqlite() -> None:
     m = DeleteSchema(schema_reference=_ref())
     assert lite_ddl(m) == [("DROP TABLE 'Person'", [])]
@@ -270,6 +278,7 @@ def test_drop_table_pg() -> None:
 # ===========================================================================
 # RenameSchema  (RENAME TABLE)
 # ===========================================================================
+
 
 def test_rename_table_sqlite() -> None:
     m = RenameSchema(schema_reference=_ref(), new_schema_name='People')

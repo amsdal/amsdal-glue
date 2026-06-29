@@ -13,9 +13,11 @@ of SQL statements in a different order pass; only genuinely added, removed, or
 changed SQL triggers a failure.  The ``seq`` field is still written in capture
 mode for reference/debugging but is not used during assertion.
 """
+
 import inspect
 import json
-from collections import Counter, defaultdict
+from collections import Counter
+from collections import defaultdict
 from typing import Any
 
 import pytest
@@ -48,7 +50,7 @@ def _safe(params: list) -> list:
         try:
             json.dumps(p)
             out.append(p)
-        except TypeError:
+        except TypeError:  # noqa: PERF203
             out.append(repr(p))
     return out
 
@@ -90,17 +92,17 @@ def pytest_addoption(parser: Any) -> None:
 
 def pytest_configure(config: Any) -> None:
     if getattr(config, 'workerinput', None) is not None:
-        raise pytest.UsageError('capture_plugin requires serial run; use -n0')
+        raise pytest.UsageError('capture_plugin requires serial run; use -n0')  # noqa: TRY003, EM101
     cap = config.getoption('--capture-sql')
     asrt = config.getoption('--assert-sql')
     if not cap and not asrt:
         return
     if cap and asrt:
-        raise pytest.UsageError('--capture-sql and --assert-sql are mutually exclusive')
+        raise pytest.UsageError('--capture-sql and --assert-sql are mutually exclusive')  # noqa: TRY003, EM101
     for dialect, cls in _TARGETS.items():
-        orig = cls.execute
+        orig = cls.execute  # type: ignore[attr-defined]
         wrapper = _wrap_async(dialect, orig) if inspect.iscoroutinefunction(orig) else _wrap_sync(dialect, orig)
-        cls.execute = wrapper  # type: ignore[method-assign]
+        cls.execute = wrapper  # type: ignore[attr-defined, method-assign]
     if cap:
         _STATE['mode'] = 'capture'
         _STATE['fh'] = open(cap, 'w')  # noqa: SIM115, PTH123
@@ -135,22 +137,20 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:  # noqa: ARG001
                 exp_count = exp.get(sql, 0)
                 obs_count = obs.get(sql, 0)
                 if exp_count != obs_count:
-                    mismatches.append(
-                        {
-                            'nodeid': nodeid,
-                            'dialect': dialect,
-                            'sql': sql,
-                            'expected_count': exp_count,
-                            'observed_count': obs_count,
-                        }
-                    )
+                    mismatches.append({
+                        'nodeid': nodeid,
+                        'dialect': dialect,
+                        'sql': sql,
+                        'expected_count': exp_count,
+                        'observed_count': obs_count,
+                    })
         if mismatches:
             lines = []
             for m in mismatches:
-                lines.append(
-                    f"nodeid={m['nodeid']} dialect={m['dialect']}\n"
-                    f"  sql: {m['sql']}\n"
-                    f"  expected count: {m['expected_count']}, observed count: {m['observed_count']}"
+                lines.append(  # noqa: PERF401
+                    f'nodeid={m["nodeid"]} dialect={m["dialect"]}\n'
+                    f'  sql: {m["sql"]}\n'
+                    f'  expected count: {m["expected_count"]}, observed count: {m["observed_count"]}'
                 )
-            msg = f"{len(mismatches)} SQL parity mismatch(es):\n" + '\n'.join(lines)
+            msg = f'{len(mismatches)} SQL parity mismatch(es):\n' + '\n'.join(lines)
             raise AssertionError(msg)

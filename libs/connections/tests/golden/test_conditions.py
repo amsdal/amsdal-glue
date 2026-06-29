@@ -31,7 +31,7 @@ def _q(where: Conditions) -> QueryStatement:
 
 
 def test_and_pg() -> None:
-    where = Conditions(_cond('age', FieldLookup.GT, 18), _cond('active', FieldLookup.EXACT, True))
+    where = Conditions(_cond('age', FieldLookup.GT, 18), _cond('active', FieldLookup.EXACT, True))  # noqa: FBT003
     assert pg(_q(where)) == (
         'SELECT * FROM "users" WHERE "users"."age" > %s AND "users"."active" IS %s',
         [18, True],
@@ -53,7 +53,7 @@ def test_or_pg() -> None:
 def test_nested_and_or_pg() -> None:
     inner = Conditions(
         _cond('age', FieldLookup.GT, 18),
-        _cond('active', FieldLookup.EXACT, True),
+        _cond('active', FieldLookup.EXACT, True),  # noqa: FBT003
     )
     where = Conditions(inner, _cond('name', FieldLookup.EQ, 'foo'), connector=FilterConnector.OR)
     assert pg(_q(where)) == (
@@ -73,7 +73,7 @@ def test_negated_condition_pg() -> None:
 def test_negated_conditions_group_pg() -> None:
     where = Conditions(
         _cond('age', FieldLookup.GT, 18),
-        _cond('active', FieldLookup.EXACT, True),
+        _cond('active', FieldLookup.EXACT, True),  # noqa: FBT003
         negated=True,
     )
     assert pg(_q(where)) == (
@@ -100,7 +100,7 @@ def test_double_negation_pg() -> None:
 
 
 def test_and_lite() -> None:
-    where = Conditions(_cond('age', FieldLookup.GT, 18), _cond('active', FieldLookup.EXACT, True))
+    where = Conditions(_cond('age', FieldLookup.GT, 18), _cond('active', FieldLookup.EXACT, True))  # noqa: FBT003
     assert lite(_q(where)) == (
         "SELECT * FROM 'users' WHERE 'users'.'age' > ? AND 'users'.'active' IS ?",
         [18, True],
@@ -122,7 +122,7 @@ def test_or_lite() -> None:
 def test_nested_and_or_lite() -> None:
     inner = Conditions(
         _cond('age', FieldLookup.GT, 18),
-        _cond('active', FieldLookup.EXACT, True),
+        _cond('active', FieldLookup.EXACT, True),  # noqa: FBT003
     )
     where = Conditions(inner, _cond('name', FieldLookup.EQ, 'foo'), connector=FilterConnector.OR)
     assert lite(_q(where)) == (
@@ -142,7 +142,7 @@ def test_negated_condition_lite() -> None:
 def test_negated_conditions_group_lite() -> None:
     where = Conditions(
         _cond('age', FieldLookup.GT, 18),
-        _cond('active', FieldLookup.EXACT, True),
+        _cond('active', FieldLookup.EXACT, True),  # noqa: FBT003
         negated=True,
     )
     assert lite(_q(where)) == (

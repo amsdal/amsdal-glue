@@ -4,6 +4,7 @@ Each helper turns a glue AST node into the exact (sql, params) the current
 string-concatenation builders produce, for one dialect. The returned tuple is
 asserted against a captured literal in the feature tests.
 """
+
 from typing import Any
 
 from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
@@ -57,13 +58,13 @@ class _RecordingSqlite(SqliteConnection):
 
 def pg_ddl(mutation: Any) -> list[tuple[str, list[Any]]]:
     conn = _RecordingPG()
-    conn._run_schema_mutation(mutation)
+    conn._run_schema_mutation(mutation)  # noqa: SLF001
     return conn.captured
 
 
 def lite_ddl(mutation: Any) -> list[tuple[str, list[Any]]]:
     conn = _RecordingSqlite()
-    conn._run_schema_mutation(mutation)
+    conn._run_schema_mutation(mutation)  # noqa: SLF001
     return conn.captured
 
 

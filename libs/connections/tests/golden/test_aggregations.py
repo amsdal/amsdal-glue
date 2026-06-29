@@ -1,5 +1,4 @@
 import pytest
-
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
@@ -50,7 +49,7 @@ EXPECTED_AGG_LITE: dict[str, tuple[str, list]] = {
 def test_aggregation_pg(name: str, expr: object) -> None:
     q = QueryStatement(
         table=SchemaReference(name='orders', version=Version.LATEST),
-        aggregations=[AggregationQuery(expression=expr, alias=f'{name}_value')],
+        aggregations=[AggregationQuery(expression=expr, alias=f'{name}_value')],  # type: ignore[arg-type]
     )
     assert pg(q) == EXPECTED_AGG_PG[name]
 
@@ -59,7 +58,7 @@ def test_aggregation_pg(name: str, expr: object) -> None:
 def test_aggregation_lite(name: str, expr: object) -> None:
     q = QueryStatement(
         table=SchemaReference(name='orders', version=Version.LATEST),
-        aggregations=[AggregationQuery(expression=expr, alias=f'{name}_value')],
+        aggregations=[AggregationQuery(expression=expr, alias=f'{name}_value')],  # type: ignore[arg-type]
     )
     assert lite(q) == EXPECTED_AGG_LITE[name]
 
