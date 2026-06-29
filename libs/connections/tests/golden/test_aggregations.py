@@ -89,6 +89,13 @@ def test_group_by_single_lite() -> None:
 
 
 def test_group_by_multi_pg() -> None:
+    # KNOWN-DIVERGENCE (migration): builder emits `SELECT *` with no aggregations/only-fields,
+    # which is invalid PostgreSQL — non-grouped columns in SELECT violate SQL standard GROUP BY
+    # rules and PostgreSQL will reject it. The correct SQL would be:
+    #   SELECT "orders"."customer_id", "orders"."status"
+    #   FROM "orders" GROUP BY "orders"."customer_id", "orders"."status"
+    # The `SELECT *` here is a synthetic-input artifact (no `only`/aggregations were provided).
+    # Assertion kept as-is to characterise current builder output.
     q = QueryStatement(
         table=SchemaReference(name='orders', version=Version.LATEST),
         group_by=[GroupByQuery(field=_ref('customer_id')), GroupByQuery(field=_ref('status'))],
@@ -100,11 +107,39 @@ def test_group_by_multi_pg() -> None:
 
 
 def test_group_by_multi_lite() -> None:
+    # SQLite permissively allows SELECT * with GROUP BY (executes, picks an arbitrary row per
+    # group for non-grouped columns) — no divergence marker needed.
     q = QueryStatement(
         table=SchemaReference(name='orders', version=Version.LATEST),
         group_by=[GroupByQuery(field=_ref('customer_id')), GroupByQuery(field=_ref('status'))],
     )
     assert lite(q) == (
         "SELECT * FROM 'orders' GROUP BY 'orders'.'customer_id', 'orders'.'status'",
+        [],
+    )
+
+
+def test_group_by_multi_agg_pg() -> None:
+    # Realistic case: multi-field GROUP BY combined with an aggregation.
+    q = QueryStatement(
+        table=SchemaReference(name='orders', version=Version.LATEST),
+        group_by=[GroupByQuery(field=_ref('customer_id')), GroupByQuery(field=_ref('status'))],
+        aggregations=[AggregationQuery(expression=Count(field=_ref('id')), alias='cnt')],
+    )
+    assert pg(q) == (
+        'SELECT COUNT("orders"."id") AS "cnt" FROM "orders" GROUP BY "orders"."customer_id", "orders"."status"',
+        [],
+    )
+
+
+def test_group_by_multi_agg_lite() -> None:
+    # Realistic case: multi-field GROUP BY combined with an aggregation.
+    q = QueryStatement(
+        table=SchemaReference(name='orders', version=Version.LATEST),
+        group_by=[GroupByQuery(field=_ref('customer_id')), GroupByQuery(field=_ref('status'))],
+        aggregations=[AggregationQuery(expression=Count(field=_ref('id')), alias='cnt')],
+    )
+    assert lite(q) == (
+        "SELECT COUNT('orders'.'id') AS 'cnt' FROM 'orders' GROUP BY 'orders'.'customer_id', 'orders'.'status'",
         [],
     )
