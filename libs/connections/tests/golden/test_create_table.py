@@ -8,6 +8,17 @@ and Postgres dialects.
 SQLite uses the build_schema_mutation / schema_builder.py code path
 (single-quoted identifiers). Postgres drives _create_table() inline
 on the connection class (double-quoted identifiers).
+
+Note on SQLite AddConstraint / DeleteConstraint
+------------------------------------------------
+These two mutation types are intentionally absent from this golden file.
+Their SQLite implementation in ``_run_schema_mutation`` delegates to
+``_recreate_table_with_constraints``, which immediately calls
+``self.connection.execute('BEGIN')`` and ``query_schema()`` — both of
+which require a live database connection.  Because this golden-file
+harness generates SQL without connecting to any DB, capturing those
+paths here is out of scope.  They are covered by the corpus/integration
+capture instead (Tasks 16-18).
 """
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -99,8 +110,14 @@ def test_register_schema_pg() -> None:
             ),
         ),
     )
-    # Note: PG _build_constraint for PrimaryKeyConstraint does NOT quote the
-    # constraint name and appends a trailing space before the closing paren.
+    # KNOWN-DIVERGENCE (migration): PG _build_constraint for PrimaryKeyConstraint
+    # does NOT quote the constraint name and appends a trailing space before the
+    # closing paren.  Current output: `CONSTRAINT pk_person PRIMARY KEY ("id") `
+    # (unquoted name + trailing space before `)`) .  Correct PG:
+    # `CONSTRAINT "pk_person" PRIMARY KEY ("id")`.  Note: FK constraint names
+    # ARE quoted in PG (see test_foreign_key_constraint_pg), making this an
+    # internal inconsistency.  The Rust generator is expected to fix this: quote
+    # all constraint names and drop the trailing space.
     assert stmts == [
         (
             'CREATE TABLE "Person" ('
@@ -159,7 +176,13 @@ def test_unique_constraint_pg() -> None:
             ),
         ),
     )
-    # Note: PG _build_constraint for UniqueConstraint does NOT quote the constraint name.
+    # KNOWN-DIVERGENCE (migration): PG _build_constraint for UniqueConstraint does
+    # NOT quote the constraint name.  Current output:
+    # `CONSTRAINT uq_person_email UNIQUE ("email")` (unquoted name).
+    # Correct PG: `CONSTRAINT "uq_person_email" UNIQUE ("email")`.  Note: FK
+    # constraint names ARE quoted in PG (see test_foreign_key_constraint_pg),
+    # making this an internal inconsistency.  The Rust generator is expected to
+    # fix this: quote all constraint names.
     assert stmts == [
         (
             'CREATE TABLE "Person" ('
@@ -302,7 +325,13 @@ def test_check_constraint_pg() -> None:
             ),
         ),
     )
-    # PG uses double-quoted identifiers; constraint name is NOT quoted.
+    # KNOWN-DIVERGENCE (migration): PG uses double-quoted identifiers but the
+    # constraint name is NOT quoted.  Current output:
+    # `CONSTRAINT chk_age_positive CHECK ("Person"."age" > 0)` (unquoted name).
+    # Correct PG: `CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)`.
+    # Note: FK constraint names ARE quoted in PG (see
+    # test_foreign_key_constraint_pg), making this an internal inconsistency.
+    # The Rust generator is expected to fix this: quote all constraint names.
     assert stmts == [
         (
             'CREATE TABLE "Person" ('
