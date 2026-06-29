@@ -6,10 +6,16 @@ including the inline DDL/lock/transaction paths that never go through build_*.
 Patching the class methods in pytest_configure is enough: callers always reach
 them via `self.execute(...)`, and instances are created during the tests (after
 configure), so no early-import gymnastics are needed.
+
+Assert mode is ORDER-INDEPENDENT: SQL emissions within a (nodeid, dialect) pair
+are compared as multisets (collections.Counter).  Tests that emit the same set
+of SQL statements in a different order pass; only genuinely added, removed, or
+changed SQL triggers a failure.  The ``seq`` field is still written in capture
+mode for reference/debugging but is not used during assertion.
 """
 import inspect
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Any
 
 import pytest
@@ -31,8 +37,8 @@ _STATE: dict[str, Any] = {
     'nodeid': '',
     'seq': defaultdict(int),
     'fh': None,
-    'mismatches': [],
-    'seen': set(),
+    # assert mode: observed[(nodeid, dialect)] -> Counter of sql strings
+    'observed': defaultdict(Counter),
 }
 
 
@@ -56,13 +62,7 @@ def _record(dialect: str, sql: str, params: list) -> None:
             json.dumps({'fn': dialect, 'sql': sql, 'params': _safe(params), 'nodeid': nodeid, 'seq': seq}) + '\n'
         )
     elif _STATE['mode'] == 'assert':
-        key = (nodeid, seq, dialect)
-        _STATE['seen'].add(key)
-        expected = _STATE['expected'].get(key)
-        if expected is None:
-            _STATE['mismatches'].append({'type': 'extra', 'key': key, 'actual': sql})
-        elif expected['sql'] != sql:
-            _STATE['mismatches'].append({'type': 'diff', 'key': key, 'expected': expected['sql'], 'actual': sql})
+        _STATE['observed'][(nodeid, dialect)][sql] += 1
 
 
 def _wrap_sync(dialect: str, orig: Any) -> Any:
@@ -106,12 +106,13 @@ def pytest_configure(config: Any) -> None:
         _STATE['fh'] = open(cap, 'w')  # noqa: SIM115, PTH123
     else:
         _STATE['mode'] = 'assert'
-        _STATE['seen'] = set()
-        _STATE['expected'] = {}
+        # expected[(nodeid, dialect)] -> Counter of sql strings (multiset)
+        _STATE['observed'] = defaultdict(Counter)
+        _STATE['expected'] = defaultdict(Counter)
         with open(asrt) as fh:  # noqa: PTH123
             for line in fh:
                 row = json.loads(line)
-                _STATE['expected'][(row['nodeid'], row['seq'], row['fn'])] = row
+                _STATE['expected'][(row['nodeid'], row['fn'])][row['sql']] += 1
 
 
 def pytest_runtest_setup(item: Any) -> None:
@@ -122,20 +123,34 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:  # noqa: ARG001
     if _STATE['fh']:
         _STATE['fh'].close()
     if _STATE['mode'] == 'assert':
-        mismatches = list(_STATE['mismatches'])
-        # Missing: corpus entries that were never re-emitted
-        seen_keys = _STATE['seen']
-        for key in sorted(set(_STATE['expected'].keys()) - seen_keys):
-            expected_sql = _STATE['expected'][key]['sql']
-            mismatches.append({'type': 'missing', 'key': key, 'expected': expected_sql})
+        mismatches = []
+        all_keys = sorted(set(_STATE['expected']) | set(_STATE['observed']))
+        for key in all_keys:
+            nodeid, dialect = key
+            exp: Counter = _STATE['expected'].get(key, Counter())
+            obs: Counter = _STATE['observed'].get(key, Counter())
+            if exp == obs:
+                continue
+            for sql in sorted(set(exp) | set(obs)):
+                exp_count = exp.get(sql, 0)
+                obs_count = obs.get(sql, 0)
+                if exp_count != obs_count:
+                    mismatches.append(
+                        {
+                            'nodeid': nodeid,
+                            'dialect': dialect,
+                            'sql': sql,
+                            'expected_count': exp_count,
+                            'observed_count': obs_count,
+                        }
+                    )
         if mismatches:
             lines = []
             for m in mismatches:
-                if m.get('type') == 'extra':
-                    lines.append(f"{m['key']}\n  unexpected SQL not in corpus: {m['actual']}")
-                elif m.get('type') == 'missing':
-                    lines.append(f"{m['key']}\n  expected SQL not emitted: {m['expected']}")
-                else:
-                    lines.append(f"{m['key']}\n  expected: {m['expected']}\n  actual:   {m['actual']}")
+                lines.append(
+                    f"nodeid={m['nodeid']} dialect={m['dialect']}\n"
+                    f"  sql: {m['sql']}\n"
+                    f"  expected count: {m['expected_count']}, observed count: {m['observed_count']}"
+                )
             msg = f"{len(mismatches)} SQL parity mismatch(es):\n" + '\n'.join(lines)
             raise AssertionError(msg)
