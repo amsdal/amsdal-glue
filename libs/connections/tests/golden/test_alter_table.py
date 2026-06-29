@@ -219,6 +219,18 @@ def test_add_constraint_pg() -> None:
     ]
 
 
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D7')
+def test_add_constraint_pg_unique_quoted_correct_behaviour() -> None:
+    m = AddConstraint(
+        schema_reference=_ref(),
+        constraint=UniqueConstraint(name='uq_person_email', fields=['email']),
+    )
+    captured = pg_ddl(m)
+    sql = captured[0][0]
+    assert 'ADD CONSTRAINT "uq_person_email" UNIQUE ("email")' in sql
+    assert 'ADD CONSTRAINT uq_person_email' not in sql
+
+
 def test_add_constraint_pg_primary_key() -> None:
     m = AddConstraint(
         schema_reference=_ref(),
@@ -233,6 +245,18 @@ def test_add_constraint_pg_primary_key() -> None:
     assert pg_ddl(m) == [
         ('ALTER TABLE "Person" ADD CONSTRAINT pk_person PRIMARY KEY ("id") ', []),
     ]
+
+
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D12')
+def test_add_constraint_pg_primary_key_quoted_correct_behaviour() -> None:
+    m = AddConstraint(
+        schema_reference=_ref(),
+        constraint=PrimaryKeyConstraint(name='pk_person', fields=['id']),
+    )
+    captured = pg_ddl(m)
+    sql = captured[0][0]
+    assert 'ADD CONSTRAINT "pk_person" PRIMARY KEY ("id")' in sql
+    assert 'ADD CONSTRAINT pk_person' not in sql
 
 
 def test_add_constraint_pg_foreign_key() -> None:
@@ -272,6 +296,21 @@ def test_add_constraint_pg_check() -> None:
     assert pg_ddl(m) == [
         ('ALTER TABLE "Person" ADD CONSTRAINT chk_age_positive CHECK ("Person"."age" > 0)', []),
     ]
+
+
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D13')
+def test_add_constraint_pg_check_quoted_correct_behaviour() -> None:
+    m = AddConstraint(
+        schema_reference=_ref(),
+        constraint=CheckConstraint(
+            name='chk_age_positive',
+            condition=_gt_condition('Person', 'age', 0),
+        ),
+    )
+    captured = pg_ddl(m)
+    sql = captured[0][0]
+    assert 'ADD CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)' in sql
+    assert 'ADD CONSTRAINT chk_age_positive' not in sql
 
 
 # ===========================================================================

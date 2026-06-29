@@ -37,6 +37,7 @@ from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
+import pytest
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
@@ -134,6 +135,29 @@ def test_register_schema_pg() -> None:
     ]
 
 
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D6')
+def test_register_schema_pg_pk_quoted_correct_behaviour() -> None:
+    captured = pg_ddl(
+        RegisterSchema(
+            schema=Schema(
+                name='Person',
+                version=Version.LATEST,
+                properties=[
+                    PropertySchema(name='id', type=int, required=True),
+                    PropertySchema(name='name', type=str, required=True),
+                    PropertySchema(name='age', type=int, required=False, default=18),
+                ],
+                constraints=[PrimaryKeyConstraint(name='pk_person', fields=['id'])],
+                indexes=[IndexSchema(name='idx_person_name', fields=['name'])],
+            ),
+        ),
+    )
+    sql = captured[0][0]
+    assert 'CONSTRAINT "pk_person" PRIMARY KEY ("id")' in sql
+    assert 'CONSTRAINT pk_person' not in sql
+    assert '("id") )' not in sql
+
+
 # ---------------------------------------------------------------------------
 # UNIQUE constraint
 # ---------------------------------------------------------------------------
@@ -196,6 +220,26 @@ def test_unique_constraint_pg() -> None:
             [],
         ),
     ]
+
+
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D7')
+def test_unique_constraint_pg_quoted_correct_behaviour() -> None:
+    captured = pg_ddl(
+        RegisterSchema(
+            schema=Schema(
+                name='Person',
+                version=Version.LATEST,
+                properties=[
+                    PropertySchema(name='id', type=int, required=True),
+                    PropertySchema(name='email', type=str, required=True),
+                ],
+                constraints=[UniqueConstraint(name='uq_person_email', fields=['email'])],
+            ),
+        ),
+    )
+    sql = captured[0][0]
+    assert 'CONSTRAINT "uq_person_email" UNIQUE ("email")' in sql
+    assert 'CONSTRAINT uq_person_email' not in sql
 
 
 # ---------------------------------------------------------------------------
@@ -347,6 +391,31 @@ def test_check_constraint_pg() -> None:
             [],
         ),
     ]
+
+
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D9')
+def test_check_constraint_pg_quoted_correct_behaviour() -> None:
+    captured = pg_ddl(
+        RegisterSchema(
+            schema=Schema(
+                name='Person',
+                version=Version.LATEST,
+                properties=[
+                    PropertySchema(name='id', type=int, required=True),
+                    PropertySchema(name='age', type=int, required=True),
+                ],
+                constraints=[
+                    CheckConstraint(
+                        name='chk_age_positive',
+                        condition=_gt_condition('Person', 'age', 0),
+                    )
+                ],
+            ),
+        ),
+    )
+    sql = captured[0][0]
+    assert 'CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)' in sql
+    assert 'CONSTRAINT chk_age_positive' not in sql
 
 
 # ---------------------------------------------------------------------------
