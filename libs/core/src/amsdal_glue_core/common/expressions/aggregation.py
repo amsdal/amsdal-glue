@@ -44,7 +44,3 @@ class Min(Aggregation):
 @dataclass(kw_only=True)
 class Max(Aggregation):
     name: ClassVar[str] = 'MAX'
-
-
-# Backward-compat alias — old code imported AggregationExpression from this module.
-AggregationExpression = Aggregation

@@ -47,10 +47,3 @@ class CosineDistance(VectorExpression):
 
 class L1Distance(VectorExpression):
     operator = '<+>'
-
-
-# Backward-compat aliases — old code used the *Expression suffix names.
-L2DistanceExpression = L2Distance
-InnerProductExpression = InnerProduct
-CosineDistanceExpression = CosineDistance
-L1DistanceExpression = L1Distance

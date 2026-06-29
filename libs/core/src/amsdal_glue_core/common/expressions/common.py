@@ -91,13 +91,3 @@ class Combinable:
 
     def __ror__(self, other: Combinable) -> Expression:
         return self._combine(other, self.OR, is_reversed=True)
-
-
-def __getattr__(name: str) -> object:
-    """Backward-compat: ``from .common import CombinedExpression`` resolves to ``Combined``."""
-    if name == 'CombinedExpression':
-        from amsdal_glue_core.common.expressions.combined import Combined
-
-        return Combined
-    msg = f'module {__name__!r} has no attribute {name!r}'
-    raise AttributeError(msg)
