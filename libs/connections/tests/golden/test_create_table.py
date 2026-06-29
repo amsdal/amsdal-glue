@@ -282,6 +282,34 @@ def test_foreign_key_constraint_sqlite() -> None:
     ]
 
 
+@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D8')
+def test_foreign_key_sqlite_reference_fields_quoted_correct_behaviour() -> None:
+    # D8: SQLite FK reference_fields must be quoted: REFERENCES 'Person' ('id'), not (id).
+    captured = lite_ddl(
+        RegisterSchema(
+            schema=Schema(
+                name='Order',
+                version=Version.LATEST,
+                properties=[
+                    PropertySchema(name='id', type=int, required=True),
+                    PropertySchema(name='person_id', type=int, required=True),
+                ],
+                constraints=[
+                    ForeignKeyConstraint(
+                        name='fk_order_person',
+                        fields=['person_id'],
+                        reference_schema=SchemaReference(name='Person', version=Version.LATEST),
+                        reference_fields=['id'],
+                    )
+                ],
+            ),
+        ),
+    )
+    sql = captured[0][0]
+    assert "REFERENCES 'Person' ('id')" in sql
+    assert "REFERENCES 'Person' (id)" not in sql
+
+
 def test_foreign_key_constraint_pg() -> None:
     stmts = pg_ddl(
         RegisterSchema(
