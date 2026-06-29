@@ -27,13 +27,22 @@ connection captures nothing.
 import pytest
 from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
 from amsdal_glue_core.common.enums import LockParameter
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import LockSchemaReference
 
+from amsdal_glue_core.common.data_models.conditions import Condition
+from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+from amsdal_glue_core.common.expressions.value import Value
+
 from ._harness import lite_record
+from ._harness import pg_async_record
 from ._harness import pg_record
 
 
@@ -131,5 +140,74 @@ def test_lite_release_lock_shared_is_noop() -> None:
     """SQLite SHARED release_lock is a no-op — the EXCLUSIVE branch is never entered."""
     conn = lite_record()
     result = conn.release_lock(_lock(LockMode.SHARED, LockAction.RELEASE))
+    assert result is True
+    assert conn.captured == []
+
+
+# ---------------------------------------------------------------------------
+# Postgres async — row-level locking (SELECT … FOR UPDATE)
+# ---------------------------------------------------------------------------
+
+
+def _where_id_eq(table: str, value: int) -> Conditions:
+    """Build a single-condition Conditions: <table>.id = <value>."""
+    return Conditions(
+        Condition(
+            left=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='id'), table_name=table),
+            ),
+            lookup=FieldLookup.EQ,
+            right=Value(value=value),
+        )
+    )
+
+
+async def test_pg_async_acquire_lock_emits_for_update() -> None:
+    """Async PG acquire_lock with a WHERE query emits SELECT * FROM … WHERE … FOR UPDATE."""
+    lock = ExecutionLockCommand(
+        action=LockAction.ACQUIRE,
+        mode=LockMode.EXCLUSIVE,
+        parameter=LockParameter.WAIT,
+        locked_object=LockSchemaReference(
+            schema=SchemaReference(name='users', version=Version.LATEST),
+            query=_where_id_eq('users', 42),
+        ),
+    )
+    conn = pg_async_record()
+    result = await conn.acquire_lock(lock)
+    assert result is True
+    assert conn.captured == [
+        ('SELECT * FROM "users" WHERE "users"."id" = %s FOR UPDATE', [42]),
+    ]
+
+
+async def test_pg_async_acquire_lock_no_query_is_noop() -> None:
+    """Async PG acquire_lock without a query (locked_object.query is None) emits no SQL."""
+    lock = ExecutionLockCommand(
+        action=LockAction.ACQUIRE,
+        mode=LockMode.EXCLUSIVE,
+        parameter=LockParameter.WAIT,
+        locked_object=LockSchemaReference(
+            schema=SchemaReference(name='users', version=Version.LATEST),
+        ),
+    )
+    conn = pg_async_record()
+    result = await conn.acquire_lock(lock)
+    assert result is True
+    assert conn.captured == []
+
+
+async def test_pg_async_release_lock_is_noop() -> None:
+    """Async PG release_lock emits no SQL — both branches in release_lock just return True."""
+    lock = ExecutionLockCommand(
+        action=LockAction.RELEASE,
+        mode=LockMode.EXCLUSIVE,
+        parameter=LockParameter.WAIT,
+        locked_object=LockSchemaReference(
+            schema=SchemaReference(name='users', version=Version.LATEST),
+        ),
+    )
+    conn = pg_async_record()
+    result = await conn.release_lock(lock)
     assert result is True
     assert conn.captured == []

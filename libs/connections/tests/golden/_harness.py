@@ -8,6 +8,7 @@ asserted against a captured literal in the feature tests.
 from typing import Any
 
 from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
+from amsdal_glue_connections.sql.connections.postgres_connection.async_connection import AsyncPostgresConnection
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import PostgresConnection
 from amsdal_glue_connections.sql.connections.sqlite_connection import get_sqlite_transform
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import SqliteConnection
@@ -68,6 +69,16 @@ def lite_ddl(mutation: Any) -> list[tuple[str, list[Any]]]:
     return conn.captured
 
 
+class _RecordingAsyncPG(AsyncPostgresConnection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.captured: list[tuple[str, list[Any]]] = []
+
+    async def execute(self, query: str, *args: Any) -> Any:  # type: ignore[override]
+        self.captured.append((query, list(args)))
+        return None
+
+
 def pg_record() -> _RecordingPG:
     """Postgres connection whose execute() records (sql, params). For lock/transaction
     characterization (Task 14): call the connection method, then read .captured."""
@@ -77,3 +88,9 @@ def pg_record() -> _RecordingPG:
 def lite_record() -> _RecordingSqlite:
     """SQLite recording connection — same usage as pg_record()."""
     return _RecordingSqlite()
+
+
+def pg_async_record() -> _RecordingAsyncPG:
+    """Async Postgres recording connection — execute() records (sql, params).
+    Call an async connection method, then read .captured. No live DB needed."""
+    return _RecordingAsyncPG()
