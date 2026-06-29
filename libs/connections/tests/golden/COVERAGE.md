@@ -78,7 +78,7 @@ Each cell shows: **covered** | `xfail:<reason>` | `skip:<reason>` | **DIVERGENCE
 | **Lock — async PG SELECT…FOR UPDATE** | NOT TESTED | n/a | gap; see §4 |
 
 **async variants:** all synthetic tests target the sync connection path via the recording
-harness; the async PG and async SQLite paths are captured by the corpus (Task 16–17).
+harness; the async PG and async SQLite paths are SQL-text captured by the corpus (Task 16–17) — params are not asserted by the corpus gate (see §4.1).
 
 ---
 
@@ -101,7 +101,7 @@ harness; the async PG and async SQLite paths are captured by the corpus (Task 16
 - **SQL shape by leading keyword:** SELECT 965, CREATE 585, PRAGMA 254, INSERT 252, ALTER 32, UPDATE 4, DROP 2
 - **`_metadata` rows:** 263 — real multi-join `_metadata` table patterns from the ORM
 - **Notable shape:** multi-join SELECT across `_metadata` + domain tables, all 4 dialects
-- **Plan 3 requirement:** volatile `__v__<hex32>` identifiers appear in 782 rows (see §5)
+- **Plan 3 requirement:** volatile `__v__<hex32>` identifiers appear in 463 rows (see §5)
 
 ### 2.3 `corpus/amsdal_models.jsonl`
 
@@ -163,6 +163,16 @@ re-baselined in Plan 3.
 | `PRAGMA` statements | 196 (glue) + 254 (amsdal_data) corpus rows are PRAGMA; not in synthetic suite | SQLite-specific; covered by corpus only |
 | `LIMIT`/`OFFSET` inlining | Values inlined (not parameterised); if Rust switches to parameterised LIMIT/OFFSET, corpus rows will mismatch | Watch during Plan 3 re-baseline |
 
+### 4.1 Parity gate limitations
+
+The corpus assert-gate (`capture_plugin` assert-mode) compares **SQL text only — query parameters are captured but NOT compared**. A migration that changes parameterization while leaving SQL text identical passes the gate silently.
+
+- Synthetic per-feature tests (§1) assert the full `(sql, params)` tuple, so the feature categories they cover are param-safe.
+- The param blind spot applies to corpus-only paths: async pg/sqlite, `_metadata` multi-joins, and PRAGMA statements. These are SQL-text captured (params not asserted) — do NOT treat them as fully covered by the corpus.
+- Plan 3 follow-up: extend the gate to compare params too, which REQUIRES normalizing volatile param content (uuids, timestamps, and `__v__<hex>` version hashes) the same way SQL text will be normalized.
+
+**Gate activation:** The assert-gate is INERT unless BOTH `-p tests.golden.capture_plugin` (or `-p capture_plugin` with `PYTHONPATH=.../tests/golden`) AND `--assert-sql=<corpus>` are passed, and it must run serial (`-n0`). With the flags omitted the golden tests pass trivially.
+
 ---
 
 ## 5. Plan 3 Requirements
@@ -173,7 +183,7 @@ re-baselined in Plan 3.
 table names and column references (e.g. `__v__a3f9c12b…`). These are generated fresh each
 test run, so the stored corpus SQL and the re-run SQL will always differ in those tokens.
 
-**Out of 2094 amsdal_data rows, 782 contain at least one `__v__<hex>` token.**
+**Out of 2094 amsdal_data rows, 463 contain at least one `__v__<hex>` token.**
 
 Plan 3's assert-mode pass (re-run with `--assert-sql`) **must normalise** both the stored
 corpus SQL and the live observed SQL before comparison. Recommended regex:

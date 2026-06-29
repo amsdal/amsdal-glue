@@ -3,6 +3,7 @@
 /.env*
 .venv
 coverage.*
+!libs/connections/tests/golden/COVERAGE.md
 .coverage*
 .mypy_cache
 .pytest_cache
