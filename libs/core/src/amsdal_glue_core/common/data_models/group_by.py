@@ -1,23 +1,17 @@
 from dataclasses import dataclass
 
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.expressions.expression import Expression
 
 
 @dataclass(kw_only=True)
 class GroupByQuery:
-    """Represents a GROUP BY query.
-
-    Attributes:
-        field (FieldReference): The field to group by.
-    """
-
-    field: FieldReference
+    expression: Expression
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, GroupByQuery):
             return False
 
-        return self.field == other.field
+        return self.expression == other.expression
 
     def __hash__(self) -> int:
-        return hash(self.field)
+        return hash(self.expression)
