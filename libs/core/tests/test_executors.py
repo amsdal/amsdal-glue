@@ -67,6 +67,7 @@ def test_schema_command_executor(mock_connection_manager: MockConnectionManager)
         command=SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name=DEFAULT_SCHEMA_NAME),
                     schema=Schema(name=DEFAULT_SCHEMA_NAME, version='', properties=[]),
                 )
             ]
@@ -84,6 +85,7 @@ async def test_async_schema_command_executor(mock_async_connection_manager: Mock
         command=SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name=DEFAULT_SCHEMA_NAME),
                     schema=Schema(name=DEFAULT_SCHEMA_NAME, version='', properties=[]),
                 )
             ]
