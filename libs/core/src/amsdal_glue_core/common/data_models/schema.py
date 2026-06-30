@@ -1,103 +1,74 @@
-import json
+from __future__ import annotations
+
 from copy import copy
 from dataclasses import dataclass
 from typing import Any
-from typing import Optional
-from typing import TypeAlias
-from typing import Union
+from typing import TYPE_CHECKING
 
-from amsdal_glue_core.common.data_models.constraints import BaseConstraint
-from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.enums import Version
 
-FIELD_TYPE: TypeAlias = Union[
-    'NestedSchemaModel',
-    'ArraySchemaModel',
-    'DictSchemaModel',
-    'VectorSchemaModel',
-    'DecimalSchemaModel',
-    type[Any],
-]
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.data_models.constraints import BaseConstraint
+    from amsdal_glue_core.common.data_models.indexes import IndexSchema
+    from amsdal_glue_core.common.data_models.types import FieldType
+    from amsdal_glue_core.common.expressions.expression import Expression
+
+
+_IDENTITY_DEFAULTS: dict[str, set[int]] = {
+    'start': {1},
+    'increment': {1},
+    'min_value': {1},
+    'max_value': {2147483647, 9223372036854775807},  # int4, int8
+    'cache': {1},
+}
 
 
 @dataclass(kw_only=True)
-class NestedSchemaModel:
-    """Represents a complex defined data structure with named properties.
+class IdentityConfig:
+    """SQL standard GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY configuration."""
 
-    Attributes:
-        properties (dict[str, FIELD_TYPE]): The properties of the nested schema model.
-    """
+    always: bool = False
+    start: int | None = None
+    increment: int | None = None
+    min_value: int | None = None
+    max_value: int | None = None
+    cycle: bool = False
+    cache: int | None = None
 
-    properties: dict[str, FIELD_TYPE]
+    def __eq__(self, other: object) -> bool:  # noqa: PLR0911, C901
+        if other is True:
+            return self == IdentityConfig(always=False)
+        if not isinstance(other, IdentityConfig):
+            return NotImplemented
+        if self.always != other.always:
+            return False
+        if self.cycle != other.cycle:
+            return False
+        for field in ('start', 'increment', 'min_value', 'max_value', 'cache'):
+            left = getattr(self, field)
+            right = getattr(other, field)
+            if left is None and right is None:
+                continue
+            if left is None:
+                if right not in _IDENTITY_DEFAULTS.get(field, set()):
+                    return False
+            elif right is None:
+                if left not in _IDENTITY_DEFAULTS.get(field, set()):
+                    return False
+            elif left != right:
+                return False
+        return True
 
-
-@dataclass(kw_only=True)
-class VectorSchemaModel:
-    """Represents a vector defined data structure.
-
-    Attributes:
-        dimensions (int): The number of dimensions in the vector.
-    """
-
-    dimensions: int
-
-
-@dataclass(kw_only=True)
-class DecimalSchemaModel:
-    """Represents a fixed-precision decimal data structure.
-
-    Attributes:
-        precision (int | None): Total number of significant digits (NUMERIC precision).
-        scale (int | None): Number of digits after the decimal point (NUMERIC scale).
-    """
-
-    precision: int | None = None
-    scale: int | None = None
-
-
-@dataclass(kw_only=True)
-class ArraySchemaModel:
-    """Represents an array of a defined data structure.
-
-    Attributes:
-        item_type (FIELD_TYPE): The type of items in the array schema model.
-    """
-
-    item_type: FIELD_TYPE
-
-
-@dataclass(kw_only=True)
-class DictSchemaModel:
-    """Represents a dictionary of a defined data structure.
-
-    Attributes:
-        key_type (type): The type of keys in the dictionary schema model.
-        value_type (FIELD_TYPE): The type of values in the dictionary schema model.
-    """
-
-    key_type: type
-    value_type: FIELD_TYPE
+    def __hash__(self) -> int:
+        return hash((self.always, self.start, self.increment, self.min_value, self.max_value, self.cycle, self.cache))
 
 
 @dataclass(kw_only=True)
 class Schema:
-    """Represents a schema definition.
-
-    Attributes:
-        name (str): The name of the schema.
-        version (str | Version): The version of the schema.
-        namespace (str): The namespace of the schema. Defaults to an empty string.
-        extends (Optional[SchemaReference]): The schema that this schema extends. Defaults to None.
-        properties (list[PropertySchema]): The list of properties in the schema.
-        constraints (list[BaseConstraint] | None): The list of constraints in the schema. Defaults to None.
-        indexes (list[IndexSchema] | None): The list of indexes in the schema. Defaults to None.
-    """
-
     name: str
     version: str | Version = Version.LATEST
-    namespace: str = ''
-    extends: Optional['SchemaReference'] = None
-    properties: list['PropertySchema']
+    namespace: str | None = None
+    properties: list[PropertySchema]
     constraints: list[BaseConstraint] | None = None
     indexes: list[IndexSchema] | None = None
     metadata: dict[str, Any] | None = None
@@ -107,11 +78,7 @@ class Schema:
 
     def __repr__(self):
         return (
-            f'Schema<{self.namespace}.{self.name}_v_{self.version}'
-            f':{self.extends}'
-            f':{self.properties}'
-            f':{self.constraints}'
-            f':{self.indexes}>'
+            f'Schema<{self.namespace}.{self.name}_v_{self.version}:{self.properties}:{self.constraints}:{self.indexes}>'
         )
 
     def __copy__(self):
@@ -119,7 +86,6 @@ class Schema:
             name=self.name,
             version=self.version,
             namespace=self.namespace,
-            extends=copy(self.extends) if self.extends is not None else None,
             properties=[copy(prop) for prop in self.properties],
             constraints=[copy(constraint) for constraint in self.constraints] if self.constraints is not None else None,
             indexes=[copy(index) for index in self.indexes] if self.indexes is not None else None,
@@ -134,7 +100,6 @@ class Schema:
             self.name == other.name
             and self.version == other.version
             and self.namespace == other.namespace
-            and self.extends == other.extends
             and sorted(self.properties, key=lambda p: p.name) == sorted(other.properties, key=lambda p: p.name)
             and (
                 sorted(self.constraints or [], key=lambda c: c.name)
@@ -144,35 +109,25 @@ class Schema:
         )
 
 
+def _normalize_identity(value: bool | IdentityConfig | None) -> IdentityConfig | None:  # noqa: FBT001
+    """Normalize identity to IdentityConfig or None for comparison."""
+    if value is True:
+        return IdentityConfig(always=False)
+    if value is False or value is None:
+        return None
+    return value
+
+
 @dataclass(kw_only=True)
 class PropertySchema:
-    """Represents a property within a schema.
-
-    Attributes:
-        name (str): The name of the property.
-        type (Union[Schema, SchemaReference, FIELD_TYPE]): The type of the property.
-        required (bool): Whether the property is required.
-        description (str | None): The description of the property. Defaults to None.
-        default (Any | None): The default value of the property. Defaults to None.
-    """
-
     name: str
-    type: Union[Schema, 'SchemaReference', FIELD_TYPE]
+    type: FieldType
     required: bool
     description: str | None = None
-    default: Any | None = None
-
-    def __post_init__(self) -> None:
-        # normalize default. Usually it requires after returning schema from database
-        if not isinstance(self.default, str):
-            return
-
-        try:
-            _parsed = json.loads(self.default.replace("'", '"'))
-        except json.JSONDecodeError:
-            ...
-        else:
-            self.default = _parsed
+    default: Expression | None = None
+    generated: Expression | None = None
+    db_collation: str | None = None
+    identity: bool | IdentityConfig | None = None
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -181,7 +136,15 @@ class PropertySchema:
         if not isinstance(other, PropertySchema):
             return False
 
-        return self.name == other.name and self.type == other.type and self.required == other.required
+        return (
+            self.name == other.name
+            and self.type == other.type
+            and self.required == other.required
+            and _normalize_identity(self.identity) == _normalize_identity(other.identity)
+            and self.default == other.default
+            and self.generated == other.generated
+            and self.db_collation == other.db_collation
+        )
 
     def __repr__(self):
         return f'PropertySchema<{self.name}:{self.type}:{self.required}:{self.description}:{self.default}>'
@@ -193,23 +156,17 @@ class PropertySchema:
             required=self.required,
             description=self.description,
             default=self.default,
+            generated=self.generated,
+            db_collation=self.db_collation,
+            identity=self.identity,
         )
 
     def __hash__(self) -> int:
-        return hash((self.name, self.type, self.required, self.description, self.default))
+        return hash((self.name, self.required))
 
 
 @dataclass(kw_only=True)
 class SchemaReference:
-    """Represents a reference to another schema.
-
-    Attributes:
-        name (str): The name of the referenced schema.
-        version (str | Version): The version of the referenced schema.
-        alias (str | None): The alias of the referenced schema. Defaults to None.
-        namespace (str | None): The namespace of the referenced schema. Defaults to None.
-    """
-
     name: str
     version: str | Version = Version.LATEST
     alias: str | None = None
