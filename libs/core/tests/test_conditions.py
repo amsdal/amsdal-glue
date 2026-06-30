@@ -4,6 +4,7 @@ from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
 from amsdal_glue_core.common.expressions.exists import Exists
@@ -135,10 +136,11 @@ def test_and_conditions_flatten() -> None:
 
 
 def _exists_expr(*, negated: bool = False) -> Exists:
-    sub = QueryStatement(
+    query = QueryStatement(
         only=[FieldReference(field=Field(name='1'), table_name='')],
         table=SchemaReference(name='Employee'),
     )
+    sub = SubQueryStatement(query=query, alias='sub')
     return Exists(subquery=sub, negated=negated)
 
 

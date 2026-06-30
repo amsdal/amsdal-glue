@@ -23,7 +23,7 @@ def resolve_connection_pool(
     elif isinstance(table, SetOperation):
         return resolve_connection_pool(table.left.table, is_async=is_async)
     else:
-        msg = 'Table must be a SchemaReference, SubQueryStatement, or SetOperation.'
+        msg = 'Table must be either a SchemaReference or a SubQueryStatement.'
         raise RuntimeError(msg)  # noqa: TRY004
 
     if is_async:
