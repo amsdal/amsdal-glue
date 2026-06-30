@@ -139,7 +139,7 @@ def _exists_expr(*, negated: bool = False) -> Exists:
         only=[FieldReference(field=Field(name='1'), table_name='')],
         table=SchemaReference(name='Employee'),
     )
-    return Exists(query=sub, negated=negated)
+    return Exists(subquery=sub, negated=negated)
 
 
 def test_invert_flips_exists_child_negation() -> None:

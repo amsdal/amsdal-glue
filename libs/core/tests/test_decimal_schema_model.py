@@ -1,13 +1,13 @@
-from amsdal_glue_core.common.data_models.schema import DecimalSchemaModel
+from amsdal_glue_core.common.data_models.types import CustomType
 
 
-def test_decimal_schema_model_holds_precision_scale() -> None:
-    m = DecimalSchemaModel(precision=10, scale=2)
-    assert m.precision == 10
-    assert m.scale == 2
+def test_custom_type_holds_precision_scale() -> None:
+    m = CustomType(name='numeric', params={'precision': 10, 'scale': 2})
+    assert m.params is not None
+    assert m.params['precision'] == 10
+    assert m.params['scale'] == 2
 
 
-def test_decimal_schema_model_allows_unconstrained() -> None:
-    m = DecimalSchemaModel(precision=None, scale=None)
-    assert m.precision is None
-    assert m.scale is None
+def test_custom_type_allows_no_params() -> None:
+    m = CustomType(name='numeric', params=None)
+    assert m.params is None

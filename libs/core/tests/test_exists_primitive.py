@@ -13,9 +13,9 @@ def test_exists_constructs_with_default_negated_false() -> None:
         table=SchemaReference(name='Employee'),
     )
 
-    expr = Exists(query=sub)
+    expr = Exists(subquery=sub)
 
-    assert expr.query is sub
+    assert expr.subquery is sub
     assert expr.negated is False
 
 
@@ -25,6 +25,6 @@ def test_exists_constructs_with_explicit_negated_true() -> None:
         table=SchemaReference(name='Employee'),
     )
 
-    expr = Exists(query=sub, negated=True)
+    expr = Exists(subquery=sub, negated=True)
 
     assert expr.negated is True
