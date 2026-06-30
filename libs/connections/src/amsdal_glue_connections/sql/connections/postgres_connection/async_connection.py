@@ -21,23 +21,12 @@ from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
-from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
-from amsdal_glue_core.common.operations.mutations.schema import AddIndex
-from amsdal_glue_core.common.operations.mutations.schema import AddProperty
-from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
-from amsdal_glue_core.common.operations.mutations.schema import DeleteIndex
-from amsdal_glue_core.common.operations.mutations.schema import DeleteProperty
-from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
-from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
-from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
-from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.postgres_connection.base import get_pg_transform
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
 if TYPE_CHECKING:
@@ -75,6 +64,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
 
     def __init__(self) -> None:
         self._connection: psycopg.AsyncConnection | None = None
+        self._generator = SqlGenerator('postgresql', param_style='format')
         super().__init__()
 
     @property
@@ -194,10 +184,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         Raises:
             ConnectionError: If there is an error executing the query.
         """
-        _stmt, _params = build_sql_query(
-            query,
-            transform=get_pg_transform(),
-        )
+        _stmt, _params = self._generator.compile_query(query)
 
         try:
             cursor = await self.execute(_stmt, *_params)
@@ -272,10 +259,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         return [await self._run_mutation(mutation) for mutation in mutations]
 
     async def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
-        _stmt, _params = build_sql_data_command(
-            mutation,
-            transform=get_pg_transform(),
-        )
+        _stmt, _params = self._generator.compile_mutation(mutation)
 
         try:
             await self.execute(_stmt, *_params)
@@ -587,167 +571,17 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         await self.execute('ROLLBACK')
         return True
 
-    async def _run_schema_mutation(self, migration: SchemaMutation) -> Schema | None:  # noqa: PLR0911, C901
+    async def _run_schema_mutation(self, migration: SchemaMutation) -> Schema | None:
+        sql_params_list = self._generator.compile_schema_mutation(migration)
+
+        for sql, params in sql_params_list:
+            await self.execute(sql, *params)
+
         if isinstance(migration, RegisterSchema):
-            schema = migration.schema
-            await self._create_table(schema)
-
-            return schema
-
-        if isinstance(migration, DeleteSchema):
-            await self._drop_table(migration.schema_reference)
-
-            return None
-
-        if isinstance(migration, RenameSchema):
-            schema_reference = migration.schema_reference
-            new_schema_name = migration.new_schema_name
-            await self._rename_table(schema_reference, new_schema_name)
-
-            return None
-
-        if isinstance(migration, AddProperty):
-            schema_reference = migration.schema_reference
-            _property = migration.property
-            await self._add_column(schema_reference, _property)
-
-            return None
-
-        if isinstance(migration, DeleteProperty):
-            schema_reference = migration.schema_reference
-            property_name = migration.property_name
-            await self._drop_column(schema_reference, property_name)
-
-            return None
-
-        if isinstance(migration, RenameProperty):
-            schema_reference = migration.schema_reference
-            old_name = migration.old_name
-            new_name = migration.new_name
-            await self._rename_column(schema_reference, old_name, new_name)
-
-            return None
-
-        if isinstance(migration, UpdateProperty):
-            schema_reference = migration.schema_reference
-            _property = migration.property
-            await self._update_column(schema_reference, _property)
-
-            return None
-
-        if isinstance(migration, AddConstraint):
-            schema_reference = migration.schema_reference
-            constraint = migration.constraint
-            await self._add_constraint(schema_reference, constraint)
-
-            return None
-
-        if isinstance(migration, DeleteConstraint):
-            schema_reference = migration.schema_reference
-            constraint_name = migration.constraint_name
-            await self._drop_constraint(schema_reference, constraint_name)
-
-            return None
-
-        if isinstance(migration, AddIndex):
-            schema_reference = migration.schema_reference
-            index = migration.index
-            await self._add_index(schema_reference, index)
-
-            return None
-
-        if isinstance(migration, DeleteIndex):
-            schema_reference = migration.schema_reference
-            index_name = migration.index_name
-            await self._drop_index(schema_reference, index_name)
-
-            return None
-
-        msg = f'Unsupported schema mutation: {type(migration)}'
-        raise ValueError(msg)
-
-    async def _create_table(self, schema: Schema) -> None:
-        _constraint_stmts = []
-
-        for _constraint in schema.constraints or []:
-            _constraint_stmt = self._build_constraint(_constraint)
-            _constraint_stmts.append(_constraint_stmt)
-
-        _namespace_prefix = f'"{schema.namespace}".' if schema.namespace else ''
-
-        stmt = f'CREATE TABLE {_namespace_prefix}"{schema.name}" ('
-        stmt += ', '.join(self._build_column(column) for column in schema.properties)
-
-        if _constraint_stmts:
-            stmt += ', '
-            stmt += ', '.join(_constraint_stmts)
-
-        stmt += ')'
-
-        await self.execute(stmt)
-
-        for _index in schema.indexes or []:
-            _index_stmt = self._build_index(schema.name, schema.namespace, _index)
-            await self.execute(_index_stmt)
+            return migration.schema
+        return None
 
     def _table_name_from_schema_reference(self, schema_reference: SchemaReference) -> str:
         _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
 
         return f'{_namespace_prefix}"{schema_reference.name}"'
-
-    async def _drop_table(self, schema_reference: SchemaReference) -> None:
-        stmt = f'DROP TABLE {self._table_name_from_schema_reference(schema_reference)}'
-        await self.execute(stmt)
-
-    async def _rename_table(self, schema_reference: SchemaReference, new_schema_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" RENAME TO "{new_schema_name}"'
-        await self.execute(stmt)
-
-    async def _add_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
-        _column = self._build_column(_property, force_nullable=True)
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ADD COLUMN {_column}'
-        await self.execute(stmt)
-
-    async def _drop_column(self, schema_reference: SchemaReference, property_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" DROP COLUMN "{property_name}"'
-        await self.execute(stmt)
-
-    async def _rename_column(self, schema_reference: SchemaReference, old_name: str, new_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE "{schema_reference.name}" RENAME COLUMN "{old_name}" TO "{new_name}"'
-        await self.execute(stmt)
-
-    async def _update_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
-        _column = self._build_column_update(_property)
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" {_column}'
-        await self.execute(stmt)
-
-    async def _add_constraint(self, schema_reference: SchemaReference, constraint: BaseConstraint) -> None:
-        _constraint_stmt = self._build_constraint(constraint)
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ADD {_constraint_stmt}'
-        await self.execute(stmt)
-
-    async def _drop_constraint(self, schema_reference: SchemaReference, constraint_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" DROP CONSTRAINT "{constraint_name}"'
-        await self.execute(stmt)
-
-    async def _add_index(self, schema_reference: SchemaReference, index: IndexSchema) -> None:
-        _index_stmt = self._build_index(schema_reference.name, schema_reference.namespace or '', index)
-
-        await self.execute(_index_stmt)
-
-    async def _drop_index(self, schema_reference: SchemaReference, index_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-        stmt = f'DROP INDEX {_namespace_prefix}"{index_name}"'
-        await self.execute(stmt)
