@@ -31,10 +31,9 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import get_sqlite_transform
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_add_column
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_create_indexes
@@ -42,7 +41,6 @@ from amsdal_glue_connections.sql.sql_builders.schema_builder import build_create
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_drop_column
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_migrate_column
 from amsdal_glue_connections.sql.sql_builders.schema_builder import build_rename_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +74,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
     def __init__(self) -> None:
         self._connection: sqlite3.Connection | None = None
+        self._generator = SqlGenerator('sqlite', param_style='qmark')
         super().__init__()
 
     @property
@@ -174,10 +173,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             ConnectionError: If there is an error executing the query.
             ValueError: If a column name is duplicated.
         """
-        _stmt, _params = build_sql_query(
-            query,
-            transform=get_sqlite_transform(),
-        )
+        _stmt, _params = self._generator.compile_query(query)
 
         try:
             cursor = self.execute(_stmt, *_params)
@@ -249,10 +245,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         return [self._run_mutation(mutation) for mutation in mutations]
 
     def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
-        _stmt, _params = build_sql_data_command(
-            mutation,
-            transform=get_sqlite_transform(),
-        )
+        _stmt, _params = self._generator.compile_mutation(mutation)
 
         try:
             self.execute(_stmt, *_params)
@@ -561,11 +554,14 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             self._recreate_table_with_constraints(mutation)
             return None
         else:
-            statements = build_schema_mutation(
-                mutation,
-                type_transform=self.to_sql_type,
-                transform=get_sqlite_transform(),
-            )
+            sql_params_list = self._generator.compile_schema_mutation(mutation)
+            for sql, params in sql_params_list:
+                self.execute(sql, *params)
+
+            if isinstance(mutation, RegisterSchema):
+                return mutation.schema
+
+            return None
 
         for stmt, values in statements:
             self.execute(stmt, *values)
