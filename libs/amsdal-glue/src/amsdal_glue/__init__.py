@@ -78,7 +78,6 @@ from amsdal_glue_core.common.operations.mutations.data import UpdateData
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
 from amsdal_glue_core.common.operations.mutations.schema import AddProperty
-from amsdal_glue_core.common.operations.mutations.schema import ChangeSchema
 from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
 from amsdal_glue_core.common.operations.mutations.schema import DeleteIndex
 from amsdal_glue_core.common.operations.mutations.schema import DeleteProperty
@@ -116,7 +115,6 @@ __all__ = [
     'AsyncPostgresConnection',
     'AsyncSqliteConnection',
     'Avg',
-    'ChangeSchema',
     'CheckConstraint',
     'CommonTableExpression',
     'Condition',
