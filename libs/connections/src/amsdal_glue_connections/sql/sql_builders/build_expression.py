@@ -1,7 +1,7 @@
 from typing import Any
 
 from amsdal_glue_core.common.data_models.output_type import OutputType
-from amsdal_glue_core.common.expressions.common import CombinedExpression
+from amsdal_glue_core.common.expressions.combined import Combined as CombinedExpression
 from amsdal_glue_core.common.expressions.exists import Exists
 from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression

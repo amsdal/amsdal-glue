@@ -11,10 +11,6 @@ from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
-from amsdal_glue_core.common.data_models.schema import DecimalSchemaModel
-from amsdal_glue_core.common.data_models.schema import DictSchemaModel
-from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 

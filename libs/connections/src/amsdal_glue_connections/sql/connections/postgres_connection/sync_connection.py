@@ -33,10 +33,9 @@ from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.postgres_connection.base import get_pg_transform
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
 from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
 
 logger = logging.getLogger(__name__)
@@ -71,6 +70,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
 
     def __init__(self) -> None:
         self._connection: Any = None
+        self._generator = SqlGenerator('postgresql', param_style='format')
         super().__init__()
 
     @property
@@ -190,10 +190,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         Raises:
             ConnectionError: If there is an error executing the query.
         """
-        _stmt, _params = build_sql_query(
-            query,
-            transform=get_pg_transform(),
-        )
+        _stmt, _params = self._generator.compile_query(query)
 
         try:
             cursor = self.execute(_stmt, *_params)
@@ -267,10 +264,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         return [self._run_mutation(mutation) for mutation in mutations]
 
     def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
-        _stmt, _params = build_sql_data_command(
-            mutation,
-            transform=get_pg_transform(),
-        )
+        _stmt, _params = self._generator.compile_mutation(mutation)
 
         try:
             self.execute(_stmt, *_params)
