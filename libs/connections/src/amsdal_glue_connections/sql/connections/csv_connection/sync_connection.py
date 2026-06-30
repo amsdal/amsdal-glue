@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
@@ -25,6 +24,7 @@ from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
@@ -100,7 +100,7 @@ class CsvConnection(ConnectionBase):
             raise RuntimeError(msg)
         return self._db_path
 
-    def acquire_lock(self, lock: ExecutionLockCommand) -> None:  # noqa: ARG002
+    def acquire_lock(self, lock: LockCommand) -> None:  # noqa: ARG002
         """Acquire a lock for the execution. Not applicable for CSV connections."""
         return
 
@@ -729,7 +729,7 @@ class CsvConnection(ConnectionBase):
         # Default fallback
         return str
 
-    def release_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
+    def release_lock(self, lock: LockCommand) -> Any:  # noqa: ARG002
         """Release a lock. Not applicable for CSV connections."""
         return None
 

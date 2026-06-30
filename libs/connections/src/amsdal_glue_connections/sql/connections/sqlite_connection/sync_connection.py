@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -21,6 +20,7 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
@@ -426,12 +426,16 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
         return properties, constraints, indexes
 
-    def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+    def acquire_lock(self, lock: LockCommand) -> Any:
         """
         Acquires a lock on the SQLite database.
 
+        Deliberate divergence from the Rust ``compile_lock_command`` path: SQLite does not
+        support ``LOCK TABLE`` syntax.  We keep the existing ``BEGIN EXCLUSIVE`` hack instead.
+        TODO spec §3.5 — revisit whether SQLite should raise ``NotImplementedError`` (source parity).
+
         Args:
-            lock (ExecutionLockCommand): The lock command.
+            lock (LockCommand): The lock command.
 
         Returns:
             Any: The result of the lock acquisition.
@@ -441,12 +445,15 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
         return True
 
-    def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    def release_lock(self, lock: LockCommand) -> Any:
         """
         Releases a lock on the SQLite database.
 
+        Deliberate divergence from the Rust ``compile_lock_command`` path — mirrors ``acquire_lock``.
+        TODO spec §3.5.
+
         Args:
-            lock (ExecutionLockCommand): The lock command.
+            lock (LockCommand): The lock command.
 
         Returns:
             Any: The result of the lock release.

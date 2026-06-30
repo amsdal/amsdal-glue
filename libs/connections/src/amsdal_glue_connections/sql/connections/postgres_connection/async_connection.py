@@ -2,7 +2,6 @@ import logging
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -18,6 +17,7 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
@@ -462,46 +462,42 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
 
         return properties, constraints, indexes
 
-    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+    async def acquire_lock(self, lock: LockCommand) -> Any:
         """
-        Acquires a lock on the PostgreSQL database.
+        Acquires a lock on the PostgreSQL database via ``compile_lock_command``.
 
         Args:
-            lock (ExecutionLockCommand): The lock command to be executed.
+            lock (LockCommand): The lock command to be executed.
 
         Returns:
             Any: The result of the lock acquisition.
         """
-        if lock.locked_object.query:
-            locked_object = lock.locked_object
-            where, values = build_where(
-                locked_object.query,
-                transform=get_pg_transform(),
-            )
-            _query = f'SELECT * FROM {self._table_name_from_schema_reference(locked_object.schema)}'  # noqa: S608
-
-            if where:
-                _query += f' WHERE {where}'
-
-            _query += ' FOR UPDATE'
-
-            await self.execute(_query, *values)
-
+        sql, params = self._generator.compile_lock_command(lock)
+        await self.execute(sql, *params)
         return True
 
-    async def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    async def release_lock(self, lock: LockCommand) -> Any:
         """
-        Releases a lock on the PostgreSQL database.
+        Releases a lock on the PostgreSQL database via ``compile_lock_command``.
+
+        TRANSACTION-scope table locks and ``pg_advisory_xact_lock`` auto-release at COMMIT/ROLLBACK
+        — the Rust generator raises ``UnsupportedFeatureError`` for these cases, which is caught and
+        treated as a no-op (the lock will release when the enclosing transaction ends).
 
         Args:
-            lock (ExecutionLockCommand): The lock command to be released.
+            lock (LockCommand): The lock command to be released.
 
         Returns:
             Any: The result of the lock release.
         """
-        if lock.mode == 'EXCLUSIVE':
-            return True
+        from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 
+        try:
+            sql, params = self._generator.compile_lock_command(lock)
+            await self.execute(sql, *params)
+        except UnsupportedFeatureError:
+            # TRANSACTION-scope locks auto-release at transaction end — no SQL needed.
+            pass
         return True
 
     async def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
@@ -581,7 +577,3 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             return migration.schema
         return None
 
-    def _table_name_from_schema_reference(self, schema_reference: SchemaReference) -> str:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        return f'{_namespace_prefix}"{schema_reference.name}"'

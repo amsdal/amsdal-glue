@@ -1,7 +1,6 @@
 from copy import copy
 from dataclasses import dataclass
 
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
@@ -69,25 +68,6 @@ class TransactionCommand(Operation):
             action=self.action,
             schema=copy(self.schema) if self.schema is not None else None,
             parent_transaction_id=self.parent_transaction_id,
-        )
-
-
-@dataclass(kw_only=True)
-class LockSchemaReference:
-    """Represents a reference to a schema for locking purposes.
-
-    Attributes:
-        schema (SchemaReference): The schema reference to be locked.
-        query (Conditions | None): The conditions for the lock. Defaults to None.
-    """
-
-    schema: SchemaReference
-    query: Conditions | None = None
-
-    def __copy__(self):
-        return LockSchemaReference(
-            schema=copy(self.schema),
-            query=copy(self.query) if self.query is not None else None,
         )
 
 

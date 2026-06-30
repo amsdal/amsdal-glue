@@ -2,13 +2,13 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Any
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.interfaces.connectable import AsyncConnectable
 from amsdal_glue_core.common.interfaces.connectable import Connectable
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
@@ -53,22 +53,22 @@ class ConnectionBase(Connectable, ABC):
         """
 
     @abstractmethod
-    def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+    def acquire_lock(self, lock: LockCommand) -> Any:
         """Acquires a lock.
 
         Args:
-            lock (ExecutionLockCommand): The lock command to execute.
+            lock (LockCommand): The lock command to execute.
 
         Returns:
             Any: The result of the lock acquisition.
         """
 
     @abstractmethod
-    def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    def release_lock(self, lock: LockCommand) -> Any:
         """Releases a lock.
 
         Args:
-            lock (ExecutionLockCommand): The lock command to execute.
+            lock (LockCommand): The lock command to execute.
 
         Returns:
             Any: The result of the lock release.
@@ -203,22 +203,22 @@ class AsyncConnectionBase(AsyncConnectable, ABC):
         """
 
     @abstractmethod
-    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+    async def acquire_lock(self, lock: LockCommand) -> Any:
         """Acquires a lock.
 
         Args:
-            lock (ExecutionLockCommand): The lock command to execute.
+            lock (LockCommand): The lock command to execute.
 
         Returns:
             Any: The result of the lock acquisition.
         """
 
     @abstractmethod
-    async def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    async def release_lock(self, lock: LockCommand) -> Any:
         """Releases a lock.
 
         Args:
-            lock (ExecutionLockCommand): The lock command to execute.
+            lock (LockCommand): The lock command to execute.
 
         Returns:
             Any: The result of the lock release.

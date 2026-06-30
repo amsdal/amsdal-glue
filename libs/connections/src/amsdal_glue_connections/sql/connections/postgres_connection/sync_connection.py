@@ -1,7 +1,6 @@
 import logging
 from typing import Any
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -17,6 +16,7 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
@@ -452,34 +452,42 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
 
         return properties, constraints, indexes
 
-    def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+    def acquire_lock(self, lock: LockCommand) -> Any:
         """
-        Acquires a lock on the PostgreSQL database.
+        Acquires a lock on the PostgreSQL database via ``compile_lock_command``.
 
         Args:
-            lock (ExecutionLockCommand): The lock command to be executed.
+            lock (LockCommand): The lock command to be executed.
 
         Returns:
             Any: The result of the lock acquisition.
         """
-        if lock.mode == 'EXCLUSIVE':
-            self.execute('BEGIN EXCLUSIVE')
-
+        sql, params = self._generator.compile_lock_command(lock)
+        self.execute(sql, *params)
         return True
 
-    def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    def release_lock(self, lock: LockCommand) -> Any:
         """
-        Releases a lock on the PostgreSQL database.
+        Releases a lock on the PostgreSQL database via ``compile_lock_command``.
+
+        TRANSACTION-scope table locks and ``pg_advisory_xact_lock`` auto-release at COMMIT/ROLLBACK
+        — the Rust generator raises ``UnsupportedFeatureError`` for these cases, which is caught and
+        treated as a no-op (the lock will release when the enclosing transaction ends).
 
         Args:
-            lock (ExecutionLockCommand): The lock command to be released.
+            lock (LockCommand): The lock command to be released.
 
         Returns:
             Any: The result of the lock release.
         """
-        if lock.mode == 'EXCLUSIVE':
-            self.execute('COMMIT')
+        from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 
+        try:
+            sql, params = self._generator.compile_lock_command(lock)
+            self.execute(sql, *params)
+        except UnsupportedFeatureError:
+            # TRANSACTION-scope locks auto-release at transaction end — no SQL needed.
+            pass
         return True
 
     def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:

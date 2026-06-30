@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -22,6 +21,7 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
@@ -447,38 +447,37 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                 return True
         return False
 
-    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
+    async def acquire_lock(self, lock: LockCommand) -> Any:  # noqa: ARG002
         """
         Acquires a lock on the SQLite database.
 
+        Deliberate divergence from the Rust ``compile_lock_command`` path: SQLite does not
+        support ``LOCK TABLE`` syntax.  TODO spec §3.5.
+
+        Note: ``BEGIN EXCLUSIVE`` is not attempted here — it does not work reliably when the same
+        connection is shared across async contexts.
+
         Args:
-            lock (ExecutionLockCommand): The lock command.
+            lock (LockCommand): The lock command.
 
         Returns:
             Any: The result of the lock acquisition.
         """
-
-        # TODO: add "BEGIN EXCLUSIVE" similar to sync version
-        # Currently it does not work, probably due to re-using the same connection in
-        # different async contexts. Need to investigate and fix it.
-
         return True
 
-    async def release_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
+    async def release_lock(self, lock: LockCommand) -> Any:  # noqa: ARG002
         """
         Releases a lock on the SQLite database.
 
+        Deliberate divergence from the Rust ``compile_lock_command`` path — mirrors ``acquire_lock``.
+        TODO spec §3.5.
+
         Args:
-            lock (ExecutionLockCommand): The lock command.
+            lock (LockCommand): The lock command.
 
         Returns:
             Any: The result of the lock release.
         """
-
-        # TODO: add "COMMIT" for "EXCLUSIVE" mode similar to sync version
-        # Currently it does not work, probably due to re-using the same connection in
-        # different async contexts. Need to investigate and fix it.
-
         return True
 
     async def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:

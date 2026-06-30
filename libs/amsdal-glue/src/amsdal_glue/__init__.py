@@ -69,7 +69,8 @@ from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.commands import LockCommand
-from amsdal_glue_core.common.operations.commands import LockSchemaReference
+from amsdal_glue_core.common.operations.commands import LockIdentifier
+from amsdal_glue_core.common.operations.commands import LockReference
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
@@ -159,10 +160,11 @@ __all__ = [
     'LimitQuery',
     'LockAction',
     'LockCommand',
+    'LockIdentifier',
     'LockMode',
     'LockParameter',
+    'LockReference',
     'LockResult',
-    'LockSchemaReference',
     'LockScope',
     'LockStrength',
     'Max',

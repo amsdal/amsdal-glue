@@ -22,7 +22,7 @@ class DefaultLockCommandService(LockCommandService):
         ```python
         from amsdal_glue import init_default_containers
         from amsdal_glue import Container
-        from amsdal_glue import LockCommand, LockAction, LockMode, LockParameter, LockSchemaReference
+        from amsdal_glue import LockCommand, LockAction, LockMode, LockParameter, LockReference
         from amsdal_glue import SchemaReference, Version
         from amsdal_glue.services import LockCommandService
 
@@ -40,7 +40,7 @@ class DefaultLockCommandService(LockCommandService):
                 action=LockAction.ACQUIRE,
                 mode=LockMode.EXCLUSIVE,
                 parameter=LockParameter.SKIP_LOCKED,
-                locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
+                locked_objects=[LockReference(reference=SchemaReference(name='customers', version=Version.LATEST))],
             ),
         )
         ```
@@ -85,7 +85,7 @@ class DefaultAsyncLockCommandService(AsyncLockCommandService):
         ```python
         from amsdal_glue import init_default_containers
         from amsdal_glue import Container
-        from amsdal_glue import LockCommand, LockAction, LockMode, LockParameter, LockSchemaReference
+        from amsdal_glue import LockCommand, LockAction, LockMode, LockParameter, LockReference
         from amsdal_glue import SchemaReference, Version
         from amsdal_glue.services import AsyncLockCommandService
 
@@ -103,7 +103,7 @@ class DefaultAsyncLockCommandService(AsyncLockCommandService):
                 action=LockAction.ACQUIRE,
                 mode=LockMode.EXCLUSIVE,
                 parameter=LockParameter.SKIP_LOCKED,
-                locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
+                locked_objects=[LockReference(reference=SchemaReference(name='customers', version=Version.LATEST))],
             ),
         )
         ```
