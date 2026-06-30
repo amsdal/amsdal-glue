@@ -1,5 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.set_operation import SetOperation
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
@@ -38,13 +39,13 @@ class DataQueryNodeExecutor:
 
     def resolve_connection(
         self,
-        table: SchemaReference | SubQueryStatement,
+        table: SchemaReference | SubQueryStatement | SetOperation,
         transaction_id: str | None,
     ) -> ConnectionBase:
         """Resolves the connection for the given table.
 
         Args:
-            table (SchemaReference | SubQueryStatement): The table for which to resolve the connection.
+            table (SchemaReference | SubQueryStatement | SetOperation): The table for which to resolve the connection.
             transaction_id (str | None): The transaction ID to be used during execution.
 
         Returns:
@@ -55,6 +56,9 @@ class DataQueryNodeExecutor:
 
         if isinstance(table, SubQueryStatement):
             return self.resolve_connection(table.query.table, transaction_id)
+
+        if isinstance(table, SetOperation):
+            return self.resolve_connection(table.left.table, transaction_id)
 
         msg = f'QueryNodeExecutor does not support queries with {type(table)} as table.'
         raise RuntimeError(msg)
@@ -90,23 +94,26 @@ class AsyncDataQueryNodeExecutor:
 
     async def resolve_connection(
         self,
-        table: SchemaReference | SubQueryStatement,
+        table: SchemaReference | SubQueryStatement | SetOperation,
         transaction_id: str | None,
     ) -> AsyncConnectionBase:
         """Resolves the connection for the given table.
 
         Args:
-            table (SchemaReference | SubQueryStatement): The table for which to resolve the connection.
+            table (SchemaReference | SubQueryStatement | SetOperation): The table for which to resolve the connection.
             transaction_id (str | None): The transaction ID to be used during execution.
 
         Returns:
-            ConnectionBase: The resolved connection.
+            AsyncConnectionBase: The resolved connection.
         """
         if isinstance(table, SchemaReference):
             return await self.connection_manager.get_connection_pool(table.name).get_connection(transaction_id)
 
         if isinstance(table, SubQueryStatement):
             return await self.resolve_connection(table.query.table, transaction_id)
+
+        if isinstance(table, SetOperation):
+            return await self.resolve_connection(table.left.table, transaction_id)
 
         msg = f'QueryNodeExecutor does not support queries with {type(table)} as table.'
         raise RuntimeError(msg)

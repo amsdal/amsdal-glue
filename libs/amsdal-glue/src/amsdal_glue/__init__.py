@@ -18,10 +18,13 @@ from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
+from amsdal_glue_core.common.data_models.cte import CommonTableExpression
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
+from amsdal_glue_core.common.data_models.from_values import FromValues
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.join import JoinQuery
@@ -35,6 +38,9 @@ from amsdal_glue_core.common.data_models.results.schema import SchemaResult
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
+from amsdal_glue_core.common.data_models.select_lock import SelectLock
+from amsdal_glue_core.common.data_models.set_operation import SetOperation
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
@@ -42,9 +48,13 @@ from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
 from amsdal_glue_core.common.enums import LockParameter
+from amsdal_glue_core.common.enums import LockScope
+from amsdal_glue_core.common.enums import LockStrength
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import SetOperationType
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.aggregation import Aggregation
 from amsdal_glue_core.common.expressions.aggregation import Avg
 from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
@@ -98,6 +108,7 @@ __all__ = [
     'AddConstraint',
     'AddIndex',
     'AddProperty',
+    'Aggregation',
     'AggregationQuery',
     'AnnotationQuery',
     'AsyncConnectionManager',
@@ -107,6 +118,7 @@ __all__ = [
     'Avg',
     'ChangeSchema',
     'CheckConstraint',
+    'CommonTableExpression',
     'Condition',
     'Conditions',
     'ConnectionManager',
@@ -128,6 +140,7 @@ __all__ = [
     'DeleteIndex',
     'DeleteProperty',
     'DeleteSchema',
+    'DistinctClause',
     'Exists',
     'ExpressionAnnotation',
     'Field',
@@ -137,6 +150,7 @@ __all__ = [
     'FieldReferenceExpression',
     'FilterConnector',
     'ForeignKeyConstraint',
+    'FromValues',
     'Func',
     'GroupByQuery',
     'IndexSchema',
@@ -151,6 +165,8 @@ __all__ = [
     'LockParameter',
     'LockResult',
     'LockSchemaReference',
+    'LockScope',
+    'LockStrength',
     'Max',
     'Min',
     'OrderByQuery',
@@ -169,6 +185,10 @@ __all__ = [
     'SchemaQueryOperation',
     'SchemaReference',
     'SchemaResult',
+    'SelectExpression',
+    'SelectLock',
+    'SetOperation',
+    'SetOperationType',
     'Singleton',
     'SqliteConnection',
     'SubQueryStatement',

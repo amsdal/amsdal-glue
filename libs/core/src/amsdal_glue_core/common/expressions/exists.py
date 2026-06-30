@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 from amsdal_glue_core.common.expressions.expression import Expression
 
 if TYPE_CHECKING:
-    from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+    from amsdal_glue_core.common.data_models.query import QueryStatement
 
 
 @dataclass(kw_only=True)
 class Exists(Expression):
-    subquery: SubQueryStatement
+    subquery: QueryStatement
     negated: bool = False
