@@ -20,6 +20,10 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import JsonType
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 from amsdal_glue_connections.sql.sql_builders.build_only_constructor import pg_build_only
 from amsdal_glue_connections.sql.sql_builders.math_operator_transform import pg_math_operator_transform
 from amsdal_glue_connections.sql.sql_builders.operator_constructor import repr_operator_constructor
@@ -35,6 +39,40 @@ from amsdal_glue_connections.sql.sql_builders.transform import Transform
 from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 logger = logging.getLogger(__name__)
+
+_REGISTRY_VIEW_SQL: dict[str, str] = {
+    TABLE_REGISTRY: (
+        f'CREATE OR REPLACE TEMPORARY VIEW "{TABLE_REGISTRY}" AS '  # noqa: S608
+        'SELECT table_name AS name '
+        'FROM information_schema.tables '
+        "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
+    ),
+    TABLE_PROPERTY_REGISTRY: (
+        f'CREATE OR REPLACE TEMPORARY VIEW "{TABLE_PROPERTY_REGISTRY}" AS '  # noqa: S608
+        'SELECT table_name, column_name AS name, data_type AS type, '
+        'udt_name, is_nullable, column_default, ordinal_position '
+        'FROM information_schema.columns '
+        "WHERE table_schema = 'public'"
+    ),
+    TABLE_CONSTRAINT_REGISTRY: (
+        f'CREATE OR REPLACE TEMPORARY VIEW "{TABLE_CONSTRAINT_REGISTRY}" AS '  # noqa: S608
+        'SELECT cls.relname AS table_name, con.conname AS name, con.contype AS type '
+        'FROM pg_constraint con '
+        'JOIN pg_class cls ON cls.oid = con.conrelid '
+        "JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace AND nsp.nspname = 'public'"
+    ),
+    TABLE_INDEX_REGISTRY: (
+        f'CREATE OR REPLACE TEMPORARY VIEW "{TABLE_INDEX_REGISTRY}" AS '  # noqa: S608
+        'SELECT tc.relname AS table_name, ic.relname AS name, '
+        'am.amname AS index_type, ix.indisunique AS is_unique '
+        'FROM pg_index ix '
+        'JOIN pg_class tc ON tc.oid = ix.indrelid '
+        'JOIN pg_class ic ON ic.oid = ix.indexrelid '
+        'JOIN pg_am am ON am.oid = ic.relam '
+        "JOIN pg_namespace nsp ON nsp.oid = tc.relnamespace AND nsp.nspname = 'public' "
+        'WHERE NOT ix.indisprimary'
+    ),
+}
 
 # PostgreSQL encodes NUMERIC precision/scale in atttypmod offset by the VARHDRSZ header (4 bytes).
 _NUMERIC_TYPMOD_OFFSET = 4

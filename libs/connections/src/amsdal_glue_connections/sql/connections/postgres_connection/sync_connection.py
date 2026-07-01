@@ -1,20 +1,28 @@
 import logging
+from copy import copy
 from typing import Any
 
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import IdentityConfig
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import ArrayType
+from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import VectorType
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
+from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -24,11 +32,97 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 
 from amsdal_glue_connections._sql_core import SqlGenerator
-from amsdal_glue_connections.sql.connections.postgres_connection.base import get_pg_transform
+from amsdal_glue_connections.sql.connections.postgres_connection.base import _REGISTRY_VIEW_SQL
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 logger = logging.getLogger(__name__)
+
+_PG_TYPE_MAP: dict[str, ScalarType] = {
+    'text': ScalarType.TEXT,
+    'character varying': ScalarType.TEXT,
+    'varchar': ScalarType.TEXT,
+    'char': ScalarType.TEXT,
+    'character': ScalarType.TEXT,
+    'name': ScalarType.TEXT,
+    'integer': ScalarType.INTEGER,
+    'int': ScalarType.INTEGER,
+    'int4': ScalarType.INTEGER,
+    'bigint': ScalarType.BIGINT,
+    'int8': ScalarType.BIGINT,
+    'smallint': ScalarType.SMALLINT,
+    'int2': ScalarType.SMALLINT,
+    'real': ScalarType.FLOAT,
+    'float4': ScalarType.FLOAT,
+    'double precision': ScalarType.DOUBLE,
+    'float8': ScalarType.DOUBLE,
+    'numeric': ScalarType.NUMERIC,
+    'decimal': ScalarType.NUMERIC,
+    'boolean': ScalarType.BOOLEAN,
+    'bool': ScalarType.BOOLEAN,
+    'date': ScalarType.DATE,
+    'time without time zone': ScalarType.TIME,
+    'time': ScalarType.TIME,
+    'timestamp without time zone': ScalarType.TIMESTAMP,
+    'timestamp': ScalarType.TIMESTAMP,
+    'timestamp with time zone': ScalarType.TIMESTAMPTZ,
+    'timestamptz': ScalarType.TIMESTAMPTZ,
+    'interval': ScalarType.INTERVAL,
+    'bytea': ScalarType.BYTEA,
+    'json': ScalarType.JSON,
+    'jsonb': ScalarType.JSONB,
+    'uuid': ScalarType.UUID,
+    'smallserial': ScalarType.SMALLSERIAL,
+    'serial': ScalarType.SERIAL,
+    'bigserial': ScalarType.BIGSERIAL,
+    'tsvector': ScalarType.TSVECTOR,
+    'tsquery': ScalarType.TSQUERY,
+    'int4range': ScalarType.INT4RANGE,
+    'int8range': ScalarType.INT8RANGE,
+    'numrange': ScalarType.NUMRANGE,
+    'daterange': ScalarType.DATERANGE,
+    'tsrange': ScalarType.TSRANGE,
+    'tstzrange': ScalarType.TSTZRANGE,
+}
+
+_SERIAL_TYPE_MAP: dict[str, ScalarType] = {
+    'smallint': ScalarType.SMALLSERIAL,
+    'integer': ScalarType.SERIAL,
+    'bigint': ScalarType.BIGSERIAL,
+}
+
+
+def _pg_type_to_field_type(type_name: str) -> ScalarType | CustomType | ArrayType | VectorType:
+    if type_name.startswith('_') or type_name.endswith('[]'):
+        base = type_name.lstrip('_').rstrip('[]')
+        item_type = _PG_TYPE_MAP.get(base, CustomType(name=base))
+        return ArrayType(item_type=item_type)
+
+    if type_name == 'vector':
+        return VectorType(dimensions=0)
+
+    scalar = _PG_TYPE_MAP.get(type_name)
+    if scalar is not None:
+        return scalar
+
+    return CustomType(name=type_name)
+
+
+def _detect_serial(data_type: str, column_default: str | None) -> ScalarType | None:
+    """Detect SMALLSERIAL/SERIAL/BIGSERIAL from integer type + nextval() default."""
+    if column_default is not None and 'nextval(' in column_default:
+        return _SERIAL_TYPE_MAP.get(data_type)
+    return None
+
+
+def _resolve_identity(
+    is_identity_col: str,
+    identity_generation: str | None,
+) -> IdentityConfig | None:
+    if is_identity_col == 'YES':
+        always = identity_generation == 'ALWAYS'
+        return IdentityConfig(always=always)
+    return None
 
 
 class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
@@ -61,6 +155,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
     def __init__(self) -> None:
         self._connection: Any = None
         self._generator = SqlGenerator('postgresql', param_style='format')
+        self._views_created = False
         super().__init__()
 
     @property
@@ -201,45 +296,246 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
 
         return result
 
-    def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+    def query_schema(self, query: QueryStatement) -> list[Schema]:
         """
         Queries the schema of the PostgreSQL database.
 
         Args:
-            filters (Conditions | None): The filters to be applied to the schema query.
+            query (QueryStatement): The query statement referencing the registry view.
 
         Returns:
             list[Schema]: The result of the schema query.
         """
-        stmt = self.TABLE_SQL
+        return self.introspect_schema(query)
 
-        if filters and filters.children:
-            where, values = build_where(
-                filters,
-                transform=get_pg_transform(),
-            )
-            stmt += f' WHERE {where}'
-        else:
-            values = []
+    def introspect_schema(self, query: QueryStatement) -> list[Schema]:
+        self._ensure_schema_views()
 
-        cursor = self.execute(stmt, *values)
-        tables = cursor.fetchall()
+        ref_name = query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
+
+        resolved = copy(query)
+        resolved.only = [FieldReference(field=Field(name='name'), table_name=ref_name)]
+
+        sql, params = self._generator.compile_query(resolved)
+        cursor = self.execute(sql, *params)
+        rows = cursor.fetchall()
         cursor.close()
-        result = []
 
-        for table in tables:
-            table_name = table[0]
-            properties, constraints, indexes = self.get_table_info(table_name)
-            schema = Schema(
-                name=table_name,
-                version=Version.LATEST,
-                properties=properties,
-                constraints=constraints,
-                indexes=indexes,
+        seen: set[str] = set()
+        table_names: list[str] = []
+        for (name,) in rows:
+            if name not in seen:
+                seen.add(name)
+                table_names.append(name)
+
+        schemas: list[Schema] = []
+        for table_name in table_names:
+            properties = self._introspect_columns(table_name)
+            if not properties:
+                continue
+
+            constraints = self._introspect_constraints(table_name)
+            indexes = self._introspect_indexes(table_name)
+
+            schemas.append(
+                Schema(
+                    name=table_name,
+                    version=Version.LATEST,
+                    namespace='public',
+                    properties=properties,
+                    constraints=constraints or None,
+                    indexes=indexes or None,
+                ),
             )
-            result.append(schema)
 
-        return result
+        return schemas
+
+    def _ensure_schema_views(self) -> None:
+        if self._views_created:
+            return
+
+        for sql in _REGISTRY_VIEW_SQL.values():
+            self.execute(sql)
+
+        self._views_created = True
+
+    def _introspect_columns(self, table_name: str) -> list[PropertySchema]:
+        sql = (
+            'SELECT column_name, data_type, udt_name, is_nullable, column_default, '
+            'is_identity, identity_generation, collation_name, generation_expression, is_generated '
+            'FROM information_schema.columns '
+            "WHERE table_name = %s AND table_schema = 'public' "
+            'ORDER BY ordinal_position'
+        )
+        cursor = self.execute(sql, table_name)
+        rows = cursor.fetchall()
+        cursor.close()
+
+        properties: list[PropertySchema] = []
+        for (
+            column_name,
+            data_type,
+            udt_name,
+            is_nullable,
+            column_default,
+            is_identity_col,
+            identity_generation,
+            collation_name,
+            generation_expression,
+            is_generated,
+        ) in rows:
+            serial_type = _detect_serial(data_type, column_default)
+            identity = _resolve_identity(is_identity_col, identity_generation) if serial_type is None else None
+
+            if serial_type is not None:
+                field_type: ScalarType | CustomType | ArrayType | VectorType = serial_type
+            elif data_type in ('ARRAY', 'USER-DEFINED'):
+                field_type = _pg_type_to_field_type(udt_name)
+            else:
+                field_type = _pg_type_to_field_type(data_type)
+
+            default = (
+                RawExpression(value=column_default) if serial_type is None and column_default is not None else None
+            )
+            generated = RawExpression(value=generation_expression) if is_generated == 'ALWAYS' else None
+
+            properties.append(
+                PropertySchema(
+                    name=column_name,
+                    type=field_type,
+                    identity=identity,
+                    required=is_nullable == 'NO',
+                    default=default,
+                    generated=generated,
+                    db_collation=collation_name,
+                ),
+            )
+
+        self._enrich_identity_params(table_name, properties)
+        return properties
+
+    def _enrich_identity_params(self, table_name: str, properties: list[PropertySchema]) -> None:
+        identity_cols = [p for p in properties if p.identity is not None]
+        if not identity_cols:
+            return
+
+        for prop in identity_cols:
+            seq_name_sql = 'SELECT pg_get_serial_sequence(%s, %s)'
+            cursor = self.execute(seq_name_sql, table_name, prop.name)
+            row = cursor.fetchone()
+            cursor.close()
+            if row is None or row[0] is None:
+                continue
+
+            seq_qualified = row[0]
+            sql = (
+                'SELECT start_value, increment_by, min_value, max_value, cycle, cache_size '
+                'FROM pg_sequences '
+                "WHERE schemaname || '.' || sequencename = %s"
+            )
+            cursor = self.execute(sql, seq_qualified)
+            row = cursor.fetchone()
+            cursor.close()
+            if row is None:
+                continue
+
+            start, increment, min_value, max_value, cycle, cache = row
+            if not isinstance(prop.identity, IdentityConfig):  # pragma: no cover
+                continue
+            prop.identity.start = int(start) if start is not None else None
+            prop.identity.increment = int(increment) if increment is not None else None
+            prop.identity.min_value = int(min_value) if min_value is not None else None
+            prop.identity.max_value = int(max_value) if max_value is not None else None
+            prop.identity.cycle = bool(cycle)
+            prop.identity.cache = int(cache) if cache is not None else None
+
+    def _introspect_constraints(self, table_name: str) -> list[BaseConstraint]:
+        sql = (
+            'SELECT '
+            '  con.conname, con.contype, '
+            '  array_agg(att.attname ORDER BY u.pos) AS fields, '
+            '  con.confrelid::regclass::text AS ref_table, '
+            '  array_agg(ref_att.attname ORDER BY u.pos) FILTER (WHERE ref_att.attname IS NOT NULL) AS ref_fields, '
+            '  con.confupdtype, con.confdeltype, '
+            '  pg_get_constraintdef(con.oid) AS def, '
+            '  con.conexclop '
+            'FROM pg_constraint con '
+            'JOIN pg_class cls ON cls.oid = con.conrelid '
+            "JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace AND nsp.nspname = 'public' "
+            'CROSS JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS u(attnum, pos) '
+            'JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = u.attnum '
+            'LEFT JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS fk(attnum, pos) '
+            '  ON fk.pos = u.pos '
+            'LEFT JOIN pg_attribute ref_att '
+            '  ON ref_att.attrelid = con.confrelid AND ref_att.attnum = fk.attnum '
+            'WHERE cls.relname = %s '
+            'GROUP BY con.oid, con.conname, con.contype, con.confrelid, con.confupdtype, con.confdeltype, con.conexclop'
+        )
+        cursor = self.execute(sql, table_name)
+        rows = cursor.fetchall()
+        cursor.close()
+
+        constraints: list[BaseConstraint] = []
+        for conname, contype, fields, ref_table, ref_fields, _confupdtype, _confdeltype, _condef, _conexclop in rows:
+            if contype == 'p':
+                constraints.append(PrimaryKeyConstraint(name=conname, fields=list(fields)))
+            elif contype == 'u':
+                constraints.append(UniqueConstraint(name=conname, fields=list(fields)))
+            elif contype == 'f':
+                constraints.append(
+                    ForeignKeyConstraint(
+                        name=conname,
+                        fields=list(fields),
+                        reference_schema=SchemaReference(name=ref_table, version=Version.LATEST),
+                        reference_fields=list(ref_fields) if ref_fields else [],
+                    ),
+                )
+
+        return constraints
+
+    def _introspect_indexes(self, table_name: str) -> list[IndexSchema]:
+        sql = (
+            'SELECT '
+            '  ic.relname AS index_name, '
+            '  ix.indisunique, '
+            '  am.amname AS index_type, '
+            '  ix.indnkeyatts, '
+            '  array_agg(att.attname ORDER BY k.pos) AS fields, '
+            '  array_agg(CASE WHEN ix.indoption[k.pos - 1] & 1 = 1 THEN %s ELSE %s END ORDER BY k.pos) AS directions, '
+            '  array_agg(opc.opcname ORDER BY k.pos) AS opclasses, '
+            '  array_agg(COALESCE(opc.opcdefault, true) ORDER BY k.pos) AS opclass_defaults '
+            'FROM pg_index ix '
+            'JOIN pg_class tc ON tc.oid = ix.indrelid '
+            'JOIN pg_class ic ON ic.oid = ix.indexrelid '
+            'JOIN pg_am am ON am.oid = ic.relam '
+            "JOIN pg_namespace nsp ON nsp.oid = tc.relnamespace AND nsp.nspname = 'public' "
+            'CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, pos) '
+            'JOIN pg_attribute att ON att.attrelid = tc.oid AND att.attnum = k.attnum '
+            'LEFT JOIN pg_opclass opc ON opc.oid = ix.indclass[k.pos - 1] '
+            'WHERE tc.relname = %s '
+            '  AND NOT ix.indisprimary '
+            '  AND NOT EXISTS ('
+            '    SELECT 1 FROM pg_constraint con '
+            '    WHERE con.conindid = ix.indexrelid AND con.contype = %s'
+            '  ) '
+            'GROUP BY ic.relname, ix.indisunique, am.amname, ix.indnkeyatts'
+        )
+        cursor = self.execute(sql, 'DESC', 'ASC', table_name, 'u')
+        rows = cursor.fetchall()
+        cursor.close()
+
+        indexes: list[IndexSchema] = []
+        for row in rows:
+            index_name, _is_unique, _index_type_name, n_key_atts, fields = row[0], row[1], row[2], row[3], row[4]
+            key_fields = list(fields[:n_key_atts])
+            indexes.append(
+                IndexSchema(
+                    name=index_name,
+                    fields=key_fields,
+                ),
+            )
+
+        return indexes
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -312,145 +608,6 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
         return cursor
-
-    def get_table_info(
-        self,
-        table_name: str,
-    ) -> tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]:
-        """
-        Gets the information of a table in the PostgreSQL database.
-
-        Args:
-            table_name (str): The name of the table.
-
-        Returns:
-            tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]: The properties, constraints,
-                                                                                  and indexes of the table.
-        """
-        cursor = self.execute(
-            'SELECT ordinal_position, column_name, data_type, is_nullable, column_default, udt_name '  # noqa: S608
-            'FROM information_schema.columns '
-            f"WHERE table_name = '{table_name}';"
-        )
-        columns = cursor.fetchall()
-        cursor.close()
-
-        properties: list[PropertySchema] = []
-        for column in columns:
-            column_name = column[1]
-            info = self.execute(
-                'SELECT c.relname as table_name, a.attname AS column_name, t.typname AS data_type, '  # noqa: S608
-                'a.atttypmod AS typmod '
-                'FROM pg_attribute a '
-                'JOIN pg_class c ON a.attrelid = c.oid '
-                'JOIN pg_type t ON a.atttypid = t.oid '
-                f"WHERE c.relname = '{table_name}' "
-                f"AND a.attname = '{column_name}';"
-            ).fetchone()
-            _info = (
-                {
-                    'table_name': info[0],
-                    'column_name': info[1],
-                    'data_type': info[2],
-                    'typmod': info[3],
-                }
-                if info
-                else {}
-            )
-            udt_name = column[5] if len(column) > 5 else None  # noqa: PLR2004
-
-            properties.append(
-                PropertySchema(
-                    name=column[1],
-                    type=self._to_python_type(column[2], udt_name, _info),
-                    required=column[3].lower() == 'no',  # means is nullable
-                    description=None,
-                    default=column[4],
-                )
-            )
-        fid_to_name: dict[int, str] = {column[0]: column[1] for column in columns}
-
-        # Get constraints info
-        cursor = self.execute(
-            'SELECT conname, contype, confrelid, conkey, confkey, con.oid '  # noqa: S608
-            'FROM pg_catalog.pg_constraint con '
-            'INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid '
-            'INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace '
-            f"WHERE rel.relname = '{table_name}';"
-        )
-        raw_constrains = cursor.fetchall()
-        cursor.close()
-
-        constraints: list[BaseConstraint] = []
-        for raw_constrain in raw_constrains:
-            if raw_constrain[1] == 'f':
-                f_table_id = raw_constrain[2]
-                cursor = self.execute(
-                    f'SELECT relname FROM pg_catalog.pg_class WHERE oid = {f_table_id};'  # noqa: S608
-                )
-                f_table_name = cursor.fetchall()[0][0]
-                cursor.close()
-                cursor = self.execute(
-                    'SELECT ordinal_position, column_name '  # noqa: S608
-                    'FROM information_schema.columns '
-                    f"WHERE table_name = '{f_table_name}';"
-                )
-                f_table_fields = {row[0]: row[1] for row in cursor.fetchall()}
-                cursor.close()
-
-                constraints.append(
-                    ForeignKeyConstraint(
-                        name=raw_constrain[0],
-                        fields=[fid_to_name.get(fk) for fk in raw_constrain[3]],  # type: ignore[misc]
-                        reference_schema=SchemaReference(
-                            name=f_table_name,
-                            version=Version.LATEST,
-                        ),
-                        reference_fields=[f_table_fields.get(fid) for fid in raw_constrain[4]],  # type: ignore[misc]
-                    )
-                )
-
-            elif raw_constrain[1] == 'p':
-                constraints.append(
-                    PrimaryKeyConstraint(
-                        name=raw_constrain[0],
-                        fields=[fid_to_name.get(pk) for pk in raw_constrain[3]],  # type: ignore[misc]
-                    )
-                )
-
-            elif raw_constrain[1] == 'u':
-                constraints.append(
-                    UniqueConstraint(
-                        name=raw_constrain[0],
-                        fields=[fid_to_name.get(u) for u in raw_constrain[3]],  # type: ignore[misc]
-                    )
-                )
-
-        # Get indexes info
-        cursor = self.execute(
-            'SELECT i.relname AS index_name, array_agg(a.attname ORDER BY ord.n) AS column_names '  # noqa: S608
-            'FROM pg_class t '
-            'JOIN pg_index x ON t.oid = x.indrelid '
-            'JOIN pg_class i ON i.oid = x.indexrelid '
-            'JOIN generate_subscripts(x.indkey, 1) AS ord(n) ON TRUE '
-            'JOIN pg_attribute a ON a.attnum = x.indkey[ord.n] AND a.attrelid = t.oid '
-            f"WHERE t.relname = '{table_name}' "
-            'GROUP BY t.relname, i.relname'
-        )
-        indexes_list = cursor.fetchall()
-        cursor.close()
-
-        indexes = [
-            IndexSchema(
-                name=index_name,
-                fields=index_fields,
-                condition=None,
-            )
-            for index_name, index_fields in indexes_list
-            if not self._is_constraint(index_fields, constraints)
-        ]
-
-        return properties, constraints, indexes
 
     def acquire_lock(self, lock: LockCommand) -> Any:
         """
