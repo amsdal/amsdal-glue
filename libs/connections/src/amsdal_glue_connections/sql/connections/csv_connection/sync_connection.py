@@ -238,9 +238,7 @@ class CsvConnection(ConnectionBase):
             result_df = df.copy()
 
             # Collect SelectExpression entries whose expression is an Aggregation
-            aggregation_exprs = [
-                sel for sel in (query.expressions or []) if isinstance(sel.expression, Aggregation)
-            ]
+            aggregation_exprs = [sel for sel in (query.expressions or []) if isinstance(sel.expression, Aggregation)]
 
             if query.group_by and aggregation_exprs:
                 # Group by specified columns
@@ -274,23 +272,26 @@ class CsvConnection(ConnectionBase):
                     # Apply aggregations
                     agg_dict = {}
                     for sel_expr in aggregation_exprs:
+                        if not isinstance(sel_expr.expression, Aggregation):
+                            continue
                         agg = sel_expr.expression
+                        agg_tbl: str | None
                         if isinstance(agg.expression, FieldReferenceExpression):
-                            field_name = agg.expression.field_reference.field.name
-                            table_name = agg.expression.field_reference.table_name
+                            agg_field = agg.expression.field_reference.field.name
+                            agg_tbl = agg.expression.field_reference.table_name
                         elif agg.expression is None:
-                            field_name = '*'
-                            table_name = None
+                            agg_field = '*'
+                            agg_tbl = None
                         else:
                             msg = f'Unsupported aggregation expression type: {type(agg.expression)}'
                             raise ValueError(msg)  # noqa: TRY301
 
                         # Find the actual column name in the DataFrame
-                        actual_field_name = self._find_column_for_field(df, field_name, table_name)
+                        actual_field_name = self._find_column_for_field(df, agg_field, agg_tbl)
 
                         if actual_field_name is None:
                             msg = (
-                                f"Aggregation column '{field_name}' from table '{table_name}' not found in {df.columns}"
+                                f"Aggregation column '{agg_field}' from table '{agg_tbl}' not found in {df.columns}"
                             )
                             raise ValueError(msg)  # noqa: TRY301
 
@@ -305,6 +306,8 @@ class CsvConnection(ConnectionBase):
 
                     # First handle aggregation aliases
                     for sel_expr in aggregation_exprs:
+                        if not isinstance(sel_expr.expression, Aggregation):
+                            continue
                         agg = sel_expr.expression
                         if isinstance(agg.expression, FieldReferenceExpression):
                             field_name = agg.expression.field_reference.field.name
@@ -336,13 +339,17 @@ class CsvConnection(ConnectionBase):
                 try:
                     agg_results = {}
                     for sel_expr in aggregation_exprs:
+                        if not isinstance(sel_expr.expression, Aggregation):
+                            continue
                         agg = sel_expr.expression
+                        agg_fld2: str
+                        agg_tbl2: str | None
                         if isinstance(agg.expression, FieldReferenceExpression):
-                            field_name = agg.expression.field_reference.field.name
-                            table_name = agg.expression.field_reference.table_name
+                            agg_fld2 = agg.expression.field_reference.field.name
+                            agg_tbl2 = agg.expression.field_reference.table_name
                         elif agg.expression is None:
-                            field_name = '*'
-                            table_name = None
+                            agg_fld2 = '*'
+                            agg_tbl2 = None
                         else:
                             msg = f'Unsupported aggregation expression type: {type(agg.expression)}'
                             raise ValueError(msg)  # noqa: TRY301
@@ -350,11 +357,11 @@ class CsvConnection(ConnectionBase):
                         alias = sel_expr.alias
 
                         # Find the actual column name in the DataFrame
-                        actual_field_name = self._find_column_for_field(df, field_name, table_name)
+                        actual_field_name = self._find_column_for_field(df, agg_fld2, agg_tbl2)
 
                         if actual_field_name is None:
                             msg = (
-                                f"Aggregation column '{field_name}' from table '{table_name}' not found in {df.columns}"
+                                f"Aggregation column '{agg_fld2}' from table '{agg_tbl2}' not found in {df.columns}"
                             )
                             raise ValueError(msg)  # noqa: TRY301
 
@@ -465,9 +472,7 @@ class CsvConnection(ConnectionBase):
                     raise ValueError(msg) from e
 
             # Handle annotations (non-aggregation SelectExpression entries)
-            annotation_exprs = [
-                sel for sel in (query.expressions or []) if not isinstance(sel.expression, Aggregation)
-            ]
+            annotation_exprs = [sel for sel in (query.expressions or []) if not isinstance(sel.expression, Aggregation)]
             if annotation_exprs:
                 for sel_expr in annotation_exprs:
                     try:
@@ -1112,15 +1117,18 @@ class CsvConnection(ConnectionBase):
             df = self._get_df(mutation.schema.name)
 
             # Filter rows to update based on query
+            # mutation.data is dict[str, Expression] in the new model, but during the
+            # migration period tests still pass a legacy Data object; access .data for compat.
+            _update_dict = mutation.data.data  # type: ignore[attr-defined]
             if mutation.query:
                 update_mask = self._get_conditions(mutation.query, df)
 
                 # Update values in the filtered rows
-                for field, value in mutation.data.data.items():
+                for field, value in _update_dict.items():
                     df.loc[update_mask, field] = value
             else:
                 # Update all rows if no query provided
-                for field, value in mutation.data.data.items():
+                for field, value in _update_dict.items():
                     df[field] = value
 
             # Save the updated DataFrame

@@ -203,9 +203,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         """
         await self._ensure_schema_views()
 
-        ref_name = (
-            query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
-        )
+        ref_name = query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
 
         resolved = copy(query)
         resolved.only = [FieldReference(field=Field(name='name'), table_name=ref_name)]

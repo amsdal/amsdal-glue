@@ -1,8 +1,6 @@
 import json
 import logging
 import re
-from datetime import date
-from datetime import datetime
 from typing import Any
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
@@ -11,6 +9,8 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import FieldType
+from amsdal_glue_core.common.enums import ScalarType
 
 from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
@@ -33,7 +33,7 @@ _REGISTRY_VIEW_SQL: dict[str, str] = {
     TABLE_INDEX_REGISTRY: (
         f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_INDEX_REGISTRY}" AS '  # noqa: S608
         'SELECT m.name AS table_name, il.name AS name, '
-        "'btree' AS index_type, il.\"unique\" AS is_unique "
+        '\'btree\' AS index_type, il."unique" AS is_unique '
         "FROM sqlite_master m, pragma_index_list(m.name) il WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%'"
     ),
 }
@@ -161,27 +161,27 @@ class SqliteConnectionMixin:
 
         return ''
 
-    def to_python_type(self, sql_type: str) -> type[Any] | CustomType:  # noqa: PLR0911
+    def to_python_type(self, sql_type: str) -> FieldType:  # noqa: PLR0911
         sql_type = sql_type.upper()
 
         if sql_type.startswith('DECIMAL_TEXT'):
             return CustomType(name='decimal_text')
         if sql_type == 'TEXT' or sql_type.startswith('VARCHAR'):
-            return str
+            return ScalarType.TEXT
         if sql_type in ('INTEGER', 'INT'):
-            return int
+            return ScalarType.INTEGER
         if sql_type == 'REAL':
-            return float
+            return ScalarType.FLOAT
         if sql_type == 'BOOLEAN':
-            return bool
+            return ScalarType.BOOLEAN
         if sql_type in ('JSON', 'JSONB'):
-            return JsonType
+            return ScalarType.JSONB
         if sql_type == 'BLOB':
-            return bytes
+            return ScalarType.BYTEA
         if sql_type == 'TIMESTAMP':
-            return datetime
+            return ScalarType.TIMESTAMP
         if sql_type == 'DATE':
-            return date
+            return ScalarType.DATE
 
         msg = f'Unsupported type: {sql_type}'
         raise ValueError(msg)
