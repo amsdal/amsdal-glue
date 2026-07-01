@@ -642,8 +642,9 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         try:
             sql, params = self._generator.compile_lock_command(lock)
             self.execute(sql, *params)
-        except UnsupportedFeatureError:
-            # TRANSACTION-scope locks auto-release at transaction end — no SQL needed.
+        except UnsupportedFeatureError:  # noqa: S110
+            # TRANSACTION-scope locks auto-release at transaction end — no SQL needed;
+            # the Rust generator raises UnsupportedFeatureError precisely for these cases.
             pass
         return True
 

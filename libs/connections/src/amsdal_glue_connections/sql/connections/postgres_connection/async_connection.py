@@ -561,8 +561,9 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         try:
             sql, params = self._generator.compile_lock_command(lock)
             await self.execute(sql, *params)
-        except UnsupportedFeatureError:
-            # TRANSACTION-scope locks auto-release at transaction end — no SQL needed.
+        except UnsupportedFeatureError:  # noqa: S110
+            # TRANSACTION-scope locks auto-release at transaction end — no SQL needed;
+            # the Rust generator raises UnsupportedFeatureError precisely for these cases.
             pass
         return True
 
@@ -642,4 +643,3 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         if isinstance(migration, RegisterSchema):
             return migration.schema
         return None
-
