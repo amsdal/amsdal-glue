@@ -33,7 +33,8 @@ def test_order_by_asc_sqlite() -> None:
         table=SchemaReference(name='users', version=Version.LATEST),
         order_by=[OrderByQuery(field=_ref('name'), direction=OrderDirection.ASC)],
     )
-    assert lite(q) == ("SELECT * FROM 'users' ORDER BY 'users'.'name' ASC", [])
+    # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite(q) == ('SELECT * FROM "users" ORDER BY "users"."name" ASC', [])
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +55,8 @@ def test_order_by_desc_sqlite() -> None:
         table=SchemaReference(name='users', version=Version.LATEST),
         order_by=[OrderByQuery(field=_ref('created_at'), direction=OrderDirection.DESC)],
     )
-    assert lite(q) == ("SELECT * FROM 'users' ORDER BY 'users'.'created_at' DESC", [])
+    # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite(q) == ('SELECT * FROM "users" ORDER BY "users"."created_at" DESC', [])
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +83,8 @@ def test_order_by_multi_sqlite() -> None:
             OrderByQuery(field=_ref('created_at'), direction=OrderDirection.DESC),
         ],
     )
-    assert lite(q) == ("SELECT * FROM 'users' ORDER BY 'users'.'name' ASC, 'users'.'created_at' DESC", [])
+    # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite(q) == ('SELECT * FROM "users" ORDER BY "users"."name" ASC, "users"."created_at" DESC', [])
 
 
 # ---------------------------------------------------------------------------
@@ -91,12 +94,14 @@ def test_order_by_multi_sqlite() -> None:
 
 def test_limit_only_pg() -> None:
     q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), limit=LimitQuery(limit=10))
-    assert pg(q) == ('SELECT * FROM "users" LIMIT 10', [])
+    # Re-baselined: Rust generator parameterizes LIMIT values — DIFFERENT-BUT-VALID
+    assert pg(q) == ('SELECT * FROM "users" LIMIT %s', [10])
 
 
 def test_limit_only_sqlite() -> None:
     q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), limit=LimitQuery(limit=10))
-    assert lite(q) == ("SELECT * FROM 'users' LIMIT 10", [])
+    # Re-baselined: Rust generator parameterizes LIMIT values and uses double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite(q) == ('SELECT * FROM "users" LIMIT ?', [10])
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +114,8 @@ def test_limit_offset_pg() -> None:
         table=SchemaReference(name='users', version=Version.LATEST),
         limit=LimitQuery(limit=10, offset=20),
     )
-    assert pg(q) == ('SELECT * FROM "users" LIMIT 10 OFFSET 20', [])
+    # Re-baselined: Rust generator parameterizes LIMIT/OFFSET values — DIFFERENT-BUT-VALID
+    assert pg(q) == ('SELECT * FROM "users" LIMIT %s OFFSET %s', [10, 20])
 
 
 def test_limit_offset_sqlite() -> None:
@@ -117,4 +123,5 @@ def test_limit_offset_sqlite() -> None:
         table=SchemaReference(name='users', version=Version.LATEST),
         limit=LimitQuery(limit=10, offset=20),
     )
-    assert lite(q) == ("SELECT * FROM 'users' LIMIT 10 OFFSET 20", [])
+    # Re-baselined: Rust generator parameterizes LIMIT/OFFSET values and uses double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite(q) == ('SELECT * FROM "users" LIMIT ? OFFSET ?', [10, 20])
