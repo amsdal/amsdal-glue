@@ -49,49 +49,53 @@ CASES = [
 ]
 
 # EXPECTED_PG / EXPECTED_LITE: Map FieldLookup.name -> (sql, params).
+#
+# Re-baselined against the Rust generator (differences noted per entry).
 EXPECTED_PG: dict[str, tuple[str, list]] = {
     'EQ': ('SELECT * FROM "users" WHERE "users"."age" = %s', [18]),
-    'NEQ': ('SELECT * FROM "users" WHERE "users"."age" != %s', [18]),
+    # Rust uses standard SQL <> instead of !=; semantically identical — re-baselined.
+    'NEQ': ('SELECT * FROM "users" WHERE "users"."age" <> %s', [18]),
     'GT': ('SELECT * FROM "users" WHERE "users"."age" > %s', [18]),
     'GTE': ('SELECT * FROM "users" WHERE "users"."age" >= %s', [18]),
     'LT': ('SELECT * FROM "users" WHERE "users"."age" < %s', [18]),
     'LTE': ('SELECT * FROM "users" WHERE "users"."age" <= %s', [18]),
-    # KNOWN-DIVERGENCE (migration): params are triply-nested [[[ ]]] due to a wrapping bug in
-    # pg_operator_constructor's IN branch (right_values = [_values] where _values already is a list).
-    # The correct params should be [[1, 2, 3]] so that psycopg3 passes [1, 2, 3] to = ANY(%s).
-    # This will change when the Rust/qcraft generator fixes the IN param construction.
-    'IN': ('SELECT * FROM "users" WHERE "users"."age" = ANY(%s)', [[[1, 2, 3]]]),
-    # KNOWN-DIVERGENCE (migration): CONTAINS uses LIKE with '*' wildcards ('*oo*') instead of '%'
-    # wildcards ('%oo%'). PostgreSQL LIKE only recognises '%' and '_' as wildcards; '*' matches
-    # a literal asterisk, so this query silently returns no rows when it should return rows
-    # containing 'oo'. Correct SQL: WHERE "users"."age" LIKE %s with params ['%oo%'].
-    # This will change when the Rust/qcraft generator fixes CONTAINS for the PG dialect.
-    'CONTAINS': ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['*oo*']),
-    'ICONTAINS': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE %s', ['%oo%']),
+    # Rust generates IN (%s, %s, %s) with flat params [1,2,3] — correct SQL; re-baselined.
+    # Old Python builder used = ANY(%s) with triple-nested params [[[1,2,3]]] (bug).
+    'IN': ('SELECT * FROM "users" WHERE "users"."age" IN (%s, %s, %s)', [1, 2, 3]),
+    # Rust fixed the CONTAINS wildcard: now uses '%' wildcards (correct LIKE); re-baselined.
+    'CONTAINS': ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['%oo%']),
+    # Rust uses native PostgreSQL ILIKE instead of LOWER(...) LIKE — valid; re-baselined.
+    'ICONTAINS': ('SELECT * FROM "users" WHERE "users"."age" ILIKE %s', ['%oo%']),
     'STARTSWITH': ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['fo%']),
-    'ISTARTSWITH': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE %s', ['fo%']),
+    'ISTARTSWITH': ('SELECT * FROM "users" WHERE "users"."age" ILIKE %s', ['fo%']),
     'ENDSWITH': ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['%oo']),
-    'IENDSWITH': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE %s', ['%oo']),
+    'IENDSWITH': ('SELECT * FROM "users" WHERE "users"."age" ILIKE %s', ['%oo']),
     'REGEX': ('SELECT * FROM "users" WHERE "users"."age" ~ %s', ['^foo']),
     'IREGEX': ('SELECT * FROM "users" WHERE "users"."age" ~* %s', ['^foo']),
 }
 
+# All SQLite entries re-baselined: ANSI double-quote identifiers (old builder used single quotes).
+# Additional SQL-level changes noted per entry.
 EXPECTED_LITE: dict[str, tuple[str, list]] = {
-    'EQ': ("SELECT * FROM 'users' WHERE 'users'.'age' = ?", [18]),
-    'NEQ': ("SELECT * FROM 'users' WHERE 'users'.'age' != ?", [18]),
-    'GT': ("SELECT * FROM 'users' WHERE 'users'.'age' > ?", [18]),
-    'GTE': ("SELECT * FROM 'users' WHERE 'users'.'age' >= ?", [18]),
-    'LT': ("SELECT * FROM 'users' WHERE 'users'.'age' < ?", [18]),
-    'LTE': ("SELECT * FROM 'users' WHERE 'users'.'age' <= ?", [18]),
-    'IN': ("SELECT * FROM 'users' WHERE 'users'.'age' IN (?, ?, ?)", [1, 2, 3]),
-    'CONTAINS': ("SELECT * FROM 'users' WHERE 'users'.'age' GLOB ?", ['*oo*']),
-    'ICONTAINS': ("SELECT * FROM 'users' WHERE LOWER('users'.'age') LIKE LOWER(?)", ['%oo%']),
-    'STARTSWITH': ("SELECT * FROM 'users' WHERE 'users'.'age' GLOB ?", ['fo*']),
-    'ISTARTSWITH': ("SELECT * FROM 'users' WHERE LOWER('users'.'age') LIKE LOWER(?)", ['fo%']),
-    'ENDSWITH': ("SELECT * FROM 'users' WHERE 'users'.'age' GLOB ?", ['*oo']),
-    'IENDSWITH': ("SELECT * FROM 'users' WHERE LOWER('users'.'age') LIKE LOWER(?)", ['%oo']),
-    'REGEX': ("SELECT * FROM 'users' WHERE 'users'.'age' REGEXP ?", ['^foo']),
-    'IREGEX': ("SELECT * FROM 'users' WHERE LOWER('users'.'age') REGEXP ?", ['^foo']),
+    'EQ': ('SELECT * FROM "users" WHERE "users"."age" = ?', [18]),
+    # Rust uses <> (standard) instead of !=; re-baselined.
+    'NEQ': ('SELECT * FROM "users" WHERE "users"."age" <> ?', [18]),
+    'GT': ('SELECT * FROM "users" WHERE "users"."age" > ?', [18]),
+    'GTE': ('SELECT * FROM "users" WHERE "users"."age" >= ?', [18]),
+    'LT': ('SELECT * FROM "users" WHERE "users"."age" < ?', [18]),
+    'LTE': ('SELECT * FROM "users" WHERE "users"."age" <= ?', [18]),
+    'IN': ('SELECT * FROM "users" WHERE "users"."age" IN (?, ?, ?)', [1, 2, 3]),
+    # Rust uses LIKE + ESCAPE instead of GLOB; % wildcards; re-baselined.
+    'CONTAINS': ("SELECT * FROM \"users\" WHERE \"users\".\"age\" LIKE ? ESCAPE '\\'", ['%oo%']),
+    # Rust uses LIKE LOWER + ESCAPE with ANSI quotes; re-baselined.
+    'ICONTAINS': ("SELECT * FROM \"users\" WHERE LOWER(\"users\".\"age\") LIKE LOWER(?) ESCAPE '\\'", ['%oo%']),
+    'STARTSWITH': ("SELECT * FROM \"users\" WHERE \"users\".\"age\" LIKE ? ESCAPE '\\'", ['fo%']),
+    'ISTARTSWITH': ("SELECT * FROM \"users\" WHERE LOWER(\"users\".\"age\") LIKE LOWER(?) ESCAPE '\\'", ['fo%']),
+    'ENDSWITH': ("SELECT * FROM \"users\" WHERE \"users\".\"age\" LIKE ? ESCAPE '\\'", ['%oo']),
+    'IENDSWITH': ("SELECT * FROM \"users\" WHERE LOWER(\"users\".\"age\") LIKE LOWER(?) ESCAPE '\\'", ['%oo']),
+    'REGEX': ('SELECT * FROM "users" WHERE "users"."age" REGEXP ?', ['^foo']),
+    # Rust uses REGEXP '(?i)' || ? (POSIX inline flag) instead of LOWER(...) REGEXP; re-baselined.
+    'IREGEX': ("SELECT * FROM \"users\" WHERE \"users\".\"age\" REGEXP '(?i)' || ?", ['^foo']),
 }
 
 
@@ -122,6 +126,7 @@ def test_isnull_pg() -> None:
 
 
 def test_isnull_sqlite() -> None:
+    # ANSI double quotes — valid; re-baselined.
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
         where=Conditions(
@@ -134,18 +139,19 @@ def test_isnull_sqlite() -> None:
             ),
         ),
     )
-    assert lite(q) == ("SELECT * FROM 'users' WHERE 'users'.'deleted_at' IS NULL", [])
+    assert lite(q) == ('SELECT * FROM "users" WHERE "users"."deleted_at" IS NULL', [])
 
 
-@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D2')
+@pytest.mark.xfail(strict=True, reason='Rust no longer emits = ANY(%s); test documents superseded expectation')
 def test_where_in_pg_params_correct_behaviour() -> None:
-    # D2: = ANY(%s) must receive [[1, 2, 3]] (psycopg passes [1, 2, 3]), not [[[1, 2, 3]]].
+    # D2 (superseded): original concern was = ANY(%s) needing [[1,2,3]] for psycopg3.
+    # Rust instead emits IN (%s,%s,%s) with [1,2,3] — correct, so = ANY form never appears.
+    # Kept as xfail to preserve the historical record; the assertion cannot pass.
     sql, params = pg(_where(FieldLookup.IN, [1, 2, 3]))
     assert (sql, params) == ('SELECT * FROM "users" WHERE "users"."age" = ANY(%s)', [[1, 2, 3]])
 
 
-@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D3')
 def test_where_contains_pg_wildcard_correct_behaviour() -> None:
-    # D3: PG LIKE must use '%' wildcards, not '*' (which match literal asterisks).
+    # Rust fixed PG CONTAINS to use '%' LIKE wildcards — no longer an xfail.
     sql, params = pg(_where(FieldLookup.CONTAINS, 'oo'))
     assert (sql, params) == ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['%oo%'])
