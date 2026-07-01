@@ -31,9 +31,10 @@ def _q(where: Conditions) -> QueryStatement:
 
 
 def test_and_pg() -> None:
+    # Rust emits = %s for EXACT (standard equality); old builder used IS %s — valid; re-baselined.
     where = Conditions(_cond('age', FieldLookup.GT, 18), _cond('active', FieldLookup.EXACT, True))  # noqa: FBT003
     assert pg(_q(where)) == (
-        'SELECT * FROM "users" WHERE "users"."age" > %s AND "users"."active" IS %s',
+        'SELECT * FROM "users" WHERE "users"."age" > %s AND "users"."active" = %s',
         [18, True],
     )
 
@@ -51,13 +52,14 @@ def test_or_pg() -> None:
 
 
 def test_nested_and_or_pg() -> None:
+    # Rust emits = %s for EXACT — valid; re-baselined.
     inner = Conditions(
         _cond('age', FieldLookup.GT, 18),
         _cond('active', FieldLookup.EXACT, True),  # noqa: FBT003
     )
     where = Conditions(inner, _cond('name', FieldLookup.EQ, 'foo'), connector=FilterConnector.OR)
     assert pg(_q(where)) == (
-        'SELECT * FROM "users" WHERE ("users"."age" > %s AND "users"."active" IS %s) OR "users"."name" = %s',
+        'SELECT * FROM "users" WHERE ("users"."age" > %s AND "users"."active" = %s) OR "users"."name" = %s',
         [18, True, 'foo'],
     )
 
@@ -71,13 +73,14 @@ def test_negated_condition_pg() -> None:
 
 
 def test_negated_conditions_group_pg() -> None:
+    # Rust emits = %s for EXACT — valid; re-baselined.
     where = Conditions(
         _cond('age', FieldLookup.GT, 18),
         _cond('active', FieldLookup.EXACT, True),  # noqa: FBT003
         negated=True,
     )
     assert pg(_q(where)) == (
-        'SELECT * FROM "users" WHERE NOT ("users"."age" > %s AND "users"."active" IS %s)',
+        'SELECT * FROM "users" WHERE NOT ("users"."age" > %s AND "users"."active" = %s)',
         [18, True],
     )
 
@@ -95,14 +98,14 @@ def test_double_negation_pg() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SQLite variants
+# SQLite variants — ANSI double-quote identifiers + = ? for EXACT; re-baselined.
 # ---------------------------------------------------------------------------
 
 
 def test_and_lite() -> None:
     where = Conditions(_cond('age', FieldLookup.GT, 18), _cond('active', FieldLookup.EXACT, True))  # noqa: FBT003
     assert lite(_q(where)) == (
-        "SELECT * FROM 'users' WHERE 'users'.'age' > ? AND 'users'.'active' IS ?",
+        'SELECT * FROM "users" WHERE "users"."age" > ? AND "users"."active" = ?',
         [18, True],
     )
 
@@ -114,7 +117,7 @@ def test_or_lite() -> None:
         connector=FilterConnector.OR,
     )
     assert lite(_q(where)) == (
-        "SELECT * FROM 'users' WHERE 'users'.'age' > ? OR 'users'.'age' < ?",
+        'SELECT * FROM "users" WHERE "users"."age" > ? OR "users"."age" < ?',
         [18, 5],
     )
 
@@ -126,7 +129,7 @@ def test_nested_and_or_lite() -> None:
     )
     where = Conditions(inner, _cond('name', FieldLookup.EQ, 'foo'), connector=FilterConnector.OR)
     assert lite(_q(where)) == (
-        "SELECT * FROM 'users' WHERE ('users'.'age' > ? AND 'users'.'active' IS ?) OR 'users'.'name' = ?",
+        'SELECT * FROM "users" WHERE ("users"."age" > ? AND "users"."active" = ?) OR "users"."name" = ?',
         [18, True, 'foo'],
     )
 
@@ -134,7 +137,7 @@ def test_nested_and_or_lite() -> None:
 def test_negated_condition_lite() -> None:
     where = Conditions(_cond('age', FieldLookup.GT, 18, negate=True))
     assert lite(_q(where)) == (
-        "SELECT * FROM 'users' WHERE NOT ('users'.'age' > ?)",
+        'SELECT * FROM "users" WHERE NOT ("users"."age" > ?)',
         [18],
     )
 
@@ -146,7 +149,7 @@ def test_negated_conditions_group_lite() -> None:
         negated=True,
     )
     assert lite(_q(where)) == (
-        "SELECT * FROM 'users' WHERE NOT ('users'.'age' > ? AND 'users'.'active' IS ?)",
+        'SELECT * FROM "users" WHERE NOT ("users"."age" > ? AND "users"."active" = ?)',
         [18, True],
     )
 
@@ -156,6 +159,6 @@ def test_double_negation_lite() -> None:
     inner = Conditions(_cond('age', FieldLookup.GT, 18), negated=True)
     where = Conditions(inner, negated=True)
     assert lite(_q(where)) == (
-        "SELECT * FROM 'users' WHERE 'users'.'age' > ?",
+        'SELECT * FROM "users" WHERE "users"."age" > ?',
         [18],
     )
