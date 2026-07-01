@@ -15,6 +15,9 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 
 from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
 from amsdal_glue_connections.sql.sql_builders.sqlite_utils.cast import sqlite_cast_transform
 from amsdal_glue_connections.sql.sql_builders.sqlite_utils.func_transform import func_transform
@@ -26,6 +29,26 @@ from amsdal_glue_connections.sql.sql_builders.transform import Transform
 from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 logger = logging.getLogger(__name__)
+
+_REGISTRY_VIEW_SQL: dict[str, str] = {
+    TABLE_REGISTRY: (
+        f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_REGISTRY}" AS '  # noqa: S608
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ),
+    TABLE_PROPERTY_REGISTRY: (
+        f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_PROPERTY_REGISTRY}" AS '  # noqa: S608
+        'SELECT m.name AS table_name, p.name AS name, p.type AS type, '
+        "p.type AS udt_name, CASE WHEN p.\"notnull\" THEN 'NO' ELSE 'YES' END AS is_nullable, "
+        'p.dflt_value AS column_default, p.cid AS ordinal_position '
+        "FROM sqlite_master m, pragma_table_info(m.name) p WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%'"
+    ),
+    TABLE_INDEX_REGISTRY: (
+        f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_INDEX_REGISTRY}" AS '  # noqa: S608
+        'SELECT m.name AS table_name, il.name AS name, '
+        "'btree' AS index_type, il.\"unique\" AS is_unique "
+        "FROM sqlite_master m, pragma_index_list(m.name) il WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%'"
+    ),
+}
 
 UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT\s["\']?(?P<name>\w+)["\']?\s+UNIQUE\s+\((?P<fields>[^)]+)\)')
 PRIMARY_KEY_RE = re.compile(r'CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+PRIMARY KEY', re.IGNORECASE)

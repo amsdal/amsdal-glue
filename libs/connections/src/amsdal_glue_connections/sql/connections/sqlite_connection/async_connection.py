@@ -1,17 +1,19 @@
 import logging
 import sqlite3
+from copy import copy
 from datetime import date
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -20,6 +22,7 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
+from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -29,12 +32,16 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 
 from amsdal_glue_connections._sql_core import SqlGenerator
-from amsdal_glue_connections.sql.connections.sqlite_connection.base import get_sqlite_transform
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import _REGISTRY_VIEW_SQL
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
-
-logger = logging.getLogger(__name__)
-
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _find_autoincrement_pk_col
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _get_unique_constraints
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_collations
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_fk_name
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_generated_expressions
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_pk_name
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _sqlite_type_to_field_type
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
     import aiosqlite
@@ -46,6 +53,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
     def __init__(self) -> None:
         self._connection: aiosqlite.Connection | None = None
         self._generator = SqlGenerator('sqlite', param_style='qmark')
+        self._views_created = False
         super().__init__()
 
     @property
@@ -183,42 +191,186 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         return result
 
-    async def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+    async def query_schema(self, query: QueryStatement) -> list[Schema]:
         """
         Queries the schema of the SQLite database.
 
         Args:
-            filters (Conditions, optional): Filters to apply to the schema query. Defaults to None.
+            query (QueryStatement): The query statement referencing the registry view.
 
         Returns:
             list[Schema]: The list of schemas matching the filters.
         """
-        stmt = self.TABLE_SQL
+        await self._ensure_schema_views()
 
-        if filters and filters.children:
-            where, values = build_where(filters, transform=get_sqlite_transform())
-            stmt += f' WHERE {where}'
-        else:
-            values = []
+        ref_name = (
+            query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
+        )
 
-        cursor = await self.execute(stmt, *values)
-        tables = await cursor.fetchall()
+        resolved = copy(query)
+        resolved.only = [FieldReference(field=Field(name='name'), table_name=ref_name)]
+
+        sql, params = self._generator.compile_query(resolved)
+        cursor = await self.execute(sql, *params)
+        rows = await cursor.fetchall()
         await cursor.close()
-        result = []
 
-        for table in tables:
-            table_name = table[0]
-            properties, constraints, indexes = await self.get_table_info(table_name)
-            schema = Schema(
-                name=table_name,
-                version=Version.LATEST,
-                properties=properties,
-                constraints=constraints,
-                indexes=indexes,
+        seen: set[str] = set()
+        table_names: list[str] = []
+        for (name,) in rows:
+            if name not in seen:
+                seen.add(name)
+                table_names.append(name)
+
+        schemas: list[Schema] = []
+        for table_name in table_names:
+            table_ddl = await self._get_table_ddl(table_name)
+            properties = await self._introspect_columns(table_name, table_ddl)
+            if not properties:
+                continue
+
+            constraints = await self._introspect_constraints(table_name, table_ddl)
+            indexes = await self._introspect_indexes(table_name)
+
+            schemas.append(
+                Schema(
+                    name=table_name,
+                    version=Version.LATEST,
+                    properties=properties,
+                    constraints=constraints or None,
+                    indexes=indexes or None,
+                ),
             )
-            result.append(schema)
 
-        return result
+        return schemas
+
+    async def _ensure_schema_views(self) -> None:
+        if self._views_created:
+            return
+
+        for sql in _REGISTRY_VIEW_SQL.values():
+            await self.execute(sql)
+
+        self._views_created = True
+
+    async def _get_table_ddl(self, table_name: str) -> str:
+        cursor = await self.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            table_name,
+        )
+        row = await cursor.fetchone()
+        await cursor.close()
+        return row[0] if row else ''
+
+    async def _introspect_columns(self, table_name: str, table_ddl: str) -> list[PropertySchema]:
+        cursor = await self.execute(f'PRAGMA table_xinfo("{table_name}")')
+        rows = await cursor.fetchall()
+        await cursor.close()
+
+        has_autoincrement = 'AUTOINCREMENT' in table_ddl.upper()
+        pk_col = _find_autoincrement_pk_col(table_ddl) if has_autoincrement else None
+        generated_exprs = _parse_generated_expressions(table_ddl)
+        collations = _parse_collations(table_ddl)
+
+        properties: list[PropertySchema] = []
+        for _cid, col_name, col_type, notnull, dflt, _pk, _hidden in rows:
+            field_type = _sqlite_type_to_field_type(col_type)
+            default = RawExpression(value=dflt) if dflt is not None else None
+            identity: bool | None = True if col_name == pk_col else None
+
+            properties.append(
+                PropertySchema(
+                    name=col_name,
+                    type=field_type,
+                    required=bool(notnull),
+                    default=default,
+                    identity=identity,
+                    generated=generated_exprs.get(col_name),
+                    db_collation=collations.get(col_name),
+                ),
+            )
+
+        return properties
+
+    async def _get_pk_fields(self, table_name: str) -> list[str]:
+        cursor = await self.execute(f'PRAGMA table_info("{table_name}")')
+        rows = await cursor.fetchall()
+        await cursor.close()
+
+        pk_cols: list[tuple[int, str]] = []
+        for _cid, col_name, _col_type, _notnull, _dflt, pk_idx in rows:
+            if pk_idx > 0:
+                pk_cols.append((pk_idx, col_name))
+
+        pk_cols.sort()
+        return [name for _, name in pk_cols]
+
+    async def _get_fk_constraints(self, table_name: str, table_sql: str) -> list[ForeignKeyConstraint]:
+        cursor = await self.execute(f'PRAGMA foreign_key_list("{table_name}")')
+        rows = await cursor.fetchall()
+        await cursor.close()
+
+        if not rows:
+            return []
+
+        fk_groups: dict[int, dict[str, Any]] = {}
+        for fk_id, _seq, ref_table, from_col, to_col, _on_update, _on_delete, _match in rows:
+            if fk_id not in fk_groups:
+                fk_groups[fk_id] = {'ref_table': ref_table, 'fields': [], 'ref_fields': []}
+            fk_groups[fk_id]['fields'].append(from_col)
+            fk_groups[fk_id]['ref_fields'].append(to_col)
+
+        constraints: list[ForeignKeyConstraint] = []
+        for fk_id, group in fk_groups.items():
+            primary_field = group['fields'][0]
+            fk_name = _parse_fk_name(table_sql, primary_field)
+            if not fk_name:
+                fk_name = f'fk_{table_name}_{fk_id}'
+
+            constraints.append(
+                ForeignKeyConstraint(
+                    name=fk_name,
+                    fields=group['fields'],
+                    reference_schema=SchemaReference(name=group['ref_table'], version=Version.LATEST),
+                    reference_fields=group['ref_fields'],
+                ),
+            )
+
+        return constraints
+
+    async def _introspect_constraints(self, table_name: str, table_ddl: str) -> list[BaseConstraint]:
+        constraints: list[BaseConstraint] = []
+
+        pk_fields = await self._get_pk_fields(table_name)
+        if pk_fields:
+            constraints.append(PrimaryKeyConstraint(name=_parse_pk_name(table_ddl, table_name), fields=pk_fields))
+
+        constraints.extend(await self._get_fk_constraints(table_name, table_ddl))
+        constraints.extend(_get_unique_constraints(table_name, table_ddl, constraints))
+
+        # CheckConstraint: skipped — no SQL→Conditions parser in prod (matches PG).
+
+        return constraints
+
+    async def _introspect_indexes(self, table_name: str) -> list[IndexSchema]:
+        cursor = await self.execute(f'PRAGMA index_list("{table_name}")')
+        idx_rows = await cursor.fetchall()
+        await cursor.close()
+
+        indexes: list[IndexSchema] = []
+        for _seq, idx_name, _is_unique, origin, _partial in idx_rows:
+            if origin in ('u', 'pk'):
+                continue
+
+            cursor = await self.execute(f'PRAGMA index_xinfo("{idx_name}")')
+            info_rows = await cursor.fetchall()
+            await cursor.close()
+
+            idx_fields = [row[2] for row in info_rows if row[2] is not None]
+
+            indexes.append(IndexSchema(name=idx_name, fields=idx_fields))
+
+        return indexes
 
     async def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
