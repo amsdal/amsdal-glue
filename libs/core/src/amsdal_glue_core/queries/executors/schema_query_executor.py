@@ -32,7 +32,7 @@ class SchemaQueryNodeExecutor:
         connection = connection_manager.get_connection_pool(query_node.schema_name_connection).get_connection(
             transaction_id
         )
-        query_node.result = connection.query_schema(query_node.filters)
+        query_node.result = connection.query_schema(query_node.query)
 
 
 class AsyncSchemaQueryNodeExecutor:
@@ -59,4 +59,4 @@ class AsyncSchemaQueryNodeExecutor:
         connection = await connection_manager.get_connection_pool(query_node.schema_name_connection).get_connection(
             transaction_id
         )
-        query_node.result = await connection.query_schema(query_node.filters)
+        query_node.result = await connection.query_schema(query_node.query)

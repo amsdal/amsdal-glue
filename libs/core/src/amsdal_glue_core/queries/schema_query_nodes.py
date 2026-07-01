@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import Schema
 
 
@@ -11,12 +11,12 @@ class SchemaQueryNode:
 
     Attributes:
         schema_name_connection (str): The name of the schema connection.
-        filters (Conditions): The conditions to filter the schema query.
+        query (QueryStatement): The query statement for the schema query.
         result (list[Schema] | None): The result of the schema query execution.
     """
 
     schema_name_connection: str
-    filters: Conditions
+    query: QueryStatement
     result: list[Schema] | None = None
 
     def __repr__(self) -> str:
@@ -26,7 +26,7 @@ class SchemaQueryNode:
         Returns:
             str: A string representation of the SchemaQueryNode.
         """
-        return f'SchemaQueryNode<{self.filters}>'
+        return f'SchemaQueryNode<{self.query}>'
 
     def __hash__(self) -> int:
         """

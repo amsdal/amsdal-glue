@@ -2,7 +2,6 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Any
 
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -31,11 +30,11 @@ class ConnectionBase(Connectable, ABC):
         """
 
     @abstractmethod
-    def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
-        """Queries the schema with optional filters.
+    def query_schema(self, query: QueryStatement) -> list[Schema]:
+        """Queries the schema.
 
         Args:
-            filters (Conditions | None): Optional filters for the schema query.
+            query (QueryStatement): The query statement for the schema query.
 
         Returns:
             list[Schema]: The result of the schema query.
@@ -181,11 +180,11 @@ class AsyncConnectionBase(AsyncConnectable, ABC):
         """
 
     @abstractmethod
-    async def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
-        """Queries the schema with optional filters.
+    async def query_schema(self, query: QueryStatement) -> list[Schema]:
+        """Queries the schema.
 
         Args:
-            filters (Conditions | None): Optional filters for the schema query.
+            query (QueryStatement): The query statement for the schema query.
 
         Returns:
             list[Schema]: The result of the schema query.

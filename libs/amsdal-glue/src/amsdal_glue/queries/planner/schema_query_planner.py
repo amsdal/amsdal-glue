@@ -1,5 +1,7 @@
 # mypy: disable-error-code="type-abstract"
-from amsdal_glue_core.common.data_models.conditions import Conditions
+from copy import copy
+
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.workflows.chain import AsyncChainTask
@@ -22,12 +24,12 @@ class DefaultSchemaQueryPlanner(SchemaQueryPlanner):
     that execute schema queries. It extends the SchemaQueryPlanner class.
     """
 
-    def plan_schema_query(self, filters: Conditions | None = None) -> ChainTask:
+    def plan_schema_query(self, query: QueryStatement) -> ChainTask:
         """
         Plans the execution of a schema query by creating a chain of tasks.
 
         Args:
-            filters (Conditions | None): The conditions to filter the schema query.
+            query (QueryStatement): The query statement for the schema query.
 
         Returns:
             ChainTask: A chain of tasks that execute the schema query.
@@ -42,7 +44,7 @@ class DefaultSchemaQueryPlanner(SchemaQueryPlanner):
             SchemaQueryTask(
                 schema_query_node=SchemaQueryNode(
                     schema_name_connection=schema_name,
-                    filters=filters.copy() if filters else None,  # type: ignore[arg-type]
+                    query=copy(query),
                 ),
             )
             for schema_name in connections_map.values()
@@ -64,12 +66,12 @@ class DefaultAsyncSchemaQueryPlanner(AsyncSchemaQueryPlanner):
     that execute schema queries. It extends the AsyncSchemaQueryPlanner class.
     """
 
-    def plan_schema_query(self, filters: Conditions | None = None) -> AsyncChainTask:
+    def plan_schema_query(self, query: QueryStatement) -> AsyncChainTask:
         """
         Plans the execution of a schema query by creating a chain of tasks.
 
         Args:
-            filters (Conditions | None): The conditions to filter the schema query.
+            query (QueryStatement): The query statement for the schema query.
 
         Returns:
             AsyncChainTask: A chain of tasks that execute the schema query.
@@ -84,7 +86,7 @@ class DefaultAsyncSchemaQueryPlanner(AsyncSchemaQueryPlanner):
             AsyncSchemaQueryTask(
                 schema_query_node=SchemaQueryNode(
                     schema_name_connection=schema_name,
-                    filters=filters.copy() if filters else None,  # type: ignore[arg-type]
+                    query=copy(query),
                 ),
             )
             for schema_name in connections_map.values()

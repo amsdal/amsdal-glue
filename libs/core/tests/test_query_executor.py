@@ -2,7 +2,6 @@ from collections.abc import Iterator
 
 import pytest
 
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
@@ -57,20 +56,20 @@ async def test_async_data_query(mock_async_connection_manager: MockAsyncConnecti
 def test_schema_query(mock_connection_manager: MockConnectionManager) -> None:
     schema_query_node = SchemaQueryNode(
         schema_name_connection=DEFAULT_SCHEMA_NAME,
-        filters=Conditions(),
+        query=QueryStatement(table=SchemaReference(name=DEFAULT_SCHEMA_NAME)),
     )
     SchemaQueryNodeExecutor().execute(schema_query_node, None, None)
 
-    mock_connection_manager.connection_pool.connection.query_schema.assert_called_once_with(schema_query_node.filters)
+    mock_connection_manager.connection_pool.connection.query_schema.assert_called_once_with(schema_query_node.query)
 
 
 async def test_async_schema_query(mock_async_connection_manager: MockAsyncConnectionManager) -> None:
     schema_query_node = SchemaQueryNode(
         schema_name_connection=DEFAULT_SCHEMA_NAME,
-        filters=Conditions(),
+        query=QueryStatement(table=SchemaReference(name=DEFAULT_SCHEMA_NAME)),
     )
     await AsyncSchemaQueryNodeExecutor().execute(schema_query_node, None, None)
 
     mock_async_connection_manager.connection_pool.connection.query_schema.assert_called_once_with(
-        schema_query_node.filters
+        schema_query_node.query
     )
