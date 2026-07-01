@@ -12,7 +12,8 @@ def test_insert_single_sqlite() -> None:
         schema=SchemaReference(name='users', version=Version.LATEST),
         data=[Data(data={'id': 1, 'name': 'Alice'})],
     )
-    assert lite_cmd(m) == ("INSERT INTO 'users' ('id', 'name') VALUES (?, ?)", [1, 'Alice'])
+    # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite_cmd(m) == ('INSERT INTO "users" ("id", "name") VALUES (?, ?)', [1, 'Alice'])
 
 
 def test_insert_multi_sqlite() -> None:
@@ -20,7 +21,8 @@ def test_insert_multi_sqlite() -> None:
         schema=SchemaReference(name='users', version=Version.LATEST),
         data=[Data(data={'id': 1, 'name': 'Alice'}), Data(data={'id': 2, 'name': 'Bob'})],
     )
-    assert lite_cmd(m) == ("INSERT INTO 'users' ('id', 'name') VALUES (?, ?), (?, ?)", [1, 'Alice', 2, 'Bob'])
+    # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite_cmd(m) == ('INSERT INTO "users" ("id", "name") VALUES (?, ?), (?, ?)', [1, 'Alice', 2, 'Bob'])
 
 
 def test_insert_single_pg() -> None:
