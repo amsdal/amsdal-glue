@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+import uuid
 from copy import copy
 from datetime import date
 from datetime import datetime
@@ -22,14 +23,26 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
+from amsdal_glue_core.common.operations.mutations.data import InsertFromSelect
+from amsdal_glue_core.common.operations.mutations.data import UpdateData
+from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
+from amsdal_glue_core.common.operations.mutations.schema import AddIndex
+from amsdal_glue_core.common.operations.mutations.schema import AddProperty
+from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
+from amsdal_glue_core.common.operations.mutations.schema import DeleteProperty
+from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
+from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
+from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
 from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import _REGISTRY_VIEW_SQL
@@ -40,6 +53,7 @@ from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection i
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_fk_name
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_generated_expressions
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_pk_name
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _RustIndexSchema
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _sqlite_type_to_field_type
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
@@ -695,6 +709,32 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         return True
 
     async def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:
+        if isinstance(mutation, UpdateProperty):
+            await self._update_property(mutation)
+            return None
+        if isinstance(mutation, AddConstraint | DeleteConstraint):
+            await self._recreate_table_with_constraints(mutation)
+            return None
+        if isinstance(mutation, RegisterSchema) and mutation.schema.indexes:
+            # Rust extract_index_def expects column objects, not plain strings.
+            # Split: create the table without indexes, then add each index via AddIndex.
+            schema_no_idx = copy(mutation.schema)
+            schema_no_idx.indexes = []
+            for sql, params in self._generator.compile_schema_mutation(
+                RegisterSchema(
+                    schema_ref=mutation.schema_ref,
+                    schema=schema_no_idx,
+                    if_not_exists=mutation.if_not_exists,
+                )
+            ):
+                await self.execute(sql, *params)
+            for idx in mutation.schema.indexes:
+                for sql, params in self._generator.compile_schema_mutation(
+                    AddIndex(schema_ref=mutation.schema_ref, index=_RustIndexSchema(idx))  # type: ignore[arg-type]
+                ):
+                    await self.execute(sql, *params)
+            return mutation.schema
+
         sql_params_list = self._generator.compile_schema_mutation(mutation)
 
         for sql, params in sql_params_list:
@@ -704,3 +744,152 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             return mutation.schema
 
         return None
+
+    async def _update_property(self, mutation: UpdateProperty) -> None:
+        """Port UpdateProperty to SQLite via ADD / UPDATE / DROP / RENAME column sequence."""
+        if mutation.property.required and mutation.property.default is None:
+            msg = (
+                f'Cannot update {mutation.property.name} column. '
+                "SQLite doesn't support ALTER COLUMN with required=True and no default value."
+            )
+            raise ValueError(msg)
+
+        new_uuid = f'f{uuid.uuid4().hex}'
+        new_prop = copy(mutation.property)
+        new_prop.name = new_uuid
+
+        ref = mutation.schema_ref
+
+        # a. Add new column with the requested type under a temporary name.
+        for sql, params in self._generator.compile_schema_mutation(AddProperty(schema_ref=ref, property=new_prop)):
+            await self.execute(sql, *params)
+
+        # b. Copy data from the old column into the new one.
+        copy_stmt, copy_params = self._generator.compile_mutation(
+            UpdateData(
+                schema=ref,
+                data={
+                    new_uuid: FieldReferenceExpression(
+                        field_reference=FieldReference(
+                            field=Field(name=mutation.property.name),
+                            table_name=ref.name,
+                        )
+                    )
+                },
+            )
+        )
+        await self.execute(copy_stmt, *copy_params)
+
+        # c. Drop the old column.
+        for sql, params in self._generator.compile_schema_mutation(
+            DeleteProperty(schema_ref=ref, property_name=mutation.property.name)
+        ):
+            await self.execute(sql, *params)
+
+        # d. Rename the temporary column to the original name.
+        for sql, params in self._generator.compile_schema_mutation(
+            RenameProperty(schema_ref=ref, old_name=new_uuid, new_name=mutation.property.name)
+        ):
+            await self.execute(sql, *params)
+
+    async def _recreate_table_with_constraints(  # noqa: C901, PLR0912
+        self, mutation: AddConstraint | DeleteConstraint
+    ) -> None:
+        """Rebuild the table under a temp name to apply AddConstraint / DeleteConstraint on SQLite."""
+        table_name = mutation.schema_ref.name
+        namespace = mutation.schema_ref.namespace
+
+        # Introspect the current schema.
+        all_schemas = await self.query_schema(
+            QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+        )
+        current_schema: Schema | None = None
+        for schema in all_schemas:
+            schema_namespace = schema.namespace
+            if schema.name == table_name and (
+                (namespace is None and (schema_namespace is None or schema_namespace == ''))
+                or (namespace == '' and (schema_namespace is None or schema_namespace == ''))
+                or (namespace == schema_namespace)
+            ):
+                current_schema = schema
+                break
+
+        if current_schema is None:
+            msg = f'Table {table_name} not found. Available tables: {[(s.name, s.namespace) for s in all_schemas]}'
+            raise ValueError(msg)
+
+        # Compute the new constraint list.
+        new_constraints = list(current_schema.constraints or [])
+        if isinstance(mutation, AddConstraint):
+            new_constraints.append(mutation.constraint)
+        else:
+            new_constraints = [c for c in new_constraints if c.name != mutation.constraint_name]
+
+        # Build the temp-table schema.
+        temp_table_name = f'temp_{table_name}_{uuid.uuid4().hex[:8]}'
+        temp_ref = SchemaReference(name=temp_table_name, version=Version.LATEST)
+        orig_ref = SchemaReference(name=table_name, version=Version.LATEST, namespace=namespace)
+        temp_schema = Schema(
+            name=temp_table_name,
+            namespace=namespace,
+            version=current_schema.version,
+            properties=current_schema.properties,
+            constraints=new_constraints or None,
+            indexes=[],
+        )
+
+        # Detect whether we are already inside a transaction.
+        in_transaction = False
+        try:
+            await self.connection.execute('BEGIN')
+        except Exception as exc:  # aiosqlite wraps sqlite3.OperationalError
+            if 'cannot start a transaction within a transaction' in str(exc):
+                in_transaction = True
+            else:
+                raise
+
+        try:
+            # a. CREATE temp table.
+            for sql, params in self._generator.compile_schema_mutation(
+                RegisterSchema(schema_ref=temp_ref, schema=temp_schema)
+            ):
+                await self.execute(sql, *params)
+
+            # b. Copy all rows from the original table into the temp table.
+            col_names = [prop.name for prop in current_schema.properties]
+            insert_mut = InsertFromSelect(
+                schema=temp_ref,
+                query=QueryStatement(
+                    table=orig_ref,
+                    only=[FieldReference(field=Field(name=c), table_name=table_name) for c in col_names],
+                ),
+                columns=[FieldReference(field=Field(name=c), table_name=temp_table_name) for c in col_names],
+            )
+            copy_sql, copy_params = self._generator.compile_mutation(insert_mut)
+            await self.execute(copy_sql, *copy_params)
+
+            # c. DROP the original table.
+            for sql, params in self._generator.compile_schema_mutation(DeleteSchema(schema_ref=orig_ref)):
+                await self.execute(sql, *params)
+
+            # d. RENAME temp → original.
+            for sql, params in self._generator.compile_schema_mutation(
+                RenameSchema(schema_ref=temp_ref, new_name=table_name)
+            ):
+                await self.execute(sql, *params)
+
+            # e. Recreate indexes on the renamed table.
+            renamed_ref = SchemaReference(name=table_name, version=Version.LATEST, namespace=namespace)
+            for idx in current_schema.indexes or []:
+                for sql, params in self._generator.compile_schema_mutation(
+                    AddIndex(schema_ref=renamed_ref, index=_RustIndexSchema(idx))  # type: ignore[arg-type]
+                ):
+                    await self.execute(sql, *params)
+
+            if not in_transaction:
+                await self.connection.execute('COMMIT')
+
+        except Exception:
+            if not in_transaction:
+                await self.connection.execute('ROLLBACK')
+            raise
