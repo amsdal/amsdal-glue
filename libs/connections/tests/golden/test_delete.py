@@ -26,12 +26,14 @@ def test_delete_with_where_sqlite() -> None:
             ),
         ),
     )
-    assert lite_cmd(m) == ("DELETE FROM 'users' WHERE 'users'.'id' = ?", [5])
+    # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite_cmd(m) == ('DELETE FROM "users" WHERE "users"."id" = ?', [5])
 
 
 def test_delete_without_where_sqlite() -> None:
     m = DeleteData(schema=SchemaReference(name='users', version=Version.LATEST))
-    assert lite_cmd(m) == ("DELETE FROM 'users'", [])
+    # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
+    assert lite_cmd(m) == ('DELETE FROM "users"', [])
 
 
 def test_delete_with_where_pg() -> None:
