@@ -30,6 +30,7 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -79,7 +80,7 @@ def test_register_schema_sqlite() -> None:
                     PropertySchema(name='age', type=int, required=False, default=18),
                 ],
                 constraints=[PrimaryKeyConstraint(name='pk_person', fields=['id'])],
-                indexes=[IndexSchema(name='idx_person_name', fields=['name'])],
+                indexes=[IndexSchema(name='idx_person_name', fields=[IndexField(name='name')])],
             ),
         ),
     )
@@ -109,7 +110,7 @@ def test_register_schema_pg() -> None:
                     PropertySchema(name='age', type=int, required=False, default=18),
                 ],
                 constraints=[PrimaryKeyConstraint(name='pk_person', fields=['id'])],
-                indexes=[IndexSchema(name='idx_person_name', fields=['name'])],
+                indexes=[IndexSchema(name='idx_person_name', fields=[IndexField(name='name')])],
             ),
         ),
     )
@@ -148,7 +149,7 @@ def test_register_schema_pg_pk_quoted_correct_behaviour() -> None:
                     PropertySchema(name='age', type=int, required=False, default=18),
                 ],
                 constraints=[PrimaryKeyConstraint(name='pk_person', fields=['id'])],
-                indexes=[IndexSchema(name='idx_person_name', fields=['name'])],
+                indexes=[IndexSchema(name='idx_person_name', fields=[IndexField(name='name')])],
             ),
         ),
     )
@@ -455,7 +456,7 @@ def test_add_index_sqlite() -> None:
     stmts = lite_ddl(
         AddIndex(
             schema_reference=SchemaReference(name='Person', version=Version.LATEST),
-            index=IndexSchema(name='idx_person_email', fields=['email']),
+            index=IndexSchema(name='idx_person_email', fields=[IndexField(name='email')]),
         ),
     )
     assert stmts == [
@@ -467,7 +468,7 @@ def test_add_index_pg() -> None:
     stmts = pg_ddl(
         AddIndex(
             schema_reference=SchemaReference(name='Person', version=Version.LATEST),
-            index=IndexSchema(name='idx_person_email', fields=['email']),
+            index=IndexSchema(name='idx_person_email', fields=[IndexField(name='email')]),
         ),
     )
     assert stmts == [

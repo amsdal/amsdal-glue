@@ -9,6 +9,7 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -236,7 +237,7 @@ def test_create_index(benchmark) -> None:
             mutations=[
                 AddIndex(
                     schema_reference=SchemaReference(name='users', version=Version.LATEST),
-                    index=IndexSchema(name='idx_name', fields=['name']),
+                    index=IndexSchema(name='idx_name', fields=[IndexField(name='name')]),
                 )
             ]
         )
@@ -256,7 +257,7 @@ def test_create_index_multi_column(benchmark) -> None:
             mutations=[
                 AddIndex(
                     schema_reference=SchemaReference(name='users', version=Version.LATEST),
-                    index=IndexSchema(name='idx_name', fields=['name', 'username']),
+                    index=IndexSchema(name='idx_name', fields=[IndexField(name='name'), IndexField(name='username')]),
                 )
             ]
         )

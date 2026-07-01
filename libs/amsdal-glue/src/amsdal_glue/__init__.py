@@ -26,6 +26,7 @@ from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 from amsdal_glue_core.common.data_models.from_values import FromValues
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
@@ -152,6 +153,7 @@ __all__ = [
     'FromValues',
     'Func',
     'GroupByQuery',
+    'IndexField',
     'IndexSchema',
     'InsertData',
     'JoinQuery',

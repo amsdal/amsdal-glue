@@ -11,6 +11,7 @@ from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -2117,7 +2118,7 @@ class ElasticsearchConnection(ConnectionBase):
             for idx_name, index_data in indexes_meta.items():
                 index_schema = IndexSchema(
                     name=idx_name,
-                    fields=index_data.get('fields', []),
+                    fields=[IndexField(name=f) for f in index_data.get('fields', [])],
                     condition=None,  # Would need parsing to reconstruct condition
                 )
                 indexes.append(index_schema)

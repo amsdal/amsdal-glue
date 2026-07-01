@@ -6,6 +6,7 @@ from amsdal_glue import Conditions
 from amsdal_glue import Field
 from amsdal_glue import FieldLookup
 from amsdal_glue import FieldReference
+from amsdal_glue import IndexField
 from amsdal_glue import IndexSchema
 from amsdal_glue import PrimaryKeyConstraint
 from amsdal_glue import PropertySchema
@@ -61,6 +62,6 @@ user_schema = Schema(
         ),
     ],
     indexes=[
-        IndexSchema(name='idx_user_email', fields=['first_name', 'last_name']),
+        IndexSchema(name='idx_user_email', fields=[IndexField(name='first_name'), IndexField(name='last_name')]),
     ],
 )

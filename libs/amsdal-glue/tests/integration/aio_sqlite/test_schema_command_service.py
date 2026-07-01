@@ -12,6 +12,7 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -95,7 +96,7 @@ async def test_schema_command_service(register_default_connection: None) -> None
             ),
         ],
         indexes=[
-            IndexSchema(name='idx_user_email', fields=['first_name', 'last_name']),
+            IndexSchema(name='idx_user_email', fields=[IndexField(name='first_name'), IndexField(name='last_name')]),
         ],
     )
     service = Container.services.get(AsyncSchemaCommandService)

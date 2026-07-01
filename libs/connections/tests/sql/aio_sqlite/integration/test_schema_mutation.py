@@ -2,6 +2,7 @@ from typing import Union
 
 import pytest
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import FIELD_TYPE
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -234,7 +235,11 @@ async def test_delete_index(database_connection: AsyncSqliteConnection) -> None:
             mutations=[
                 AddIndex(
                     schema_reference=DEFAULT_SCHEMA_REF,
-                    index=IndexSchema(name='idx_user_email', fields=['email', 'age'], condition=None),
+                    index=IndexSchema(
+                        name='idx_user_email',
+                        fields=[IndexField(name='email'), IndexField(name='age')],
+                        condition=None,
+                    ),
                 ),
             ],
         ),

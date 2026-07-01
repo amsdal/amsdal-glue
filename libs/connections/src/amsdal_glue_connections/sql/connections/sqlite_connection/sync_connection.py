@@ -15,6 +15,7 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -201,49 +202,6 @@ def _get_unique_constraints(
             constraints.append(UniqueConstraint(name=f'uq_{table_name}_{field_name}', fields=[field_name]))
 
     return constraints
-
-
-# ---------------------------------------------------------------------------
-# Rust-extractor proxy types for AddIndex
-# ---------------------------------------------------------------------------
-# The Rust extract_index_def function expects index column items to be objects
-# with .name, .direction (enum with .value), and .op_class attributes.
-# Python's IndexSchema.fields is list[str], so we adapt with lightweight proxies.
-
-
-class _AscDir:
-    """Sentinel ASC direction object accepted by the Rust extract_order_direction."""
-
-    value = 'ASC'
-
-
-_ASC_DIR = _AscDir()
-
-
-class _IndexColumnProxy:
-    """Proxy for a single index column; satisfies Rust extract_index_column."""
-
-    __slots__ = ('direction', 'name', 'op_class')
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-        self.direction = _ASC_DIR
-        self.op_class = None
-
-
-class _RustIndexSchema:
-    """Wraps IndexSchema with the extra attributes the Rust extract_index_def requires."""
-
-    __slots__ = ('condition', 'fields', 'include', 'index_type', 'name', 'parameters', 'unique')
-
-    def __init__(self, idx: IndexSchema) -> None:
-        self.name = idx.name
-        self.fields = [_IndexColumnProxy(f) for f in idx.fields]
-        self.unique = False
-        self.index_type = None
-        self.include = None
-        self.condition = idx.condition
-        self.parameters = None
 
 
 class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
@@ -561,7 +519,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         cursor.close()
 
         indexes: list[IndexSchema] = []
-        for _seq, idx_name, _is_unique, origin, _partial in idx_rows:
+        for _seq, idx_name, is_unique, origin, _partial in idx_rows:
             if origin in ('u', 'pk'):
                 continue
 
@@ -569,9 +527,9 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             info_rows = cursor.fetchall()
             cursor.close()
 
-            idx_fields = [row[2] for row in info_rows if row[2] is not None]
+            idx_fields = [IndexField(name=row[2]) for row in info_rows if row[2] is not None]
 
-            indexes.append(IndexSchema(name=idx_name, fields=idx_fields))
+            indexes.append(IndexSchema(name=idx_name, fields=idx_fields, unique=bool(is_unique)))
 
         return indexes
 
@@ -758,14 +716,14 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             index_info = cursor.fetchall()
             cursor.close()
 
-            index_fields = [field[2] for field in index_info]
+            col_names = [field[2] for field in index_info]
 
-            if not self._is_constraint(index_fields, constraints) and not index[2]:
+            if not self._is_constraint(col_names, constraints) and not index[2]:
                 if index[2]:
                     constraints.append(
                         UniqueConstraint(
                             name=index[1],
-                            fields=index_fields,
+                            fields=col_names,
                             condition=None,
                         ),
                     )
@@ -773,7 +731,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
                     indexes.append(
                         IndexSchema(
                             name=index[1],
-                            fields=index_fields,
+                            fields=[IndexField(name=n) for n in col_names],
                             condition=None,
                         ),
                     )
@@ -888,25 +846,6 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         if isinstance(mutation, AddConstraint | DeleteConstraint):
             self._recreate_table_with_constraints(mutation)
             return None
-        if isinstance(mutation, RegisterSchema) and mutation.schema.indexes:
-            # Rust extract_index_def expects column objects, not plain strings.
-            # Split: create the table without indexes, then add each index via AddIndex.
-            schema_no_idx = copy(mutation.schema)
-            schema_no_idx.indexes = []
-            for sql, params in self._generator.compile_schema_mutation(
-                RegisterSchema(
-                    schema_ref=mutation.schema_ref,
-                    schema=schema_no_idx,
-                    if_not_exists=mutation.if_not_exists,
-                )
-            ):
-                self.execute(sql, *params)
-            for idx in mutation.schema.indexes:
-                for sql, params in self._generator.compile_schema_mutation(
-                    AddIndex(schema_ref=mutation.schema_ref, index=_RustIndexSchema(idx))  # type: ignore[arg-type]
-                ):
-                    self.execute(sql, *params)
-            return mutation.schema
 
         sql_params_list = self._generator.compile_schema_mutation(mutation)
 
@@ -1054,9 +993,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             # e. Recreate indexes on the renamed table.
             renamed_ref = SchemaReference(name=table_name, version=Version.LATEST, namespace=namespace)
             for idx in current_schema.indexes or []:
-                for sql, params in self._generator.compile_schema_mutation(
-                    AddIndex(schema_ref=renamed_ref, index=_RustIndexSchema(idx))  # type: ignore[arg-type]
-                ):
+                for sql, params in self._generator.compile_schema_mutation(AddIndex(schema_ref=renamed_ref, index=idx)):
                     self.execute(sql, *params)
 
             if not in_transaction:

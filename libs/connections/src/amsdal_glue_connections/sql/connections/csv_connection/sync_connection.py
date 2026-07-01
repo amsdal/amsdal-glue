@@ -290,9 +290,7 @@ class CsvConnection(ConnectionBase):
                         actual_field_name = self._find_column_for_field(df, agg_field, agg_tbl)
 
                         if actual_field_name is None:
-                            msg = (
-                                f"Aggregation column '{agg_field}' from table '{agg_tbl}' not found in {df.columns}"
-                            )
+                            msg = f"Aggregation column '{agg_field}' from table '{agg_tbl}' not found in {df.columns}"
                             raise ValueError(msg)  # noqa: TRY301
 
                         agg_type = self._get_aggregation_type(agg)
@@ -360,9 +358,7 @@ class CsvConnection(ConnectionBase):
                         actual_field_name = self._find_column_for_field(df, agg_fld2, agg_tbl2)
 
                         if actual_field_name is None:
-                            msg = (
-                                f"Aggregation column '{agg_fld2}' from table '{agg_tbl2}' not found in {df.columns}"
-                            )
+                            msg = f"Aggregation column '{agg_fld2}' from table '{agg_tbl2}' not found in {df.columns}"
                             raise ValueError(msg)  # noqa: TRY301
 
                         agg_func = self._get_aggregation_function(agg)

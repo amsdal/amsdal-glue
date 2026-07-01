@@ -33,6 +33,7 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -345,7 +346,7 @@ def test_delete_constraint_pg() -> None:
 def test_add_index_sqlite() -> None:
     m = AddIndex(
         schema_reference=_ref(),
-        index=IndexSchema(name='idx_person_email', fields=['email']),
+        index=IndexSchema(name='idx_person_email', fields=[IndexField(name='email')]),
     )
     assert lite_ddl(m) == [
         ("CREATE INDEX 'idx_person_email' ON 'Person' ('email')", []),
@@ -355,7 +356,7 @@ def test_add_index_sqlite() -> None:
 def test_add_index_pg() -> None:
     m = AddIndex(
         schema_reference=_ref(),
-        index=IndexSchema(name='idx_person_email', fields=['email']),
+        index=IndexSchema(name='idx_person_email', fields=[IndexField(name='email')]),
     )
     assert pg_ddl(m) == [
         ('CREATE INDEX "idx_person_email" ON "Person" ("email")', []),

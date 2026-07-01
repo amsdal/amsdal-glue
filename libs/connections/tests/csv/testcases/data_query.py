@@ -183,9 +183,7 @@ def query_customers_expenses(database_connection: CsvConnection) -> list[Data]:
                                 SelectExpression(
                                     expression=Sum(
                                         expression=FieldReferenceExpression(
-                                            field_reference=FieldReference(
-                                                field=Field(name='amount'), table_name='o'
-                                            )
+                                            field_reference=FieldReference(field=Field(name='amount'), table_name='o')
                                         ),
                                     ),
                                     alias='total_amount',

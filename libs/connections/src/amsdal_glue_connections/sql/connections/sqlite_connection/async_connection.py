@@ -15,6 +15,7 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -53,7 +54,6 @@ from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection i
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_fk_name
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_generated_expressions
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_pk_name
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _RustIndexSchema
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _sqlite_type_to_field_type
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
@@ -370,7 +370,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         await cursor.close()
 
         indexes: list[IndexSchema] = []
-        for _seq, idx_name, _is_unique, origin, _partial in idx_rows:
+        for _seq, idx_name, is_unique, origin, _partial in idx_rows:
             if origin in ('u', 'pk'):
                 continue
 
@@ -378,9 +378,9 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             info_rows = await cursor.fetchall()
             await cursor.close()
 
-            idx_fields = [row[2] for row in info_rows if row[2] is not None]
+            idx_fields = [IndexField(name=row[2]) for row in info_rows if row[2] is not None]
 
-            indexes.append(IndexSchema(name=idx_name, fields=idx_fields))
+            indexes.append(IndexSchema(name=idx_name, fields=idx_fields, unique=bool(is_unique)))
 
         return indexes
 
@@ -579,14 +579,14 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             index_info = await cursor.fetchall()
             await cursor.close()
 
-            index_fields = [field[2] for field in index_info]
+            col_names = [field[2] for field in index_info]
 
-            if not self._is_constraint(index_fields, constraints) and not index[2]:
+            if not self._is_constraint(col_names, constraints) and not index[2]:
                 if index[2]:
                     constraints.append(
                         UniqueConstraint(
                             name=index[1],
-                            fields=index_fields,
+                            fields=col_names,
                             condition=None,
                         ),
                     )
@@ -594,7 +594,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                     indexes.append(
                         IndexSchema(
                             name=index[1],
-                            fields=index_fields,
+                            fields=[IndexField(name=n) for n in col_names],
                             condition=None,
                         ),
                     )
@@ -715,25 +715,6 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         if isinstance(mutation, AddConstraint | DeleteConstraint):
             await self._recreate_table_with_constraints(mutation)
             return None
-        if isinstance(mutation, RegisterSchema) and mutation.schema.indexes:
-            # Rust extract_index_def expects column objects, not plain strings.
-            # Split: create the table without indexes, then add each index via AddIndex.
-            schema_no_idx = copy(mutation.schema)
-            schema_no_idx.indexes = []
-            for sql, params in self._generator.compile_schema_mutation(
-                RegisterSchema(
-                    schema_ref=mutation.schema_ref,
-                    schema=schema_no_idx,
-                    if_not_exists=mutation.if_not_exists,
-                )
-            ):
-                await self.execute(sql, *params)
-            for idx in mutation.schema.indexes:
-                for sql, params in self._generator.compile_schema_mutation(
-                    AddIndex(schema_ref=mutation.schema_ref, index=_RustIndexSchema(idx))  # type: ignore[arg-type]
-                ):
-                    await self.execute(sql, *params)
-            return mutation.schema
 
         sql_params_list = self._generator.compile_schema_mutation(mutation)
 
@@ -881,9 +862,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             # e. Recreate indexes on the renamed table.
             renamed_ref = SchemaReference(name=table_name, version=Version.LATEST, namespace=namespace)
             for idx in current_schema.indexes or []:
-                for sql, params in self._generator.compile_schema_mutation(
-                    AddIndex(schema_ref=renamed_ref, index=_RustIndexSchema(idx))  # type: ignore[arg-type]
-                ):
+                for sql, params in self._generator.compile_schema_mutation(AddIndex(schema_ref=renamed_ref, index=idx)):
                     await self.execute(sql, *params)
 
             if not in_transaction:

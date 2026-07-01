@@ -9,6 +9,7 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import IdentityConfig
@@ -526,12 +527,13 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
 
         indexes: list[IndexSchema] = []
         for row in rows:
-            index_name, _is_unique, _index_type_name, n_key_atts, fields = row[0], row[1], row[2], row[3], row[4]
+            index_name, is_unique, _index_type_name, n_key_atts, fields = row[0], row[1], row[2], row[3], row[4]
             key_fields = list(fields[:n_key_atts])
             indexes.append(
                 IndexSchema(
                     name=index_name,
-                    fields=key_fields,
+                    fields=[IndexField(name=f) for f in key_fields],
+                    unique=bool(is_unique),
                 ),
             )
 
