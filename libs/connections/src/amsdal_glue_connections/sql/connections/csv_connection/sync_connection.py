@@ -647,7 +647,7 @@ class CsvConnection(ConnectionBase):
 
         return on
 
-    def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+    def query_schema(self, query: QueryStatement) -> list[Schema]:
         """Query the schema of the CSV file(s)."""
         if not self.db_path.exists():
             msg = f'File not found: {self.db_path}'
@@ -656,6 +656,7 @@ class CsvConnection(ConnectionBase):
         if self.db_path.is_file():
             return [self._file_path_to_schema(self.db_path)]
 
+        filters = query.where
         schemas = []
         for file in self.db_path.iterdir():
             if file.is_file() and file.suffix.lower() == '.csv':

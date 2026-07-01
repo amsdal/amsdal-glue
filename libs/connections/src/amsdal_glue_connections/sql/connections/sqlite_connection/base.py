@@ -1,7 +1,6 @@
 import json
 import logging
 import re
-from contextlib import suppress
 from datetime import date
 from datetime import datetime
 from typing import Any
@@ -11,22 +10,11 @@ from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.schema import Schema
-from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import CustomType
 
-from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
 from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
-from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.cast import sqlite_cast_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.func_transform import func_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.nested_field import sqlite_nested_field_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.type_transform import sqlite_value_type_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_placeholder import sqlite_value_placeholder_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_transform import sqlite_value_transform
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +49,6 @@ FOREIGN_KEY_INLINE_RE = re.compile(
     re.IGNORECASE,
 )
 FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
-DECIMAL_TEXT_RE = re.compile(r'\((\d+)\s*,\s*(\d+)\)')
 
 
 class JsonTypeMeta(type):
@@ -75,28 +62,7 @@ class JsonTypeMeta(type):
 class JsonType(dict, metaclass=JsonTypeMeta): ...  # type: ignore[misc]
 
 
-_sqlite_transform = None
-
-
-def get_sqlite_transform() -> Transform:
-    global _sqlite_transform  # noqa: PLW0603
-
-    if not _sqlite_transform:
-        _sqlite_transform = Transform()
-        _sqlite_transform.register(TransformTypes.CAST, sqlite_cast_transform)
-        _sqlite_transform.register(TransformTypes.VALUE_PLACEHOLDER, sqlite_value_placeholder_transform)
-        _sqlite_transform.register(TransformTypes.VALUE, sqlite_value_transform)
-        _sqlite_transform.register(TransformTypes.NESTED_FIELD, sqlite_nested_field_transform)
-        _sqlite_transform.register(TransformTypes.MATH_OPERATOR, sqlite_math_operator_transform)
-        _sqlite_transform.register(TransformTypes.FUNC, func_transform)
-    return _sqlite_transform
-
-
 class SqliteConnectionMixin:
-    TABLE_SQL = (
-        f'SELECT * FROM (SELECT name AS table_name FROM sqlite_master WHERE type="table") AS {SCHEMA_REGISTRY_TABLE}'  # noqa: S608
-    )
-
     def __init__(self) -> None:
         self._queries: list[str] = []
         self._queries_params: list[tuple[Any, ...]] = []
@@ -129,32 +95,6 @@ class SqliteConnectionMixin:
             if index_fields == constraint.fields:
                 return True
         return False
-
-    @staticmethod
-    def to_sql_type(
-        property_type: Schema
-        | SchemaReference
-        | NestedSchemaModel
-        | ArraySchemaModel
-        | DictSchemaModel
-        | DecimalSchemaModel
-        | type[Any],
-    ) -> str:
-        with suppress(ValueError):
-            return sqlite_value_type_transform(property_type)  # type: ignore[arg-type]
-
-        if isinstance(property_type, DecimalSchemaModel):
-            if property_type.precision is not None and property_type.scale is not None:
-                return f'DECIMAL_TEXT({property_type.precision}, {property_type.scale})'
-            return 'DECIMAL_TEXT'
-        if isinstance(property_type, Schema | SchemaReference):
-            return 'TEXT'
-        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
-            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
-            return 'JSON'
-
-        msg = f'Unsupported type: {property_type}'
-        raise ValueError(msg)
 
     def _get_unique_constrains(self, table_name: str, table_sql: str) -> list[UniqueConstraint]:
         unique_constraints = []
@@ -221,14 +161,11 @@ class SqliteConnectionMixin:
 
         return ''
 
-    def to_python_type(self, sql_type: str) -> type[Any] | DecimalSchemaModel:  # noqa: PLR0911, C901
+    def to_python_type(self, sql_type: str) -> type[Any] | CustomType:  # noqa: PLR0911
         sql_type = sql_type.upper()
 
         if sql_type.startswith('DECIMAL_TEXT'):
-            match = DECIMAL_TEXT_RE.search(sql_type)
-            if match:
-                return DecimalSchemaModel(precision=int(match.group(1)), scale=int(match.group(2)))
-            return DecimalSchemaModel(precision=None, scale=None)
+            return CustomType(name='decimal_text')
         if sql_type == 'TEXT' or sql_type.startswith('VARCHAR'):
             return str
         if sql_type in ('INTEGER', 'INT'):

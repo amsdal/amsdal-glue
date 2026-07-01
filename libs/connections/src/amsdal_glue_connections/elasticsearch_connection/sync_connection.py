@@ -2267,7 +2267,7 @@ class ElasticsearchConnection(ConnectionBase):
         schema = self.get_index_schema(table_name)
         return schema.properties, schema.constraints or [], schema.indexes or []
 
-    def query_schema(self, filters: Conditions | None = None) -> list[Schema]:  # noqa: ARG002
+    def query_schema(self, query: QueryStatement) -> list[Schema]:  # noqa: ARG002
         """
         Returns the available index schemas in Elasticsearch.
         """
