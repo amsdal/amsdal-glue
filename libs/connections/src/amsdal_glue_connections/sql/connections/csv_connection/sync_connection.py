@@ -5,9 +5,6 @@ from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
-from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -16,10 +13,11 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions import aggregation as aggr_expr
-from amsdal_glue_core.common.expressions.aggregation import AggregationExpression
+from amsdal_glue_core.common.expressions.aggregation import Aggregation
 from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -239,7 +237,12 @@ class CsvConnection(ConnectionBase):
             # Handle GROUP BY and aggregations
             result_df = df.copy()
 
-            if query.group_by and query.aggregations:
+            # Collect SelectExpression entries whose expression is an Aggregation
+            aggregation_exprs = [
+                sel for sel in (query.expressions or []) if isinstance(sel.expression, Aggregation)
+            ]
+
+            if query.group_by and aggregation_exprs:
                 # Group by specified columns
                 try:
                     # Get the full column names for group by fields
@@ -247,8 +250,11 @@ class CsvConnection(ConnectionBase):
                     table_field_mapping = {}  # Maps original field reference to actual column name
 
                     for group_by in query.group_by:
-                        field_name = group_by.field.field.name
-                        table_name = group_by.field.table_name
+                        if not isinstance(group_by.expression, FieldReferenceExpression):
+                            msg = f'Unsupported group by expression type: {type(group_by.expression)}'
+                            raise TypeError(msg)  # noqa: TRY301
+                        field_name = group_by.expression.field_reference.field.name
+                        table_name = group_by.expression.field_reference.table_name
 
                         # Find the actual column name in the DataFrame
                         actual_column = self._find_column_for_field(df, field_name, table_name)
@@ -267,9 +273,17 @@ class CsvConnection(ConnectionBase):
 
                     # Apply aggregations
                     agg_dict = {}
-                    for agg in query.aggregations:
-                        field_name = agg.expression.field.field.name
-                        table_name = agg.expression.field.table_name
+                    for sel_expr in aggregation_exprs:
+                        agg = sel_expr.expression
+                        if isinstance(agg.expression, FieldReferenceExpression):
+                            field_name = agg.expression.field_reference.field.name
+                            table_name = agg.expression.field_reference.table_name
+                        elif agg.expression is None:
+                            field_name = '*'
+                            table_name = None
+                        else:
+                            msg = f'Unsupported aggregation expression type: {type(agg.expression)}'
+                            raise ValueError(msg)  # noqa: TRY301
 
                         # Find the actual column name in the DataFrame
                         actual_field_name = self._find_column_for_field(df, field_name, table_name)
@@ -280,7 +294,7 @@ class CsvConnection(ConnectionBase):
                             )
                             raise ValueError(msg)  # noqa: TRY301
 
-                        agg_type = self._get_aggregation_type(agg.expression)
+                        agg_type = self._get_aggregation_type(agg)
                         agg_dict[actual_field_name] = agg_type
 
                     # Create DataFrame with aggregations
@@ -290,15 +304,18 @@ class CsvConnection(ConnectionBase):
                     column_renames = {}
 
                     # First handle aggregation aliases
-                    for agg in query.aggregations:
-                        field_name = agg.expression.field.field.name
-                        table_name = agg.expression.field.table_name
+                    for sel_expr in aggregation_exprs:
+                        agg = sel_expr.expression
+                        if isinstance(agg.expression, FieldReferenceExpression):
+                            field_name = agg.expression.field_reference.field.name
+                        else:
+                            continue
 
                         # Find the actual column name that was aggregated
                         for col in agg_dict:
                             # Match the aggregated column to its alias
-                            if agg.alias and (col.endswith(f'_{field_name}') or col == field_name):
-                                column_renames[col] = agg.alias
+                            if col.endswith(f'_{field_name}') or col == field_name:
+                                column_renames[col] = sel_expr.alias
                                 break
 
                     # Then handle table prefix removals for group by fields
@@ -314,14 +331,23 @@ class CsvConnection(ConnectionBase):
                     msg = f'Failed to apply GROUP BY and aggregations: {e!s}'
                     raise ValueError(msg) from e
 
-            elif query.aggregations and not query.group_by:
+            elif aggregation_exprs and not query.group_by:
                 # Apply aggregations without grouping
                 try:
                     agg_results = {}
-                    for agg in query.aggregations:
-                        field_name = agg.expression.field.field.name
-                        table_name = agg.expression.field.table_name
-                        alias = agg.alias or field_name
+                    for sel_expr in aggregation_exprs:
+                        agg = sel_expr.expression
+                        if isinstance(agg.expression, FieldReferenceExpression):
+                            field_name = agg.expression.field_reference.field.name
+                            table_name = agg.expression.field_reference.table_name
+                        elif agg.expression is None:
+                            field_name = '*'
+                            table_name = None
+                        else:
+                            msg = f'Unsupported aggregation expression type: {type(agg.expression)}'
+                            raise ValueError(msg)  # noqa: TRY301
+
+                        alias = sel_expr.alias
 
                         # Find the actual column name in the DataFrame
                         actual_field_name = self._find_column_for_field(df, field_name, table_name)
@@ -332,7 +358,7 @@ class CsvConnection(ConnectionBase):
                             )
                             raise ValueError(msg)  # noqa: TRY301
 
-                        agg_func = self._get_aggregation_function(agg.expression)
+                        agg_func = self._get_aggregation_function(agg)
                         agg_results[alias] = agg_func(df[actual_field_name])
 
                     result_df = pd.DataFrame([agg_results])
@@ -372,10 +398,9 @@ class CsvConnection(ConnectionBase):
                             logger.warning(msg)
 
                     # Make sure to include any aggregation columns that might be needed
-                    if query.aggregations:
-                        for agg in query.aggregations:
-                            if agg.alias and agg.alias in result_df.columns and agg.alias not in selected_columns:
-                                selected_columns.append(agg.alias)
+                    for sel_expr in aggregation_exprs:
+                        if sel_expr.alias in result_df.columns and sel_expr.alias not in selected_columns:
+                            selected_columns.append(sel_expr.alias)
 
                     # Filter columns to only those requested
                     if selected_columns:
@@ -392,9 +417,9 @@ class CsvConnection(ConnectionBase):
             # Handle DISTINCT
             if query.distinct:
                 try:
-                    if isinstance(query.distinct, list):
+                    if query.distinct.on_fields:
                         distinct_columns = []
-                        for field in query.distinct:
+                        for field in query.distinct.on_fields:
                             field_name = field.field.name
                             table_name = field.table_name
 
@@ -439,11 +464,14 @@ class CsvConnection(ConnectionBase):
                     msg = f'Failed to apply ORDER BY: {e!s}'
                     raise ValueError(msg) from e
 
-            # Handle annotations
-            if query.annotations:
-                for annotation in query.annotations:
+            # Handle annotations (non-aggregation SelectExpression entries)
+            annotation_exprs = [
+                sel for sel in (query.expressions or []) if not isinstance(sel.expression, Aggregation)
+            ]
+            if annotation_exprs:
+                for sel_expr in annotation_exprs:
                     try:
-                        result_df = self._process_annotation(annotation, result_df)
+                        result_df = self._process_annotation(sel_expr, result_df)
                     except Exception as e:  # noqa: PERF203
                         msg = f'Failed to apply annotation: {e!s}'
                         raise ValueError(msg) from e
@@ -502,7 +530,7 @@ class CsvConnection(ConnectionBase):
         # If we get here, we couldn't find a match
         return None
 
-    def _get_aggregation_type(self, expr: Expression | AggregationExpression) -> str:
+    def _get_aggregation_type(self, expr: Aggregation) -> str:
         """Get the aggregation type for a pandas groupby operation."""
         if isinstance(expr, aggr_expr.Sum):
             return 'sum'
@@ -518,7 +546,7 @@ class CsvConnection(ConnectionBase):
         msg = f'Unsupported aggregation type: {type(expr)}'
         raise ValueError(msg)
 
-    def _get_aggregation_function(self, expr: Expression | AggregationExpression) -> Callable:
+    def _get_aggregation_function(self, expr: Aggregation) -> Callable:
         """Get the aggregation function for a pandas Series operation."""
 
         if isinstance(expr, aggr_expr.Sum):
@@ -535,14 +563,18 @@ class CsvConnection(ConnectionBase):
         msg = f'Unsupported aggregation type: {type(expr)}'
         raise ValueError(msg)
 
-    def _process_annotation(self, annotation: AnnotationQuery, df: 'pd.DataFrame') -> 'pd.DataFrame':
-        """Process an annotation and add it to the DataFrame."""
-        if isinstance(annotation.value, SubQueryStatement):
+    def _process_annotation(self, sel_expr: SelectExpression, df: 'pd.DataFrame') -> 'pd.DataFrame':
+        """Process an annotation SelectExpression and add the computed column to the DataFrame."""
+        alias = sel_expr.alias
+        expression = sel_expr.expression
+
+        if isinstance(expression, SubQueryStatement):
             # For each row in the main DataFrame, run the subquery with the appropriate filter
             result_column = []
+            inner_alias = expression.alias
             for _, row in df.iterrows():
                 # Modify the subquery to use the current row's values
-                subquery = self._prepare_subquery_for_row(annotation.value.query, row)
+                subquery = self._prepare_subquery_for_row(expression.query, row)
 
                 # Execute the subquery
                 subquery_result = self.query(subquery)
@@ -550,9 +582,8 @@ class CsvConnection(ConnectionBase):
                 # Extract the result value
                 if subquery_result and len(subquery_result) > 0:
                     # Use the first result and extract the alias value
-                    alias = annotation.value.alias
-                    if alias in subquery_result[0].data:
-                        result_column.append(subquery_result[0].data[alias])
+                    if inner_alias in subquery_result[0].data:
+                        result_column.append(subquery_result[0].data[inner_alias])
                     else:
                         # Try to get first column value if alias not found
                         first_key = next(iter(subquery_result[0].data.keys()), None)
@@ -564,13 +595,13 @@ class CsvConnection(ConnectionBase):
                     result_column.append(None)
 
             # Add the result column to the DataFrame
-            df[annotation.value.alias] = result_column
+            df[alias] = result_column
 
-        elif isinstance(annotation.value, ValueAnnotation):
-            df[annotation.value.alias] = annotation.value.value
+        elif isinstance(expression, Value):
+            df[alias] = expression.value
 
-        elif isinstance(annotation.value, ExpressionAnnotation):
-            df[annotation.value.alias] = self._process_expression(annotation.value.expression, df)
+        else:
+            df[alias] = self._process_expression(expression, df)
 
         return df
 
@@ -847,7 +878,7 @@ class CsvConnection(ConnectionBase):
         """Register a new schema by creating a CSV file."""
         import pandas as pd
 
-        schema_name = mutation.get_schema_name()
+        schema_name = mutation.schema_ref.name
         file_path = self.db_path / f'{schema_name}.csv'
 
         if file_path.exists():
@@ -871,8 +902,8 @@ class CsvConnection(ConnectionBase):
 
     def _rename_schema(self, mutation: RenameSchema) -> None:
         """Rename a schema by renaming the CSV file."""
-        old_schema_name = mutation.get_schema_name()
-        new_schema_name = mutation.new_schema_name
+        old_schema_name = mutation.schema_ref.name
+        new_schema_name = mutation.new_name
 
         old_file_path = self.db_path / f'{old_schema_name}.csv'
         new_file_path = self.db_path / f'{new_schema_name}.csv'
@@ -898,7 +929,7 @@ class CsvConnection(ConnectionBase):
 
     def _delete_schema(self, mutation: DeleteSchema) -> None:
         """Delete a schema by deleting the CSV file."""
-        schema_name = mutation.get_schema_name()
+        schema_name = mutation.schema_ref.name
         file_path = self.db_path / f'{schema_name}.csv'
 
         if not file_path.exists():

@@ -102,10 +102,16 @@ def create_user_schema(database_connection: CsvConnection, namespace: str = '') 
         ],
     )
 
+    schema_ref = SchemaReference(
+        name='user',
+        namespace=namespace,
+        version=Version.LATEST,
+    )
+
     return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=schema),
+                RegisterSchema(schema_ref=schema_ref, schema=schema),
             ],
         ),
     )
@@ -121,7 +127,7 @@ def rename_user_schema(database_connection: CsvConnection, namespace: str = '') 
     return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RenameSchema(schema_reference=schema_ref, new_schema_name='customer'),
+                RenameSchema(schema_ref=schema_ref, new_name='customer'),
             ],
         ),
     )
@@ -137,7 +143,7 @@ def delete_user_schema(database_connection: CsvConnection, namespace: str = '') 
     return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                DeleteSchema(schema_reference=schema_ref),
+                DeleteSchema(schema_ref=schema_ref),
             ],
         ),
     )

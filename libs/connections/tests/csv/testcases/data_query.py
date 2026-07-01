@@ -1,8 +1,7 @@
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
@@ -10,6 +9,7 @@ from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
@@ -89,7 +89,7 @@ def query_customers_age(database_connection: CsvConnection, *, distinct: bool = 
     )
 
     if distinct:
-        query.distinct = True
+        query.distinct = DistinctClause()
 
     return database_connection.query(query)
 
@@ -174,15 +174,19 @@ def query_customers_expenses(database_connection: CsvConnection) -> list[Data]:
             only=[
                 FieldReference(field=Field(name='id'), table_name='c'),
             ],
-            annotations=[
-                AnnotationQuery(
-                    value=SubQueryStatement(
+            expressions=[
+                SelectExpression(
+                    expression=SubQueryStatement(
                         alias='total_amount',
                         query=QueryStatement(
-                            aggregations=[
-                                AggregationQuery(
+                            expressions=[
+                                SelectExpression(
                                     expression=Sum(
-                                        field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                        expression=FieldReferenceExpression(
+                                            field_reference=FieldReference(
+                                                field=Field(name='amount'), table_name='o'
+                                            )
+                                        ),
                                     ),
                                     alias='total_amount',
                                 ),
@@ -201,6 +205,7 @@ def query_customers_expenses(database_connection: CsvConnection) -> list[Data]:
                             ),
                         ),
                     ),
+                    alias='total_amount',
                 ),
             ],
             table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
@@ -221,16 +226,22 @@ def query_expenses_by_customer(database_connection: CsvConnection) -> list[Data]
             only=[
                 FieldReference(field=Field(name='customer_id'), table_name='o'),
             ],
-            aggregations=[
-                AggregationQuery(
+            expressions=[
+                SelectExpression(
                     expression=Sum(
-                        field=FieldReference(field=Field(name='amount'), table_name='o'),
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='amount'), table_name='o')
+                        ),
                     ),
                     alias='total_amount',
                 ),
             ],
             group_by=[
-                GroupByQuery(field=FieldReference(field=Field(name='customer_id'), table_name='o')),
+                GroupByQuery(
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                    )
+                ),
             ],
             order_by=[
                 OrderByQuery(
@@ -267,15 +278,27 @@ def query_expenses_by_customer_with_name(database_connection: CsvConnection) -> 
                     join_type=JoinType.INNER,
                 ),
             ],
-            aggregations=[
-                AggregationQuery(
-                    expression=Sum(field=FieldReference(field=Field(name='amount'), table_name='orders')),
+            expressions=[
+                SelectExpression(
+                    expression=Sum(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='amount'), table_name='orders')
+                        ),
+                    ),
                     alias='sum_amount',
                 ),
             ],
             group_by=[
-                GroupByQuery(field=FieldReference(field=Field(name='id'), table_name='customers')),
-                GroupByQuery(field=FieldReference(field=Field(name='name'), table_name='customers')),
+                GroupByQuery(
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                    )
+                ),
+                GroupByQuery(
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='name'), table_name='customers')
+                    )
+                ),
             ],
             order_by=[
                 OrderByQuery(

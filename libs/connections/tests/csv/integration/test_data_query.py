@@ -1,5 +1,4 @@
 import pytest
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -13,6 +12,7 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
@@ -40,6 +40,7 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='customers', version=Version.LATEST),
                     schema=Schema(
                         name='customers',
                         version=Version.LATEST,
@@ -48,7 +49,7 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
                             PropertySchema(name='name', type=str, required=True),
                             PropertySchema(name='age', type=int, required=True),
                         ],
-                    )
+                    ),
                 )
             ]
         )
@@ -57,6 +58,7 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='orders', version=Version.LATEST),
                     schema=Schema(
                         name='orders',
                         version=Version.LATEST,
@@ -65,7 +67,7 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
                             PropertySchema(name='customer_id', type=int, required=True),
                             PropertySchema(name='amount', type=int, required=True),
                         ],
-                    )
+                    ),
                 )
             ]
         )
@@ -217,17 +219,27 @@ def test_aggregation_join_existing(existing_database_connection: CsvConnection) 
                 FieldReference(field=Field(name='temp_log'), table_name='logs'),
                 FieldReference(field=Field(name='name'), table_name='devices'),
             ],
-            aggregations=[
-                AggregationQuery(
+            expressions=[
+                SelectExpression(
                     expression=Avg(
-                        field=FieldReference(field=Field(name='temp_log'), table_name='logs'),
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='temp_log'), table_name='logs')
+                        ),
                     ),
                     alias='average_temp',
                 ),
             ],
             group_by=[
-                GroupByQuery(field=FieldReference(field=Field(name='device_id'), table_name='logs')),
-                GroupByQuery(field=FieldReference(field=Field(name='name'), table_name='devices')),
+                GroupByQuery(
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='device_id'), table_name='logs')
+                    )
+                ),
+                GroupByQuery(
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='name'), table_name='devices')
+                    )
+                ),
             ],
             order_by=[
                 OrderByQuery(

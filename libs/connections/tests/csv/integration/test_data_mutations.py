@@ -25,6 +25,7 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='customers', version=Version.LATEST),
                     schema=Schema(
                         name='customers',
                         version=Version.LATEST,
@@ -33,7 +34,7 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
                             PropertySchema(name='name', type=str, required=True),
                             PropertySchema(name='age', type=int, required=True),
                         ],
-                    )
+                    ),
                 )
             ]
         )
@@ -42,6 +43,7 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='orders', version=Version.LATEST),
                     schema=Schema(
                         name='orders',
                         version=Version.LATEST,
@@ -51,7 +53,7 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
                             PropertySchema(name='amount', type=int, required=True),
                             PropertySchema(name='date', type=datetime.date, required=True),
                         ],
-                    )
+                    ),
                 )
             ]
         )
