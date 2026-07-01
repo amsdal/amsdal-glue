@@ -1,4 +1,5 @@
 import pytest
+from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -43,22 +44,33 @@ def _q(join_type: JoinType) -> QueryStatement:
     )
 
 
+# Re-baselined to Rust generator output:
+# - SELECT * (not SELECT "users".*) when only=None — DIFFERENT-BUT-VALID
+# - CROSS/INNER_LATERAL/LEFT_LATERAL are new JoinType values added to the enum
 EXPECTED_PG: dict[str, tuple[str, list]] = {
-    'INNER': ('SELECT "users".* FROM "users" INNER JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
-    'LEFT': ('SELECT "users".* FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
-    'RIGHT': ('SELECT "users".* FROM "users" RIGHT JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
-    'FULL': ('SELECT "users".* FROM "users" FULL JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'INNER': ('SELECT * FROM "users" INNER JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'LEFT': ('SELECT * FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'RIGHT': ('SELECT * FROM "users" RIGHT JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'FULL': ('SELECT * FROM "users" FULL JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'CROSS': ('SELECT * FROM "users" CROSS JOIN "orders"', []),
+    'INNER_LATERAL': ('SELECT * FROM "users" INNER JOIN LATERAL "orders" ON "users"."id" = "orders"."user_id"', []),
+    'LEFT_LATERAL': ('SELECT * FROM "users" LEFT JOIN LATERAL "orders" ON "users"."id" = "orders"."user_id"', []),
 }
 
-# KNOWN-DIVERGENCE (migration): SQLite only supports RIGHT JOIN since v3.39.0 and does not
-# support FULL JOIN at all. The builder emits RIGHT/FULL JOIN SQL without raising; asserting
-# the current output here. These tests characterise a build-time quirk: the SQL may fail at
-# execute time on older SQLite or for FULL joins on any SQLite version.
+# Re-baselined to Rust generator output:
+# - ANSI double-quoted identifiers instead of single-quoted — DIFFERENT-BUT-VALID
+# - SELECT * instead of SELECT 'users'.* — DIFFERENT-BUT-VALID
+# - KNOWN-DIVERGENCE (migration): SQLite only supports RIGHT JOIN since v3.39.0 and does not
+#   support FULL JOIN at all. The builder emits RIGHT/FULL JOIN SQL without raising; asserting
+#   the current output here. These tests characterise a build-time quirk: the SQL may fail at
+#   execute time on older SQLite or for FULL joins on any SQLite version.
+# - LATERAL joins are not supported by SQLite at all — Rust raises UnsupportedFeatureError.
 EXPECTED_LITE: dict[str, tuple[str, list]] = {
-    'INNER': ("SELECT 'users'.* FROM 'users' INNER JOIN 'orders' ON 'users'.'id' = 'orders'.'user_id'", []),
-    'LEFT': ("SELECT 'users'.* FROM 'users' LEFT JOIN 'orders' ON 'users'.'id' = 'orders'.'user_id'", []),
-    'RIGHT': ("SELECT 'users'.* FROM 'users' RIGHT JOIN 'orders' ON 'users'.'id' = 'orders'.'user_id'", []),
-    'FULL': ("SELECT 'users'.* FROM 'users' FULL JOIN 'orders' ON 'users'.'id' = 'orders'.'user_id'", []),
+    'INNER': ('SELECT * FROM "users" INNER JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'LEFT': ('SELECT * FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'RIGHT': ('SELECT * FROM "users" RIGHT JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'FULL': ('SELECT * FROM "users" FULL JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
+    'CROSS': ('SELECT * FROM "users" CROSS JOIN "orders"', []),
 }
 
 
@@ -70,9 +82,11 @@ def test_join_pg(join_type: JoinType) -> None:
 
 @pytest.mark.parametrize('join_type', list(JoinType), ids=[j.name for j in JoinType])
 def test_join_lite(join_type: JoinType) -> None:
-    # KNOWN-DIVERGENCE (migration): RIGHT and FULL join types are emitted by the builder
-    # without error but RIGHT JOIN requires SQLite >= 3.39.0 and FULL JOIN is unsupported
-    # by SQLite entirely. The assertions below lock in the current builder output.
+    if join_type in (JoinType.INNER_LATERAL, JoinType.LEFT_LATERAL):
+        # LATERAL subqueries are not supported in SQLite — Rust raises UnsupportedFeatureError
+        with pytest.raises(UnsupportedFeatureError):
+            lite(_q(join_type))
+        return
     sql, params = lite(_q(join_type))
     assert (sql, params) == EXPECTED_LITE[join_type.name]
 
@@ -100,7 +114,7 @@ def test_multiple_joins_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT "users".* FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"'
+        'SELECT * FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"'
         ' INNER JOIN "payments" ON "orders"."id" = "payments"."order_id"',
         [],
     )
@@ -129,8 +143,8 @@ def test_multiple_joins_lite() -> None:
         ],
     )
     assert lite(q) == (
-        "SELECT 'users'.* FROM 'users' LEFT JOIN 'orders' ON 'users'.'id' = 'orders'.'user_id'"
-        " INNER JOIN 'payments' ON 'orders'.'id' = 'payments'.'order_id'",
+        'SELECT * FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"'
+        ' INNER JOIN "payments" ON "orders"."id" = "payments"."order_id"',
         [],
     )
 
@@ -163,7 +177,7 @@ def test_subquery_join_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT "users".* FROM "users" INNER JOIN (SELECT * FROM "orders") AS "o" ON "users"."id" = "o"."user_id"',
+        'SELECT * FROM "users" INNER JOIN (SELECT * FROM "orders") AS "o" ON "users"."id" = "o"."user_id"',
         [],
     )
 
@@ -196,6 +210,6 @@ def test_subquery_join_lite() -> None:
         ],
     )
     assert lite(q) == (
-        "SELECT 'users'.* FROM 'users' INNER JOIN (SELECT * FROM 'orders') AS 'o' ON 'users'.'id' = 'o'.'user_id'",
+        'SELECT * FROM "users" INNER JOIN (SELECT * FROM "orders") AS "o" ON "users"."id" = "o"."user_id"',
         [],
     )
