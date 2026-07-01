@@ -1,4 +1,5 @@
 import pytest
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -40,14 +41,14 @@ def test_select_distinct_pg() -> None:
     # Correct SQL should be: 'SELECT DISTINCT * FROM "users"'. This locked value characterises the
     # CURRENT bug and is EXPECTED TO CHANGE when the Rust/qcraft generator implements DISTINCT;
     # re-baseline this test at that point.
-    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
+    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=DistinctClause())
     assert pg(q) == ('SELECT * FROM "users"', [])
 
 
 @pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D1')
 def test_select_distinct_star_pg_correct_behaviour() -> None:
     # D1: distinct=True with empty only must emit DISTINCT, not be dropped.
-    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
+    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=DistinctClause())
     assert pg(q) == ('SELECT DISTINCT * FROM "users"', [])
 
 
@@ -60,7 +61,7 @@ def test_select_distinct_on_pg() -> None:
     # than raising an exception.
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
-        distinct=[_ref('country')],
+        distinct=DistinctClause(on_fields=[_ref('country')]),
     )
     assert pg(q) == ('SELECT * FROM "users"', [])
 
@@ -70,7 +71,7 @@ def test_select_distinct_on_star_pg_correct_behaviour() -> None:
     # D1: PG DISTINCT ON with empty only must emit DISTINCT ON, not be dropped.
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
-        distinct=[_ref('country')],
+        distinct=DistinctClause(on_fields=[_ref('country')]),
     )
     assert pg(q) == ('SELECT DISTINCT ON ("users"."country") * FROM "users"', [])
 
@@ -101,12 +102,12 @@ def test_select_distinct_sqlite() -> None:
     # Correct SQL should be: "SELECT DISTINCT * FROM 'users'". This locked value characterises the
     # CURRENT bug and is EXPECTED TO CHANGE when the Rust/qcraft generator implements DISTINCT;
     # re-baseline this test at that point.
-    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
+    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=DistinctClause())
     assert lite(q) == ("SELECT * FROM 'users'", [])
 
 
 @pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D1')
 def test_select_distinct_star_sqlite_correct_behaviour() -> None:
     # D1: SQLite distinct=True with empty only must emit DISTINCT.
-    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=True)
+    q = QueryStatement(table=SchemaReference(name='users', version=Version.LATEST), distinct=DistinctClause())
     assert lite(q) == ("SELECT DISTINCT * FROM 'users'", [])
