@@ -4,13 +4,16 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 
 def test_update_int_to_str_not_required(database_connection: SqliteConnection) -> None:
@@ -18,22 +21,23 @@ def test_update_int_to_str_not_required(database_connection: SqliteConnection) -
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='TestTable', version=Version.LATEST),
                     schema=Schema(
                         name='TestTable',
                         version=Version.LATEST,
                         properties=[
                             PropertySchema(
                                 name='field_a',
-                                type=str,
+                                type=ScalarType.TEXT,
                                 required=False,
                             ),
                             PropertySchema(
                                 name='field_b',
-                                type=int,
+                                type=ScalarType.INTEGER,
                                 required=False,
                             ),
                         ],
-                    )
+                    ),
                 ),
             ],
         ),
@@ -62,8 +66,8 @@ def test_update_int_to_str_not_required(database_connection: SqliteConnection) -
         SchemaCommand(
             mutations=[
                 UpdateProperty(
-                    schema_reference=SchemaReference(name=schema.name, version=schema.version),
-                    property=PropertySchema(name='field_b', type=str, required=False),
+                    schema_ref=SchemaReference(name=schema.name, version=schema.version),
+                    property=PropertySchema(name='field_b', type=ScalarType.TEXT, required=False),
                 ),
             ],
         ),
@@ -78,19 +82,21 @@ def test_update_int_to_str_not_required(database_connection: SqliteConnection) -
         {'field_a': 'value3', 'field_b': '3'},
     ]
 
-    assert database_connection.query_schema() == [
+    assert database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+    ) == [
         Schema(
             name='TestTable',
             version=Version.LATEST,
             properties=[
                 PropertySchema(
                     name='field_a',
-                    type=str,
+                    type=ScalarType.TEXT,
                     required=False,
                 ),
                 PropertySchema(
                     name='field_b',
-                    type=str,
+                    type=ScalarType.TEXT,
                     required=False,
                 ),
             ],
@@ -105,22 +111,23 @@ def test_update_int_to_str_required(database_connection: SqliteConnection) -> No
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='TestTable', version=Version.LATEST),
                     schema=Schema(
                         name='TestTable',
                         version=Version.LATEST,
                         properties=[
                             PropertySchema(
                                 name='field_a',
-                                type=str,
+                                type=ScalarType.TEXT,
                                 required=True,
                             ),
                             PropertySchema(
                                 name='field_b',
-                                type=int,
+                                type=ScalarType.INTEGER,
                                 required=True,
                             ),
                         ],
-                    )
+                    ),
                 ),
             ],
         ),
@@ -156,8 +163,8 @@ def test_update_int_to_str_required(database_connection: SqliteConnection) -> No
             SchemaCommand(
                 mutations=[
                     UpdateProperty(
-                        schema_reference=SchemaReference(name=schema.name, version=schema.version),
-                        property=PropertySchema(name='field_b', type=str, required=True),
+                        schema_ref=SchemaReference(name=schema.name, version=schema.version),
+                        property=PropertySchema(name='field_b', type=ScalarType.TEXT, required=True),
                     ),
                 ],
             ),
@@ -169,24 +176,25 @@ def test_change_required_str(database_connection: SqliteConnection) -> None:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='TestTable', version=Version.LATEST),
                     schema=Schema(
                         name='TestTable',
                         version=Version.LATEST,
                         properties=[
                             PropertySchema(
                                 name='field_a',
-                                type=str,
+                                type=ScalarType.TEXT,
                                 required=True,
-                                default='',
+                                default=Value(value=''),
                             ),
                             PropertySchema(
                                 name='field_b',
-                                type=str,
+                                type=ScalarType.TEXT,
                                 required=False,
-                                default='',
+                                default=Value(value=''),
                             ),
                         ],
-                    )
+                    ),
                 ),
             ],
         ),
@@ -216,8 +224,8 @@ def test_change_required_str(database_connection: SqliteConnection) -> None:
             SchemaCommand(
                 mutations=[
                     UpdateProperty(
-                        schema_reference=SchemaReference(name=schema.name, version=schema.version),
-                        property=PropertySchema(name='field_b', type=str, required=True, default=''),
+                        schema_ref=SchemaReference(name=schema.name, version=schema.version),
+                        property=PropertySchema(name='field_b', type=ScalarType.TEXT, required=True, default=Value(value='')),
                     ),
                 ],
             ),
@@ -231,22 +239,23 @@ def test_update_int_to_str(database_connection: SqliteConnection) -> None:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='TestTable', version=Version.LATEST),
                     schema=Schema(
                         name='TestTable',
                         version=Version.LATEST,
                         properties=[
                             PropertySchema(
                                 name='field_a',
-                                type=str,
+                                type=ScalarType.TEXT,
                                 required=False,
                             ),
                             PropertySchema(
                                 name='field_b',
-                                type=str,
+                                type=ScalarType.TEXT,
                                 required=False,
                             ),
                         ],
-                    )
+                    ),
                 ),
             ],
         ),
@@ -275,8 +284,8 @@ def test_update_int_to_str(database_connection: SqliteConnection) -> None:
         SchemaCommand(
             mutations=[
                 UpdateProperty(
-                    schema_reference=SchemaReference(name=schema.name, version=schema.version),
-                    property=PropertySchema(name='field_b', type=int, required=False),
+                    schema_ref=SchemaReference(name=schema.name, version=schema.version),
+                    property=PropertySchema(name='field_b', type=ScalarType.INTEGER, required=False),
                 ),
             ],
         ),
@@ -291,19 +300,21 @@ def test_update_int_to_str(database_connection: SqliteConnection) -> None:
         {'field_a': 'value3', 'field_b': 3},
     ]
 
-    assert database_connection.query_schema() == [
+    assert database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+    ) == [
         Schema(
             name='TestTable',
             version=Version.LATEST,
             properties=[
                 PropertySchema(
                     name='field_a',
-                    type=str,
+                    type=ScalarType.TEXT,
                     required=False,
                 ),
                 PropertySchema(
                     name='field_b',
-                    type=int,
+                    type=ScalarType.INTEGER,
                     required=False,
                 ),
             ],
@@ -318,22 +329,23 @@ def test_update_int_to_str_invalid(database_connection: SqliteConnection) -> Non
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='TestTable', version=Version.LATEST),
                     schema=Schema(
                         name='TestTable',
                         version=Version.LATEST,
                         properties=[
                             PropertySchema(
                                 name='field_a',
-                                type=str,
+                                type=ScalarType.TEXT,
                                 required=False,
                             ),
                             PropertySchema(
                                 name='field_b',
-                                type=str,
+                                type=ScalarType.TEXT,
                                 required=False,
                             ),
                         ],
-                    )
+                    ),
                 ),
             ],
         ),
@@ -362,8 +374,8 @@ def test_update_int_to_str_invalid(database_connection: SqliteConnection) -> Non
         SchemaCommand(
             mutations=[
                 UpdateProperty(
-                    schema_reference=SchemaReference(name=schema.name, version=schema.version),
-                    property=PropertySchema(name='field_b', type=int, required=False),
+                    schema_ref=SchemaReference(name=schema.name, version=schema.version),
+                    property=PropertySchema(name='field_b', type=ScalarType.INTEGER, required=False),
                 ),
             ],
         ),
@@ -378,19 +390,21 @@ def test_update_int_to_str_invalid(database_connection: SqliteConnection) -> Non
         {'field_a': 'value3', 'field_b': 'c3'},
     ]
 
-    assert database_connection.query_schema() == [
+    assert database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+    ) == [
         Schema(
             name='TestTable',
             version=Version.LATEST,
             properties=[
                 PropertySchema(
                     name='field_a',
-                    type=str,
+                    type=ScalarType.TEXT,
                     required=False,
                 ),
                 PropertySchema(
                     name='field_b',
-                    type=int,
+                    type=ScalarType.INTEGER,
                     required=False,
                 ),
             ],
