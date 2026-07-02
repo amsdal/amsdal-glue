@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 from amsdal_glue_core.commands.planner.lock_command_planner import AsyncLockCommandPlanner
 from amsdal_glue_core.commands.planner.lock_command_planner import LockCommandPlanner
@@ -9,6 +10,10 @@ from amsdal_glue_core.common.operations.commands import LockIdentifier
 from amsdal_glue_core.common.operations.commands import LockReference
 from amsdal_glue_core.common.workflows.chain import AsyncChainTask
 from amsdal_glue_core.common.workflows.chain import ChainTask
+
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.workflows.task import AsyncTask
+    from amsdal_glue_core.common.workflows.task import Task
 
 from amsdal_glue.commands.tasks.lock_tasks import AsyncLockCommandTask
 from amsdal_glue.commands.tasks.lock_tasks import LockCommandTask
@@ -58,7 +63,7 @@ class DefaultLockCommandPlanner(LockCommandPlanner):
             routing_key = command.root_transaction_id
             groups[(pool_key, routing_key)].append(ref)
 
-        tasks = []
+        tasks: list[Task] = []
         for (pool_key, _routing_key), refs in groups.items():
             has_schema = any(isinstance(r.reference, SchemaReference) for r in refs)
             has_ident = any(isinstance(r.reference, LockIdentifier) for r in refs)
@@ -125,7 +130,7 @@ class DefaultAsyncLockCommandPlanner(AsyncLockCommandPlanner):
             routing_key = command.root_transaction_id
             groups[(pool_key, routing_key)].append(ref)
 
-        tasks = []
+        tasks: list[AsyncTask] = []
         for (pool_key, _routing_key), refs in groups.items():
             has_schema = any(isinstance(r.reference, SchemaReference) for r in refs)
             has_ident = any(isinstance(r.reference, LockIdentifier) for r in refs)

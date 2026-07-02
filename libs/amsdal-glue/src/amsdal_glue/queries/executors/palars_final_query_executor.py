@@ -2,7 +2,6 @@ from collections import defaultdict
 from typing import Any
 
 import polars as pl
-from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
 from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
@@ -17,7 +16,7 @@ from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.executors.interfaces import AsyncFinalDataQueryExecutor
 from amsdal_glue_core.common.executors.interfaces import FinalDataQueryExecutor
-from amsdal_glue_core.common.expressions.common import CombinedExpression
+from amsdal_glue_core.common.expressions.combined import Combined
 from amsdal_glue_core.common.expressions.common import Expression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -244,7 +243,7 @@ class PolarsFinalQueryDataExecutorMixin:
         return _item_stmt
 
     def _build_expression(self, expression: Expression) -> str:
-        if isinstance(expression, CombinedExpression):
+        if isinstance(expression, Combined):
             _left = self._build_expression(expression.left)
             _right = self._build_expression(expression.right)
             return f'{_left} {expression.operator} {_right}'
@@ -314,7 +313,6 @@ class PolarsFinalQueryDataExecutorMixin:
                     left=condition.left,
                     lookup=condition.lookup,
                     right=condition.right,
-                    transform=get_pg_transform(),
                 )
             )
 

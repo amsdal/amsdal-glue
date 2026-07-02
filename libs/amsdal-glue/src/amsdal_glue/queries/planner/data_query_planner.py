@@ -3,6 +3,7 @@ from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.set_operation import SetOperation
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.expressions.aggregation import Aggregation
 from amsdal_glue_core.common.expressions.value import Value
@@ -132,18 +133,22 @@ class DefaultDataQueryPlannerMixin:
 
     def construct_query(
         self,
-        table: SchemaReference | SubQueryStatement,
+        table: SchemaReference | SubQueryStatement | SetOperation,
     ) -> tuple[str, DataQueryNode | FinalDataQueryNode, ChainTask | AsyncChainTask]:
         """
         Constructs a query node and a chain of tasks for the given table.
 
         Args:
-            table (SchemaReference | SubQueryStatement): The table or subquery statement.
+            table (SchemaReference | SubQueryStatement | SetOperation): The table or subquery statement.
 
         Returns:
             tuple[str, DataQueryNode | FinalDataQueryNode, ChainTask | AsyncChainTask]: The alias, query node,
             and chain of tasks.
         """
+        if isinstance(table, SetOperation):
+            msg = 'construct_query does not support SetOperation tables; route via plan_data_query for set operations'
+            raise NotImplementedError(msg)
+
         if isinstance(table, SubQueryStatement):
             _query = table.query
 
