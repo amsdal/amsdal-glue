@@ -251,10 +251,7 @@ class ElasticsearchConnection(ConnectionBase):
         Executes an update mutation on Elasticsearch.
         """
         index_name = self._build_index(mutation.schema.name)
-        doc_data: dict[str, Any] = {
-            k: (v.value if isinstance(v, Value) else v)
-            for k, v in mutation.data.items()
-        }
+        doc_data: dict[str, Any] = {k: (v.value if isinstance(v, Value) else v) for k, v in mutation.data.items()}
 
         # For updates, we need to specify which document to update
         # If 'id' is in the data, use it as the document ID
