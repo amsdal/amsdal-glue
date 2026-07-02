@@ -16,7 +16,7 @@ from amsdal_glue_connections.sql.connections.postgres_connection import AsyncPos
 
 
 async def simple_customer_insert(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
 ) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         InsertData(
@@ -32,8 +32,8 @@ async def simple_customer_insert(
 
 async def insert_customers_and_orders(
     database_connection: AsyncPostgresConnection,
-    namespace_1: str = '',
-    namespace_2: str = '',
+    namespace_1: str | None = None,
+    namespace_2: str | None = None,
 ) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         InsertData(
@@ -64,7 +64,7 @@ async def insert_customers_and_orders(
 
 
 async def update_two_customers(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
 ) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         InsertData(
@@ -77,14 +77,15 @@ async def update_two_customers(
         ),
         UpdateData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data=Data(
-                data={'id': '1', 'name': 'new_customer'},
-            ),
+            data={
+                'id': Value('1'),
+                'name': Value('new_customer'),
+            },
         ),
     ])
 
 
-async def delete_customer(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[list[Data] | None]:
+async def delete_customer(database_connection: AsyncPostgresConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         DeleteData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
