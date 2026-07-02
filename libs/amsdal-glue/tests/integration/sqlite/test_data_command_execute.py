@@ -96,9 +96,7 @@ def test_update_data_single_element() -> None:
         mutations=[
             UpdateData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
-                data=Data(
-                    data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                ),
+                data={'id': Value(value='111'), 'customer_id': Value(value='1'), 'status': Value(value='cancelled')},
                 query=Conditions(
                     Condition(
                         left=FieldReferenceExpression(
@@ -188,9 +186,7 @@ def test_create_and_update_data_single_element() -> None:
             ),
             UpdateData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
-                data=Data(
-                    data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                ),
+                data={'id': Value(value='111'), 'customer_id': Value(value='1'), 'status': Value(value='cancelled')},
                 query=Conditions(
                     Condition(
                         left=FieldReferenceExpression(
