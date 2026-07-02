@@ -17,7 +17,7 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.commands import LockCommand
-from amsdal_glue_core.common.operations.commands import LockSchemaReference
+from amsdal_glue_core.common.operations.commands import LockReference
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.containers import Container
 
@@ -65,7 +65,7 @@ def test_lock() -> None:
             action=LockAction.ACQUIRE,
             mode=LockMode.EXCLUSIVE,
             parameter=LockParameter.SKIP_LOCKED,
-            locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
+            locked_objects=[LockReference(reference=SchemaReference(name='customers', version=Version.LATEST))],
         )
     )
     lock_plan.execute(transaction_id=None, lock_id=None)
@@ -115,7 +115,7 @@ def test_lock() -> None:
             action=LockAction.RELEASE,
             mode=LockMode.EXCLUSIVE,
             parameter=LockParameter.SKIP_LOCKED,
-            locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
+            locked_objects=[LockReference(reference=SchemaReference(name='customers', version=Version.LATEST))],
         )
     )
     lock_plan.execute(transaction_id=None, lock_id=None)
