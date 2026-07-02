@@ -1109,25 +1109,22 @@ class CsvConnection(ConnectionBase):
     def _run_update_data(self, mutation: UpdateData) -> None:
         """Update data in a CSV file."""
         try:
-            # Get existing data
             df = self._get_df(mutation.schema.name)
 
-            # Filter rows to update based on query
-            # mutation.data is dict[str, Expression] in the new model, but during the
-            # migration period tests still pass a legacy Data object; access .data for compat.
-            _update_dict = mutation.data.data  # type: ignore[attr-defined]
+            # mutation.data is dict[str, Expression]; extract scalar value from Value nodes
+            _update_dict = {
+                field: (expr.value if isinstance(expr, Value) else expr)
+                for field, expr in mutation.data.items()  # type: ignore[union-attr]
+            }
+
             if mutation.query:
                 update_mask = self._get_conditions(mutation.query, df)
-
-                # Update values in the filtered rows
                 for field, value in _update_dict.items():
                     df.loc[update_mask, field] = value
             else:
-                # Update all rows if no query provided
                 for field, value in _update_dict.items():
                     df[field] = value
 
-            # Save the updated DataFrame
             self._save_df(df, mutation.schema.name)
 
         except Exception as e:
