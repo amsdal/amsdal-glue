@@ -15,3 +15,4 @@ pyrightconfig.json
 /build
 /cython_build
 *.egg-info
+.superpowers/
