@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
@@ -14,6 +15,7 @@ class MockPostgresConnection(PostgresConnection):
         self._connection = mock.Mock()
         self._connection.cursor.return_value = self.cursor_mock
         self._connection.execute = self.cursor_mock.execute
+        self._generator = SqlGenerator('postgresql', param_style='format')
 
     @property
     def connection(self) -> mock.Mock:
