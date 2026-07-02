@@ -48,7 +48,7 @@ DEFAULT_SCHEMA_REF = SchemaReference(
 )
 
 
-def create_user_schema(database_connection: CsvConnection, namespace: str = '') -> list[Schema | None]:
+def create_user_schema(database_connection: CsvConnection, namespace: str | None = None) -> list[Schema | None]:
     schema = Schema(
         name='user',
         namespace=namespace,
@@ -118,7 +118,7 @@ def create_user_schema(database_connection: CsvConnection, namespace: str = '') 
     )
 
 
-def rename_user_schema(database_connection: CsvConnection, namespace: str = '') -> list[Schema | None]:
+def rename_user_schema(database_connection: CsvConnection, namespace: str | None = None) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -134,7 +134,7 @@ def rename_user_schema(database_connection: CsvConnection, namespace: str = '') 
     )
 
 
-def delete_user_schema(database_connection: CsvConnection, namespace: str = '') -> list[Schema | None]:
+def delete_user_schema(database_connection: CsvConnection, namespace: str | None = None) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
