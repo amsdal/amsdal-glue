@@ -7,11 +7,15 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 
-from amsdal_glue_connections.sql.connections.sqlite_connection import get_sqlite_transform
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
+from amsdal_glue_connections._sql_core import SqlGenerator
+
+_lite = SqlGenerator('sqlite', param_style='qmark')
 
 
 def test_three_level_nested_subquery_qualified_column_resolves() -> None:
+    # Re-baselined: SQLite identifiers are now ANSI double-quoted ("x"."y") instead of
+    # the old builder's single-quoted ('x'.'y'). Both are valid SQL; double quotes are
+    # the standard ANSI form.
     inner = QueryStatement(
         only=[
             FieldReferenceAliased(
@@ -42,15 +46,16 @@ def test_three_level_nested_subquery_qualified_column_resolves() -> None:
         table=SubQueryStatement(query=middle, alias='outer'),
     )
 
-    sql, _ = build_sql_query(query=outer, transform=get_sqlite_transform())
+    sql, _ = _lite.compile_query(outer)
 
-    assert "'outer'.'sr_1__middle__sr_2__inner__name'" in sql
-    assert "'middle'.'sr_2__inner__name' AS 'sr_1__middle__sr_2__inner__name'" in sql
-    assert "'Inner'.'name' AS 'sr_2__inner__name'" in sql
+    assert '"outer"."sr_1__middle__sr_2__inner__name"' in sql
+    assert '"middle"."sr_2__inner__name" AS "sr_1__middle__sr_2__inner__name"' in sql
+    assert '"Inner"."name" AS "sr_2__inner__name"' in sql
 
 
 def test_multi_version_alias_pattern_renders() -> None:
     """Alias contains __<v[:8]> hex suffix — common in amsdal_models historical builder."""
+    # Re-baselined: double-quoted identifiers.
     inner = QueryStatement(
         only=[
             FieldReferenceAliased(
@@ -71,6 +76,6 @@ def test_multi_version_alias_pattern_renders() -> None:
         table=SubQueryStatement(query=inner, alias='sr_1__abc12345'),
     )
 
-    sql, _ = build_sql_query(query=outer, transform=get_sqlite_transform())
+    sql, _ = _lite.compile_query(outer)
 
-    assert "'sr_1__abc12345'.'sr_2__abc12345__name'" in sql
+    assert '"sr_1__abc12345"."sr_2__abc12345__name"' in sql
