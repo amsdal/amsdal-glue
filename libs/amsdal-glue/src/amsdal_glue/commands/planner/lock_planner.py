@@ -5,6 +5,7 @@ from amsdal_glue_core.commands.planner.lock_command_planner import LockCommandPl
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import LockScope
 from amsdal_glue_core.common.operations.commands import LockCommand
+from amsdal_glue_core.common.operations.commands import LockIdentifier
 from amsdal_glue_core.common.operations.commands import LockReference
 from amsdal_glue_core.common.workflows.chain import AsyncChainTask
 from amsdal_glue_core.common.workflows.chain import ChainTask
@@ -63,7 +64,7 @@ class DefaultLockCommandPlanner(LockCommandPlanner):
             has_ident = any(isinstance(r.reference, LockIdentifier) for r in refs)
             if has_schema and has_ident:
                 msg = (
-                    f"Lock group for pool_key={pool_key!r} is mixed (SchemaReference and LockIdentifier). "
+                    f'Lock group for pool_key={pool_key!r} is mixed (SchemaReference and LockIdentifier). '
                     'Each group must be homogeneous (all table refs OR all advisory keys). '
                     'Rust rejects mixed groups in one compile_lock_command call.'
                 )
@@ -130,7 +131,7 @@ class DefaultAsyncLockCommandPlanner(AsyncLockCommandPlanner):
             has_ident = any(isinstance(r.reference, LockIdentifier) for r in refs)
             if has_schema and has_ident:
                 msg = (
-                    f"Lock group for pool_key={pool_key!r} is mixed (SchemaReference and LockIdentifier). "
+                    f'Lock group for pool_key={pool_key!r} is mixed (SchemaReference and LockIdentifier). '
                     'Each group must be homogeneous (all table refs OR all advisory keys). '
                     'Rust rejects mixed groups in one compile_lock_command call.'
                 )

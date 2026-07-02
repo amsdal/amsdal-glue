@@ -1,6 +1,11 @@
+from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
+from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
+from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+from amsdal_glue_core.common.expressions.aggregation import Aggregation
+from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.workflows.chain import AsyncChainTask
 from amsdal_glue_core.common.workflows.chain import ChainTask
 from amsdal_glue_core.common.workflows.group import AsyncGroupTask
@@ -45,13 +50,19 @@ class DefaultDataQueryPlannerMixin:
             group_workflow = self.group_task_class(tasks=[])
             from_alias, from_node, from_task = self.construct_query(query.table)
 
+            _aggregations = [
+                AggregationQuery(expression=expr.expression, alias=expr.alias)  # type: ignore[arg-type]
+                for expr in (query.expressions or [])
+                if isinstance(expr.expression, Aggregation)
+            ] or None
+
             final_query = FinalQueryStatement(
                 only=query.only,
                 table=QueryStatementNode(
                     alias=from_alias,
                     query_node=from_node,  # type: ignore[arg-type]
                 ),
-                aggregations=query.aggregations,
+                aggregations=_aggregations,
                 group_by=query.group_by,
                 where=query.where,
                 order_by=query.order_by,
@@ -75,9 +86,11 @@ class DefaultDataQueryPlannerMixin:
                 final_query.joins = _joins
                 group_workflow.tasks.append(_join_task)  # type: ignore[arg-type]
 
-            for annotation in list(query.annotations or []):
-                if isinstance(annotation.value, SubQueryStatement):
-                    _ann_alias, _ann_node, _ann_task = self.construct_query(annotation.value)
+            for expr in list(query.expressions or []):
+                if isinstance(expr.expression, Aggregation):
+                    continue  # already collected into _aggregations above
+                if isinstance(expr.expression, SubQueryStatement):
+                    _ann_alias, _ann_node, _ann_task = self.construct_query(expr.expression)
                     _annotations = final_query.annotations or []
                     _annotations.append(
                         AnnotationQueryNode(
@@ -91,9 +104,14 @@ class DefaultDataQueryPlannerMixin:
                     group_workflow.tasks.append(_ann_task)  # type: ignore[arg-type]
                 else:
                     _annotations = final_query.annotations or []
+                    _annotation_value: ValueAnnotation | ExpressionAnnotation
+                    if isinstance(expr.expression, Value):
+                        _annotation_value = ValueAnnotation(value=expr.expression, alias=expr.alias)
+                    else:
+                        _annotation_value = ExpressionAnnotation(expression=expr.expression, alias=expr.alias)
                     _annotations.append(
                         AnnotationQueryNode(
-                            value=annotation.value,
+                            value=_annotation_value,
                         ),
                     )
                     final_query.annotations = _annotations

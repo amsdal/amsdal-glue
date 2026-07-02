@@ -64,7 +64,7 @@ from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.exists import Exists
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.func import Func
-from amsdal_glue_core.common.expressions.jsonb_array import JsonbArrayExpression
+from amsdal_glue_core.common.expressions.jsonb_array import JsonbArray
 from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
@@ -158,7 +158,7 @@ __all__ = [
     'InsertData',
     'JoinQuery',
     'JoinType',
-    'JsonbArrayExpression',
+    'JsonbArray',
     'LimitQuery',
     'LockAction',
     'LockCommand',

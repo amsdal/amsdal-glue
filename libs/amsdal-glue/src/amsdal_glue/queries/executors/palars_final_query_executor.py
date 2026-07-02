@@ -199,7 +199,8 @@ class PolarsFinalQueryDataExecutorMixin:
                 _stmt.append(f'{_val} AS {annotation.value.alias}')
 
         for aggregation in aggregations or []:
-            _aggr_field = self._build_field_reference_stmt(aggregation.expression.field)
+            _inner = aggregation.expression.expression
+            _aggr_field = self._build_expression(_inner) if _inner is not None else '*'
             _stmt.append(f'{aggregation.expression.name}({_aggr_field}) AS {aggregation.alias}')
 
         return ', '.join(filter(None, _stmt))
@@ -356,7 +357,7 @@ class PolarsFinalQueryDataExecutorMixin:
         if not group_by:
             return ''
 
-        _stmt = [self._build_field_reference_stmt(_item.field) for _item in group_by]
+        _stmt = [self._build_expression(_item.expression) for _item in group_by]
 
         return f'GROUP BY {", ".join(_stmt)}'
 
