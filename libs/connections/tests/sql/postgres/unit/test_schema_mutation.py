@@ -18,12 +18,12 @@ def test_create_schema(database_connection: MockPostgresConnection) -> None:
 
     database_connection.execute_mock.assert_has_calls([
         mock.call(
-            'CREATE TABLE "user" ("id" BIGINT NOT NULL, "email" TEXT NOT NULL, "age" BIGINT NOT NULL, '
-            '"first_name" TEXT, "last_name" TEXT, CONSTRAINT pk_user PRIMARY KEY ("id") , '
-            'CONSTRAINT uk_user_email UNIQUE ("email"), CONSTRAINT ck_user_age CHECK ("user"."age" > 18))',
+            'CREATE TABLE "user" ("id" bigint NOT NULL, "email" text NOT NULL, "age" bigint NOT NULL, '
+            '"first_name" text, "last_name" text, CONSTRAINT "pk_user" PRIMARY KEY ("id"), '
+            'CONSTRAINT "uk_user_email" UNIQUE ("email"), CONSTRAINT "ck_user_age" CHECK ("user"."age" > 18))',
             (),
         ),
-        mock.call('CREATE INDEX "idx_user_email" ON "user" ("first_name", "last_name")', ()),
+        mock.call('CREATE INDEX "idx_user_email" ON "user" USING btree ("first_name" ASC, "last_name" ASC)', ()),
     ])
 
 
@@ -32,12 +32,12 @@ def test_create_schema_with_namespace(database_connection: MockPostgresConnectio
 
     database_connection.execute_mock.assert_has_calls([
         mock.call(
-            'CREATE TABLE "ns1"."user" ("id" BIGINT NOT NULL, "email" TEXT NOT NULL, "age" BIGINT NOT NULL, '
-            '"first_name" TEXT, "last_name" TEXT, CONSTRAINT pk_user PRIMARY KEY ("id") , '
-            'CONSTRAINT uk_user_email UNIQUE ("email"), CONSTRAINT ck_user_age CHECK ("ns1"."user"."age" > 18))',
+            'CREATE TABLE "ns1"."user" ("id" bigint NOT NULL, "email" text NOT NULL, "age" bigint NOT NULL, '
+            '"first_name" text, "last_name" text, CONSTRAINT "pk_user" PRIMARY KEY ("id"), '
+            'CONSTRAINT "uk_user_email" UNIQUE ("email"), CONSTRAINT "ck_user_age" CHECK ("ns1"."user"."age" > 18))',
             (),
         ),
-        mock.call('CREATE INDEX "ns1"."idx_user_email" ON "ns1"."user" ("first_name", "last_name")', ()),
+        mock.call('CREATE INDEX "idx_user_email" ON "ns1"."user" USING btree ("first_name" ASC, "last_name" ASC)', ()),
     ])
 
 
@@ -89,13 +89,13 @@ def test_delete_schema_benchmark(database_connection: MockPostgresConnection, be
 def test_add_property(database_connection: MockPostgresConnection) -> None:
     add_last_name_property(database_connection)
 
-    database_connection.execute_mock.assert_called_once_with('ALTER TABLE "user" ADD COLUMN "last_name" TEXT', ())
+    database_connection.execute_mock.assert_called_once_with('ALTER TABLE "user" ADD COLUMN "last_name" text', ())
 
 
 def test_add_property_with_namespace(database_connection: MockPostgresConnection) -> None:
     add_last_name_property(database_connection, namespace='ns1')
 
-    database_connection.execute_mock.assert_called_once_with('ALTER TABLE "ns1"."user" ADD COLUMN "last_name" TEXT', ())
+    database_connection.execute_mock.assert_called_once_with('ALTER TABLE "ns1"."user" ADD COLUMN "last_name" text', ())
 
 
 def test_add_property_benchmark(database_connection: MockPostgresConnection, benchmark) -> None:
@@ -127,18 +127,21 @@ def test_delete_property_benchmark(database_connection: MockPostgresConnection, 
 def test_update_property(database_connection: MockPostgresConnection) -> None:
     update_age_property(database_connection)
 
-    database_connection.execute_mock.assert_called_once_with(
-        'ALTER TABLE "user" ALTER COLUMN "age" TYPE TEXT, ALTER COLUMN "age" DROP NOT NULL', ()
-    )
+    database_connection.execute_mock.assert_has_calls([
+        mock.call('ALTER TABLE "user" ALTER COLUMN "age" SET DATA TYPE text', ()),
+        mock.call('ALTER TABLE "user" ALTER COLUMN "age" DROP NOT NULL', ()),
+        mock.call('ALTER TABLE "user" ALTER COLUMN "age" DROP DEFAULT', ()),
+    ])
 
 
 def test_update_property_with_namespace(database_connection: MockPostgresConnection) -> None:
     update_age_property(database_connection, namespace='ns1')
 
-    database_connection.execute_mock.assert_called_once_with(
-        'ALTER TABLE "ns1"."user" ALTER COLUMN "age" TYPE TEXT, ALTER COLUMN "age" DROP NOT NULL',
-        (),
-    )
+    database_connection.execute_mock.assert_has_calls([
+        mock.call('ALTER TABLE "ns1"."user" ALTER COLUMN "age" SET DATA TYPE text', ()),
+        mock.call('ALTER TABLE "ns1"."user" ALTER COLUMN "age" DROP NOT NULL', ()),
+        mock.call('ALTER TABLE "ns1"."user" ALTER COLUMN "age" DROP DEFAULT', ()),
+    ])
 
 
 def test_update_property_benchmark(database_connection: MockPostgresConnection, benchmark) -> None:
@@ -152,7 +155,7 @@ def test_add_constraint(database_connection: MockPostgresConnection) -> None:
     add_unique_constraint(database_connection)
 
     database_connection.execute_mock.assert_called_once_with(
-        'ALTER TABLE "user" ADD CONSTRAINT uk_user_email_unique UNIQUE ("email", "age")', ()
+        'ALTER TABLE "user" ADD CONSTRAINT "uk_user_email_unique" UNIQUE ("email", "age")', ()
     )
 
 
@@ -160,7 +163,7 @@ def test_add_constraint_with_namespace(database_connection: MockPostgresConnecti
     add_unique_constraint(database_connection, namespace='ns1')
 
     database_connection.execute_mock.assert_called_once_with(
-        'ALTER TABLE "ns1"."user" ADD CONSTRAINT uk_user_email_unique UNIQUE ("email", "age")', ()
+        'ALTER TABLE "ns1"."user" ADD CONSTRAINT "uk_user_email_unique" UNIQUE ("email", "age")', ()
     )
 
 
@@ -198,7 +201,7 @@ def test_add_index(database_connection: MockPostgresConnection) -> None:
     add_index(database_connection)
 
     database_connection.execute_mock.assert_called_once_with(
-        'CREATE INDEX "idx_user_email" ON "user" ("email", "age")', ()
+        'CREATE INDEX "idx_user_email" ON "user" USING btree ("email" ASC, "age" ASC)', ()
     )
 
 
@@ -206,7 +209,7 @@ def test_add_index_with_namespace(database_connection: MockPostgresConnection) -
     add_index(database_connection, namespace='ns1')
 
     database_connection.execute_mock.assert_called_once_with(
-        'CREATE INDEX "ns1"."idx_user_email" ON "ns1"."user" ("email", "age")',
+        'CREATE INDEX "idx_user_email" ON "ns1"."user" USING btree ("email" ASC, "age" ASC)',
         (),
     )
 
@@ -227,7 +230,7 @@ def test_delete_index(database_connection: MockPostgresConnection) -> None:
 def test_delete_index_with_namespace(database_connection: MockPostgresConnection) -> None:
     delete_index(database_connection, namespace='ns1')
 
-    database_connection.execute_mock.assert_called_once_with('DROP INDEX "ns1"."idx_user_email"', ())
+    database_connection.execute_mock.assert_called_once_with('DROP INDEX "idx_user_email"', ())
 
 
 def test_delete_index_benchmark(database_connection: MockPostgresConnection, benchmark) -> None:
