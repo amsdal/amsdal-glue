@@ -1,7 +1,11 @@
+import datetime as _dt
 import json
 import logging
 import re
+import sqlite3
+from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -17,6 +21,16 @@ from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 logger = logging.getLogger(__name__)
+
+# The stdlib sqlite3 driver only binds int/float/str/bytes/None natively. Since `Value` now coerces
+# typed params to canonical Python objects (Decimal for NUMERIC, uuid.UUID for UUID, date/datetime),
+# register adapters so those bind as TEXT — restoring the Decimal→str behaviour previously done by the
+# deleted `sqlite_value_transform`, and future-proofing date/datetime (whose default adapters were
+# deprecated in Python 3.12). Module-level so it also covers the async (aiosqlite) driver.
+sqlite3.register_adapter(Decimal, str)
+sqlite3.register_adapter(UUID, str)
+sqlite3.register_adapter(_dt.date, _dt.date.isoformat)
+sqlite3.register_adapter(_dt.datetime, lambda value: value.isoformat(sep=' '))
 
 _REGISTRY_VIEW_SQL: dict[str, str] = {
     TABLE_REGISTRY: (
