@@ -15,6 +15,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions import aggregation as aggr_expr
 from amsdal_glue_core.common.expressions.aggregation import Aggregation
@@ -743,24 +744,24 @@ class CsvConnection(ConnectionBase):
             msg = f'Failed to create schema from {file_path}: {e!s}'
             raise ValueError(msg) from e
 
-    def _type_to_glue_type(self, type_: Any) -> Any:
-        """Convert pandas data types to Python types."""
+    def _type_to_glue_type(self, type_: Any) -> ScalarType:
+        """Convert pandas data types to ScalarType."""
         import pandas as pd
 
         # Handle different pandas/numpy data types
-        if pd.api.types.is_integer_dtype(type_):
-            return int
-        if pd.api.types.is_float_dtype(type_):
-            return float
         if pd.api.types.is_bool_dtype(type_):
-            return bool
+            return ScalarType.BOOLEAN
+        if pd.api.types.is_integer_dtype(type_):
+            return ScalarType.INTEGER
+        if pd.api.types.is_float_dtype(type_):
+            return ScalarType.FLOAT
         if pd.api.types.is_datetime64_dtype(type_):
-            return pd.Timestamp
+            return ScalarType.TIMESTAMP
         if pd.api.types.is_string_dtype(type_) or pd.api.types.is_object_dtype(type_):
-            return str
+            return ScalarType.TEXT
 
         # Default fallback
-        return str
+        return ScalarType.TEXT
 
     def release_lock(self, lock: LockCommand) -> Any:  # noqa: ARG002
         """Release a lock. Not applicable for CSV connections."""

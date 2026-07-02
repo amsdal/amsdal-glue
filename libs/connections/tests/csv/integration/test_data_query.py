@@ -16,6 +16,7 @@ from amsdal_glue_core.common.data_models.select_expression import SelectExpressi
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Avg
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
@@ -45,9 +46,9 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
                         name='customers',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True),
-                            PropertySchema(name='name', type=str, required=True),
-                            PropertySchema(name='age', type=int, required=True),
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='name', type=ScalarType.TEXT, required=True),
+                            PropertySchema(name='age', type=ScalarType.INTEGER, required=True),
                         ],
                     ),
                 )
@@ -63,9 +64,9 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
                         name='orders',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True),
-                            PropertySchema(name='customer_id', type=int, required=True),
-                            PropertySchema(name='amount', type=int, required=True),
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='customer_id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='amount', type=ScalarType.INTEGER, required=True),
                         ],
                     ),
                 )

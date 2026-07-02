@@ -77,9 +77,7 @@ def update_two_customers(
         ),
         UpdateData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data=Data(
-                data={'id': '1', 'name': 'new_customer'},
-            ),
+            data={'id': Value('1'), 'name': Value('new_customer')},
         ),
     ])
 

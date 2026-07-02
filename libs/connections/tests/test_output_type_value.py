@@ -20,6 +20,7 @@ from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.select_expression import SelectExpression
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.expressions.value import Value
 
 _lite = SqlGenerator('sqlite', param_style='qmark')
@@ -47,13 +48,14 @@ def test_value_string_output_type_none_emits_plain_placeholder_sqlite() -> None:
 
 def test_value_string_output_type_str_emits_cast_text_sqlite() -> None:
     # SUSPICIOUS: old builder emitted cast(? as TEXT); Rust ignores output_type — plain ?.
-    assert _q_lite(Value(value='2026-01-01', output_type=str)) == ('SELECT ? AS "v" FROM "t"', ['2026-01-01'])
+    result = _q_lite(Value(value='2026-01-01', output_type=ScalarType.TEXT))
+    assert result == ('SELECT ? AS "v" FROM "t"', ['2026-01-01'])
 
 
 def test_value_string_output_type_none_vs_str_postgres() -> None:
     # SUSPICIOUS: old builder emitted %s vs (%s)::TEXT; Rust emits %s for both.
     sql_none, _ = _q_pg(Value(value='2026-01-01', output_type=None))
-    sql_str, _ = _q_pg(Value(value='2026-01-01', output_type=str))
+    sql_str, _ = _q_pg(Value(value='2026-01-01', output_type=ScalarType.TEXT))
 
     assert sql_none == 'SELECT %s AS "v" FROM "t"'
     assert sql_str == 'SELECT %s AS "v" FROM "t"'
@@ -66,7 +68,7 @@ def test_value_int_output_type_none_emits_plain_placeholder_sqlite() -> None:
 
 def test_value_int_output_type_int_emits_cast_integer_sqlite() -> None:
     # SUSPICIOUS: old builder emitted cast(? as INTEGER); Rust ignores output_type — plain ?.
-    sql, _ = _q_lite(Value(value=42, output_type=int))
+    sql, _ = _q_lite(Value(value=42, output_type=ScalarType.INTEGER))
     assert sql == 'SELECT ? AS "v" FROM "t"'
 
 
@@ -84,7 +86,7 @@ def test_value_datetime_output_type_str_emits_cast_text_sqlite() -> None:
     # SUSPICIOUS: old builder emitted cast(? as TEXT); Rust emits plain ?.
     # Also: datetime is serialised to ISO string in params (not Python object).
     dt = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    sql, vals = _q_lite(Value(value=dt, output_type=str))
+    sql, vals = _q_lite(Value(value=dt, output_type=ScalarType.TEXT))
 
     assert sql == 'SELECT ? AS "v" FROM "t"'
     assert vals == ['2026-01-01 00:00:00+00:00']

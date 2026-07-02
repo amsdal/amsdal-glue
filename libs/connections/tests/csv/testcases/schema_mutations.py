@@ -11,6 +11,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -27,17 +28,17 @@ DEFAULT_SCHEMA = Schema(
     properties=[
         PropertySchema(
             name='id',
-            type=int,
+            type=ScalarType.INTEGER,
             required=True,
         ),
         PropertySchema(
             name='email',
-            type=str,
+            type=ScalarType.TEXT,
             required=True,
         ),
         PropertySchema(
             name='age',
-            type=int,
+            type=ScalarType.INTEGER,
             required=True,
         ),
     ],
@@ -56,27 +57,27 @@ def create_user_schema(database_connection: CsvConnection, namespace: str | None
         properties=[
             PropertySchema(
                 name='id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='email',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
             PropertySchema(
                 name='age',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='first_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
             PropertySchema(
                 name='last_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
         ],
