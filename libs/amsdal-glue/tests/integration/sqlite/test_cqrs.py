@@ -63,12 +63,13 @@ def cqrs_app() -> Generator[CQRSApplication, None, None]:
 
 def test_schema_command(cqrs_app: CQRSApplication) -> None:
     from .fixtures.user_schema import user_schema
+    from .fixtures.user_schema import user_schema_ref
 
     service = Container.services.get(SchemaCommandService)
     result = service.execute(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=user_schema),
+                RegisterSchema(schema_ref=user_schema_ref, schema=user_schema),
             ],
         ),
     )

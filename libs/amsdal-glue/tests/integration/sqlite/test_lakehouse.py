@@ -62,12 +62,13 @@ def lakehouse_app() -> Generator[LakehouseApplication, None, None]:
 
 def test_schema_command(lakehouse_app: LakehouseApplication) -> None:
     from .fixtures.user_schema import user_schema
+    from .fixtures.user_schema import user_schema_ref
 
     service = Container.services.get(SchemaCommandService)
     result = service.execute(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=user_schema),
+                RegisterSchema(schema_ref=user_schema_ref, schema=user_schema),
             ],
         ),
     )
