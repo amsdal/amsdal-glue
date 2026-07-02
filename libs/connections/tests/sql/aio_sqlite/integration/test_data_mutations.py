@@ -56,17 +56,15 @@ async def test_delete(fixture_connection: AsyncSqliteConnection) -> None:
     await fixture_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[
-                Data(
-                    data={'id': '1', 'name': 'customer'},
-                ),
-                Data(
-                    data={'id': '2', 'name': 'customer', 'age': 25},
-                ),
-                Data(
-                    data={'id': '3', 'name': 'customer', 'age': 30},
-                ),
-            ],
+            data=[Data(data={'id': '1', 'name': 'customer'})],
+        ),
+        InsertData(
+            schema=SchemaReference(name='customers', version=Version.LATEST),
+            data=[Data(data={'id': '2', 'name': 'customer', 'age': 25})],
+        ),
+        InsertData(
+            schema=SchemaReference(name='customers', version=Version.LATEST),
+            data=[Data(data={'id': '3', 'name': 'customer', 'age': 30})],
         ),
     ])
     assert await (await fixture_connection.execute('SELECT id, name, age FROM customers')).fetchall() == [
