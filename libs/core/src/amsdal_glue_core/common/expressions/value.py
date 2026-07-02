@@ -16,6 +16,10 @@ class Value(Expression):
 
     def __init__(self, value: Any, output_type: FieldType | None = None) -> None:
         super().__init__(output_type=output_type)
+        if output_type is not None and value is not None:
+            from amsdal_glue_core.common.expressions._coerce import coerce_to_field_type
+
+            value = coerce_to_field_type(value, output_type)
         self.value = value
 
     def __repr__(self) -> str:
