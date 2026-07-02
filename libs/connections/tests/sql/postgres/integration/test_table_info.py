@@ -1,10 +1,9 @@
-import datetime
-
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
@@ -26,11 +25,11 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
     assert (
         [
             PropertySchema(
-                name='id', type=int, required=True, description=None, default="nextval('orders_id_seq'::regclass)"
+                name='id', type=ScalarType.SERIAL, required=True, description=None, default=None
             ),
-            PropertySchema(name='customer_id', type=int, required=False, description=None, default=None),
-            PropertySchema(name='amount', type=int, required=False, description=None, default=None),
-            PropertySchema(name='date', type=datetime.date, required=False, description=None, default=None),
+            PropertySchema(name='customer_id', type=ScalarType.INTEGER, required=False, description=None, default=None),
+            PropertySchema(name='amount', type=ScalarType.INTEGER, required=False, description=None, default=None),
+            PropertySchema(name='date', type=ScalarType.DATE, required=False, description=None, default=None),
         ],
         [
             PrimaryKeyConstraint(
@@ -57,13 +56,13 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
             properties=[
                 PropertySchema(
                     name='id',
-                    type=int,
+                    type=ScalarType.SERIAL,
                     required=True,
                     description=None,
-                    default="nextval('customers_id_seq'::regclass)",
+                    default=None,
                 ),
-                PropertySchema(name='age', type=int, required=False, description=None, default=None),
-                PropertySchema(name='name', type=str, required=False, description=None, default=None),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False, description=None, default=None),
+                PropertySchema(name='name', type=ScalarType.TEXT, required=False, description=None, default=None),
             ],
             constraints=[PrimaryKeyConstraint(name='customers_pkey', fields=['id'])],
             indexes=[],
@@ -74,11 +73,11 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
             extends=None,
             properties=[
                 PropertySchema(
-                    name='id', type=int, required=True, description=None, default="nextval('orders_id_seq'::regclass)"
+                    name='id', type=ScalarType.SERIAL, required=True, description=None, default=None
                 ),
-                PropertySchema(name='customer_id', type=int, required=False, description=None, default=None),
-                PropertySchema(name='amount', type=int, required=False, description=None, default=None),
-                PropertySchema(name='date', type=datetime.date, required=False, description=None, default=None),
+                PropertySchema(name='customer_id', type=ScalarType.INTEGER, required=False, description=None, default=None),
+                PropertySchema(name='amount', type=ScalarType.INTEGER, required=False, description=None, default=None),
+                PropertySchema(name='date', type=ScalarType.DATE, required=False, description=None, default=None),
             ],
             constraints=[
                 PrimaryKeyConstraint(name='orders_pkey', fields=['id']),
