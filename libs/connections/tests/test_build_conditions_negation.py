@@ -76,17 +76,21 @@ def test_build_conditions_nested_and_root_negation_both_emit() -> None:
 
 
 def test_build_conditions_empty_negated_returns_empty() -> None:
-    """`Conditions(negated=True)` with no children.
-
-    SUSPICIOUS: old build_conditions returned ('', []).  The Rust generator
-    emits WHERE NOT () which is syntactically invalid SQL.  Re-baselined to
-    actual output; callers should guard against empty Conditions before
-    compiling.
-    """
+    """An empty `Conditions` group must be FILTERED OUT by `compile_query` — with or without NOT —
+    so no WHERE is emitted (never the invalid `WHERE NOT ()`). Matches the old builder's ('', [])."""
     c = Conditions(negated=True)
 
     sql, params = _gen.compile_query(QueryStatement(table=_TABLE, where=c))
 
-    # SUSPICIOUS: WHERE NOT () is invalid SQL — old builder emitted empty string.
-    assert sql == 'SELECT * FROM "t" WHERE NOT ()'
+    assert sql == 'SELECT * FROM "t"'
+    assert params == []
+
+
+def test_build_conditions_empty_not_negated_returns_empty() -> None:
+    """An empty `Conditions` group (no NOT) is likewise filtered out — no WHERE."""
+    c = Conditions()
+
+    sql, params = _gen.compile_query(QueryStatement(table=_TABLE, where=c))
+
+    assert sql == 'SELECT * FROM "t"'
     assert params == []

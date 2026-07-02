@@ -20,9 +20,9 @@ pub fn extract_query_stmt(ob: &Bound<PyAny>) -> PyResult<QueryStmt> {
     let (from, columns, distinct, set_op) = extract_from_and_columns(ob)?;
     let expressions = extract_optional_list(ob, "expressions", extract_select_expr)?;
     let joins = extract_optional_list(ob, "joins", extract_join_query)?;
-    let where_clause = extract_optional(ob, "where", extract_conditions)?;
+    let where_clause = extract_optional_conditions(ob, "where")?;
     let group_by = extract_optional_list(ob, "group_by", extract_group_by)?;
-    let having = extract_optional(ob, "having", extract_conditions)?;
+    let having = extract_optional_conditions(ob, "having")?;
     let order_by = extract_optional_list(ob, "order_by", extract_order_by)?;
     let limit = extract_optional(ob, "limit", extract_limit)?;
     let ctes = extract_optional_list(ob, "ctes", extract_cte)?;
@@ -743,6 +743,17 @@ pub fn extract_conditions(ob: &Bound<PyAny>) -> PyResult<Conditions> {
         connector,
         negated,
     })
+}
+
+/// Extract an optional `where`/`having` `Conditions`, filtering out an EMPTY condition group
+/// (a `Conditions` with no children) so it renders no clause at all — never `WHERE NOT ()` or a
+/// dangling `WHERE`. Guarding against building an empty group is otherwise the caller's job; this
+/// only normalises the degenerate empty-group input to "no clause".
+fn extract_optional_conditions(ob: &Bound<PyAny>, attr: &str) -> PyResult<Option<Conditions>> {
+    match extract_optional(ob, attr, extract_conditions)? {
+        Some(conditions) if conditions.children.is_empty() => Ok(None),
+        other => Ok(other),
+    }
 }
 
 // ---------------------------------------------------------------------------
