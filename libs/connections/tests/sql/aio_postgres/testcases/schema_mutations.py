@@ -1,5 +1,3 @@
-from dataclasses import asdict
-
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -13,6 +11,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -36,17 +35,17 @@ DEFAULT_SCHEMA = Schema(
     properties=[
         PropertySchema(
             name='id',
-            type=int,
+            type=ScalarType.BIGINT,
             required=True,
         ),
         PropertySchema(
             name='email',
-            type=str,
+            type=ScalarType.TEXT,
             required=True,
         ),
         PropertySchema(
             name='age',
-            type=int,
+            type=ScalarType.BIGINT,
             required=True,
         ),
     ],
@@ -57,7 +56,9 @@ DEFAULT_SCHEMA_REF = SchemaReference(
 )
 
 
-async def create_user_schema(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[Schema | None]:
+async def create_user_schema(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema = Schema(
         name='user',
         namespace=namespace,
@@ -65,27 +66,27 @@ async def create_user_schema(database_connection: AsyncPostgresConnection, names
         properties=[
             PropertySchema(
                 name='id',
-                type=int,
+                type=ScalarType.BIGINT,
                 required=True,
             ),
             PropertySchema(
                 name='email',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
             PropertySchema(
                 name='age',
-                type=int,
+                type=ScalarType.BIGINT,
                 required=True,
             ),
             PropertySchema(
                 name='first_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
             PropertySchema(
                 name='last_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
         ],
@@ -115,13 +116,18 @@ async def create_user_schema(database_connection: AsyncPostgresConnection, names
     return await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=schema),
+                RegisterSchema(
+                    schema_ref=SchemaReference(name='user', namespace=namespace, version=Version.LATEST),
+                    schema=schema,
+                ),
             ],
         ),
     )
 
 
-async def rename_user_schema(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[Schema | None]:
+async def rename_user_schema(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -131,13 +137,15 @@ async def rename_user_schema(database_connection: AsyncPostgresConnection, names
     return await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RenameSchema(schema_reference=schema_ref, new_schema_name='customer'),
+                RenameSchema(schema_ref=schema_ref, new_name='customer'),
             ],
         ),
     )
 
 
-async def delete_user_schema(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[Schema | None]:
+async def delete_user_schema(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -147,14 +155,14 @@ async def delete_user_schema(database_connection: AsyncPostgresConnection, names
     return await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                DeleteSchema(schema_reference=schema_ref),
+                DeleteSchema(schema_ref=schema_ref),
             ],
         ),
     )
 
 
 async def add_last_name_property(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
 ) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
@@ -166,15 +174,17 @@ async def add_last_name_property(
         SchemaCommand(
             mutations=[
                 AddProperty(
-                    schema_reference=schema_ref,
-                    property=PropertySchema(name='last_name', type=str, required=False),
+                    schema_ref=schema_ref,
+                    property=PropertySchema(name='last_name', type=ScalarType.TEXT, required=False),
                 ),
             ],
         ),
     )
 
 
-async def delete_age_property(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[Schema | None]:
+async def delete_age_property(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -184,13 +194,15 @@ async def delete_age_property(database_connection: AsyncPostgresConnection, name
     return await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                DeleteProperty(schema_reference=schema_ref, property_name='age'),
+                DeleteProperty(schema_ref=schema_ref, property_name='age'),
             ],
         ),
     )
 
 
-async def update_age_property(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[Schema | None]:
+async def update_age_property(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -201,8 +213,8 @@ async def update_age_property(database_connection: AsyncPostgresConnection, name
         SchemaCommand(
             mutations=[
                 UpdateProperty(
-                    schema_reference=schema_ref,
-                    property=PropertySchema(name='age', type=str, required=False),
+                    schema_ref=schema_ref,
+                    property=PropertySchema(name='age', type=ScalarType.TEXT, required=False),
                 ),
             ],
         ),
@@ -210,7 +222,7 @@ async def update_age_property(database_connection: AsyncPostgresConnection, name
 
 
 async def add_unique_constraint(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
 ) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
@@ -222,7 +234,7 @@ async def add_unique_constraint(
         SchemaCommand(
             mutations=[
                 AddConstraint(
-                    schema_reference=schema_ref,
+                    schema_ref=schema_ref,
                     constraint=UniqueConstraint(
                         name='uk_user_email_unique',
                         fields=['email', 'age'],
@@ -235,16 +247,19 @@ async def add_unique_constraint(
 
 
 async def delete_unique_constraint(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
 ) -> list[Schema | None]:
-    schema_ref = SchemaReference(**asdict(DEFAULT_SCHEMA_REF))
-    schema_ref.namespace = namespace
+    schema_ref = SchemaReference(
+        name='user',
+        namespace=namespace,
+        version=Version.LATEST,
+    )
 
     return await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 DeleteConstraint(
-                    schema_reference=schema_ref,
+                    schema_ref=schema_ref,
                     constraint_name='uk_user_email_unique',
                 ),
             ],
@@ -252,15 +267,20 @@ async def delete_unique_constraint(
     )
 
 
-async def add_index(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[Schema | None]:
-    schema_ref = SchemaReference(**asdict(DEFAULT_SCHEMA_REF))
-    schema_ref.namespace = namespace
+async def add_index(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
+    schema_ref = SchemaReference(
+        name='user',
+        namespace=namespace,
+        version=Version.LATEST,
+    )
 
     return await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 AddIndex(
-                    schema_reference=schema_ref,
+                    schema_ref=schema_ref,
                     index=IndexSchema(
                         name='idx_user_email',
                         fields=[IndexField(name='email'), IndexField(name='age')],
@@ -272,15 +292,20 @@ async def add_index(database_connection: AsyncPostgresConnection, namespace: str
     )
 
 
-async def delete_index(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[Schema | None]:
-    schema_ref = SchemaReference(**asdict(DEFAULT_SCHEMA_REF))
-    schema_ref.namespace = namespace
+async def delete_index(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
+    schema_ref = SchemaReference(
+        name='user',
+        namespace=namespace,
+        version=Version.LATEST,
+    )
 
     return await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
                 DeleteIndex(
-                    schema_reference=schema_ref,
+                    schema_ref=schema_ref,
                     index_name='idx_user_email',
                 ),
             ],
