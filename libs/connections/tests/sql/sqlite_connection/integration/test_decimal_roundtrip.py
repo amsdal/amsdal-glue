@@ -2,10 +2,11 @@ from decimal import Decimal
 
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import DecimalSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -19,14 +20,15 @@ def _register_invoice(database_connection: SqliteConnection) -> SchemaReference:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='invoice', version=Version.LATEST),
                     schema=Schema(
                         name='invoice',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True),
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
                             PropertySchema(
                                 name='amount',
-                                type=DecimalSchemaModel(precision=10, scale=2),
+                                type=CustomType(name='DECIMAL_TEXT', params={'precision': 10, 'scale': 2}),
                                 required=True,
                             ),
                         ],
