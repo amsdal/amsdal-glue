@@ -17,7 +17,7 @@ from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.executors.interfaces import AsyncFinalDataQueryExecutor
 from amsdal_glue_core.common.executors.interfaces import FinalDataQueryExecutor
 from amsdal_glue_core.common.expressions.combined import Combined
-from amsdal_glue_core.common.expressions.common import Expression
+from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.queries.data_query_nodes import FinalDataQueryNode
