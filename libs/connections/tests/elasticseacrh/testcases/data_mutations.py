@@ -16,7 +16,7 @@ from amsdal_glue_connections.elasticsearch_connection.sync_connection import Ela
 
 
 def simple_customer_insert(
-    database_connection: ElasticsearchConnection, namespace: str = ''
+    database_connection: ElasticsearchConnection, namespace: str | None = None
 ) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
@@ -32,8 +32,8 @@ def simple_customer_insert(
 
 def insert_customers_and_orders(
     database_connection: ElasticsearchConnection,
-    namespace_1: str = '',
-    namespace_2: str = '',
+    namespace_1: str | None = None,
+    namespace_2: str | None = None,
 ) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
@@ -63,7 +63,7 @@ def insert_customers_and_orders(
     ])
 
 
-def update_two_customers(database_connection: ElasticsearchConnection, namespace: str = '') -> list[list[Data] | None]:
+def update_two_customers(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
@@ -82,7 +82,7 @@ def update_two_customers(database_connection: ElasticsearchConnection, namespace
     ])
 
 
-def delete_customer(database_connection: ElasticsearchConnection, namespace: str = '') -> list[list[Data] | None]:
+def delete_customer(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         DeleteData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
