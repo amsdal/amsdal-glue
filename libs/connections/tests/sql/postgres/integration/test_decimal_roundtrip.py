@@ -1,8 +1,10 @@
 from decimal import Decimal
 
-from amsdal_glue_core.common.data_models.schema import DecimalSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
@@ -15,14 +17,15 @@ def test_decimal_column_is_numeric_and_round_trips(database_connection: Postgres
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='invoice', version=Version.LATEST),
                     schema=Schema(
                         name='invoice',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True),
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
                             PropertySchema(
                                 name='amount',
-                                type=DecimalSchemaModel(precision=10, scale=2),
+                                type=CustomType(name='NUMERIC', params={'precision': 10, 'scale': 2}),
                                 required=True,
                             ),
                         ],
