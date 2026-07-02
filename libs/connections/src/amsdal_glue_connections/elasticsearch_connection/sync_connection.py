@@ -2131,7 +2131,27 @@ class ElasticsearchConnection(ConnectionBase):
 
     def _to_es_mapping(self, prop) -> dict:  # noqa: PLR0911
         # Translate PropertySchema to ES mapping type
-        # Handle basic types
+        # Handle ScalarType enum values
+        if isinstance(prop.type, ScalarType):
+            _scalar_map: dict[ScalarType, dict] = {
+                ScalarType.TEXT: {'type': 'text'},
+                ScalarType.INTEGER: {'type': 'long'},
+                ScalarType.BIGINT: {'type': 'long'},
+                ScalarType.SMALLINT: {'type': 'long'},
+                ScalarType.FLOAT: {'type': 'float'},
+                ScalarType.DOUBLE: {'type': 'double'},
+                ScalarType.NUMERIC: {'type': 'double'},
+                ScalarType.BOOLEAN: {'type': 'boolean'},
+                ScalarType.DATE: {'type': 'date'},
+                ScalarType.TIMESTAMP: {'type': 'date'},
+                ScalarType.TIMESTAMPTZ: {'type': 'date'},
+                ScalarType.BYTEA: {'type': 'binary'},
+                ScalarType.JSON: {'type': 'object'},
+                ScalarType.JSONB: {'type': 'object'},
+                ScalarType.UUID: {'type': 'keyword'},
+            }
+            return _scalar_map.get(prop.type, {'type': 'keyword'})
+        # Handle raw Python types (legacy fallback)
         if prop.type is str:
             return {'type': 'text'}
         if prop.type is int:
