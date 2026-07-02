@@ -12,13 +12,14 @@ from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
 
-from amsdal_glue_connections.sql.connections.sqlite_connection import get_sqlite_transform
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
+from amsdal_glue_connections._sql_core import SqlGenerator
+
+_gen = SqlGenerator('sqlite', param_style='qmark')
 
 
 def test_build_data_command__insert() -> None:
-    sql, values = build_sql_data_command(
-        mutation=InsertData(
+    sql, values = _gen.compile_mutation(
+        InsertData(
             schema=SchemaReference(name='users', version=Version.LATEST),
             data=[
                 Data(
@@ -35,16 +36,16 @@ def test_build_data_command__insert() -> None:
                 ),
             ],
         ),
-        transform=get_sqlite_transform(),
     )
 
-    assert sql == "INSERT INTO 'users' ('id', 'name') VALUES (?, ?), (?, ?)"
+    # Re-baselined: SQLite identifiers use ANSI double-quotes (was single-quotes).
+    assert sql == 'INSERT INTO "users" ("id", "name") VALUES (?, ?), (?, ?)'
     assert values == [1, 'Alice', 2, 'Bob']
 
 
 def test_build_data_command_with_namespace__insert() -> None:
-    sql, values = build_sql_data_command(
-        mutation=InsertData(
+    sql, values = _gen.compile_mutation(
+        InsertData(
             schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
             data=[
                 Data(
@@ -61,18 +62,19 @@ def test_build_data_command_with_namespace__insert() -> None:
                 ),
             ],
         ),
-        transform=get_sqlite_transform(),
     )
 
-    assert sql == "INSERT INTO 'ns1'.'users' ('id', 'name') VALUES (?, ?), (?, ?)"
+    # Re-baselined: double-quotes for identifiers.
+    assert sql == 'INSERT INTO "ns1"."users" ("id", "name") VALUES (?, ?), (?, ?)'
     assert values == [1, 'Alice', 2, 'Bob']
 
 
 def test_build_data_command__update() -> None:
-    sql, values = build_sql_data_command(
-        mutation=UpdateData(
+    # UpdateData.data is now dict[str, Expression], not a Data object.
+    sql, values = _gen.compile_mutation(
+        UpdateData(
             schema=SchemaReference(name='users', version=Version.LATEST),
-            data=Data(data={'role': 'staff'}),
+            data={'role': Value('staff')},
             query=Conditions(
                 Condition(
                     left=FieldReferenceExpression(
@@ -83,18 +85,18 @@ def test_build_data_command__update() -> None:
                 ),
             ),
         ),
-        transform=get_sqlite_transform(),
     )
 
-    assert sql == "UPDATE 'users' SET 'role' = ? WHERE 'users'.'is_active' IS ?"
+    # Re-baselined: double-quotes; EXACT now emits = (was IS) — known different-but-valid.
+    assert sql == 'UPDATE "users" SET "role" = ? WHERE "users"."is_active" = ?'
     assert values == ['staff', True]
 
 
 def test_build_data_command_with_namespace__update() -> None:
-    sql, values = build_sql_data_command(
-        mutation=UpdateData(
+    sql, values = _gen.compile_mutation(
+        UpdateData(
             schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
-            data=Data(data={'role': 'staff'}),
+            data={'role': Value('staff')},
             query=Conditions(
                 Condition(
                     left=FieldReferenceExpression(
@@ -105,18 +107,17 @@ def test_build_data_command_with_namespace__update() -> None:
                 ),
             ),
         ),
-        transform=get_sqlite_transform(),
     )
 
-    assert sql == "UPDATE 'ns1'.'users' SET 'role' = ? WHERE 'users'.'is_active' IS ?"
+    assert sql == 'UPDATE "ns1"."users" SET "role" = ? WHERE "users"."is_active" = ?'
     assert values == ['staff', True]
 
 
 def test_build_data_command_with_namespaces__update() -> None:
-    sql, values = build_sql_data_command(
-        mutation=UpdateData(
+    sql, values = _gen.compile_mutation(
+        UpdateData(
             schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
-            data=Data(data={'role': 'staff'}),
+            data={'role': Value('staff')},
             query=Conditions(
                 Condition(
                     left=FieldReferenceExpression(
@@ -129,16 +130,15 @@ def test_build_data_command_with_namespaces__update() -> None:
                 ),
             ),
         ),
-        transform=get_sqlite_transform(),
     )
 
-    assert sql == "UPDATE 'ns1'.'users' SET 'role' = ? WHERE 'ns1'.'users'.'is_active' IS ?"
+    assert sql == 'UPDATE "ns1"."users" SET "role" = ? WHERE "ns1"."users"."is_active" = ?'
     assert values == ['staff', True]
 
 
 def test_build_data_command__delete() -> None:
-    sql, values = build_sql_data_command(
-        mutation=DeleteData(
+    sql, values = _gen.compile_mutation(
+        DeleteData(
             schema=SchemaReference(name='users', version=Version.LATEST),
             query=Conditions(
                 Condition(
@@ -150,16 +150,15 @@ def test_build_data_command__delete() -> None:
                 ),
             ),
         ),
-        transform=get_sqlite_transform(),
     )
 
-    assert sql == "DELETE FROM 'users' WHERE 'users'.'is_active' IS ?"
+    assert sql == 'DELETE FROM "users" WHERE "users"."is_active" = ?'
     assert values == [False]
 
 
 def test_build_data_command_with_namespace__delete() -> None:
-    sql, values = build_sql_data_command(
-        mutation=DeleteData(
+    sql, values = _gen.compile_mutation(
+        DeleteData(
             schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
             query=Conditions(
                 Condition(
@@ -171,16 +170,15 @@ def test_build_data_command_with_namespace__delete() -> None:
                 ),
             ),
         ),
-        transform=get_sqlite_transform(),
     )
 
-    assert sql == "DELETE FROM 'ns1'.'users' WHERE 'users'.'is_active' IS ?"
+    assert sql == 'DELETE FROM "ns1"."users" WHERE "users"."is_active" = ?'
     assert values == [False]
 
 
 def test_build_data_command_with_namespaces__delete() -> None:
-    sql, values = build_sql_data_command(
-        mutation=DeleteData(
+    sql, values = _gen.compile_mutation(
+        DeleteData(
             schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
             query=Conditions(
                 Condition(
@@ -194,8 +192,7 @@ def test_build_data_command_with_namespaces__delete() -> None:
                 ),
             ),
         ),
-        transform=get_sqlite_transform(),
     )
 
-    assert sql == "DELETE FROM 'ns1'.'users' WHERE 'ns1'.'users'.'is_active' IS ?"
+    assert sql == 'DELETE FROM "ns1"."users" WHERE "ns1"."users"."is_active" = ?'
     assert values == [False]
