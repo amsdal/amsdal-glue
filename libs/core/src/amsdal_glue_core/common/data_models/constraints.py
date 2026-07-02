@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.enums import ReferentialAction
 
 if TYPE_CHECKING:
     from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -64,6 +65,8 @@ class ForeignKeyConstraint(BaseConstraint):
     fields: list[str]
     reference_schema: 'SchemaReference'
     reference_fields: list[str]
+    on_delete: ReferentialAction = ReferentialAction.NO_ACTION
+    on_update: ReferentialAction = ReferentialAction.NO_ACTION
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -77,6 +80,8 @@ class ForeignKeyConstraint(BaseConstraint):
             and self.fields == other.fields
             and self.reference_schema.name == other.reference_schema.name
             and self.reference_fields == other.reference_fields
+            and self.on_delete == other.on_delete
+            and self.on_update == other.on_update
         )
 
     def __copy__(self):
@@ -85,6 +90,8 @@ class ForeignKeyConstraint(BaseConstraint):
             fields=copy(self.fields),
             reference_schema=copy(self.reference_schema),
             reference_fields=copy(self.reference_fields),
+            on_delete=self.on_delete,
+            on_update=self.on_update,
         )
 
     def __hash__(self) -> int:
