@@ -22,7 +22,7 @@ from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_connections.sql.connections.csv_connection import CsvConnection
 
 
-def query_customers(database_connection: CsvConnection, namespace: str = '') -> list[Data]:
+def query_customers(database_connection: CsvConnection, namespace: str | None = None) -> list[Data]:
     return database_connection.query(
         QueryStatement(
             table=SchemaReference(name='customers', alias='c', namespace=namespace, version=Version.LATEST),
