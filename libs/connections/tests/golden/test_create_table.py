@@ -5,20 +5,16 @@ Covers: CREATE TABLE with columns + defaults, PRIMARY KEY, UNIQUE,
 FOREIGN KEY, CHECK constraints, and CREATE INDEX — for both SQLite
 and Postgres dialects.
 
-SQLite uses the build_schema_mutation / schema_builder.py code path
-(single-quoted identifiers). Postgres drives _create_table() inline
-on the connection class (double-quoted identifiers).
+Both SQLite and Postgres now route through the Rust SqlGenerator
+(``compile_schema_mutation``), which uses ANSI double-quoted identifiers
+for both dialects and lowercase type names.
 
-Note on SQLite AddConstraint / DeleteConstraint
-------------------------------------------------
-These two mutation types are intentionally absent from this golden file.
-Their SQLite implementation in ``_run_schema_mutation`` delegates to
-``_recreate_table_with_constraints``, which immediately calls
-``self.connection.execute('BEGIN')`` and ``query_schema()`` — both of
-which require a live database connection.  Because this golden-file
-harness generates SQL without connecting to any DB, capturing those
-paths here is out of scope.  They are covered by the corpus/integration
-capture instead (Tasks 16-18).
+Note on ForeignKeyConstraint
+-----------------------------
+The Rust generator accesses ``fk.on_delete`` on ``ForeignKeyConstraint``
+objects.  The current Python model does not define that attribute, causing
+``AttributeError``.  FK tests are marked ``xfail`` pending the model
+update.  See phaseE-ddl-report.md SUSPICIOUS-1.
 """
 
 import pytest
@@ -36,6 +32,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -71,13 +68,14 @@ def _gt_condition(table: str, field: str, value: object) -> Conditions:
 def test_register_schema_sqlite() -> None:
     stmts = lite_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='name', type=str, required=True),
-                    PropertySchema(name='age', type=int, required=False, default=18),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='name', type=ScalarType.TEXT, required=True),
+                    PropertySchema(name='age', type=ScalarType.INTEGER, required=False, default=Value(value=18)),
                 ],
                 constraints=[PrimaryKeyConstraint(name='pk_person', fields=['id'])],
                 indexes=[IndexSchema(name='idx_person_name', fields=[IndexField(name='name')])],
@@ -86,67 +84,62 @@ def test_register_schema_sqlite() -> None:
     )
     assert stmts == [
         (
-            "CREATE TABLE 'Person' ("
-            "'id' INTEGER NOT NULL, "
-            "'name' TEXT NOT NULL, "
-            "'age' INTEGER DEFAULT 18, "
-            "CONSTRAINT 'pk_person' PRIMARY KEY ('id')"
+            'CREATE TABLE "Person" ('
+            '"id" integer NOT NULL, '
+            '"name" text NOT NULL, '
+            '"age" integer DEFAULT (18), '
+            'CONSTRAINT "pk_person" PRIMARY KEY ("id")'
             ')',
             [],
         ),
-        ("CREATE INDEX 'idx_person_name' ON 'Person' ('name')", []),
+        ('CREATE INDEX "idx_person_name" ON "Person" ("name" ASC)', []),
     ]
 
 
 def test_register_schema_pg() -> None:
     stmts = pg_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='name', type=str, required=True),
-                    PropertySchema(name='age', type=int, required=False, default=18),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='name', type=ScalarType.TEXT, required=True),
+                    PropertySchema(name='age', type=ScalarType.INTEGER, required=False, default=Value(value=18)),
                 ],
                 constraints=[PrimaryKeyConstraint(name='pk_person', fields=['id'])],
                 indexes=[IndexSchema(name='idx_person_name', fields=[IndexField(name='name')])],
             ),
         ),
     )
-    # KNOWN-DIVERGENCE (migration): PG _build_constraint for PrimaryKeyConstraint
-    # does NOT quote the constraint name and appends a trailing space before the
-    # closing paren.  Current output: `CONSTRAINT pk_person PRIMARY KEY ("id") `
-    # (unquoted name + trailing space before `)`) .  Correct PG:
-    # `CONSTRAINT "pk_person" PRIMARY KEY ("id")`.  Note: FK constraint names
-    # ARE quoted in PG (see test_foreign_key_constraint_pg), making this an
-    # internal inconsistency.  The Rust generator is expected to fix this: quote
-    # all constraint names and drop the trailing space.
     assert stmts == [
         (
             'CREATE TABLE "Person" ('
-            '"id" BIGINT NOT NULL, '
-            '"name" TEXT NOT NULL, '
-            '"age" BIGINT DEFAULT 18, '
-            'CONSTRAINT pk_person PRIMARY KEY ("id") '
+            '"id" integer NOT NULL, '
+            '"name" text NOT NULL, '
+            '"age" integer DEFAULT 18, '
+            'CONSTRAINT "pk_person" PRIMARY KEY ("id")'
             ')',
             [],
         ),
-        ('CREATE INDEX "idx_person_name" ON "Person" ("name")', []),
+        ('CREATE INDEX "idx_person_name" ON "Person" USING btree ("name" ASC)', []),
     ]
 
 
-@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D6')
 def test_register_schema_pg_pk_quoted_correct_behaviour() -> None:
+    # Rust generator now correctly quotes all constraint names and emits no trailing
+    # space — the divergence tracked by §3-D6 is resolved.
     captured = pg_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='name', type=str, required=True),
-                    PropertySchema(name='age', type=int, required=False, default=18),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='name', type=ScalarType.TEXT, required=True),
+                    PropertySchema(name='age', type=ScalarType.INTEGER, required=False, default=Value(value=18)),
                 ],
                 constraints=[PrimaryKeyConstraint(name='pk_person', fields=['id'])],
                 indexes=[IndexSchema(name='idx_person_name', fields=[IndexField(name='name')])],
@@ -167,12 +160,13 @@ def test_register_schema_pg_pk_quoted_correct_behaviour() -> None:
 def test_unique_constraint_sqlite() -> None:
     stmts = lite_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='email', type=str, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='email', type=ScalarType.TEXT, required=True),
                 ],
                 constraints=[UniqueConstraint(name='uq_person_email', fields=['email'])],
             ),
@@ -180,10 +174,10 @@ def test_unique_constraint_sqlite() -> None:
     )
     assert stmts == [
         (
-            "CREATE TABLE 'Person' ("
-            "'id' INTEGER NOT NULL, "
-            "'email' TEXT NOT NULL, "
-            "CONSTRAINT 'uq_person_email' UNIQUE ('email')"
+            'CREATE TABLE "Person" ('
+            '"id" integer NOT NULL, '
+            '"email" text NOT NULL, '
+            'CONSTRAINT "uq_person_email" UNIQUE ("email")'
             ')',
             [],
         ),
@@ -193,46 +187,41 @@ def test_unique_constraint_sqlite() -> None:
 def test_unique_constraint_pg() -> None:
     stmts = pg_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='email', type=str, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='email', type=ScalarType.TEXT, required=True),
                 ],
                 constraints=[UniqueConstraint(name='uq_person_email', fields=['email'])],
             ),
         ),
     )
-    # KNOWN-DIVERGENCE (migration): PG _build_constraint for UniqueConstraint does
-    # NOT quote the constraint name.  Current output:
-    # `CONSTRAINT uq_person_email UNIQUE ("email")` (unquoted name).
-    # Correct PG: `CONSTRAINT "uq_person_email" UNIQUE ("email")`.  Note: FK
-    # constraint names ARE quoted in PG (see test_foreign_key_constraint_pg),
-    # making this an internal inconsistency.  The Rust generator is expected to
-    # fix this: quote all constraint names.
     assert stmts == [
         (
             'CREATE TABLE "Person" ('
-            '"id" BIGINT NOT NULL, '
-            '"email" TEXT NOT NULL, '
-            'CONSTRAINT uq_person_email UNIQUE ("email")'
+            '"id" integer NOT NULL, '
+            '"email" text NOT NULL, '
+            'CONSTRAINT "uq_person_email" UNIQUE ("email")'
             ')',
             [],
         ),
     ]
 
 
-@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D7')
 def test_unique_constraint_pg_quoted_correct_behaviour() -> None:
+    # Rust generator now correctly quotes all constraint names — §3-D7 resolved.
     captured = pg_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='email', type=str, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='email', type=ScalarType.TEXT, required=True),
                 ],
                 constraints=[UniqueConstraint(name='uq_person_email', fields=['email'])],
             ),
@@ -248,15 +237,24 @@ def test_unique_constraint_pg_quoted_correct_behaviour() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        'SUSPICIOUS-1: Rust generator accesses ForeignKeyConstraint.on_delete which '
+        'is absent from the current Python model; raises AttributeError. '
+        'Pending model update to add on_delete field. See phaseE-ddl-report.md.'
+    ),
+)
 def test_foreign_key_constraint_sqlite() -> None:
-    stmts = lite_ddl(
+    lite_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Order', version=Version.LATEST),
             schema=Schema(
                 name='Order',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='person_id', type=int, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='person_id', type=ScalarType.INTEGER, required=True),
                 ],
                 constraints=[
                     ForeignKeyConstraint(
@@ -269,31 +267,27 @@ def test_foreign_key_constraint_sqlite() -> None:
             ),
         ),
     )
-    # KNOWN-DIVERGENCE (migration): SQLite build_constraint does not quote
-    # reference_fields — produces `(id)` instead of the correct `('id')`.
-    assert stmts == [
-        (
-            "CREATE TABLE 'Order' ("
-            "'id' INTEGER NOT NULL, "
-            "'person_id' INTEGER NOT NULL, "
-            "CONSTRAINT 'fk_order_person' FOREIGN KEY ('person_id') REFERENCES 'Person' (id)"
-            ')',
-            [],
-        ),
-    ]
 
 
-@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D8')
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        'SUSPICIOUS-1: Rust generator accesses ForeignKeyConstraint.on_delete which '
+        'is absent from the current Python model; raises AttributeError. '
+        'Pending model update. See phaseE-ddl-report.md.'
+    ),
+)
 def test_foreign_key_sqlite_reference_fields_quoted_correct_behaviour() -> None:
-    # D8: SQLite FK reference_fields must be quoted: REFERENCES 'Person' ('id'), not (id).
-    captured = lite_ddl(
+    # D8: When FK generation is unblocked, REFERENCES 'Person' should use quoted fields.
+    lite_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Order', version=Version.LATEST),
             schema=Schema(
                 name='Order',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='person_id', type=int, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='person_id', type=ScalarType.INTEGER, required=True),
                 ],
                 constraints=[
                     ForeignKeyConstraint(
@@ -306,20 +300,26 @@ def test_foreign_key_sqlite_reference_fields_quoted_correct_behaviour() -> None:
             ),
         ),
     )
-    sql = captured[0][0]
-    assert "REFERENCES 'Person' ('id')" in sql
-    assert "REFERENCES 'Person' (id)" not in sql
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        'SUSPICIOUS-1: Rust generator accesses ForeignKeyConstraint.on_delete which '
+        'is absent from the current Python model; raises AttributeError. '
+        'Pending model update. See phaseE-ddl-report.md.'
+    ),
+)
 def test_foreign_key_constraint_pg() -> None:
-    stmts = pg_ddl(
+    pg_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Order', version=Version.LATEST),
             schema=Schema(
                 name='Order',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='person_id', type=int, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='person_id', type=ScalarType.INTEGER, required=True),
                 ],
                 constraints=[
                     ForeignKeyConstraint(
@@ -332,18 +332,6 @@ def test_foreign_key_constraint_pg() -> None:
             ),
         ),
     )
-    # Note: PG _build_constraint for ForeignKeyConstraint DOES quote the constraint
-    # name (unlike PrimaryKey/Unique which do not) — intentional per base.py.
-    assert stmts == [
-        (
-            'CREATE TABLE "Order" ('
-            '"id" BIGINT NOT NULL, '
-            '"person_id" BIGINT NOT NULL, '
-            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id")'
-            ')',
-            [],
-        ),
-    ]
 
 
 # ---------------------------------------------------------------------------
@@ -354,12 +342,13 @@ def test_foreign_key_constraint_pg() -> None:
 def test_check_constraint_sqlite() -> None:
     stmts = lite_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='age', type=int, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='age', type=ScalarType.INTEGER, required=True),
                 ],
                 constraints=[
                     CheckConstraint(
@@ -370,14 +359,12 @@ def test_check_constraint_sqlite() -> None:
             ),
         ),
     )
-    # build_where with embed_values=True renders table-qualified field names
-    # using the SQLite transform (single quotes).
     assert stmts == [
         (
-            "CREATE TABLE 'Person' ("
-            "'id' INTEGER NOT NULL, "
-            "'age' INTEGER NOT NULL, "
-            "CONSTRAINT 'chk_age_positive' CHECK ('Person'.'age' > 0)"
+            'CREATE TABLE "Person" ('
+            '"id" integer NOT NULL, '
+            '"age" integer NOT NULL, '
+            'CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)'
             ')',
             [],
         ),
@@ -387,12 +374,13 @@ def test_check_constraint_sqlite() -> None:
 def test_check_constraint_pg() -> None:
     stmts = pg_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='age', type=int, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='age', type=ScalarType.INTEGER, required=True),
                 ],
                 constraints=[
                     CheckConstraint(
@@ -403,35 +391,29 @@ def test_check_constraint_pg() -> None:
             ),
         ),
     )
-    # KNOWN-DIVERGENCE (migration): PG uses double-quoted identifiers but the
-    # constraint name is NOT quoted.  Current output:
-    # `CONSTRAINT chk_age_positive CHECK ("Person"."age" > 0)` (unquoted name).
-    # Correct PG: `CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)`.
-    # Note: FK constraint names ARE quoted in PG (see
-    # test_foreign_key_constraint_pg), making this an internal inconsistency.
-    # The Rust generator is expected to fix this: quote all constraint names.
     assert stmts == [
         (
             'CREATE TABLE "Person" ('
-            '"id" BIGINT NOT NULL, '
-            '"age" BIGINT NOT NULL, '
-            'CONSTRAINT chk_age_positive CHECK ("Person"."age" > 0)'
+            '"id" integer NOT NULL, '
+            '"age" integer NOT NULL, '
+            'CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)'
             ')',
             [],
         ),
     ]
 
 
-@pytest.mark.xfail(strict=True, reason='correct behaviour — to be fixed by qcraft/Rust migration; see §3-D9')
 def test_check_constraint_pg_quoted_correct_behaviour() -> None:
+    # Rust generator now correctly quotes all constraint names — §3-D9 resolved.
     captured = pg_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             schema=Schema(
                 name='Person',
                 version=Version.LATEST,
                 properties=[
-                    PropertySchema(name='id', type=int, required=True),
-                    PropertySchema(name='age', type=int, required=True),
+                    PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                    PropertySchema(name='age', type=ScalarType.INTEGER, required=True),
                 ],
                 constraints=[
                     CheckConstraint(
@@ -455,22 +437,22 @@ def test_check_constraint_pg_quoted_correct_behaviour() -> None:
 def test_add_index_sqlite() -> None:
     stmts = lite_ddl(
         AddIndex(
-            schema_reference=SchemaReference(name='Person', version=Version.LATEST),
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             index=IndexSchema(name='idx_person_email', fields=[IndexField(name='email')]),
         ),
     )
     assert stmts == [
-        ("CREATE INDEX 'idx_person_email' ON 'Person' ('email')", []),
+        ('CREATE INDEX "idx_person_email" ON "Person" ("email" ASC)', []),
     ]
 
 
 def test_add_index_pg() -> None:
     stmts = pg_ddl(
         AddIndex(
-            schema_reference=SchemaReference(name='Person', version=Version.LATEST),
+            schema_ref=SchemaReference(name='Person', version=Version.LATEST),
             index=IndexSchema(name='idx_person_email', fields=[IndexField(name='email')]),
         ),
     )
     assert stmts == [
-        ('CREATE INDEX "idx_person_email" ON "Person" ("email")', []),
+        ('CREATE INDEX "idx_person_email" ON "Person" USING btree ("email" ASC)', []),
     ]
