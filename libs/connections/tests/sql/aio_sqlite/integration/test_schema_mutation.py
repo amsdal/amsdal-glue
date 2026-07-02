@@ -1,12 +1,9 @@
-from typing import Union
-
 import pytest
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
-from amsdal_glue_core.common.data_models.schema import FIELD_TYPE
-from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
@@ -32,11 +29,11 @@ async def test_create_schema(database_connection: AsyncSqliteConnection) -> None
     await create_user_schema(database_connection)
 
     assert await _describe_table(database_connection, 'user') == [
-        ('id', int),
-        ('email', str),
-        ('age', int),
-        ('first_name', str),
-        ('last_name', str),
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+        ('first_name', ScalarType.TEXT),
+        ('last_name', ScalarType.TEXT),
     ]
 
 
@@ -45,15 +42,15 @@ async def test_rename_schema(database_connection: AsyncSqliteConnection) -> None
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
     assert await _describe_table(database_connection, 'user') == [
-        ('id', int),
-        ('email', str),
-        ('age', int),
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
     ]
 
     await rename_user_schema(database_connection)
@@ -61,9 +58,9 @@ async def test_rename_schema(database_connection: AsyncSqliteConnection) -> None
     assert await _describe_table(database_connection, 'user') == []
 
     assert await _describe_table(database_connection, 'customer') == [
-        ('id', int),
-        ('email', str),
-        ('age', int),
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
     ]
 
 
@@ -72,12 +69,16 @@ async def test_delete_schema(database_connection: AsyncSqliteConnection) -> None
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
 
     await delete_user_schema(database_connection)
 
@@ -89,20 +90,24 @@ async def test_add_property(database_connection: AsyncSqliteConnection) -> None:
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
 
     await add_last_name_property(database_connection)
 
     assert await _describe_table(database_connection, 'user') == [
-        ('id', int),
-        ('email', str),
-        ('age', int),
-        ('last_name', str),
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+        ('last_name', ScalarType.TEXT),
     ]
 
 
@@ -111,16 +116,20 @@ async def test_delete_property(database_connection: AsyncSqliteConnection) -> No
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
 
     await delete_age_property(database_connection)
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str)]
+    assert await _describe_table(database_connection, 'user') == [('id', ScalarType.INTEGER), ('email', ScalarType.TEXT)]
 
 
 @pytest.mark.asyncio
@@ -128,16 +137,24 @@ async def test_update_property(database_connection: AsyncSqliteConnection) -> No
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
 
     await update_age_property(database_connection)
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', str)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.TEXT),
+    ]
 
 
 @pytest.mark.asyncio
@@ -145,17 +162,25 @@ async def test_add_constraint(database_connection: AsyncSqliteConnection) -> Non
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
     assert await _get_constraints(database_connection, 'user') == []
 
     await add_unique_constraint(database_connection)
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
     assert await _get_constraints(database_connection, 'user') == [('uk_user_email_unique',)]
 
 
@@ -164,7 +189,7 @@ async def test_drop_constraint(database_connection: AsyncSqliteConnection) -> No
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -173,7 +198,7 @@ async def test_drop_constraint(database_connection: AsyncSqliteConnection) -> No
         SchemaCommand(
             mutations=[
                 AddConstraint(
-                    schema_reference=DEFAULT_SCHEMA_REF,
+                    schema_ref=DEFAULT_SCHEMA_REF,
                     constraint=UniqueConstraint(
                         name='uk_user_email_unique',
                         fields=['email', 'age'],
@@ -184,18 +209,18 @@ async def test_drop_constraint(database_connection: AsyncSqliteConnection) -> No
         ),
     )
     assert await _describe_table(database_connection, 'user') == [
-        ('id', int),
-        ('email', str),
-        ('age', int),
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
     ]
     assert await _get_constraints(database_connection, 'user') == [('uk_user_email_unique',)]
 
     await delete_unique_constraint(database_connection)
 
     assert await _describe_table(database_connection, 'user') == [
-        ('id', int),
-        ('email', str),
-        ('age', int),
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
     ]
     assert await _get_constraints(database_connection, 'user') == []
 
@@ -205,16 +230,24 @@ async def test_add_index(database_connection: AsyncSqliteConnection) -> None:
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
     assert await _get_indexes(database_connection, 'user') == []
 
     await add_index(database_connection)
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
     assert await _get_indexes(database_connection, 'user') == [
         ('idx_user_email', ['email', 'age']),
     ]
@@ -225,7 +258,7 @@ async def test_delete_index(database_connection: AsyncSqliteConnection) -> None:
     await database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -234,7 +267,7 @@ async def test_delete_index(database_connection: AsyncSqliteConnection) -> None:
         SchemaCommand(
             mutations=[
                 AddIndex(
-                    schema_reference=DEFAULT_SCHEMA_REF,
+                    schema_ref=DEFAULT_SCHEMA_REF,
                     index=IndexSchema(
                         name='idx_user_email',
                         fields=[IndexField(name='email'), IndexField(name='age')],
@@ -245,7 +278,11 @@ async def test_delete_index(database_connection: AsyncSqliteConnection) -> None:
         ),
     )
 
-    assert await _describe_table(database_connection, 'user') == [('id', int), ('email', str), ('age', int)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+        ('age', ScalarType.INTEGER),
+    ]
     assert await _get_indexes(database_connection, 'user') == [
         ('idx_user_email', ['email', 'age']),
     ]
@@ -258,12 +295,12 @@ async def test_delete_index(database_connection: AsyncSqliteConnection) -> None:
 async def _get_indexes(database_connection: AsyncSqliteConnection, table_name: str) -> list[tuple[str, list[str]]]:
     _, _, indexes = await database_connection.get_table_info(table_name)
 
-    return [(index.name, index.fields) for index in indexes]
+    return [(index.name, [f.name for f in index.fields]) for index in indexes]
 
 
 async def _describe_table(
     database_connection: AsyncSqliteConnection, table_name: str
-) -> list[tuple[str, Union[Schema, 'SchemaReference', FIELD_TYPE]]]:
+) -> list[tuple]:
     properties, _, _ = await database_connection.get_table_info(table_name)
 
     return [(prop.name, prop.type) for prop in properties]
