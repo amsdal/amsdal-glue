@@ -24,14 +24,16 @@ def test_pg_ddl_uses_double_quoted_identifiers() -> None:
     not build_schema_mutation (single quotes)."""
     from amsdal_glue_core.common.data_models.schema import PropertySchema
     from amsdal_glue_core.common.data_models.schema import Schema
+    from amsdal_glue_core.common.enums import ScalarType
     from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
     stmts = pg_ddl(
         RegisterSchema(
+            schema_ref=SchemaReference(name='users', version=Version.LATEST),
             schema=Schema(
                 name='users',
                 version=Version.LATEST,
-                properties=[PropertySchema(name='id', type=int, required=True)],
+                properties=[PropertySchema(name='id', type=ScalarType.INTEGER, required=True)],
             ),
         ),
     )
