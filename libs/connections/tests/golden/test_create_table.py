@@ -8,13 +8,6 @@ and Postgres dialects.
 Both SQLite and Postgres now route through the Rust SqlGenerator
 (``compile_schema_mutation``), which uses ANSI double-quoted identifiers
 for both dialects and lowercase type names.
-
-Note on ForeignKeyConstraint
------------------------------
-The Rust generator accesses ``fk.on_delete`` on ``ForeignKeyConstraint``
-objects.  The current Python model does not define that attribute, causing
-``AttributeError``.  FK tests are marked ``xfail`` pending the model
-update.  See phaseE-ddl-report.md SUSPICIOUS-1.
 """
 
 import pytest
@@ -237,16 +230,8 @@ def test_unique_constraint_pg_quoted_correct_behaviour() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        'SUSPICIOUS-1: Rust generator accesses ForeignKeyConstraint.on_delete which '
-        'is absent from the current Python model; raises AttributeError. '
-        'Pending model update to add on_delete field. See phaseE-ddl-report.md.'
-    ),
-)
 def test_foreign_key_constraint_sqlite() -> None:
-    lite_ddl(
+    stmts = lite_ddl(
         RegisterSchema(
             schema_ref=SchemaReference(name='Order', version=Version.LATEST),
             schema=Schema(
@@ -267,19 +252,21 @@ def test_foreign_key_constraint_sqlite() -> None:
             ),
         ),
     )
+    assert stmts == [
+        (
+            'CREATE TABLE "Order" ('
+            '"id" integer NOT NULL, '
+            '"person_id" integer NOT NULL, '
+            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'
+            ')',
+            [],
+        ),
+    ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        'SUSPICIOUS-1: Rust generator accesses ForeignKeyConstraint.on_delete which '
-        'is absent from the current Python model; raises AttributeError. '
-        'Pending model update. See phaseE-ddl-report.md.'
-    ),
-)
 def test_foreign_key_sqlite_reference_fields_quoted_correct_behaviour() -> None:
-    # D8: When FK generation is unblocked, REFERENCES 'Person' should use quoted fields.
-    lite_ddl(
+    # D8: REFERENCES 'Person' should use ANSI double-quoted identifiers.
+    stmts = lite_ddl(
         RegisterSchema(
             schema_ref=SchemaReference(name='Order', version=Version.LATEST),
             schema=Schema(
@@ -300,18 +287,14 @@ def test_foreign_key_sqlite_reference_fields_quoted_correct_behaviour() -> None:
             ),
         ),
     )
+    sql = stmts[0][0]
+    assert 'REFERENCES "Person" ("id")' in sql
+    assert "REFERENCES 'Person'" not in sql
+    assert "REFERENCES Person" not in sql
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        'SUSPICIOUS-1: Rust generator accesses ForeignKeyConstraint.on_delete which '
-        'is absent from the current Python model; raises AttributeError. '
-        'Pending model update. See phaseE-ddl-report.md.'
-    ),
-)
 def test_foreign_key_constraint_pg() -> None:
-    pg_ddl(
+    stmts = pg_ddl(
         RegisterSchema(
             schema_ref=SchemaReference(name='Order', version=Version.LATEST),
             schema=Schema(
@@ -332,6 +315,16 @@ def test_foreign_key_constraint_pg() -> None:
             ),
         ),
     )
+    assert stmts == [
+        (
+            'CREATE TABLE "Order" ('
+            '"id" integer NOT NULL, '
+            '"person_id" integer NOT NULL, '
+            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'
+            ')',
+            [],
+        ),
+    ]
 
 
 # ---------------------------------------------------------------------------

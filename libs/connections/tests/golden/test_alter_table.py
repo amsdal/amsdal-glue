@@ -17,13 +17,6 @@ These are asserted with ``pytest.raises(UnsupportedFeatureError)``.
 
 The multi-statement table-rebuild path for these mutations lives in the
 SQLite connection driver (tested in sqlite integration), NOT here.
-
-ForeignKeyConstraint model/generator mismatch
-----------------------------------------------
-The Rust generator accesses ``fk.on_delete`` on ``ForeignKeyConstraint``
-objects, which the current Python model does not define, causing
-``AttributeError``.  Affected tests are marked ``xfail`` (SUSPICIOUS-1).
-See phaseE-ddl-report.md.
 """
 
 import pytest
@@ -232,14 +225,6 @@ def test_add_constraint_pg_primary_key_quoted_correct_behaviour() -> None:
     assert 'ADD CONSTRAINT pk_person' not in sql
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        'SUSPICIOUS-1: Rust generator accesses ForeignKeyConstraint.on_delete which '
-        'is absent from the current Python model; raises AttributeError. '
-        'Pending model update. See phaseE-ddl-report.md.'
-    ),
-)
 def test_add_constraint_pg_foreign_key() -> None:
     m = AddConstraint(
         schema_ref=_ref(),
@@ -250,7 +235,12 @@ def test_add_constraint_pg_foreign_key() -> None:
             reference_fields=['id'],
         ),
     )
-    pg_ddl(m)
+    assert pg_ddl(m) == [
+        (
+            'ALTER TABLE "Person" ADD CONSTRAINT "fk_person_address" FOREIGN KEY ("address_id") REFERENCES "Address" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
+            [],
+        ),
+    ]
 
 
 def test_add_constraint_pg_check() -> None:
