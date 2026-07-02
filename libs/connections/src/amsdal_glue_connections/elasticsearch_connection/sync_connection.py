@@ -1596,7 +1596,7 @@ class ElasticsearchConnection(ConnectionBase):
                     for index_schema in schema.indexes:
                         index_data = {
                             'name': index_schema.name,
-                            'fields': index_schema.fields,
+                            'fields': [field.name for field in index_schema.fields],
                         }
                         if hasattr(index_schema, 'condition') and index_schema.condition:
                             index_data['condition'] = str(index_schema.condition)
@@ -2037,7 +2037,7 @@ class ElasticsearchConnection(ConnectionBase):
             # Store index details
             index_data = {
                 'name': index_schema.name,
-                'fields': index_schema.fields,
+                'fields': [field.name for field in index_schema.fields],
             }
 
             # Add condition if exists
