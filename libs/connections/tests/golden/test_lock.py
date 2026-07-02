@@ -1,59 +1,44 @@
 # libs/connections/tests/golden/test_lock.py
-"""Golden-master tests for lock SQL paths.
+"""Golden-master tests for the lock SQL path (post Rust migration — C-Lock).
 
-Postgres sync (pg_record)
---------------------------
-The sync PostgresConnection.acquire_lock() checks ``lock.mode == 'EXCLUSIVE'`` and, when true,
-calls ``self.execute('BEGIN EXCLUSIVE')``.  release_lock does the same for ``self.execute('COMMIT')``.
+The connection ``acquire_lock``/``release_lock`` now take a ``LockCommand`` and render through the
+Rust ``compile_lock_command``:
 
-KNOWN-DIVERGENCE (migration): the Postgres **sync** path emits SQLite-style ``BEGIN EXCLUSIVE``
-/ ``COMMIT`` instead of the proper Postgres row-level lock (``SELECT … FOR UPDATE``).  The
-**async** PostgresConnection correctly builds ``SELECT * FROM <table> [WHERE …] FOR UPDATE`` via
-``build_where()``, but the async path is not reachable through the sync recording harness.
-This divergence should be resolved when the Rust/unified backend is wired up.
+- **Postgres (sync + async)** — a table lock (``LockReference(reference=SchemaReference)``) renders
+  ``LOCK TABLE "<name>" IN <EXCLUSIVE|SHARE> MODE``. Release of a TRANSACTION-scope lock is a no-op
+  (the lock auto-releases at COMMIT/ROLLBACK; the Rust generator raises ``UnsupportedFeatureError``
+  for such a release, which the connection treats as a no-op).
+- **SQLite** — keeps the ``BEGIN EXCLUSIVE`` hack (deliberate divergence, spec §3.5). It calls the raw
+  ``sqlite3.Connection`` directly, so the recording harness (no live DB) raises ``ConnectionError``
+  for the EXCLUSIVE branch — kept as ``xfail(strict=True)``. SHARED is a no-op.
 
-SQLite sync (lite_record)
---------------------------
-SQLite's acquire_lock / release_lock (EXCLUSIVE mode) call ``self.connection.execute(…)``
-directly on the raw ``sqlite3.Connection`` object — not through the overridable ``execute()``
-hook.  The recording harness never establishes a live DB connection, so ``self.connection``
-raises ``ConnectionError('Connection not established')`` immediately.  These cases are marked
-``xfail(strict=True)``.
-
-SHARED-mode locks are no-ops for both backends: neither emits SQL, and the recording
-connection captures nothing.
+Row-level locking (``SELECT … FOR UPDATE``) is NO LONGER part of the lock path — it is expressed on
+``QueryStatement.lock`` (``SelectLock``) and rendered by ``compile_query`` in ``query()``.
 """
 
 import pytest
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
-from amsdal_glue_core.common.data_models.conditions import Condition
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.field_reference import Field
-from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
 from amsdal_glue_core.common.enums import LockParameter
+from amsdal_glue_core.common.enums import LockScope
 from amsdal_glue_core.common.enums import Version
-from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
-from amsdal_glue_core.common.expressions.value import Value
-from amsdal_glue_core.common.operations.commands import LockSchemaReference
+from amsdal_glue_core.common.operations.commands import LockCommand
+from amsdal_glue_core.common.operations.commands import LockReference
 
 from ._harness import lite_record
 from ._harness import pg_async_record
 from ._harness import pg_record
 
 
-def _lock(mode: LockMode, action: LockAction = LockAction.ACQUIRE) -> ExecutionLockCommand:
-    """Helper — build a minimal ExecutionLockCommand for the given mode/action."""
-    return ExecutionLockCommand(
+def _lock(mode: LockMode, action: LockAction = LockAction.ACQUIRE) -> LockCommand:
+    """Helper — build a minimal table LockCommand for the given mode/action."""
+    return LockCommand(
         action=action,
         mode=mode,
         parameter=LockParameter.WAIT,
-        locked_object=LockSchemaReference(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-        ),
+        scope=LockScope.TRANSACTION,
+        locked_objects=[LockReference(reference=SchemaReference(name='users', version=Version.LATEST))],
     )
 
 
@@ -62,34 +47,29 @@ def _lock(mode: LockMode, action: LockAction = LockAction.ACQUIRE) -> ExecutionL
 # ---------------------------------------------------------------------------
 
 
-def test_pg_acquire_lock_exclusive_emits_begin_exclusive() -> None:
-    """KNOWN-DIVERGENCE (migration): Postgres sync emits SQLite-style 'BEGIN EXCLUSIVE'
-    rather than a Postgres row-level lock.  The async path uses SELECT … FOR UPDATE."""
+def test_pg_acquire_lock_exclusive_emits_lock_table() -> None:
     conn = pg_record()
     result = conn.acquire_lock(_lock(LockMode.EXCLUSIVE, LockAction.ACQUIRE))
     assert result is True
-    assert conn.captured == [('BEGIN EXCLUSIVE', [])]
+    assert conn.captured == [('LOCK TABLE "users" IN EXCLUSIVE MODE', [])]
 
 
-def test_pg_acquire_lock_shared_is_noop() -> None:
-    """Shared-mode acquire emits no SQL on the Postgres sync path."""
+def test_pg_acquire_lock_shared_emits_lock_table_share() -> None:
     conn = pg_record()
     result = conn.acquire_lock(_lock(LockMode.SHARED, LockAction.ACQUIRE))
+    assert result is True
+    assert conn.captured == [('LOCK TABLE "users" IN SHARE MODE', [])]
+
+
+def test_pg_release_lock_exclusive_is_noop() -> None:
+    """A TRANSACTION-scope lock auto-releases at COMMIT — release emits no SQL."""
+    conn = pg_record()
+    result = conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
     assert result is True
     assert conn.captured == []
 
 
-def test_pg_release_lock_exclusive_emits_commit() -> None:
-    """KNOWN-DIVERGENCE (migration): mirrors 'BEGIN EXCLUSIVE' — Postgres sync releases
-    with a bare 'COMMIT' (SQLite syntax) rather than a Postgres-native release mechanism."""
-    conn = pg_record()
-    result = conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
-    assert result is True
-    assert conn.captured == [('COMMIT', [])]
-
-
 def test_pg_release_lock_shared_is_noop() -> None:
-    """Shared-mode release emits no SQL on the Postgres sync path."""
     conn = pg_record()
     result = conn.release_lock(_lock(LockMode.SHARED, LockAction.RELEASE))
     assert result is True
@@ -97,7 +77,7 @@ def test_pg_release_lock_shared_is_noop() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SQLite sync
+# SQLite sync — BEGIN EXCLUSIVE hack (spec §3.5)
 # ---------------------------------------------------------------------------
 
 
@@ -115,7 +95,7 @@ def test_lite_acquire_lock_exclusive_xfail() -> None:
 
 
 def test_lite_acquire_lock_shared_is_noop() -> None:
-    """SQLite SHARED acquire_lock is a no-op — the EXCLUSIVE branch is never entered."""
+    """SQLite SHARED acquire_lock is a no-op — the EXCLUSIVE (BEGIN EXCLUSIVE) branch is never entered."""
     conn = lite_record()
     result = conn.acquire_lock(_lock(LockMode.SHARED, LockAction.ACQUIRE))
     assert result is True
@@ -136,7 +116,6 @@ def test_lite_release_lock_exclusive_xfail() -> None:
 
 
 def test_lite_release_lock_shared_is_noop() -> None:
-    """SQLite SHARED release_lock is a no-op — the EXCLUSIVE branch is never entered."""
     conn = lite_record()
     result = conn.release_lock(_lock(LockMode.SHARED, LockAction.RELEASE))
     assert result is True
@@ -144,69 +123,20 @@ def test_lite_release_lock_shared_is_noop() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Postgres async — row-level locking (SELECT … FOR UPDATE)
+# Postgres async — table lock via compile_lock_command
+# (row-level SELECT … FOR UPDATE moved to QueryStatement.lock; no longer a lock-path concern)
 # ---------------------------------------------------------------------------
 
 
-def _where_id_eq(table: str, value: int) -> Conditions:
-    """Build a single-condition Conditions: <table>.id = <value>."""
-    return Conditions(
-        Condition(
-            left=FieldReferenceExpression(
-                field_reference=FieldReference(field=Field(name='id'), table_name=table),
-            ),
-            lookup=FieldLookup.EQ,
-            right=Value(value=value),
-        )
-    )
-
-
-async def test_pg_async_acquire_lock_emits_for_update() -> None:
-    """Async PG acquire_lock with a WHERE query emits SELECT * FROM … WHERE … FOR UPDATE."""
-    lock = ExecutionLockCommand(
-        action=LockAction.ACQUIRE,
-        mode=LockMode.EXCLUSIVE,
-        parameter=LockParameter.WAIT,
-        locked_object=LockSchemaReference(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-            query=_where_id_eq('users', 42),
-        ),
-    )
+async def test_pg_async_acquire_lock_exclusive_emits_lock_table() -> None:
     conn = pg_async_record()
-    result = await conn.acquire_lock(lock)
+    result = await conn.acquire_lock(_lock(LockMode.EXCLUSIVE, LockAction.ACQUIRE))
     assert result is True
-    assert conn.captured == [
-        ('SELECT * FROM "users" WHERE "users"."id" = %s FOR UPDATE', [42]),
-    ]
-
-
-async def test_pg_async_acquire_lock_no_query_is_noop() -> None:
-    """Async PG acquire_lock without a query (locked_object.query is None) emits no SQL."""
-    lock = ExecutionLockCommand(
-        action=LockAction.ACQUIRE,
-        mode=LockMode.EXCLUSIVE,
-        parameter=LockParameter.WAIT,
-        locked_object=LockSchemaReference(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-        ),
-    )
-    conn = pg_async_record()
-    result = await conn.acquire_lock(lock)
-    assert result is True
-    assert conn.captured == []
+    assert conn.captured == [('LOCK TABLE "users" IN EXCLUSIVE MODE', [])]
 
 
 async def test_pg_async_release_lock_is_noop() -> None:
-    """Async PG release_lock emits no SQL — both branches in release_lock just return True."""
-    lock = ExecutionLockCommand(
-        action=LockAction.RELEASE,
-        mode=LockMode.EXCLUSIVE,
-        parameter=LockParameter.WAIT,
-        locked_object=LockSchemaReference(
-            schema=SchemaReference(name='users', version=Version.LATEST),
-        ),
-    )
     conn = pg_async_record()
-    result = await conn.release_lock(lock)
+    result = await conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
     assert result is True
     assert conn.captured == []
