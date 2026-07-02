@@ -1,6 +1,6 @@
-"""Unit tests for Value output_type coercion (Django-parity get_db_prep_value).
+"""Unit tests for Value output_type parameter coercion.
 
-Acceptance table (verified vs Django 6.0):
+Acceptance table:
   Value('5',  INTEGER) → 5
   Value('abc', INTEGER) → raises ValueError
   Value(5, INTEGER)    → 5

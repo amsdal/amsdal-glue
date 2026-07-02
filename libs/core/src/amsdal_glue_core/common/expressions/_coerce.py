@@ -1,10 +1,10 @@
 """Coerce raw Python values to the native DB-binding type expected for a given FieldType.
 
-This is the amsdal equivalent of Django's ``Field.get_db_prep_value``:
-coercion happens in the Python ORM layer, **before** the value crosses the
-Rust (PyO3) boundary, so the binding remains type-blind.
+Coercion happens in the Python ORM layer, **before** the value crosses the
+Rust (PyO3) boundary, so the binding remains type-blind and a ``Value`` carrying
+an ``output_type`` yields a param already of the intended DB type.
 
-Rules mirror Django 6.0 behaviour:
+Rules:
 - ``None`` is always returned unchanged (SQL NULL passthrough).
 - ``ScalarType`` families dispatch to the appropriate Python native type.
 - ``ArrayType`` recurses over element items.
