@@ -15,7 +15,7 @@ from amsdal_glue_core.common.operations.mutations.data import UpdateData
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
-def simple_customer_insert(database_connection: PostgresConnection, namespace: str = '') -> list[list[Data] | None]:
+def simple_customer_insert(database_connection: PostgresConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
@@ -30,8 +30,8 @@ def simple_customer_insert(database_connection: PostgresConnection, namespace: s
 
 def insert_customers_and_orders(
     database_connection: PostgresConnection,
-    namespace_1: str = '',
-    namespace_2: str = '',
+    namespace_1: str | None = None,
+    namespace_2: str | None = None,
 ) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
@@ -61,7 +61,7 @@ def insert_customers_and_orders(
     ])
 
 
-def update_two_customers(database_connection: PostgresConnection, namespace: str = '') -> list[list[Data] | None]:
+def update_two_customers(database_connection: PostgresConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
@@ -73,14 +73,15 @@ def update_two_customers(database_connection: PostgresConnection, namespace: str
         ),
         UpdateData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data=Data(
-                data={'id': '1', 'name': 'new_customer'},
-            ),
+            data={
+                'id': Value('1'),
+                'name': Value('new_customer'),
+            },
         ),
     ])
 
 
-def delete_customer(database_connection: PostgresConnection, namespace: str = '') -> list[list[Data] | None]:
+def delete_customer(database_connection: PostgresConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         DeleteData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
