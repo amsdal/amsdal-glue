@@ -1,5 +1,6 @@
 """SQL emission for the `Exists` boolean Expression."""
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -15,8 +16,6 @@ from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.expressions.exists import Exists
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
-
-from amsdal_glue_connections._sql_core import SqlGenerator
 
 _lite = SqlGenerator('sqlite', param_style='qmark')
 
@@ -45,7 +44,7 @@ def _correlated_subquery() -> QueryStatement:
     )
 
 
-def _exists(negated: bool = False) -> Exists:
+def _exists(negated: bool = False) -> Exists:  # noqa: FBT001, FBT002
     # §7: Exists(query=sub) → Exists(subquery=SubQueryStatement(query=sub, alias=''))
     return Exists(subquery=SubQueryStatement(query=_correlated_subquery(), alias=''), negated=negated)
 

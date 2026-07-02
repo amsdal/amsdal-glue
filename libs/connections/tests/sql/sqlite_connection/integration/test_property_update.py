@@ -225,7 +225,9 @@ def test_change_required_str(database_connection: SqliteConnection) -> None:
                 mutations=[
                     UpdateProperty(
                         schema_ref=SchemaReference(name=schema.name, version=schema.version),
-                        property=PropertySchema(name='field_b', type=ScalarType.TEXT, required=True, default=Value(value='')),
+                        property=PropertySchema(
+                            name='field_b', type=ScalarType.TEXT, required=True, default=Value(value='')
+                        ),
                     ),
                 ],
             ),

@@ -1,5 +1,3 @@
-from dataclasses import asdict
-
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -157,7 +155,9 @@ def delete_user_schema(database_connection: PostgresConnection, namespace: str |
     )
 
 
-def add_last_name_property(database_connection: PostgresConnection, namespace: str | None = None) -> list[Schema | None]:
+def add_last_name_property(
+    database_connection: PostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -234,7 +234,9 @@ def add_unique_constraint(database_connection: PostgresConnection, namespace: st
     )
 
 
-def delete_unique_constraint(database_connection: PostgresConnection, namespace: str | None = None) -> list[Schema | None]:
+def delete_unique_constraint(
+    database_connection: PostgresConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,

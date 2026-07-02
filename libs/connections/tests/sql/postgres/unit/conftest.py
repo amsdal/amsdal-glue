@@ -2,8 +2,8 @@ from collections.abc import Generator
 from unittest import mock
 
 import pytest
-
 from amsdal_glue_connections._sql_core import SqlGenerator
+
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 

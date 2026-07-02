@@ -31,7 +31,9 @@ from ..testcases.schema_mutations import update_age_property
 def test_create_schema(database_connection: ElasticsearchConnection, test_prefix: str) -> None:
     create_user_schema(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
 
     # Check that one schema was created
     assert len(result) == 1
@@ -76,7 +78,9 @@ def test_rename_schema(database_connection: ElasticsearchConnection, test_prefix
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -92,7 +96,9 @@ def test_rename_schema(database_connection: ElasticsearchConnection, test_prefix
 
     rename_user_schema(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}customer',
@@ -116,7 +122,9 @@ def test_delete_schema(database_connection: ElasticsearchConnection, test_prefix
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -131,7 +139,9 @@ def test_delete_schema(database_connection: ElasticsearchConnection, test_prefix
     ]
     delete_user_schema(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
 
     assert result == []
 
@@ -145,7 +155,9 @@ def test_add_property(database_connection: ElasticsearchConnection, test_prefix:
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -161,7 +173,9 @@ def test_add_property(database_connection: ElasticsearchConnection, test_prefix:
 
     add_last_name_property(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -186,7 +200,9 @@ def test_delete_property(database_connection: ElasticsearchConnection, test_pref
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -202,7 +218,9 @@ def test_delete_property(database_connection: ElasticsearchConnection, test_pref
 
     delete_age_property(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -225,7 +243,9 @@ def test_update_property(database_connection: ElasticsearchConnection, test_pref
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -241,7 +261,9 @@ def test_update_property(database_connection: ElasticsearchConnection, test_pref
 
     update_age_property(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -265,7 +287,9 @@ def test_add_constraint(database_connection: ElasticsearchConnection, test_prefi
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
@@ -281,7 +305,9 @@ def test_add_constraint(database_connection: ElasticsearchConnection, test_prefi
 
     add_unique_constraint(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.name == f'{test_prefix}user'
@@ -315,7 +341,9 @@ def test_drop_constraint(database_connection: ElasticsearchConnection) -> None:
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.constraints is not None
@@ -324,7 +352,9 @@ def test_drop_constraint(database_connection: ElasticsearchConnection) -> None:
 
     delete_unique_constraint(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.constraints is not None
@@ -340,7 +370,9 @@ def test_add_index(database_connection: ElasticsearchConnection) -> None:
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.indexes is not None
@@ -348,7 +380,9 @@ def test_add_index(database_connection: ElasticsearchConnection) -> None:
 
     add_index(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.indexes is not None
@@ -381,7 +415,9 @@ def test_delete_index(database_connection: ElasticsearchConnection) -> None:
         ),
     )
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.indexes is not None
@@ -390,7 +426,9 @@ def test_delete_index(database_connection: ElasticsearchConnection) -> None:
 
     delete_index(database_connection)
 
-    result = database_connection.query_schema(query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST)))
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.indexes is not None

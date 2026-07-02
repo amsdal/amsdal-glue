@@ -58,7 +58,9 @@ DEFAULT_SCHEMA_REF = SchemaReference(
 )
 
 
-async def create_user_schema(database_connection: AsyncSqliteConnection, namespace: str | None = None) -> list[Schema | None]:
+async def create_user_schema(
+    database_connection: AsyncSqliteConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema = Schema(
         name='user',
         namespace=namespace,
@@ -125,7 +127,9 @@ async def create_user_schema(database_connection: AsyncSqliteConnection, namespa
     )
 
 
-async def rename_user_schema(database_connection: AsyncSqliteConnection, namespace: str | None = None) -> list[Schema | None]:
+async def rename_user_schema(
+    database_connection: AsyncSqliteConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -141,7 +145,9 @@ async def rename_user_schema(database_connection: AsyncSqliteConnection, namespa
     )
 
 
-async def delete_user_schema(database_connection: AsyncSqliteConnection, namespace: str | None = None) -> list[Schema | None]:
+async def delete_user_schema(
+    database_connection: AsyncSqliteConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -178,7 +184,9 @@ async def add_last_name_property(
     )
 
 
-async def delete_age_property(database_connection: AsyncSqliteConnection, namespace: str | None = None) -> list[Schema | None]:
+async def delete_age_property(
+    database_connection: AsyncSqliteConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -194,7 +202,9 @@ async def delete_age_property(database_connection: AsyncSqliteConnection, namesp
     )
 
 
-async def update_age_property(database_connection: AsyncSqliteConnection, namespace: str | None = None) -> list[Schema | None]:
+async def update_age_property(
+    database_connection: AsyncSqliteConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -213,7 +223,9 @@ async def update_age_property(database_connection: AsyncSqliteConnection, namesp
     )
 
 
-async def add_unique_constraint(database_connection: AsyncSqliteConnection, namespace: str | None = None) -> list[Schema | None]:
+async def add_unique_constraint(
+    database_connection: AsyncSqliteConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,

@@ -1,4 +1,5 @@
 import pytest
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -22,8 +23,6 @@ from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
-
-from amsdal_glue_connections._sql_core import SqlGenerator
 
 _gen = SqlGenerator('postgresql', param_style='format')
 
@@ -337,8 +336,7 @@ def test_build_sql_query_simple__joins(join_type) -> None:
 
     # Re-baselined: only=None → SELECT * (was SELECT "u".* for join queries).
     assert (
-        sql
-        == f'SELECT * FROM "users" AS "u" {join_type.value} JOIN "user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'  # noqa: S608
+        sql == f'SELECT * FROM "users" AS "u" {join_type.value} JOIN "user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'  # noqa: S608
     )
     assert value == []
 

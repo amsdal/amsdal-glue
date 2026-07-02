@@ -267,9 +267,7 @@ async def delete_unique_constraint(
     )
 
 
-async def add_index(
-    database_connection: AsyncPostgresConnection, namespace: str | None = None
-) -> list[Schema | None]:
+async def add_index(database_connection: AsyncPostgresConnection, namespace: str | None = None) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,

@@ -34,7 +34,7 @@ def test_create_schema_with_namespace(database_connection: MockPostgresConnectio
         mock.call(
             'CREATE TABLE "ns1"."user" ("id" bigint NOT NULL, "email" text NOT NULL, "age" bigint NOT NULL, '
             '"first_name" text, "last_name" text, CONSTRAINT "pk_user" PRIMARY KEY ("id"), '
-            'CONSTRAINT "uk_user_email" UNIQUE ("email"), CONSTRAINT "ck_user_age" CHECK ("ns1"."user"."age" > 18))',
+            'CONSTRAINT "uk_user_email" UNIQUE ("email"), CONSTRAINT "ck_user_age" CHECK ("ns1"."user"."age" > 18))',  # noqa: E501
             (),
         ),
         mock.call('CREATE INDEX "idx_user_email" ON "ns1"."user" USING btree ("first_name" ASC, "last_name" ASC)', ()),

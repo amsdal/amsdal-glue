@@ -86,16 +86,16 @@ EXPECTED_LITE: dict[str, tuple[str, list]] = {
     'LTE': ('SELECT * FROM "users" WHERE "users"."age" <= ?', [18]),
     'IN': ('SELECT * FROM "users" WHERE "users"."age" IN (?, ?, ?)', [1, 2, 3]),
     # Rust uses LIKE + ESCAPE instead of GLOB; % wildcards; re-baselined.
-    'CONTAINS': ("SELECT * FROM \"users\" WHERE \"users\".\"age\" LIKE ? ESCAPE '\\'", ['%oo%']),
+    'CONTAINS': ('SELECT * FROM "users" WHERE "users"."age" LIKE ? ESCAPE \'\\\'', ['%oo%']),
     # Rust uses LIKE LOWER + ESCAPE with ANSI quotes; re-baselined.
-    'ICONTAINS': ("SELECT * FROM \"users\" WHERE LOWER(\"users\".\"age\") LIKE LOWER(?) ESCAPE '\\'", ['%oo%']),
-    'STARTSWITH': ("SELECT * FROM \"users\" WHERE \"users\".\"age\" LIKE ? ESCAPE '\\'", ['fo%']),
-    'ISTARTSWITH': ("SELECT * FROM \"users\" WHERE LOWER(\"users\".\"age\") LIKE LOWER(?) ESCAPE '\\'", ['fo%']),
-    'ENDSWITH': ("SELECT * FROM \"users\" WHERE \"users\".\"age\" LIKE ? ESCAPE '\\'", ['%oo']),
-    'IENDSWITH': ("SELECT * FROM \"users\" WHERE LOWER(\"users\".\"age\") LIKE LOWER(?) ESCAPE '\\'", ['%oo']),
+    'ICONTAINS': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE LOWER(?) ESCAPE \'\\\'', ['%oo%']),
+    'STARTSWITH': ('SELECT * FROM "users" WHERE "users"."age" LIKE ? ESCAPE \'\\\'', ['fo%']),
+    'ISTARTSWITH': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE LOWER(?) ESCAPE \'\\\'', ['fo%']),
+    'ENDSWITH': ('SELECT * FROM "users" WHERE "users"."age" LIKE ? ESCAPE \'\\\'', ['%oo']),
+    'IENDSWITH': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE LOWER(?) ESCAPE \'\\\'', ['%oo']),
     'REGEX': ('SELECT * FROM "users" WHERE "users"."age" REGEXP ?', ['^foo']),
     # Rust uses REGEXP '(?i)' || ? (POSIX inline flag) instead of LOWER(...) REGEXP; re-baselined.
-    'IREGEX': ("SELECT * FROM \"users\" WHERE \"users\".\"age\" REGEXP '(?i)' || ?", ['^foo']),
+    'IREGEX': ('SELECT * FROM "users" WHERE "users"."age" REGEXP \'(?i)\' || ?', ['^foo']),
 }
 
 

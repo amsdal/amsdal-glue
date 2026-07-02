@@ -58,7 +58,9 @@ DEFAULT_SCHEMA_REF = SchemaReference(
 )
 
 
-def create_user_schema(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[Schema | None]:
+def create_user_schema(
+    database_connection: ElasticsearchConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema = Schema(
         name='user',
         namespace=namespace,
@@ -125,7 +127,9 @@ def create_user_schema(database_connection: ElasticsearchConnection, namespace: 
     )
 
 
-def rename_user_schema(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[Schema | None]:
+def rename_user_schema(
+    database_connection: ElasticsearchConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -141,7 +145,9 @@ def rename_user_schema(database_connection: ElasticsearchConnection, namespace: 
     )
 
 
-def delete_user_schema(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[Schema | None]:
+def delete_user_schema(
+    database_connection: ElasticsearchConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -157,7 +163,9 @@ def delete_user_schema(database_connection: ElasticsearchConnection, namespace: 
     )
 
 
-def add_last_name_property(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[Schema | None]:
+def add_last_name_property(
+    database_connection: ElasticsearchConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -176,7 +184,9 @@ def add_last_name_property(database_connection: ElasticsearchConnection, namespa
     )
 
 
-def delete_age_property(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[Schema | None]:
+def delete_age_property(
+    database_connection: ElasticsearchConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -192,7 +202,9 @@ def delete_age_property(database_connection: ElasticsearchConnection, namespace:
     )
 
 
-def update_age_property(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[Schema | None]:
+def update_age_property(
+    database_connection: ElasticsearchConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -211,7 +223,9 @@ def update_age_property(database_connection: ElasticsearchConnection, namespace:
     )
 
 
-def add_unique_constraint(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[Schema | None]:
+def add_unique_constraint(
+    database_connection: ElasticsearchConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -234,7 +248,9 @@ def add_unique_constraint(database_connection: ElasticsearchConnection, namespac
     )
 
 
-def delete_unique_constraint(database_connection: ElasticsearchConnection, namespace: str | None = None) -> list[Schema | None]:
+def delete_unique_constraint(
+    database_connection: ElasticsearchConnection, namespace: str | None = None
+) -> list[Schema | None]:
     schema_ref = SchemaReference(**asdict(DEFAULT_SCHEMA_REF))
     schema_ref.namespace = namespace
 

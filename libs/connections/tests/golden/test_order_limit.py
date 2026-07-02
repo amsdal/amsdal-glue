@@ -123,5 +123,5 @@ def test_limit_offset_sqlite() -> None:
         table=SchemaReference(name='users', version=Version.LATEST),
         limit=LimitQuery(limit=10, offset=20),
     )
-    # Re-baselined: Rust generator parameterizes LIMIT/OFFSET values and uses double-quoted identifiers — DIFFERENT-BUT-VALID
+    # Re-baselined: Rust generator parameterizes LIMIT/OFFSET values and uses double-quoted identifiers — DIFFERENT-BUT-VALID  # noqa: E501
     assert lite(q) == ('SELECT * FROM "users" LIMIT ? OFFSET ?', [10, 20])

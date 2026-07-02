@@ -85,7 +85,9 @@ async def update_two_customers(
     ])
 
 
-async def delete_customer(database_connection: AsyncPostgresConnection, namespace: str | None = None) -> list[list[Data] | None]:
+async def delete_customer(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         DeleteData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),

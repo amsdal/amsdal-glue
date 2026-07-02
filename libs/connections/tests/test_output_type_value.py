@@ -16,12 +16,11 @@ All four changes are semantic and are flagged below.
 from datetime import datetime
 from datetime import timezone
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.expressions.value import Value
-
-from amsdal_glue_connections._sql_core import SqlGenerator
 
 _lite = SqlGenerator('sqlite', param_style='qmark')
 _pg = SqlGenerator('postgresql', param_style='format')

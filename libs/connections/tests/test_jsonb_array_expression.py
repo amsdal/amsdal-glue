@@ -15,6 +15,7 @@ SUSPICIOUS — SQLite dialect differences vs old Python builder:
 Postgres is unchanged: both old and new emit ``jsonb_build_array(...)``.
 """
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.query import QueryStatement
@@ -22,8 +23,6 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.jsonb_array import JsonbArray
-
-from amsdal_glue_connections._sql_core import SqlGenerator
 
 _lite = SqlGenerator('sqlite', param_style='qmark')
 _pg = SqlGenerator('postgresql', param_style='format')

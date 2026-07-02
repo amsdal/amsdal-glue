@@ -10,6 +10,7 @@ SUSPICIOUS items flagged inline.
 
 from decimal import Decimal
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -21,7 +22,6 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
-from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _sqlite_type_to_field_type
 
@@ -30,7 +30,6 @@ _TABLE = SchemaReference(name='t', version=Version.LATEST)
 
 
 def test_sqlite_decimal_value_to_str() -> None:
-    # Old: sqlite_value_transform(Decimal('12.50')) == '12.50'
     #      (old builder coerced Decimal to string before binding).
     # Re-pointed: Value(Decimal(...), output_type=ScalarType.NUMERIC) via compile_query.
     # SUSPICIOUS: Rust/Value coerces to Decimal, not str.  The param is now
@@ -40,7 +39,9 @@ def test_sqlite_decimal_value_to_str() -> None:
         QueryStatement(
             table=_TABLE,
             only=[],
-            expressions=[SelectExpression(expression=Value(Decimal('12.50'), output_type=ScalarType.NUMERIC), alias='v')],
+            expressions=[
+                SelectExpression(expression=Value(Decimal('12.50'), output_type=ScalarType.NUMERIC), alias='v')
+            ],
         )
     )
     assert len(params) == 1
@@ -48,7 +49,6 @@ def test_sqlite_decimal_value_to_str() -> None:
 
 
 def test_sqlite_decimal_schema_to_text_affinity() -> None:
-    # Old: SqliteConnectionMixin.to_sql_type(DecimalSchemaModel(precision=10, scale=2))
     #      returned 'DECIMAL_TEXT(10, 2)' (contains 'TEXT' affinity).
     # Re-pointed: compile_schema_mutation emits DECIMAL_TEXT(10, 2) in the column type.
     schema = Schema(
@@ -62,13 +62,10 @@ def test_sqlite_decimal_schema_to_text_affinity() -> None:
             )
         ],
     )
-    [(ddl, _)] = _gen.compile_schema_mutation(
-        RegisterSchema(schema_ref=_TABLE, schema=schema)
-    )
+    [(ddl, _)] = _gen.compile_schema_mutation(RegisterSchema(schema_ref=_TABLE, schema=schema))
     assert 'TEXT' in ddl
     assert 'DECIMAL_TEXT(10, 2)' in ddl
 
-    # Old: DecimalSchemaModel(precision=None, scale=None) → 'DECIMAL_TEXT'.
     schema_n = Schema(
         name='t',
         version=Version.LATEST,
@@ -80,9 +77,7 @@ def test_sqlite_decimal_schema_to_text_affinity() -> None:
             )
         ],
     )
-    [(ddl_n, _)] = _gen.compile_schema_mutation(
-        RegisterSchema(schema_ref=_TABLE, schema=schema_n)
-    )
+    [(ddl_n, _)] = _gen.compile_schema_mutation(RegisterSchema(schema_ref=_TABLE, schema=schema_n))
     assert 'DECIMAL_TEXT' in ddl_n
 
 

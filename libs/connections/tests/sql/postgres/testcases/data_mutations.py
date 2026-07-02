@@ -15,7 +15,9 @@ from amsdal_glue_core.common.operations.mutations.data import UpdateData
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 
-def simple_customer_insert(database_connection: PostgresConnection, namespace: str | None = None) -> list[list[Data] | None]:
+def simple_customer_insert(
+    database_connection: PostgresConnection, namespace: str | None = None
+) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
@@ -61,7 +63,9 @@ def insert_customers_and_orders(
     ])
 
 
-def update_two_customers(database_connection: PostgresConnection, namespace: str | None = None) -> list[list[Data] | None]:
+def update_two_customers(
+    database_connection: PostgresConnection, namespace: str | None = None
+) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),

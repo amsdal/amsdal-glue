@@ -1,3 +1,4 @@
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -11,8 +12,6 @@ from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateData
-
-from amsdal_glue_connections._sql_core import SqlGenerator
 
 _gen = SqlGenerator('sqlite', param_style='qmark')
 

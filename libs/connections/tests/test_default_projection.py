@@ -10,6 +10,7 @@ This is a semantic change: `SELECT *` on a multi-table JOIN returns columns from
 ALL joined tables, not just the primary table.  Flag for review.
 """
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -23,8 +24,6 @@ from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
-
-from amsdal_glue_connections._sql_core import SqlGenerator
 
 _lite = SqlGenerator('sqlite', param_style='qmark')
 

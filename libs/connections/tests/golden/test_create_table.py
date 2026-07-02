@@ -10,7 +10,6 @@ Both SQLite and Postgres now route through the Rust SqlGenerator
 for both dialects and lowercase type names.
 """
 
-import pytest
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -257,7 +256,7 @@ def test_foreign_key_constraint_sqlite() -> None:
             'CREATE TABLE "Order" ('
             '"id" integer NOT NULL, '
             '"person_id" integer NOT NULL, '
-            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'
+            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'  # noqa: E501
             ')',
             [],
         ),
@@ -290,7 +289,7 @@ def test_foreign_key_sqlite_reference_fields_quoted_correct_behaviour() -> None:
     sql = stmts[0][0]
     assert 'REFERENCES "Person" ("id")' in sql
     assert "REFERENCES 'Person'" not in sql
-    assert "REFERENCES Person" not in sql
+    assert 'REFERENCES Person' not in sql
 
 
 def test_foreign_key_constraint_pg() -> None:
@@ -320,7 +319,7 @@ def test_foreign_key_constraint_pg() -> None:
             'CREATE TABLE "Order" ('
             '"id" integer NOT NULL, '
             '"person_id" integer NOT NULL, '
-            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'
+            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'  # noqa: E501
             ')',
             [],
         ),

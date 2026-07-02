@@ -4,6 +4,7 @@ Re-pointed to Rust SqlGenerator: conditions are wrapped in a minimal QueryStatem
 and compile_query is called; the WHERE portion is extracted from the result.
 """
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -16,8 +17,6 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 
-from amsdal_glue_connections._sql_core import SqlGenerator
-
 _gen = SqlGenerator('sqlite', param_style='qmark')
 _TABLE = SchemaReference(name='t', version=Version.LATEST)
 _PREFIX = 'SELECT * FROM "t" WHERE '
@@ -27,7 +26,7 @@ def _build_conditions(conditions: Conditions) -> tuple[str, list]:
     """Compile conditions via QueryStatement and return only the WHERE clause."""
     sql, params = _gen.compile_query(QueryStatement(table=_TABLE, where=conditions))
     assert sql.startswith(_PREFIX), f'Unexpected SQL: {sql!r}'
-    return sql[len(_PREFIX):], params
+    return sql[len(_PREFIX) :], params
 
 
 def _leaf(name: str, value: object) -> Condition:

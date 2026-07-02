@@ -2,7 +2,6 @@ import pytest
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
-from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
@@ -129,7 +128,10 @@ async def test_delete_property(database_connection: AsyncSqliteConnection) -> No
 
     await delete_age_property(database_connection)
 
-    assert await _describe_table(database_connection, 'user') == [('id', ScalarType.INTEGER), ('email', ScalarType.TEXT)]
+    assert await _describe_table(database_connection, 'user') == [
+        ('id', ScalarType.INTEGER),
+        ('email', ScalarType.TEXT),
+    ]
 
 
 @pytest.mark.asyncio
@@ -298,9 +300,7 @@ async def _get_indexes(database_connection: AsyncSqliteConnection, table_name: s
     return [(index.name, [f.name for f in index.fields]) for index in indexes]
 
 
-async def _describe_table(
-    database_connection: AsyncSqliteConnection, table_name: str
-) -> list[tuple]:
+async def _describe_table(database_connection: AsyncSqliteConnection, table_name: str) -> list[tuple]:
     properties, _, _ = await database_connection.get_table_info(table_name)
 
     return [(prop.name, prop.type) for prop in properties]

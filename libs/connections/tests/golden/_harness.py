@@ -8,6 +8,7 @@ against a captured literal in the feature tests.
 from typing import Any
 
 from amsdal_glue_connections._sql_core import SqlGenerator
+
 from amsdal_glue_connections.sql.connections.postgres_connection.async_connection import AsyncPostgresConnection
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import PostgresConnection
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import SqliteConnection

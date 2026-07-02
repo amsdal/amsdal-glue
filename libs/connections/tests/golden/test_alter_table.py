@@ -237,7 +237,7 @@ def test_add_constraint_pg_foreign_key() -> None:
     )
     assert pg_ddl(m) == [
         (
-            'ALTER TABLE "Person" ADD CONSTRAINT "fk_person_address" FOREIGN KEY ("address_id") REFERENCES "Address" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION',
+            'ALTER TABLE "Person" ADD CONSTRAINT "fk_person_address" FOREIGN KEY ("address_id") REFERENCES "Address" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION',  # noqa: E501
             [],
         ),
     ]

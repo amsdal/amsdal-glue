@@ -1,13 +1,12 @@
 """Nested SubQueryStatement: outer references aliased columns from deep inner subqueries."""
 
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
-
-from amsdal_glue_connections._sql_core import SqlGenerator
 
 _lite = SqlGenerator('sqlite', param_style='qmark')
 

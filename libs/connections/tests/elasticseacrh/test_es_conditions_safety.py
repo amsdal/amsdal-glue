@@ -7,8 +7,8 @@ from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.expressions.exists import Exists
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
