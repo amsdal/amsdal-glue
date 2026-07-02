@@ -117,9 +117,23 @@ _UNIQUE_INLINE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DECIMAL_PARAMS_RE = re.compile(
+    r'^(DECIMAL_TEXT|NUMERIC|DECIMAL)\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*$',
+    re.IGNORECASE,
+)
+
 
 def _sqlite_type_to_field_type(type_name: str) -> ScalarType | CustomType:
     """Map a SQLite column type string to a FieldType."""
+    # Detect parameterised decimal types before stripping parens.
+    m = _DECIMAL_PARAMS_RE.match(type_name.strip())
+    if m:
+        base_name = m.group(1).upper()
+        precision = int(m.group(2))
+        scale = int(m.group(3))
+        name = 'decimal_text' if base_name == 'DECIMAL_TEXT' else 'NUMERIC'
+        return CustomType(name=name, params={'precision': precision, 'scale': scale})
+
     cleaned = re.sub(r'\(.*\)', '', type_name).strip().lower()
 
     scalar = _SQLITE_TYPE_MAP.get(cleaned)

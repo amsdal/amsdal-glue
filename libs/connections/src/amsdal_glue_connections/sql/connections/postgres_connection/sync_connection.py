@@ -93,7 +93,11 @@ _SERIAL_TYPE_MAP: dict[str, ScalarType] = {
 }
 
 
-def _pg_type_to_field_type(type_name: str) -> ScalarType | CustomType | ArrayType | VectorType:
+def _pg_type_to_field_type(
+    type_name: str,
+    numeric_precision: int | None = None,
+    numeric_scale: int | None = None,
+) -> ScalarType | CustomType | ArrayType | VectorType:
     if type_name.startswith('_') or type_name.endswith('[]'):
         base = type_name.lstrip('_').rstrip('[]')
         item_type = _PG_TYPE_MAP.get(base, CustomType(name=base))
@@ -101,6 +105,12 @@ def _pg_type_to_field_type(type_name: str) -> ScalarType | CustomType | ArrayTyp
 
     if type_name == 'vector':
         return VectorType(dimensions=0)
+
+    if type_name in ('numeric', 'decimal') and numeric_precision is not None:
+        params: dict[str, int] = {'precision': numeric_precision}
+        if numeric_scale is not None:
+            params['scale'] = numeric_scale
+        return CustomType(name='NUMERIC', params=params)
 
     scalar = _PG_TYPE_MAP.get(type_name)
     if scalar is not None:
@@ -363,7 +373,8 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
     def _introspect_columns(self, table_name: str) -> list[PropertySchema]:
         sql = (
             'SELECT column_name, data_type, udt_name, is_nullable, column_default, '
-            'is_identity, identity_generation, collation_name, generation_expression, is_generated '
+            'is_identity, identity_generation, collation_name, generation_expression, is_generated, '
+            'numeric_precision, numeric_scale '
             'FROM information_schema.columns '
             "WHERE table_name = %s AND table_schema = 'public' "
             'ORDER BY ordinal_position'
@@ -384,6 +395,8 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
             collation_name,
             generation_expression,
             is_generated,
+            numeric_precision,
+            numeric_scale,
         ) in rows:
             serial_type = _detect_serial(data_type, column_default)
             identity = _resolve_identity(is_identity_col, identity_generation) if serial_type is None else None
@@ -393,7 +406,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
             elif data_type in ('ARRAY', 'USER-DEFINED'):
                 field_type = _pg_type_to_field_type(udt_name)
             else:
-                field_type = _pg_type_to_field_type(data_type)
+                field_type = _pg_type_to_field_type(data_type, numeric_precision, numeric_scale)
 
             default = (
                 RawExpression(value=column_default) if serial_type is None and column_default is not None else None

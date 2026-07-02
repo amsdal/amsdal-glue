@@ -23,6 +23,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
 from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _sqlite_type_to_field_type
 
 _gen = SqlGenerator('sqlite', param_style='qmark')
 _TABLE = SchemaReference(name='t', version=Version.LATEST)
@@ -85,17 +86,31 @@ def test_sqlite_decimal_schema_to_text_affinity() -> None:
     assert 'DECIMAL_TEXT' in ddl_n
 
 
+def test_sqlite_type_to_field_type_preserves_precision_scale() -> None:
+    # _sqlite_type_to_field_type is used by query_schema/_introspect_columns to convert
+    # the raw PRAGMA type string to a FieldType.
+    result = _sqlite_type_to_field_type('DECIMAL_TEXT(10, 2)')
+    assert isinstance(result, CustomType)
+    assert result.name == 'decimal_text'
+    assert result.params == {'precision': 10, 'scale': 2}
+
+    # NUMERIC(p,s) introspects to CustomType so precision/scale survive round-trips.
+    result_numeric = _sqlite_type_to_field_type('NUMERIC(10, 2)')
+    assert isinstance(result_numeric, CustomType)
+    assert result_numeric.name == 'NUMERIC'
+    assert result_numeric.params == {'precision': 10, 'scale': 2}
+
+    # Bare NUMERIC (no params) stays as ScalarType.NUMERIC.
+    assert _sqlite_type_to_field_type('NUMERIC') == ScalarType.NUMERIC
+
+
 def test_sqlite_decimal_decltype_round_trips() -> None:
-    # Old: conn.to_python_type('DECIMAL_TEXT(10, 2)') returned DecimalSchemaModel(precision=10, scale=2).
-    # Re-pointed: to_python_type still exists on SqliteConnectionMixin.
-    # SUSPICIOUS: precision/scale are not preserved — both parameterised and bare DECIMAL_TEXT
-    # now return CustomType(name='decimal_text', params=None).  Round-trip fidelity is lost.
+    # to_python_type('DECIMAL_TEXT(10, 2)') must preserve precision/scale for faithful round-trips.
     conn = SqliteConnectionMixin()
     result = conn.to_python_type('DECIMAL_TEXT(10, 2)')
     assert isinstance(result, CustomType)
     assert result.name == 'decimal_text'
-    # SUSPICIOUS: params=None — precision/scale dropped (was precision=10, scale=2).
-    assert result.params is None
+    assert result.params == {'precision': 10, 'scale': 2}
 
     unconstrained = conn.to_python_type('DECIMAL_TEXT')
     assert isinstance(unconstrained, CustomType)

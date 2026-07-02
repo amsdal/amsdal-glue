@@ -281,7 +281,8 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
     async def _introspect_columns(self, table_name: str) -> list[PropertySchema]:
         sql = (
             'SELECT column_name, data_type, udt_name, is_nullable, column_default, '
-            'is_identity, identity_generation, collation_name, generation_expression, is_generated '
+            'is_identity, identity_generation, collation_name, generation_expression, is_generated, '
+            'numeric_precision, numeric_scale '
             'FROM information_schema.columns '
             "WHERE table_name = %s AND table_schema = 'public' "
             'ORDER BY ordinal_position'
@@ -302,6 +303,8 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             collation_name,
             generation_expression,
             is_generated,
+            numeric_precision,
+            numeric_scale,
         ) in rows:
             serial_type = _detect_serial(data_type, column_default)
             identity = _resolve_identity(is_identity_col, identity_generation) if serial_type is None else None
@@ -311,7 +314,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             elif data_type in ('ARRAY', 'USER-DEFINED'):
                 field_type = _pg_type_to_field_type(udt_name)  # type: ignore[assignment]
             else:
-                field_type = _pg_type_to_field_type(data_type)  # type: ignore[assignment]
+                field_type = _pg_type_to_field_type(data_type, numeric_precision, numeric_scale)  # type: ignore[assignment]
 
             default = (
                 RawExpression(value=column_default) if serial_type is None and column_default is not None else None

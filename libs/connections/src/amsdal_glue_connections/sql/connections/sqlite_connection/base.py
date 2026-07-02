@@ -175,10 +175,13 @@ class SqliteConnectionMixin:
 
         return ''
 
-    def to_python_type(self, sql_type: str) -> FieldType:  # noqa: PLR0911
+    def to_python_type(self, sql_type: str) -> FieldType:  # noqa: PLR0911, C901
         sql_type = sql_type.upper()
 
         if sql_type.startswith('DECIMAL_TEXT'):
+            m = re.match(r'DECIMAL_TEXT\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)', sql_type)
+            if m:
+                return CustomType(name='decimal_text', params={'precision': int(m.group(1)), 'scale': int(m.group(2))})
             return CustomType(name='decimal_text')
         if sql_type == 'TEXT' or sql_type.startswith('VARCHAR'):
             return ScalarType.TEXT

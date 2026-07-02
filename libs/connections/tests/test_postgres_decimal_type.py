@@ -53,13 +53,18 @@ def test_pg_decimal_schema_model_to_numeric() -> None:
 
 
 def test_pg_numeric_introspects_to_decimal_schema_model() -> None:
-    # Old: PostgresConnection()._to_python_type('NUMERIC', None, {'typmod': ...})
-    #      returned DecimalSchemaModel(precision=10, scale=2).
-    # Re-pointed: _pg_type_to_field_type('numeric') returns ScalarType.NUMERIC.
-    # SUSPICIOUS: precision/scale are no longer extracted from typmod — the introspection
-    # path that decoded ((precision << 16) | scale) + 4 has been removed with _to_python_type.
+    # Bare numeric (no precision from catalog) stays as ScalarType.NUMERIC.
     result = _pg_type_to_field_type('numeric')
     assert result == ScalarType.NUMERIC
+
+    # When the catalog provides precision/scale, the introspection returns a CustomType
+    # that preserves them for faithful schema round-trips.
+    result_with_params = _pg_type_to_field_type('numeric', numeric_precision=10, numeric_scale=2)
+    assert result_with_params == CustomType(name='NUMERIC', params={'precision': 10, 'scale': 2})
+
+    # decimal type alias also handled.
+    result_decimal = _pg_type_to_field_type('decimal', numeric_precision=5, numeric_scale=3)
+    assert result_decimal == CustomType(name='NUMERIC', params={'precision': 5, 'scale': 3})
 
 
 def test_pg_double_precision_still_float() -> None:
