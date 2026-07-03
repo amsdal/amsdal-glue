@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.csv_connection import CsvConnection
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -14,6 +13,7 @@ from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
@@ -59,17 +59,27 @@ def test_aggregation() -> None:
             FieldReference(field=Field(name='temp_log'), table_name='logs'),
             FieldReference(field=Field(name='name'), table_name='devices'),
         ],
-        aggregations=[
-            AggregationQuery(
+        expressions=[
+            SelectExpression(
                 expression=Avg(
-                    field=FieldReference(field=Field(name='temp_log'), table_name='logs'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='temp_log'), table_name='logs'),
+                    ),
                 ),
                 alias='average_temp',
             ),
         ],
         group_by=[
-            GroupByQuery(field=FieldReference(field=Field(name='device_id'), table_name='logs')),
-            GroupByQuery(field=FieldReference(field=Field(name='name'), table_name='devices')),
+            GroupByQuery(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='device_id'), table_name='logs')
+                )
+            ),
+            GroupByQuery(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='name'), table_name='devices')
+                )
+            ),
         ],
         order_by=[
             OrderByQuery(
