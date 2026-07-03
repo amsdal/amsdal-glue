@@ -1,6 +1,4 @@
 # mypy: disable-error-code="type-abstract"
-from datetime import datetime
-
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
@@ -11,10 +9,12 @@ from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -51,19 +51,40 @@ def test_simple_create_table_command(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     schema=Schema(
                         name='users',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=False, description=None, default=None),
-                            PropertySchema(name='name', type=str, required=False, description=None, default=None),
-                            PropertySchema(name='age', type=int, required=False, description=None, default=None),
                             PropertySchema(
-                                name='created_at', type=datetime, required=False, description=None, default=None
+                                name='id', type=ScalarType.INTEGER, required=False, description=None, default=None
                             ),
-                            PropertySchema(name='_metadata', type=dict, required=False, description=None, default=None),
-                            PropertySchema(name='is_active', type=bool, required=False, description=None, default=None),
-                            PropertySchema(name='height', type=float, required=False, description=None, default=None),
+                            PropertySchema(
+                                name='name', type=ScalarType.TEXT, required=False, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='age', type=ScalarType.INTEGER, required=False, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='created_at',
+                                type=ScalarType.TIMESTAMP,
+                                required=False,
+                                description=None,
+                                default=None,
+                            ),
+                            PropertySchema(
+                                name='_metadata', type=ScalarType.JSONB, required=False, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='is_active',
+                                type=ScalarType.BOOLEAN,
+                                required=False,
+                                description=None,
+                                default=None,
+                            ),
+                            PropertySchema(
+                                name='height', type=ScalarType.FLOAT, required=False, description=None, default=None
+                            ),
                         ],
                     ),
                 )
@@ -87,13 +108,20 @@ def test_simple_create_table_primary_key(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     schema=Schema(
                         name='users',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True, description=None, default=None),
-                            PropertySchema(name='username', type=str, required=True, description=None, default=None),
-                            PropertySchema(name='full_name', type=str, required=True, description=None, default=None),
+                            PropertySchema(
+                                name='id', type=ScalarType.INTEGER, required=True, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='username', type=ScalarType.TEXT, required=True, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='full_name', type=ScalarType.TEXT, required=True, description=None, default=None
+                            ),
                         ],
                         constraints=[
                             PrimaryKeyConstraint(name='id', fields=['id']),
@@ -128,13 +156,20 @@ def test_simple_create_table_explicit_constraints(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     schema=Schema(
                         name='users',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=False, description=None, default=None),
-                            PropertySchema(name='username', type=str, required=False, description=None, default=None),
-                            PropertySchema(name='full_name', type=str, required=False, description=None, default=None),
+                            PropertySchema(
+                                name='id', type=ScalarType.INTEGER, required=False, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='username', type=ScalarType.TEXT, required=False, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='full_name', type=ScalarType.TEXT, required=False, description=None, default=None
+                            ),
                         ],
                         constraints=[
                             PrimaryKeyConstraint(name='', fields=['id']),
@@ -187,13 +222,20 @@ def test_simple_create_table_explicit_named_constraints(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     schema=Schema(
                         name='users',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=False, description=None, default=None),
-                            PropertySchema(name='username', type=str, required=False, description=None, default=None),
-                            PropertySchema(name='full_name', type=str, required=False, description=None, default=None),
+                            PropertySchema(
+                                name='id', type=ScalarType.INTEGER, required=False, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='username', type=ScalarType.TEXT, required=False, description=None, default=None
+                            ),
+                            PropertySchema(
+                                name='full_name', type=ScalarType.TEXT, required=False, description=None, default=None
+                            ),
                         ],
                         constraints=[
                             PrimaryKeyConstraint(name='id_pk', fields=['id']),
@@ -236,7 +278,7 @@ def test_create_index(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 AddIndex(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     index=IndexSchema(name='idx_name', fields=[IndexField(name='name')]),
                 )
             ]
@@ -256,7 +298,7 @@ def test_create_index_multi_column(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 AddIndex(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     index=IndexSchema(name='idx_name', fields=[IndexField(name='name'), IndexField(name='username')]),
                 )
             ]
@@ -276,8 +318,10 @@ def test_update_schema_add_property(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 AddProperty(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
-                    property=PropertySchema(name='age', type=int, required=False, description=None, default=None),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
+                    property=PropertySchema(
+                        name='age', type=ScalarType.INTEGER, required=False, description=None, default=None
+                    ),
                 )
             ]
         )
@@ -296,7 +340,7 @@ def test_update_schema_drop_property(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 DeleteProperty(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     property_name='age',
                 )
             ]
@@ -316,7 +360,7 @@ def test_update_schema_rename_property(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 RenameProperty(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     old_name='age',
                     new_name='years',
                 )
@@ -337,8 +381,8 @@ def test_update_schema_rename_table(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 RenameSchema(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
-                    new_schema_name='people',
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
+                    new_name='people',
                 )
             ]
         )
@@ -357,7 +401,7 @@ def test_delete_schema(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 DeleteSchema(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                 )
             ]
         )
@@ -376,7 +420,7 @@ def test_add_pk_constraint(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 AddConstraint(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     constraint=PrimaryKeyConstraint(name='id_pk', fields=['id']),
                 )
             ]
@@ -387,7 +431,7 @@ def test_add_pk_constraint(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 AddConstraint(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     constraint=PrimaryKeyConstraint(name='', fields=['id']),
                 )
             ]
@@ -407,7 +451,7 @@ def test_delete_constraint(benchmark) -> None:
         SchemaCommand(
             mutations=[
                 DeleteConstraint(
-                    schema_reference=SchemaReference(name='users', version=Version.LATEST),
+                    schema_ref=SchemaReference(name='users', version=Version.LATEST),
                     constraint_name='id_pk',
                 )
             ]
@@ -423,7 +467,11 @@ def test_fetch_schemas(benchmark) -> None:
 
     result = benchmark(parse_sql)
 
-    assert result == [SchemaQueryOperation(filters=None)]
+    assert result == [
+        SchemaQueryOperation(
+            query=QueryStatement(table=SchemaReference(name='amsdal_schema_registry', version=Version.LATEST))
+        )
+    ]
 
 
 def test_fetch_schemas_conditions(benchmark) -> None:
@@ -436,14 +484,19 @@ def test_fetch_schemas_conditions(benchmark) -> None:
 
     assert result == [
         SchemaQueryOperation(
-            filters=Conditions(
-                Condition(
-                    left=FieldReferenceExpression(
-                        field_reference=FieldReference(field=Field(name='name'), table_name='amsdal_schema_registry')
-                    ),
-                    lookup=FieldLookup.EQ,
-                    right=Value('users'),
-                )
+            query=QueryStatement(
+                table=SchemaReference(name='amsdal_schema_registry', version=Version.LATEST),
+                where=Conditions(
+                    Condition(
+                        left=FieldReferenceExpression(
+                            field_reference=FieldReference(
+                                field=Field(name='name'), table_name='amsdal_schema_registry'
+                            )
+                        ),
+                        lookup=FieldLookup.EQ,
+                        right=Value('users'),
+                    )
+                ),
             ),
         )
     ]

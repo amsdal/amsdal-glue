@@ -87,10 +87,7 @@ def test_simple_update_command(benchmark) -> None:
             mutations=[
                 UpdateData(
                     schema=SchemaReference(name='users', version=Version.LATEST),
-                    data=Data(
-                        data={'name': 'Jane', 'age': '25'},
-                        metadata=None,
-                    ),
+                    data={'name': Value('Jane'), 'age': Value('25')},
                 )
             ]
         )
@@ -110,10 +107,7 @@ def test_simple_update_command_condition(benchmark) -> None:
             mutations=[
                 UpdateData(
                     schema=SchemaReference(name='users', version=Version.LATEST),
-                    data=Data(
-                        data={'name': 'Jane', 'age': '25'},
-                        metadata=None,
-                    ),
+                    data={'name': Value('Jane'), 'age': Value('25')},
                     query=Conditions(
                         Condition(
                             left=FieldReferenceExpression(

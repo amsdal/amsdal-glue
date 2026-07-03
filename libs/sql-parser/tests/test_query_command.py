@@ -1,11 +1,8 @@
 # mypy: disable-error-code="type-abstract"
 import pytest
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
-from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -15,6 +12,7 @@ from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
@@ -26,8 +24,8 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.combined import Combined
 from amsdal_glue_core.common.expressions.common import Combinable
-from amsdal_glue_core.common.expressions.common import CombinedExpression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.base import Operation
@@ -428,18 +426,30 @@ def test_query_ordering(benchmark) -> None:
                 order_by=[
                     OrderByQuery(
                         field=FieldReference(field=Field(name='first_name'), table_name='u'),
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='first_name'), table_name='u')
+                        ),
                         direction=OrderDirection.ASC,
                     ),
                     OrderByQuery(
                         field=FieldReference(field=Field(name='last_name'), table_name='u'),
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
+                        ),
                         direction=OrderDirection.DESC,
                     ),
                     OrderByQuery(
                         field=FieldReference(field=Field(name='status'), table_name='s'),
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='status'), table_name='s')
+                        ),
                         direction=OrderDirection.ASC,
                     ),
                     OrderByQuery(
                         field=FieldReference(field=Field(name='address'), table_name='a'),
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='address'), table_name='a')
+                        ),
                         direction=OrderDirection.DESC,
                     ),
                 ],
@@ -504,8 +514,16 @@ def test_simple_group_by(benchmark) -> None:
                     FieldReference(field=Field(name='age'), table_name='users'),
                 ],
                 group_by=[
-                    GroupByQuery(field=FieldReference(field=Field(name='first_name'), table_name='users')),
-                    GroupByQuery(field=FieldReference(field=Field(name='last_name'), table_name='users')),
+                    GroupByQuery(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='first_name'), table_name='users')
+                        )
+                    ),
+                    GroupByQuery(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='users')
+                        )
+                    ),
                 ],
                 where=Conditions(
                     Condition(
@@ -539,31 +557,60 @@ def test_simple_aggregate(benchmark) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', version=Version.LATEST),
-                aggregations=[
-                    AggregationQuery(
-                        expression=Count(field=FieldReference(field=Field(name='*'), table_name='users')),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Count(
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='*'), table_name='users')
+                            )
+                        ),
                         alias='total',
                     ),
-                    AggregationQuery(
-                        expression=Avg(field=FieldReference(field=Field(name='age'), table_name='users')),
+                    SelectExpression(
+                        expression=Avg(
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='users')
+                            )
+                        ),
                         alias='average',
                     ),
-                    AggregationQuery(
-                        expression=Max(field=FieldReference(field=Field(name='age'), table_name='users')),
+                    SelectExpression(
+                        expression=Max(
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='users')
+                            )
+                        ),
                         alias='max_age',
                     ),
-                    AggregationQuery(
-                        expression=Min(field=FieldReference(field=Field(name='age'), table_name='users')),
+                    SelectExpression(
+                        expression=Min(
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='users')
+                            )
+                        ),
                         alias='age_min',
                     ),
-                    AggregationQuery(
-                        expression=Sum(field=FieldReference(field=Field(name='age'), table_name='users')),
+                    SelectExpression(
+                        expression=Sum(
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='users')
+                            )
+                        ),
                         alias='sum_age',
                     ),
                 ],
                 group_by=[
-                    GroupByQuery(field=FieldReference(field=Field(name='first_name'), table_name='users')),
-                    GroupByQuery(field=FieldReference(field=Field(name='last_name'), table_name='users')),
+                    GroupByQuery(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='first_name'), table_name='users')
+                        )
+                    ),
+                    GroupByQuery(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='users')
+                        )
+                    ),
                 ],
                 where=Conditions(
                     Condition(
@@ -618,19 +665,34 @@ def test_aggregation_with_joins(benchmark) -> None:
                         join_type=JoinType.INNER,
                     ),
                 ],
-                aggregations=[
-                    AggregationQuery(
-                        expression=Sum(field=FieldReference(field=Field(name='price'), table_name='orders')),
+                expressions=[
+                    SelectExpression(
+                        expression=Sum(
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='price'), table_name='orders')
+                            )
+                        ),
                         alias='sum_price',
                     ),
                 ],
                 group_by=[
-                    GroupByQuery(field=FieldReference(field=Field(name='first_name'), table_name='customers')),
-                    GroupByQuery(field=FieldReference(field=Field(name='last_name'), table_name='customers')),
+                    GroupByQuery(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='first_name'), table_name='customers')
+                        )
+                    ),
+                    GroupByQuery(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='last_name'), table_name='customers')
+                        )
+                    ),
                 ],
                 order_by=[
                     OrderByQuery(
                         field=FieldReference(field=Field(name='id'), table_name='customers'),
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                        ),
                         direction=OrderDirection.ASC,
                     ),
                 ],
@@ -659,15 +721,20 @@ def test_simple_annotation(benchmark) -> None:
                     FieldReference(field=Field(name='first_name'), table_name='users'),
                     FieldReference(field=Field(name='last_name'), table_name='users'),
                 ],
-                annotations=[
-                    AnnotationQuery(
-                        value=SubQueryStatement(
+                expressions=[
+                    SelectExpression(
+                        expression=SubQueryStatement(
                             query=QueryStatement(
                                 table=SchemaReference(name='orders', version=Version.LATEST),
-                                aggregations=[
-                                    AggregationQuery(
+                                only=[],
+                                expressions=[
+                                    SelectExpression(
                                         expression=Count(
-                                            field=FieldReference(field=Field(name='*'), table_name='orders')
+                                            expression=FieldReferenceExpression(
+                                                field_reference=FieldReference(
+                                                    field=Field(name='*'), table_name='orders'
+                                                )
+                                            )
                                         ),
                                         alias='count_total',
                                     ),
@@ -689,7 +756,8 @@ def test_simple_annotation(benchmark) -> None:
                             ),
                             alias='orders_count',
                         ),
-                    )
+                        alias='orders_count',
+                    ),
                 ],
             ),
         )
@@ -711,7 +779,7 @@ def test_select_distinct_single_field(benchmark) -> None:
                 only=[
                     FieldReference(field=Field(name='first_name'), table_name='users'),
                 ],
-                distinct=True,
+                distinct=DistinctClause(),
             ),
         )
     ]
@@ -733,9 +801,11 @@ def test_select_distinct_on(benchmark) -> None:
                     FieldReference(field=Field(name='first_name'), table_name='users'),
                     FieldReference(field=Field(name='last_name'), table_name='users'),
                 ],
-                distinct=[
-                    FieldReference(field=Field(name='first_name'), table_name='users'),
-                ],
+                distinct=DistinctClause(
+                    on_fields=[
+                        FieldReference(field=Field(name='first_name'), table_name='users'),
+                    ]
+                ),
             ),
         )
     ]
@@ -757,7 +827,7 @@ def test_select_distinct_multiple_fields(benchmark) -> None:
                     FieldReference(field=Field(name='first_name'), table_name='users'),
                     FieldReference(field=Field(name='last_name'), table_name='users'),
                 ],
-                distinct=True,
+                distinct=DistinctClause(),
             ),
         )
     ]
@@ -779,10 +849,12 @@ def test_select_distinct_on_multiple_fields(benchmark) -> None:
                     FieldReference(field=Field(name='first_name'), table_name='users'),
                     FieldReference(field=Field(name='last_name'), table_name='users'),
                 ],
-                distinct=[
-                    FieldReference(field=Field(name='first_name'), table_name='users'),
-                    FieldReference(field=Field(name='last_name'), table_name='users'),
-                ],
+                distinct=DistinctClause(
+                    on_fields=[
+                        FieldReference(field=Field(name='first_name'), table_name='users'),
+                        FieldReference(field=Field(name='last_name'), table_name='users'),
+                    ]
+                ),
             ),
         )
     ]
@@ -922,9 +994,14 @@ def test_select_aggregation_aliased_query(benchmark) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', alias='u', version=Version.LATEST),
-                aggregations=[
-                    AggregationQuery(
-                        expression=Sum(field=FieldReference(field=Field(name='count'), table_name='u')),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Sum(
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='count'), table_name='u')
+                            )
+                        ),
                         alias='total_count',
                     ),
                 ],
@@ -958,20 +1035,19 @@ def test_select_math_expression(benchmark, math_op, glue_math_op) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', alias='u', version=Version.LATEST),
-                annotations=[
-                    AnnotationQuery(
-                        value=ExpressionAnnotation(
-                            expression=CombinedExpression(
-                                left=FieldReferenceExpression(
-                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
-                                ),
-                                operator=glue_math_op,
-                                right=FieldReferenceExpression(
-                                    field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
-                                ),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Combined(
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
                             ),
-                            alias='diff_count',
+                            operator=glue_math_op,
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
+                            ),
                         ),
+                        alias='diff_count',
                     ),
                 ],
             ),
@@ -991,18 +1067,17 @@ def test_select_math_expression_mixed(benchmark) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', alias='u', version=Version.LATEST),
-                annotations=[
-                    AnnotationQuery(
-                        value=ExpressionAnnotation(
-                            expression=CombinedExpression(
-                                left=FieldReferenceExpression(
-                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
-                                ),
-                                operator=Combinable.MUL,
-                                right=Value(10.25),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Combined(
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
                             ),
-                            alias='diff_count',
+                            operator=Combinable.MUL,
+                            right=Value(10.25),
                         ),
+                        alias='diff_count',
                     ),
                 ],
             ),
@@ -1023,30 +1098,29 @@ def test_complex_math_mixed(benchmark) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', alias='u', version=Version.LATEST),
-                annotations=[
-                    AnnotationQuery(
-                        value=ExpressionAnnotation(
-                            expression=CombinedExpression(
-                                left=CombinedExpression(
-                                    left=FieldReferenceExpression(
-                                        field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
-                                    ),
-                                    operator=Combinable.MUL,
-                                    right=Value(10.25),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Combined(
+                            left=Combined(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
                                 ),
-                                operator=Combinable.SUB,
-                                right=CombinedExpression(
-                                    left=FieldReferenceExpression(
-                                        field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
-                                    ),
-                                    operator=Combinable.ADD,
-                                    right=FieldReferenceExpression(
-                                        field_reference=FieldReference(field=Field(name='town_count'), table_name='u')
-                                    ),
+                                operator=Combinable.MUL,
+                                right=Value(10.25),
+                            ),
+                            operator=Combinable.SUB,
+                            right=Combined(
+                                left=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
+                                ),
+                                operator=Combinable.ADD,
+                                right=FieldReferenceExpression(
+                                    field_reference=FieldReference(field=Field(name='town_count'), table_name='u')
                                 ),
                             ),
-                            alias='result',
                         ),
+                        alias='result',
                     ),
                 ],
             ),
@@ -1067,20 +1141,19 @@ def test_select_pow_expression(benchmark) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', alias='u', version=Version.LATEST),
-                annotations=[
-                    AnnotationQuery(
-                        value=ExpressionAnnotation(
-                            expression=CombinedExpression(
-                                left=FieldReferenceExpression(
-                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
-                                ),
-                                operator=Combinable.POW,
-                                right=FieldReferenceExpression(
-                                    field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
-                                ),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Combined(
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
                             ),
-                            alias='result',
+                            operator=Combinable.POW,
+                            right=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='city_count'), table_name='u')
+                            ),
                         ),
+                        alias='result',
                     ),
                 ],
             ),
@@ -1100,18 +1173,17 @@ def test_select_power_mixed(benchmark) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', alias='u', version=Version.LATEST),
-                annotations=[
-                    AnnotationQuery(
-                        value=ExpressionAnnotation(
-                            expression=CombinedExpression(
-                                left=FieldReferenceExpression(
-                                    field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
-                                ),
-                                operator=Combinable.POW,
-                                right=Value(value=10),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Combined(
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='total_count'), table_name='u')
                             ),
-                            alias='result',
+                            operator=Combinable.POW,
+                            right=Value(value=10),
                         ),
+                        alias='result',
                     ),
                 ],
             ),
@@ -1140,12 +1212,11 @@ def test_select_value_expression(benchmark, sql_value, python_value) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', alias='u', version=Version.LATEST),
-                annotations=[
-                    AnnotationQuery(
-                        value=ValueAnnotation(
-                            value=Value(python_value),
-                            alias='result',
-                        ),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Value(python_value),
+                        alias='result',
                     ),
                 ],
             ),
@@ -1165,12 +1236,11 @@ def test_select_nested_value_expression(benchmark) -> None:
         DataQueryOperation(
             query=QueryStatement(
                 table=SchemaReference(name='users', alias='u', version=Version.LATEST),
-                annotations=[
-                    AnnotationQuery(
-                        value=ValueAnnotation(
-                            value=Value(100),
-                            alias='result',
-                        ),
+                only=[],
+                expressions=[
+                    SelectExpression(
+                        expression=Value(100),
+                        alias='result',
                     ),
                 ],
             ),
