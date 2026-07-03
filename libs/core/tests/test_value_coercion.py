@@ -277,3 +277,27 @@ def test_array_none_passthrough():
     arr_type = ArrayType(item_type=ScalarType.INTEGER)
     v = Value(None, output_type=arr_type)
     assert v.value is None
+
+
+# ---------------------------------------------------------------------------
+# JSON / JSONB — coercion does NOT transform; serialisation is the
+# connection/binding layer's responsibility. The value passes through as-is.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    'json_type',
+    [ScalarType.JSON, ScalarType.JSONB],
+)
+@pytest.mark.parametrize(
+    'value',
+    [{'a': 1}, [1, 2, 3], 'emil', 1, 1.5, True],
+)
+def test_json_value_passes_through_unchanged(json_type, value):
+    v = Value(value, output_type=json_type)
+    assert v.value == value
+    assert type(v.value) is type(value)
+
+
+def test_json_none_passthrough():
+    assert Value(None, output_type=ScalarType.JSONB).value is None

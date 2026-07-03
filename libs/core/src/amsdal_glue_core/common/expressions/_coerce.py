@@ -14,7 +14,6 @@ Rules:
 from __future__ import annotations
 
 import contextlib
-import json
 import uuid
 from decimal import Decimal
 from decimal import InvalidOperation
@@ -44,12 +43,6 @@ _DATETIME_FAMILY: frozenset[ScalarType] = frozenset({
     ScalarType.TIMESTAMP,
     ScalarType.TIMESTAMPTZ,
 })
-
-_JSON_FAMILY: frozenset[ScalarType] = frozenset({
-    ScalarType.JSON,
-    ScalarType.JSONB,
-})
-
 
 def coerce_to_field_type(value: Any, field_type: Any) -> Any:
     """Coerce *value* to the native Python type that corresponds to *field_type*.
@@ -106,9 +99,8 @@ def _coerce_scalar(value: Any, scalar_type: ScalarType) -> Any:  # noqa: C901, P
         return _coerce_datetime(value)
     if scalar_type == ScalarType.BYTEA:
         return _coerce_bytes(value)
-    if scalar_type in _JSON_FAMILY:
-        return _coerce_json(value)
-    # Passthrough: INTERVAL, TSVECTOR, TSQUERY, *RANGE types, etc.
+    # Passthrough: JSON/JSONB (the connection/binding layer serialises these), INTERVAL,
+    # TSVECTOR, TSQUERY, *RANGE types, etc.
     return value
 
 
@@ -254,20 +246,3 @@ def _coerce_bytes(value: Any) -> bytes:
         return value.encode()
     msg = f'expected bytes but got {value!r}'
     raise ValueError(msg)
-
-
-def _coerce_json(value: Any) -> Any:
-    if isinstance(value, (dict, list)):
-        return value
-    if isinstance(value, str):
-        try:
-            json.loads(value)
-        except json.JSONDecodeError as exc:
-            msg = f'expected JSON but got {value!r}'
-            raise ValueError(msg) from exc
-        return value
-    try:
-        return json.dumps(value)
-    except (TypeError, ValueError) as exc:
-        msg = f'expected a JSON-serialisable value but got {value!r}'
-        raise ValueError(msg) from exc
