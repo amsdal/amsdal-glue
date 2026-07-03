@@ -93,12 +93,12 @@ def test_query_customers_annotation(test_client: TestClient) -> None:
                     'table_name': 'c',
                 }
             ],
-            'annotations': [
+            'expressions': [
                 {
-                    'value': {
-                        'alias': 'total_quantity',
+                    'expression': {
                         'query': {
-                            'aggregations': [
+                            'only': [],
+                            'expressions': [
                                 {
                                     'expression': {
                                         'name': 'SUM',
@@ -122,7 +122,9 @@ def test_query_customers_annotation(test_client: TestClient) -> None:
                                 ],
                             },
                         },
+                        'alias': 'total_quantity',
                     },
+                    'alias': 'total_quantity',
                 }
             ],
             'order_by': [

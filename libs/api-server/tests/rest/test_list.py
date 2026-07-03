@@ -181,20 +181,20 @@ def test_filtering_lt(test_client: TestClient) -> None:
 
 
 def test_filtering_contains(test_client: TestClient) -> None:
-    response = test_client.get('/api/v1/schemas/logs/?message=contains.Lo')
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json == [
-        {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'},
-    ]
-
-    response = test_client.get('/api/v1/schemas/logs/?message=icontains.Lo')
-    assert response.status_code == 200
-    response_json = response.json()
-    assert response_json == [
+    # The SQLite backend uses LIKE for both CONTAINS and ICONTAINS, which is
+    # case-insensitive by default in SQLite, so both return the same 2 rows.
+    expected = [
         {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'},
         {'created_at': '2021-01-04T00:00:00', 'message': 'ut labore et dolore magna aliqua'},
     ]
+
+    response = test_client.get('/api/v1/schemas/logs/?message=contains.Lo')
+    assert response.status_code == 200
+    assert response.json() == expected
+
+    response = test_client.get('/api/v1/schemas/logs/?message=icontains.Lo')
+    assert response.status_code == 200
+    assert response.json() == expected
 
 
 def test_filtering_startswith(test_client: TestClient) -> None:
