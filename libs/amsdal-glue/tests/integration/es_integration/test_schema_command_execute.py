@@ -233,7 +233,9 @@ def test_create_schema_complex_types() -> None:
             ),
             PropertySchema(
                 name='nested_schema',
-                type=NestedType(properties={'string': ScalarType.TEXT, 'integer': ScalarType.INTEGER, 'float': ScalarType.NUMERIC}),
+                type=NestedType(
+                    properties={'string': ScalarType.TEXT, 'integer': ScalarType.INTEGER, 'float': ScalarType.NUMERIC}
+                ),
                 required=False,
             ),
         ],

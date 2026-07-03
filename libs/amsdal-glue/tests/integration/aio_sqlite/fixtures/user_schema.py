@@ -1,3 +1,4 @@
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 
 from amsdal_glue import CheckConstraint
@@ -15,7 +16,6 @@ from amsdal_glue import SchemaReference
 from amsdal_glue import UniqueConstraint
 from amsdal_glue import Value
 from amsdal_glue import Version
-from amsdal_glue_core.common.enums import ScalarType
 
 user_schema = Schema(
     name='user',

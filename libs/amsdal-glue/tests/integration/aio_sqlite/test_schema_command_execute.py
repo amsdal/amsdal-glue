@@ -140,9 +140,7 @@ async def test_create_schema(register_default_connection: None) -> None:  # noqa
     }
     query_service = Container.services.get(AsyncSchemaQueryService)
     schema_result = await query_service.execute(
-        SchemaQueryOperation(
-            query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
-        ),
+        SchemaQueryOperation(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))),
     )
 
     assert schema_result.schemas == [

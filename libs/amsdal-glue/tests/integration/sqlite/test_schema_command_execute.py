@@ -124,9 +124,7 @@ def test_create_schema() -> None:
     plan.execute(transaction_id=None, lock_id=None)
 
     conn = connection_mng.get_connection_pool('user').get_connection()
-    result = conn.query_schema(
-        query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
-    )
+    result = conn.query_schema(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)))
     assert len(result) == 1
     _schema = result[0]
     assert _schema.name == 'user'
@@ -139,9 +137,7 @@ def test_create_schema() -> None:
     }
     query_service = Container.services.get(SchemaQueryService)
     schema_result = query_service.execute(
-        SchemaQueryOperation(
-            query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
-        ),
+        SchemaQueryOperation(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))),
     )
 
     assert schema_result.schemas == [
@@ -226,9 +222,7 @@ def test_create_schema_complex_types() -> None:
     plan.execute(transaction_id=None, lock_id=None)
 
     conn = connection_mng.get_connection_pool('user').get_connection()
-    result = conn.query_schema(
-        query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
-    )
+    result = conn.query_schema(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)))
     assert len(result) == 1
     _schema = result[0]
     assert _schema.name == 'user'

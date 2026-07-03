@@ -304,7 +304,12 @@ def test_not_exists_returns_customers_without_any_orders() -> None:
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=0), alias='_exists'), negated=True)),
+        where=Conditions(
+            Exists(
+                subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=0), alias='_exists'),
+                negated=True,
+            )
+        ),
         order_by=[
             OrderByQuery(
                 field=FieldReference(field=Field(name='id'), table_name='c'),
@@ -325,7 +330,9 @@ def test_exists_returns_customers_with_any_order() -> None:
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=0), alias='_exists'))),
+        where=Conditions(
+            Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=0), alias='_exists'))
+        ),
         order_by=[
             OrderByQuery(
                 field=FieldReference(field=Field(name='id'), table_name='c'),
@@ -347,7 +354,9 @@ def test_exists_with_correlation_and_amount_threshold_returns_customer_three() -
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=5000), alias='_exists'))),
+        where=Conditions(
+            Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=5000), alias='_exists'))
+        ),
         order_by=[
             OrderByQuery(
                 field=FieldReference(field=Field(name='id'), table_name='c'),
