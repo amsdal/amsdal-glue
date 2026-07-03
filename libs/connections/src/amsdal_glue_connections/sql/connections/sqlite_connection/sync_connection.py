@@ -20,6 +20,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
+from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -308,6 +309,8 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         except sqlite3.IntegrityError as exc:
             if 'UNIQUE constraint failed' in str(exc):
                 raise UniqueViolationError(str(exc)) from exc
+            if 'FOREIGN KEY constraint failed' in str(exc):
+                raise ForeignKeyViolationError(str(exc)) from exc
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
         except sqlite3.Error as exc:
