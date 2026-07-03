@@ -17,13 +17,15 @@ from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
-from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
-from amsdal_glue_core.common.data_models.schema import DictSchemaModel
-from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
-from amsdal_glue_core.common.data_models.schema import VectorSchemaModel
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import ArrayType
+from amsdal_glue_core.common.data_models.types import DictType
+from amsdal_glue_core.common.data_models.types import NestedType
+from amsdal_glue_core.common.data_models.types import VectorType
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -154,7 +156,10 @@ def test_create_schema() -> None:
     plan = planner.plan_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=schema),
+                RegisterSchema(
+                    schema=schema,
+                    schema_ref=SchemaReference(name='user', version=Version.LATEST),
+                ),
             ],
         ),
     )
@@ -218,17 +223,17 @@ def test_create_schema_complex_types() -> None:
         properties=[
             PropertySchema(
                 name='dictionary',
-                type=DictSchemaModel(key_type=str, value_type=int),
+                type=DictType(key_type=ScalarType.TEXT, value_type=ScalarType.INTEGER),
                 required=False,  # Elasticsearch doesn't enforce required at schema level
             ),
             PropertySchema(
                 name='array',
-                type=ArraySchemaModel(item_type=str),
+                type=ArrayType(item_type=ScalarType.TEXT),
                 required=False,
             ),
             PropertySchema(
                 name='nested_schema',
-                type=NestedSchemaModel(properties={'string': str, 'integer': int, 'float': float}),
+                type=NestedType(properties={'string': ScalarType.TEXT, 'integer': ScalarType.INTEGER, 'float': ScalarType.NUMERIC}),
                 required=False,
             ),
         ],
@@ -238,7 +243,10 @@ def test_create_schema_complex_types() -> None:
     plan = planner.plan_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=schema),
+                RegisterSchema(
+                    schema=schema,
+                    schema_ref=SchemaReference(name='user', version=Version.LATEST),
+                ),
             ],
         ),
     )
@@ -249,21 +257,21 @@ def test_create_schema_complex_types() -> None:
     assert len(result) == 1
     _schema = result[0]
     assert _schema.name.endswith('user')
-    # In Elasticsearch, complex types are all mapped to object type and returned as DictSchemaModel
+    # In Elasticsearch, complex types are all mapped to object type and returned as DictType
     # This is because ES doesn't have the same type system granularity as SQL databases
     prop_types = {prop.name: prop.type for prop in _schema.properties}
 
-    # All complex types are converted to DictSchemaModel when stored/retrieved from ES
-    assert isinstance(prop_types['dictionary'], DictSchemaModel)
-    assert isinstance(prop_types['array'], DictSchemaModel)
-    assert isinstance(prop_types['nested_schema'], DictSchemaModel)
+    # All complex types are converted to DictType when stored/retrieved from ES
+    assert isinstance(prop_types['dictionary'], DictType)
+    assert isinstance(prop_types['array'], DictType)
+    assert isinstance(prop_types['nested_schema'], DictType)
 
-    # They all have default key/value types of str
+    # They all have default key/value types of ScalarType.TEXT
     for prop_name in ['dictionary', 'array', 'nested_schema']:
         prop_type = prop_types[prop_name]
-        assert isinstance(prop_type, DictSchemaModel)
-        assert prop_type.key_type is str
-        assert prop_type.value_type is str
+        assert isinstance(prop_type, DictType)
+        assert prop_type.key_type == ScalarType.TEXT
+        assert prop_type.value_type == ScalarType.TEXT
 
 
 def test_create_schema_embeddings() -> None:
@@ -274,7 +282,7 @@ def test_create_schema_embeddings() -> None:
         properties=[
             PropertySchema(
                 name='embedding',
-                type=VectorSchemaModel(dimensions=3),
+                type=VectorType(dimensions=3),
                 required=False,  # Elasticsearch doesn't enforce required at schema level
             ),
             PropertySchema(
@@ -289,7 +297,10 @@ def test_create_schema_embeddings() -> None:
     plan = planner.plan_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=schema),
+                RegisterSchema(
+                    schema=schema,
+                    schema_ref=SchemaReference(name='user', version=Version.LATEST),
+                ),
             ],
         ),
     )
@@ -301,6 +312,6 @@ def test_create_schema_embeddings() -> None:
     _schema = result[0]
     assert _schema.name.endswith('user')
     assert {prop.name: prop.type for prop in _schema.properties} == {
-        'embedding': VectorSchemaModel(dimensions=3),
+        'embedding': VectorType(dimensions=3),
         'name': str,
     }
