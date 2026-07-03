@@ -4,6 +4,10 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
+from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 from amsdal_glue_core.common.services.queries import AsyncSchemaQueryService
@@ -47,7 +51,7 @@ def _add_shipping_connection():
 async def test_schema_query_service_single_connection(register_default_connection: None) -> None:  # noqa: ARG001
     query_service = Container.services.get(AsyncSchemaQueryService)
     result = await query_service.execute(
-        SchemaQueryOperation(filters=None),
+        SchemaQueryOperation(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))),
     )
     assert result.success is True
     assert result.schemas
@@ -61,7 +65,7 @@ async def test_schema_query_service_multiple_connection(
     _add_shipping_connection()
     query_service = Container.services.get(AsyncSchemaQueryService)
     result = await query_service.execute(
-        SchemaQueryOperation(filters=None),
+        SchemaQueryOperation(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))),
     )
     assert result.success is True
     assert result.schemas
