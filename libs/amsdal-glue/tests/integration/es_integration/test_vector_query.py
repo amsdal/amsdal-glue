@@ -10,8 +10,6 @@ import pytest
 from amsdal_glue_connections.elasticsearch_connection.sync_connection import ElasticsearchConnection
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
@@ -22,18 +20,19 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.data_models.schema import VectorSchemaModel
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+from amsdal_glue_core.common.data_models.types import VectorType
 from amsdal_glue_core.common.data_models.vector import Vector
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
-from amsdal_glue_core.common.expressions.vector import CosineDistanceExpression
-from amsdal_glue_core.common.expressions.vector import InnerProductExpression
-from amsdal_glue_core.common.expressions.vector import L1DistanceExpression
-from amsdal_glue_core.common.expressions.vector import L2DistanceExpression
+from amsdal_glue_core.common.expressions.vector import CosineDistance
+from amsdal_glue_core.common.expressions.vector import InnerProduct
+from amsdal_glue_core.common.expressions.vector import L1Distance
+from amsdal_glue_core.common.expressions.vector import L2Distance
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -103,6 +102,7 @@ def _register_default_connection() -> Generator[None, None, None]:
             SchemaCommand(
                 mutations=[
                     RegisterSchema(
+                        schema_ref=SchemaReference(name='vector_schema', version=Version.LATEST),
                         schema=Schema(
                             name='vector_schema',
                             version=Version.LATEST,
@@ -114,15 +114,16 @@ def _register_default_connection() -> Generator[None, None, None]:
                                 ),
                                 PropertySchema(
                                     name='vector',
-                                    type=VectorSchemaModel(dimensions=3),
+                                    type=VectorType(dimensions=3),
                                     required=False,
                                 ),
                             ],
                             constraints=[],
                             indexes=[],
-                        )
+                        ),
                     ),
                     RegisterSchema(
+                        schema_ref=SchemaReference(name='binary_vector_schema', version=Version.LATEST),
                         schema=Schema(
                             name='binary_vector_schema',
                             version=Version.LATEST,
@@ -134,13 +135,13 @@ def _register_default_connection() -> Generator[None, None, None]:
                                 ),
                                 PropertySchema(
                                     name='vector',
-                                    type=VectorSchemaModel(dimensions=2),
+                                    type=VectorType(dimensions=2),
                                     required=False,
                                 ),
                             ],
                             constraints=[],
                             indexes=[],
-                        )
+                        ),
                     ),
                 ],
             ),
@@ -225,21 +226,21 @@ def test_query_execute_vector_operations() -> None:
     'distance_expression,expected1,expected2,expected3,value_to_filter',
     [
         (
-            L2DistanceExpression,
+            L2Distance,
             5.385164807134504,
             1.4142135623730951,
             5.385164807134504,
             5,
         ),
         (
-            CosineDistanceExpression,
+            CosineDistance,
             0.07417990022745,
             0.01307245756035,
             0.00516799325239,
             0.01,
         ),
         (
-            L1DistanceExpression,
+            L1Distance,
             9.0,
             2.0,
             9.0,
@@ -280,30 +281,26 @@ def test_query_execute_vector_operations_with_annotations(
             FieldReference(field=Field(name='vector'), table_name='v'),
         ],
         table=SchemaReference(name='vector_schema', alias='v', version=Version.LATEST),
-        annotations=[
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    alias='distance_to_self',
-                    expression=distance_expression(
-                        left=FieldReferenceExpression(
-                            field_reference=FieldReference(field=Field(name='vector'), table_name='v')
-                        ),
-                        right=FieldReferenceExpression(
-                            field_reference=FieldReference(field=Field(name='vector'), table_name='v')
-                        ),
+        expressions=[
+            SelectExpression(
+                expression=distance_expression(
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='vector'), table_name='v')
+                    ),
+                    right=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='vector'), table_name='v')
                     ),
                 ),
+                alias='distance_to_self',
             ),
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    alias='distance_to_value',
-                    expression=distance_expression(
-                        left=FieldReferenceExpression(
-                            field_reference=FieldReference(field=Field(name='vector'), table_name='v')
-                        ),
-                        right=Value(value=Vector(values=[5, 5, 5])),
+            SelectExpression(
+                expression=distance_expression(
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='vector'), table_name='v')
                     ),
+                    right=Value(value=Vector(values=[5, 5, 5])),
                 ),
+                alias='distance_to_value',
             ),
         ],
     )
@@ -419,30 +416,26 @@ def test_query_execute_vector_operations_with_annotations_inner_distance() -> No
             FieldReference(field=Field(name='vector'), table_name='v'),
         ],
         table=SchemaReference(name='vector_schema', alias='v', version=Version.LATEST),
-        annotations=[
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    alias='distance_to_self',
-                    expression=InnerProductExpression(
-                        left=FieldReferenceExpression(
-                            field_reference=FieldReference(field=Field(name='vector'), table_name='v')
-                        ),
-                        right=FieldReferenceExpression(
-                            field_reference=FieldReference(field=Field(name='vector'), table_name='v')
-                        ),
+        expressions=[
+            SelectExpression(
+                expression=InnerProduct(
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='vector'), table_name='v')
+                    ),
+                    right=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='vector'), table_name='v')
                     ),
                 ),
+                alias='distance_to_self',
             ),
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    alias='distance_to_value',
-                    expression=InnerProductExpression(
-                        left=FieldReferenceExpression(
-                            field_reference=FieldReference(field=Field(name='vector'), table_name='v')
-                        ),
-                        right=Value(value=Vector(values=[5, 5, 5])),
+            SelectExpression(
+                expression=InnerProduct(
+                    left=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='vector'), table_name='v')
                     ),
+                    right=Value(value=Vector(values=[5, 5, 5])),
                 ),
+                alias='distance_to_value',
             ),
         ],
     )
