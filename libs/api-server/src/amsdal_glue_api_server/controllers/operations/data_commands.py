@@ -1,6 +1,7 @@
 # mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
 from amsdal_glue_core.common.operations.mutations.data import DeleteData
@@ -74,9 +75,12 @@ async def update_command(
     root_transaction_id: str | None = None,
     transaction_id: str | None = None,
 ) -> Response:
+    update_expressions: dict[str, Value] = {k: Value(value=v) for k, v in update_data.data.data.items()}
     return await _data_command(
         mutation_command=UpdateData(
-            schema=update_data.schema, data=update_data.data, query=conditions_to_core_conditions(update_data.query)
+            schema=update_data.schema,
+            data=update_expressions,  # type: ignore[arg-type]
+            query=conditions_to_core_conditions(update_data.query),
         ),
         lock_id=lock_id,
         root_transaction_id=root_transaction_id,

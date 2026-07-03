@@ -1,25 +1,24 @@
 # mypy: disable-error-code="type-abstract"
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import JoinType
-from amsdal_glue_core.common.expressions.aggregation import AggregationExpression
 from amsdal_glue_core.common.expressions.aggregation import Avg
 from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
-from amsdal_glue_core.common.operations.queries import QueryStatement
 from amsdal_glue_core.common.services.queries import DataQueryService
 from amsdal_glue_core.containers import Container
 from fastapi import HTTPException
@@ -33,10 +32,6 @@ from amsdal_glue_api_server.controllers.operations.models import conditions_to_c
 class SubQueryStatementBody(BaseModel):
     query: 'QueryStatementBody'
     alias: str
-
-
-class AnnotationQueryBody(BaseModel):
-    value: SubQueryStatementBody | ValueAnnotation
 
 
 class JoinQueryBody(BaseModel):
@@ -70,45 +65,47 @@ class MaxBody(BaseModel):
     name: str = 'MAX'
 
 
-class AggregationQueryBody(BaseModel):
-    expression: SumBody | CountBody | AvgBody | MinBody | MaxBody
+class SelectExpressionBody(BaseModel):
+    expression: SumBody | CountBody | AvgBody | MinBody | MaxBody | SubQueryStatementBody
     alias: str
+
+
+class GroupByBody(BaseModel):
+    field: FieldReference
 
 
 class QueryStatementBody(BaseModel):
     table: SchemaReference | SubQueryStatementBody
     only: list[FieldReference | FieldReferenceAliased] | None = None
-    distinct: bool | list[FieldReference | FieldReferenceAliased] = False
-    annotations: list[AnnotationQueryBody] | None = None
-    aggregations: list[AggregationQueryBody] | None = None
+    distinct: DistinctClause | None = None
+    expressions: list[SelectExpressionBody] | None = None
     joins: list[JoinQueryBody] | None = None
     where: Conditions | None = None
-    group_by: list[GroupByQuery] | None = None
+    group_by: list[GroupByBody] | None = None
     order_by: list[OrderByQuery] | None = None
     limit: LimitQuery | None = None
 
 
-def aggregation_query_to_core_aggregation_query(aggregation: AggregationQueryBody) -> AggregationQuery:
-    _expression = aggregation.expression
-    expression: AggregationExpression
-    if isinstance(_expression, SumBody):
-        expression = Sum(field=_expression.field)
-    elif isinstance(_expression, CountBody):
-        expression = Count(field=_expression.field)
-    elif isinstance(_expression, AvgBody):
-        expression = Avg(field=_expression.field)
-    elif isinstance(_expression, MinBody):
-        expression = Min(field=_expression.field)
-    elif isinstance(_expression, MaxBody):
-        expression = Max(field=_expression.field)
-    else:
-        msg = f'Unsupported aggregation expression: {_expression}'
-        raise TypeError(msg)
+SubQueryStatementBody.model_rebuild()
+QueryStatementBody.model_rebuild()
 
-    return AggregationQuery(
-        expression=expression,
-        alias=aggregation.alias,
-    )
+
+def _aggregation_body_to_expression(
+    body: SumBody | CountBody | AvgBody | MinBody | MaxBody,
+) -> Sum | Count | Avg | Min | Max:
+    field_expr = FieldReferenceExpression(field_reference=body.field)
+    if isinstance(body, SumBody):
+        return Sum(expression=field_expr)
+    if isinstance(body, CountBody):
+        return Count(expression=field_expr)
+    if isinstance(body, AvgBody):
+        return Avg(expression=field_expr)
+    if isinstance(body, MinBody):
+        return Min(expression=field_expr)
+    if isinstance(body, MaxBody):
+        return Max(expression=field_expr)
+    msg = f'Unsupported aggregation body: {body}'
+    raise TypeError(msg)
 
 
 def join_query_to_core_join_query(join: JoinQueryBody) -> JoinQuery:
@@ -130,26 +127,26 @@ def subquery_statement_to_core_subquery_statement(subquery: SubQueryStatementBod
     )
 
 
-def annotation_to_core_annotation(annotation: AnnotationQueryBody) -> AnnotationQuery:
-    return AnnotationQuery(
-        value=(
-            subquery_statement_to_core_subquery_statement(annotation.value)
-            if isinstance(annotation.value, SubQueryStatementBody)
-            else annotation.value
-        ),
-    )
+def select_expression_body_to_core(body: SelectExpressionBody) -> SelectExpression:
+    expr = body.expression
+    core_expr: Sum | Count | Avg | Min | Max | SubQueryStatement
+    if isinstance(expr, SubQueryStatementBody):
+        core_expr = subquery_statement_to_core_subquery_statement(expr)
+    else:
+        core_expr = _aggregation_body_to_expression(expr)
+    return SelectExpression(expression=core_expr, alias=body.alias)
 
 
 def query_statement_to_core_query_statement(query: QueryStatementBody) -> QueryStatement:
     joins = [join_query_to_core_join_query(join) for join in query.joins] if query.joins else None
 
-    annotations = (
-        [annotation_to_core_annotation(annotation) for annotation in query.annotations] if query.annotations else None
+    expressions = (
+        [select_expression_body_to_core(e) for e in query.expressions] if query.expressions else None
     )
 
-    aggregations = (
-        [aggregation_query_to_core_aggregation_query(aggregation) for aggregation in query.aggregations]
-        if query.aggregations
+    group_by = (
+        [GroupByQuery(expression=FieldReferenceExpression(field_reference=g.field)) for g in query.group_by]
+        if query.group_by
         else None
     )
 
@@ -163,11 +160,10 @@ def query_statement_to_core_query_statement(query: QueryStatementBody) -> QueryS
         table=table,
         only=query.only,
         distinct=query.distinct,
-        annotations=annotations,
-        aggregations=aggregations,
+        expressions=expressions,
         joins=joins,
         where=conditions_to_core_conditions(query.where),
-        group_by=query.group_by,
+        group_by=group_by,
         order_by=query.order_by,
         limit=query.limit,
     )

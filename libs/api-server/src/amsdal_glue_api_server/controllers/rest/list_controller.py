@@ -44,9 +44,9 @@ def _create_filters(schema: Schema) -> type[BaseModel]:
             continue
 
         if isinstance(prop.type, SchemaReference):
-            query_params[prop.name] = (int | type[_EmptyFilter], _EmptyFilter)
+            query_params[prop.name] = (int | type[_EmptyFilter], _EmptyFilter)  # type: ignore[assignment]
         else:
-            query_params[prop.name] = (str | type[_EmptyFilter], _EmptyFilter)
+            query_params[prop.name] = (str | type[_EmptyFilter], _EmptyFilter)  # type: ignore[assignment]
 
     return create_model('Query', **query_params)  # type: ignore[call-overload]
 
