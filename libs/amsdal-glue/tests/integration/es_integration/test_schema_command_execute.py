@@ -7,6 +7,7 @@ from contextlib import suppress
 
 import pytest
 from amsdal_glue_connections.elasticsearch_connection.sync_connection import ElasticsearchConnection
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -17,6 +18,7 @@ from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -106,27 +108,27 @@ def test_create_schema() -> None:
         properties=[
             PropertySchema(
                 name='id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=False,  # Elasticsearch doesn't enforce required fields at schema level
             ),
             PropertySchema(
                 name='email',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
             PropertySchema(
                 name='age',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=False,
             ),
             PropertySchema(
                 name='first_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
             PropertySchema(
                 name='last_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
         ],
@@ -166,22 +168,22 @@ def test_create_schema() -> None:
     plan.execute(transaction_id=None, lock_id=None)
 
     conn = connection_mng.get_connection_pool('user').get_connection()
-    result = conn.query_schema(filters=None)
+    result = conn.query_schema(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)))
     assert len(result) == 1
     _schema = result[0]
     # Schema name includes the index prefix, so just check it ends with 'user'
     assert _schema.name.endswith('user')
     assert {prop.name: prop.type for prop in _schema.properties} == {
-        'id': int,
-        'email': str,
-        'age': int,
-        'first_name': str,
-        'last_name': str,
+        'id': ScalarType.INTEGER,
+        'email': ScalarType.TEXT,
+        'age': ScalarType.INTEGER,
+        'first_name': ScalarType.TEXT,
+        'last_name': ScalarType.TEXT,
     }
 
     query_service = Container.services.get(SchemaQueryService)
     schema_result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        SchemaQueryOperation(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))),
     )
 
     # Elasticsearch preserves constraints and indexes in metadata but properties are simplified
@@ -195,11 +197,11 @@ def test_create_schema() -> None:
     assert result_schema.properties is not None
     prop_dict = {prop.name: (prop.type, prop.required) for prop in result_schema.properties}
     expected_props = {
-        'id': (int, False),
-        'age': (int, False),
-        'email': (str, False),
-        'first_name': (str, False),
-        'last_name': (str, False),
+        'id': (ScalarType.INTEGER, False),
+        'age': (ScalarType.INTEGER, False),
+        'email': (ScalarType.TEXT, False),
+        'first_name': (ScalarType.TEXT, False),
+        'last_name': (ScalarType.TEXT, False),
     }
     assert prop_dict == expected_props
 
@@ -255,7 +257,7 @@ def test_create_schema_complex_types() -> None:
     plan.execute(transaction_id=None, lock_id=None)
 
     conn = connection_mng.get_connection_pool('user').get_connection()
-    result = conn.query_schema(filters=None)
+    result = conn.query_schema(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)))
     assert len(result) == 1
     _schema = result[0]
     assert _schema.name.endswith('user')
@@ -289,7 +291,7 @@ def test_create_schema_embeddings() -> None:
             ),
             PropertySchema(
                 name='name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
         ],
@@ -309,11 +311,11 @@ def test_create_schema_embeddings() -> None:
     plan.execute(transaction_id=None, lock_id=None)
 
     conn = connection_mng.get_connection_pool('user').get_connection()
-    result = conn.query_schema(filters=None)
+    result = conn.query_schema(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)))
     assert len(result) == 1
     _schema = result[0]
     assert _schema.name.endswith('user')
     assert {prop.name: prop.type for prop in _schema.properties} == {
         'embedding': VectorType(dimensions=3),
-        'name': str,
+        'name': ScalarType.TEXT,
     }

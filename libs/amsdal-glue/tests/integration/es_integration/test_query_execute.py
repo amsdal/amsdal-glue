@@ -27,6 +27,7 @@ from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
@@ -106,27 +107,27 @@ def _register_default_connection() -> Generator[None, None, None]:
                             properties=[
                                 PropertySchema(
                                     name='id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='age',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='first_name',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='last_name',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='country',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                             ],
@@ -142,22 +143,22 @@ def _register_default_connection() -> Generator[None, None, None]:
                             properties=[
                                 PropertySchema(
                                     name='id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='customer_id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='amount',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='item',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                             ],
@@ -305,17 +306,17 @@ def _register_default_connection() -> Generator[None, None, None]:
                                 properties=[
                                     PropertySchema(
                                         name='id',
-                                        type=int,
+                                        type=ScalarType.INTEGER,
                                         required=False,
                                     ),
                                     PropertySchema(
                                         name='customer_id',
-                                        type=int,
+                                        type=ScalarType.INTEGER,
                                         required=False,
                                     ),
                                     PropertySchema(
                                         name='status',
-                                        type=str,
+                                        type=ScalarType.TEXT,
                                         required=False,
                                     ),
                                 ],
