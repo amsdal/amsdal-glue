@@ -4,6 +4,10 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
+from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
 from amsdal_glue_core.containers import Container
 from amsdal_glue_core.queries.planner.schema_query_planner import AsyncSchemaQueryPlanner
@@ -45,7 +49,9 @@ def _add_shipping_connection():
 @pytest.mark.asyncio
 async def test_query_schemas_for_one_connection(register_default_connection: None) -> None:  # noqa: ARG001
     query_planner = Container.planners.get(AsyncSchemaQueryPlanner)
-    plan = query_planner.plan_schema_query()
+    plan = query_planner.plan_schema_query(
+        QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+    )
     await plan.execute(transaction_id=None, lock_id=None)
 
     result = plan.result
@@ -63,7 +69,9 @@ async def test_query_schemas_for_one_connection(register_default_connection: Non
 async def test_query_schemas_for_multiple_connections(register_default_connection: None) -> None:  # noqa: ARG001
     _add_shipping_connection()
     query_planner = Container.planners.get(AsyncSchemaQueryPlanner)
-    plan = query_planner.plan_schema_query()
+    plan = query_planner.plan_schema_query(
+        QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+    )
     await plan.execute(transaction_id=None, lock_id=None)
 
     result = plan.result
