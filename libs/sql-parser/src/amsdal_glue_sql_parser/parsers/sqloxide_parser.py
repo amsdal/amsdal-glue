@@ -1,11 +1,6 @@
-from datetime import datetime
 from typing import Any
 
 import sqloxide
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
-from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
@@ -14,10 +9,12 @@ from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
 from amsdal_glue_core.common.data_models.group_by import GroupByQuery
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
@@ -26,11 +23,14 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+from amsdal_glue_core.common.data_models.types import FieldType
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Avg
@@ -38,8 +38,8 @@ from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
+from amsdal_glue_core.common.expressions.combined import Combined
 from amsdal_glue_core.common.expressions.common import Combinable
-from amsdal_glue_core.common.expressions.common import CombinedExpression
 from amsdal_glue_core.common.expressions.expression import Expression
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.func import Func
@@ -103,7 +103,7 @@ class SqlOxideParser(SqlParserBase):
             query = self._parsed_sql_query_to_operation(parsed_sql['Query'])
 
             if isinstance(query.table, SchemaReference) and query.table.name == SCHEMA_REGISTRY_TABLE:  # type: ignore[union-attr]
-                return SchemaQueryOperation(filters=query.where)
+                return SchemaQueryOperation(query=query)
 
             return DataQueryOperation(query=query)
 
@@ -169,7 +169,7 @@ class SqlOxideParser(SqlParserBase):
             return SchemaCommand(
                 mutations=[
                     DeleteSchema(
-                        schema_reference=SchemaReference(
+                        schema_ref=SchemaReference(
                             name=parsed_sql['names'][0][0]['value'], version=Version.LATEST
                         )
                     )
@@ -198,11 +198,11 @@ class SqlOxideParser(SqlParserBase):
                     name=column_name, type=column_type, required=False, description=None, default=None
                 )
 
-                operations.append(SchemaCommand(mutations=[AddProperty(schema_reference=schema, property=_property)]))
+                operations.append(SchemaCommand(mutations=[AddProperty(schema_ref=schema, property=_property)]))
             elif 'DropColumn' in operation:
                 column_name = operation['DropColumn']['column_name']['value']
                 operations.append(
-                    SchemaCommand(mutations=[DeleteProperty(schema_reference=schema, property_name=column_name)])
+                    SchemaCommand(mutations=[DeleteProperty(schema_ref=schema, property_name=column_name)])
                 )
             elif 'RenameColumn' in operation:
                 old_column_name = operation['RenameColumn']['old_column_name']['value']
@@ -210,14 +210,14 @@ class SqlOxideParser(SqlParserBase):
                 operations.append(
                     SchemaCommand(
                         mutations=[
-                            RenameProperty(schema_reference=schema, old_name=old_column_name, new_name=new_column_name)
+                            RenameProperty(schema_ref=schema, old_name=old_column_name, new_name=new_column_name)
                         ]
                     )
                 )
             elif 'RenameTable' in operation:
                 new_table_name = operation['RenameTable']['table_name'][0]['value']
                 operations.append(
-                    SchemaCommand(mutations=[RenameSchema(schema_reference=schema, new_schema_name=new_table_name)])
+                    SchemaCommand(mutations=[RenameSchema(schema_ref=schema, new_name=new_table_name)])
                 )
 
             elif 'AddConstraint' in operation:
@@ -228,7 +228,7 @@ class SqlOxideParser(SqlParserBase):
                         SchemaCommand(
                             mutations=[
                                 AddConstraint(
-                                    schema_reference=schema,
+                                    schema_ref=schema,
                                     constraint=PrimaryKeyConstraint(
                                         name=self._constraint_name(constraint['PrimaryKey']), fields=fields
                                     ),
@@ -245,7 +245,7 @@ class SqlOxideParser(SqlParserBase):
                 operations.append(
                     SchemaCommand(
                         mutations=[
-                            DeleteConstraint(schema_reference=schema, constraint_name=self._constraint_name(constraint))
+                            DeleteConstraint(schema_ref=schema, constraint_name=self._constraint_name(constraint))
                         ]
                     )
                 )
@@ -259,7 +259,7 @@ class SqlOxideParser(SqlParserBase):
         table_name = parsed_sql['table_name'][0]['value']
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
-        fields = [column['expr']['Identifier']['value'] for column in parsed_sql['columns']]
+        field_names = [column['expr']['Identifier']['value'] for column in parsed_sql['columns']]
         condition = None
         if parsed_sql['predicate']:
             condition = Conditions(self._process_selection(parsed_sql['predicate'], table_name))
@@ -267,34 +267,34 @@ class SqlOxideParser(SqlParserBase):
         return SchemaCommand(
             mutations=[
                 AddIndex(
-                    schema_reference=schema,
+                    schema_ref=schema,
                     index=IndexSchema(
                         name=parsed_sql['name'][0]['value'],
-                        fields=fields,
+                        fields=[IndexField(name=fn) for fn in field_names],
                         condition=condition,
                     ),
                 )
             ]
         )
 
-    def _process_column_type(self, column_type: str | dict[str, Any]) -> type:
+    def _process_column_type(self, column_type: str | dict[str, Any]) -> FieldType:
         if column_type == 'Text' or 'Varchar' in column_type:
-            return str
+            return ScalarType.TEXT
 
         if 'Integer' in column_type or 'Int' in column_type:
-            return int
+            return ScalarType.INTEGER
 
         if 'Timestamp' in column_type:
-            return datetime
+            return ScalarType.TIMESTAMP
 
         if 'JSON' in column_type or 'JSONB' in column_type:
-            return dict
+            return ScalarType.JSONB
 
         if 'Boolean' in column_type:
-            return bool
+            return ScalarType.BOOLEAN
 
         if 'Real' in column_type or 'Float4' in column_type or 'Float8' in column_type:
-            return float
+            return ScalarType.FLOAT
 
         msg = 'Unsupported column type'
         raise ValueError(msg)
@@ -302,6 +302,7 @@ class SqlOxideParser(SqlParserBase):
     def _create_table_sql_operation(self, parsed_sql: dict[str, Any]) -> SchemaCommand:
         table_name = parsed_sql['name'][0]['value']
         schema = Schema(name=table_name, version=Version.LATEST, properties=[])
+        schema_ref = SchemaReference(name=table_name, version=Version.LATEST)
 
         properties = []
         constraints = self._process_constraints_on_table(parsed_sql['constraints'], table_name)
@@ -332,7 +333,7 @@ class SqlOxideParser(SqlParserBase):
         schema.properties = properties
         schema.constraints = constraints or None
 
-        return SchemaCommand(mutations=[RegisterSchema(schema=schema)])
+        return SchemaCommand(mutations=[RegisterSchema(schema_ref=schema_ref, schema=schema)])
 
     def _process_constraints_on_table(self, constraints: list[dict[str, Any]], table_name: str) -> list[BaseConstraint]:
         if not constraints:
@@ -398,12 +399,15 @@ class SqlOxideParser(SqlParserBase):
         table_name = parsed_sql['table']['relation']['Table']['name'][0]['value']
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
-        assignments = {}
+        assignments: dict[str, Expression] = {}
         for assignment in parsed_sql['assignments']:
             field = assignment['id'][0]['value']
             value = assignment['value']
             _value = self._identifier_to_field(value, table_name)
-            assignments[field] = _value.value if isinstance(_value, Value) else _value.field.name
+            if isinstance(_value, Value):
+                assignments[field] = _value
+            else:
+                assignments[field] = FieldReferenceExpression(field_reference=_value)
 
         where = self._process_selection(parsed_sql['selection'], table_name)
 
@@ -414,7 +418,7 @@ class SqlOxideParser(SqlParserBase):
             mutations=[
                 UpdateData(
                     schema=schema,
-                    data=Data(data=assignments, metadata=None),
+                    data=assignments,
                     query=where,
                 )
             ]
@@ -509,7 +513,7 @@ class SqlOxideParser(SqlParserBase):
 
         return field_reference
 
-    def _process_only(
+    def _process_only(  # noqa: C901
         self,
         projections: list[dict[str, Any]],
         table_name: str,
@@ -517,10 +521,12 @@ class SqlOxideParser(SqlParserBase):
         if not projections:
             return None
 
-        fields = []
+        fields: list[FieldReference | FieldReferenceAliased] = []
+        has_bare_wildcard = False
 
         for projection in projections:
             if 'Wildcard' in projection:
+                has_bare_wildcard = True
                 continue
 
             if 'UnnamedExpr' in projection:
@@ -556,7 +562,11 @@ class SqlOxideParser(SqlParserBase):
                 msg = f'Unsupported projection: {projection}'
                 raise ValueError(msg)
 
-        return fields if fields else None
+        if fields:
+            return fields
+        if has_bare_wildcard:
+            return None
+        return []
 
     def _process_selection(
         self,
@@ -661,7 +671,9 @@ class SqlOxideParser(SqlParserBase):
         group_by_queries = []
         for group in group_by:
             field = self._identifier_to_field_reference(group, table_name)
-            group_by_queries.append(GroupByQuery(field=field))
+            group_by_queries.append(
+                GroupByQuery(expression=FieldReferenceExpression(field_reference=field))
+            )
 
         return group_by_queries
 
@@ -673,7 +685,13 @@ class SqlOxideParser(SqlParserBase):
         for order in order_by:
             field = self._identifier_to_field_reference(order['expr'], table_name)
             direction = OrderDirection.ASC if order['asc'] else OrderDirection.DESC
-            order_by_queries.append(OrderByQuery(field=field, direction=direction))
+            order_by_queries.append(
+                OrderByQuery(
+                    field=field,
+                    expression=FieldReferenceExpression(field_reference=field),
+                    direction=direction,
+                )
+            )
 
         return order_by_queries
 
@@ -694,159 +712,113 @@ class SqlOxideParser(SqlParserBase):
             return self._unwrap_nested_expression(expression['Nested'])
         return expression
 
-    def _process_aggregations(
+    def _process_expressions(  # noqa: C901, PLR0912, PLR0915
         self,
         projections: list[dict[str, Any]],
         table_name: str,
-    ) -> list[AggregationQuery] | None:
+    ) -> list[SelectExpression] | None:
+        """Build SelectExpression items from projections (aggregations + computed/annotation columns)."""
         if not projections:
             return None
 
-        aggregation_queries = []
+        select_expressions: list[SelectExpression] = []
+
         for projection in projections:
-            alias = None
+            alias: str | None = None
 
             if 'ExprWithAlias' in projection:
-                aggregation = self._unwrap_nested_expression(projection['ExprWithAlias']['expr'])
-
-                alias = projection['ExprWithAlias']['alias']['value']
-
+                _ewa = projection['ExprWithAlias']
+                inner = self._unwrap_nested_expression(_ewa['expr'])
+                alias = _ewa['alias']['value']
             elif 'UnnamedExpr' in projection and 'Function' in projection['UnnamedExpr']:
-                aggregation = projection['UnnamedExpr']
+                inner = projection['UnnamedExpr']
                 alias = None
             else:
                 continue
 
-            if 'Function' in aggregation:
-                function_expression = aggregation['Function']
-                if 'name' in function_expression:
-                    name = function_expression['name'][0]['value']
-                    agg_function = AGGREGATION_FUNCTIONS.get(name)
+            if 'Function' in inner:
+                function_expression = inner['Function']
 
-                    if not agg_function:
-                        continue
+                if 'name' not in function_expression:
+                    msg = f'Unsupported function: {inner}'
+                    raise ValueError(msg)
 
-                    expression = agg_function(
-                        field=self._identifier_to_field_reference(
-                            function_expression['args']['List']['args'][0], table_name
+                name = function_expression['name'][0]['value']
+                agg_function = AGGREGATION_FUNCTIONS.get(name)
+
+                if agg_function:
+                    ref = self._identifier_to_field_reference(
+                        function_expression['args']['List']['args'][0], table_name
+                    )
+                    agg_expr = agg_function(expression=FieldReferenceExpression(field_reference=ref))
+                    field_alias_name = ref.field.name if ref.field.name != '*' else 'total'
+                    select_expressions.append(
+                        SelectExpression(
+                            expression=agg_expr,
+                            alias=alias or f'{agg_function.name.lower()}_{field_alias_name}',
                         )
                     )
-                    field_alias_name = expression.field.field.name if expression.field.field.name != '*' else 'total'
-                    aggregation_queries.append(
-                        AggregationQuery(
-                            expression=expression,
-                            alias=alias if alias else f'{agg_function.name.lower()}_{field_alias_name}',
+                elif name.lower() in POWER_FUNCTIONS:
+                    _args = function_expression['args']['List']['args']
+                    select_expressions.append(
+                        SelectExpression(
+                            expression=Combined(
+                                left=self._process_binary_op_expression(_args[0]),
+                                operator=Combinable.POW,
+                                right=self._process_binary_op_expression(_args[1]),
+                            ),
+                            alias=alias or name.lower(),
                         )
                     )
                 else:
-                    msg = f'Unsupported aggregation function: {aggregation}'
-                    raise ValueError(msg)
-            elif (
-                'Subquery' in aggregation
-                or 'CompoundIdentifier' in aggregation
-                or 'BinaryOp' in aggregation
-                or 'Value' in aggregation
-            ):
+                    _args = function_expression['args']['List']['args']
+                    select_expressions.append(
+                        SelectExpression(
+                            expression=Func(
+                                name=name,
+                                args=[self._process_binary_op_expression(arg) for arg in _args],
+                            ),
+                            alias=alias or name.lower(),
+                        )
+                    )
+
+            elif 'Value' in inner:
+                _value_expr = inner['Value']
+                _expr_type = next(iter(_value_expr))
+                _expr_value = _value_expr[_expr_type]
+                _value_type = VALUE_TYPE_MAPPING[_expr_type]
+                _value = _expr_value if _value_type in (bool, str) else _value_type(_expr_value[0])  # type: ignore[operator]
+                if alias:
+                    select_expressions.append(SelectExpression(expression=Value(_value), alias=alias))
+
+            elif 'Subquery' in inner:
+                sub_query = inner['Subquery']
+                query = self._parsed_sql_query_to_operation(sub_query)
+                if alias:
+                    select_expressions.append(
+                        SelectExpression(
+                            expression=SubQueryStatement(query=query, alias=alias),
+                            alias=alias,
+                        )
+                    )
+
+            elif 'BinaryOp' in inner:
+                if alias:
+                    select_expressions.append(
+                        SelectExpression(
+                            expression=self._process_binary_op_expression(inner),
+                            alias=alias,
+                        )
+                    )
+
+            elif 'CompoundIdentifier' in inner or 'Identifier' in inner:
                 continue
+
             else:
-                msg = f'Unsupported aggregation: {projection}'
+                msg = f'Unsupported expression: {projection}'
                 raise ValueError(msg)
 
-        if not aggregation_queries:
-            return None
-
-        return aggregation_queries
-
-    def _process_annotations(
-        self,
-        projections: list[dict[str, Any]],
-        table_name: str,  # noqa: ARG002
-    ) -> list[AnnotationQuery] | None:
-        if not projections:
-            return None
-
-        annotation_queries = []
-
-        for projection in projections:
-            if 'ExprWithAlias' not in projection:
-                continue
-
-            _annotation = self._process_annotation_expression(projection)
-
-            if _annotation:
-                annotation_queries.append(AnnotationQuery(value=_annotation))
-
-        if not annotation_queries:
-            return None
-
-        return annotation_queries
-
-    def _process_annotation_expression(  # noqa: PLR0911
-        self,
-        annotation: dict[str, Any],
-    ) -> SubQueryStatement | ValueAnnotation | ExpressionAnnotation | None:
-        _expression = annotation
-        alias = None
-
-        if 'ExprWithAlias' in _expression:
-            _annotation = _expression['ExprWithAlias']
-            _expression = self._unwrap_nested_expression(_annotation['expr'])
-            alias = _annotation['alias']['value']
-
-        if 'Value' in _expression:
-            _value_expr = _expression['Value']
-            _expr_type = next(iter(_value_expr))
-            _expr_value = _value_expr[_expr_type]
-            _value_type = VALUE_TYPE_MAPPING[_expr_type]
-
-            _value = _expr_value if _value_type in (bool, str) else _value_type(_expr_value[0])  # type: ignore[operator]
-
-            return ValueAnnotation(
-                value=Value(_value),
-                alias=alias,  # type: ignore[arg-type]
-            )
-        if 'Subquery' in _expression:
-            sub_query = _expression['Subquery']
-            query = self._parsed_sql_query_to_operation(sub_query)
-            return SubQueryStatement(query=query, alias=alias)  # type: ignore[arg-type]
-        if 'BinaryOp' in _expression:
-            return ExpressionAnnotation(
-                expression=self._process_binary_op_expression(_expression),
-                alias=alias,  # type: ignore[arg-type]
-            )
-        if 'Function' in _expression:
-            function_expression = _expression['Function']
-
-            if 'name' not in function_expression:
-                return None
-
-            name = function_expression['name'][0]['value']
-
-            if name in AGGREGATION_FUNCTIONS:
-                return None
-
-            _args = function_expression['args']['List']['args']
-
-            if name.lower() in POWER_FUNCTIONS:
-                _left = self._process_binary_op_expression(_args[0])
-                _right = self._process_binary_op_expression(_args[1])
-
-                return ExpressionAnnotation(
-                    expression=CombinedExpression(
-                        left=_left,
-                        operator=Combinable.POW,
-                        right=_right,
-                    ),
-                    alias=alias,  # type: ignore[arg-type]
-                )
-            return ExpressionAnnotation(
-                expression=Func(
-                    name=name,
-                    args=[self._process_binary_op_expression(arg) for arg in _args],
-                ),
-                alias=alias,  # type: ignore[arg-type]
-            )
-        return None
+        return select_expressions or None
 
     def _process_binary_op_expression(self, binary_operation: dict[str, Any]) -> Expression:
         if 'Unnamed' in binary_operation:
@@ -884,7 +856,7 @@ class SqlOxideParser(SqlParserBase):
                 'bitwiseor': Combinable.OR,
             }
 
-            return CombinedExpression(
+            return Combined(
                 left=left,
                 operator=operator_mapping[operator],
                 right=right,
@@ -929,14 +901,16 @@ class SqlOxideParser(SqlParserBase):
 
         _distinct = parsed_sql['body']['Select']['distinct']
         if isinstance(_distinct, str) and _distinct == 'Distinct':
-            query.distinct = True
+            query.distinct = DistinctClause()
         elif isinstance(_distinct, dict) and 'On' in _distinct:
-            query.distinct = [self._identifier_to_field_reference(field, table_name) for field in _distinct['On']]
+            query.distinct = DistinctClause(
+                on_fields=[self._identifier_to_field_reference(field, table_name) for field in _distinct['On']]
+            )
 
-        query.only = self._process_only(
-            parsed_sql['body']['Select']['projection'],
-            table_name,
-        )
+        projections = parsed_sql['body']['Select']['projection']
+
+        query.only = self._process_only(projections, table_name)
+
         where = self._process_selection(
             parsed_sql['body']['Select']['selection'],
             table_name,
@@ -965,14 +939,6 @@ class SqlOxideParser(SqlParserBase):
             table_name,
         )
 
-        query.aggregations = self._process_aggregations(
-            parsed_sql['body']['Select']['projection'],
-            table_name,
-        )
-
-        query.annotations = self._process_annotations(
-            parsed_sql['body']['Select']['projection'],
-            table_name,
-        )
+        query.expressions = self._process_expressions(projections, table_name)
 
         return query
