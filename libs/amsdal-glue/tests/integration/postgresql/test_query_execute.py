@@ -11,11 +11,10 @@ import pytest
 from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -25,10 +24,12 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
@@ -83,33 +84,34 @@ def _register_default_connection() -> Generator[None, None, None]:
                             properties=[
                                 PropertySchema(
                                     name='id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=True,
                                 ),
                                 PropertySchema(
                                     name='age',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=True,
                                 ),
                                 PropertySchema(
                                     name='first_name',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='last_name',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='country',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                             ],
                             constraints=[],
                             indexes=[],
-                        )
+                        ),
+                        schema_ref=SchemaReference(name='customers', version=Version.LATEST),
                     ),
                     RegisterSchema(
                         schema=Schema(
@@ -118,28 +120,29 @@ def _register_default_connection() -> Generator[None, None, None]:
                             properties=[
                                 PropertySchema(
                                     name='id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=True,
                                 ),
                                 PropertySchema(
                                     name='customer_id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=True,
                                 ),
                                 PropertySchema(
                                     name='amount',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='item',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                             ],
                             constraints=[],
                             indexes=[],
-                        )
+                        ),
+                        schema_ref=SchemaReference(name='orders', version=Version.LATEST),
                     ),
                 ],
             ),
@@ -273,23 +276,24 @@ def _register_default_connection() -> Generator[None, None, None]:
                                 properties=[
                                     PropertySchema(
                                         name='id',
-                                        type=int,
+                                        type=ScalarType.INTEGER,
                                         required=True,
                                     ),
                                     PropertySchema(
                                         name='customer_id',
-                                        type=int,
+                                        type=ScalarType.INTEGER,
                                         required=True,
                                     ),
                                     PropertySchema(
                                         name='status',
-                                        type=str,
+                                        type=ScalarType.TEXT,
                                         required=False,
                                     ),
                                 ],
                                 constraints=[],
                                 indexes=[],
-                            )
+                            ),
+                            schema_ref=SchemaReference(name='shippings', version=Version.LATEST),
                         ),
                     ],
                 ),
@@ -352,10 +356,13 @@ def test_query_execute_query_to_single_model() -> None:
 
 def test_query_execute_query_aggregation() -> None:
     query = QueryStatement(
-        aggregations=[
-            AggregationQuery(
+        only=[],
+        expressions=[
+            SelectExpression(
                 expression=Sum(
-                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='amount'), table_name='o'),
+                    ),
                 ),
                 alias='total_amount',
             ),
@@ -475,15 +482,18 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
         only=[
             FieldReferenceAliased(alias='customer_id', field=Field(name='id'), table_name='c'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=SubQueryStatement(
+        expressions=[
+            SelectExpression(
+                expression=SubQueryStatement(
                     alias='total_amount',
                     query=QueryStatement(
-                        aggregations=[
-                            AggregationQuery(
+                        only=[],
+                        expressions=[
+                            SelectExpression(
                                 expression=Sum(
-                                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    expression=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    ),
                                 ),
                                 alias='total_amount',
                             ),
@@ -502,6 +512,7 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
                         ),
                     ),
                 ),
+                alias='total_amount',
             ),
         ],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
@@ -698,15 +709,18 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
         only=[
             FieldReferenceAliased(alias='customer_id', field=Field(name='id'), table_name='s'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=SubQueryStatement(
+        expressions=[
+            SelectExpression(
+                expression=SubQueryStatement(
                     alias='total_amount',
                     query=QueryStatement(
-                        aggregations=[
-                            AggregationQuery(
+                        only=[],
+                        expressions=[
+                            SelectExpression(
                                 expression=Sum(
-                                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    expression=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    ),
                                 ),
                                 alias='total_amount',
                             ),
@@ -725,6 +739,7 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
                         ),
                     ),
                 ),
+                alias='total_amount',
             ),
         ],
         table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
@@ -749,7 +764,7 @@ def test_query_execute_distinct() -> None:
         only=[
             FieldReference(field=Field(name='first_name'), table_name='c'),
         ],
-        distinct=True,
+        distinct=DistinctClause(),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -779,7 +794,7 @@ def test_query_execute_distinct_multiple_fields() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=True,
+        distinct=DistinctClause(),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -809,9 +824,11 @@ def test_query_execute_distinct_on_single_field() -> None:
         only=[
             FieldReference(field=Field(name='first_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -841,9 +858,11 @@ def test_query_execute_distinct_on_single_field_multiple_selected() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -873,10 +892,12 @@ def test_query_execute_distinct_on_multiple() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-            FieldReference(field=Field(name='last_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+                FieldReference(field=Field(name='last_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
