@@ -21,8 +21,10 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.exists import Exists
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
@@ -77,33 +79,34 @@ def _register_default_connection() -> Generator[None, None, None]:
                             properties=[
                                 PropertySchema(
                                     name='id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=True,
                                 ),
                                 PropertySchema(
                                     name='age',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=True,
                                 ),
                                 PropertySchema(
                                     name='first_name',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='last_name',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='country',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                             ],
                             constraints=[],
                             indexes=[],
-                        )
+                        ),
+                        schema_ref=SchemaReference(name='customers', version=Version.LATEST),
                     ),
                     RegisterSchema(
                         schema=Schema(
@@ -112,28 +115,29 @@ def _register_default_connection() -> Generator[None, None, None]:
                             properties=[
                                 PropertySchema(
                                     name='id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=True,
                                 ),
                                 PropertySchema(
                                     name='customer_id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=True,
                                 ),
                                 PropertySchema(
                                     name='amount',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='item',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                             ],
                             constraints=[],
                             indexes=[],
-                        )
+                        ),
+                        schema_ref=SchemaReference(name='orders', version=Version.LATEST),
                     ),
                 ],
             ),
@@ -290,7 +294,7 @@ def _correlated_orders_subquery(min_amount: int) -> QueryStatement:
         )
 
     return QueryStatement(
-        only=[FieldReference(field=Field(name='1'), table_name='')],
+        only=None,
         table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
         where=Conditions(*leaves),
     )
@@ -300,7 +304,7 @@ def test_not_exists_returns_customers_without_any_orders() -> None:
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(query=_correlated_orders_subquery(min_amount=0), negated=True)),
+        where=Conditions(Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=0), alias='_exists'), negated=True)),
         order_by=[
             OrderByQuery(
                 field=FieldReference(field=Field(name='id'), table_name='c'),
@@ -321,7 +325,7 @@ def test_exists_returns_customers_with_any_order() -> None:
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(query=_correlated_orders_subquery(min_amount=0))),
+        where=Conditions(Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=0), alias='_exists'))),
         order_by=[
             OrderByQuery(
                 field=FieldReference(field=Field(name='id'), table_name='c'),
@@ -343,7 +347,7 @@ def test_exists_with_correlation_and_amount_threshold_returns_customer_three() -
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(query=_correlated_orders_subquery(min_amount=5000))),
+        where=Conditions(Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=5000), alias='_exists'))),
         order_by=[
             OrderByQuery(
                 field=FieldReference(field=Field(name='id'), table_name='c'),
