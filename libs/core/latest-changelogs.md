@@ -1,5 +1,5 @@
-## [v0.1.12](https://pypi.org/project/amsdal-glue-core/0.1.12/) - 2026-06-15
+## [v0.1.13](https://pypi.org/project/amsdal-glue-core/0.1.13/) - 2026-07-03
 
 ### Added
 
-- New `DecimalSchemaModel` field type for fixed-precision decimal values with optional `precision` and `scale`.
+- Added `ForeignKeyViolationError` exception for foreign key constraint violations.

@@ -15,6 +15,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
+from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -324,6 +325,8 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
             cursor = self.connection.execute(query, args)
         except psycopg.errors.UniqueViolation as exc:
             raise UniqueViolationError(str(exc)) from exc
+        except psycopg.errors.ForeignKeyViolation as exc:
+            raise ForeignKeyViolationError(str(exc)) from exc
         except psycopg.Error as exc:
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
