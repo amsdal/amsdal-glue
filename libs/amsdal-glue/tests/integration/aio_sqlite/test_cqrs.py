@@ -63,12 +63,13 @@ async def cqrs_app() -> AsyncGenerator[AsyncCQRSApplication, None]:
 @pytest.mark.asyncio
 async def test_schema_command(cqrs_app: AsyncCQRSApplication) -> None:
     from .fixtures.user_schema import user_schema
+    from .fixtures.user_schema import user_schema_ref
 
     service = Container.services.get(AsyncSchemaCommandService)
     result = await service.execute(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=user_schema),
+                RegisterSchema(schema_ref=user_schema_ref, schema=user_schema),
             ],
         ),
     )
