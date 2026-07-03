@@ -101,9 +101,7 @@ async def test_update_data_single_element(register_default_connection: AsyncGene
         mutations=[
             UpdateData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
-                data=Data(
-                    data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                ),
+                data={'id': Value(value='111'), 'customer_id': Value(value='1'), 'status': Value(value='cancelled')},
                 query=Conditions(
                     Condition(
                         left=FieldReferenceExpression(
@@ -199,9 +197,7 @@ async def test_create_and_update_data_single_element(register_default_connection
             ),
             UpdateData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
-                data=Data(
-                    data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
-                ),
+                data={'id': Value(value='111'), 'customer_id': Value(value='1'), 'status': Value(value='cancelled')},
                 query=Conditions(
                     Condition(
                         left=FieldReferenceExpression(
