@@ -8,15 +8,14 @@ InvalidValueError for invalid provider values; SQL-injection escaping.
 """
 
 import pytest
+from amsdal_glue_connections._sql_core import InvalidValueError
+from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.schema import CreateCollation
 from amsdal_glue_core.common.operations.mutations.schema import CreateExtension
 from amsdal_glue_core.common.operations.mutations.schema import DropExtension
 from amsdal_glue_core.common.operations.mutations.schema import RemoveCollation
-
-from amsdal_glue_connections._sql_core import InvalidValueError
-from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 
 from ._harness import lite_ddl
 from ._harness import pg_ddl

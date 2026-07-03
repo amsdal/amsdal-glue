@@ -6,6 +6,7 @@ and FTS_MATCH WHERE clauses using phrase and websearch queries.
 """
 
 import pytest
+from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -21,8 +22,6 @@ from amsdal_glue_core.common.expressions.field_reference import FieldReferenceEx
 from amsdal_glue_core.common.expressions.search import SearchQuery
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
-
-from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 
 from ._harness import lite
 from ._harness import pg
