@@ -3,12 +3,11 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 
 import pytest
+from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
-from amsdal_glue_connections.sql.sql_builders.exceptions import DistinctOnNotSupportedError
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -16,6 +15,7 @@ from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
@@ -90,10 +90,13 @@ async def test_query_execute_query_to_single_model(register_default_connection: 
 @pytest.mark.asyncio
 async def test_query_execute_query_aggregation(register_default_connection: None) -> None:  # noqa: ARG001
     query = QueryStatement(
-        aggregations=[
-            AggregationQuery(
+        only=[],
+        expressions=[
+            SelectExpression(
                 expression=Sum(
-                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='amount'), table_name='o')
+                    ),
                 ),
                 alias='total_amount',
             ),
@@ -222,15 +225,18 @@ async def test_query_execute_query_to_single_connection_subquery_aggr(
         only=[
             FieldReferenceAliased(alias='customer_id', field=Field(name='id'), table_name='c'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=SubQueryStatement(
+        expressions=[
+            SelectExpression(
+                expression=SubQueryStatement(
                     alias='total_amount',
                     query=QueryStatement(
-                        aggregations=[
-                            AggregationQuery(
+                        only=[],
+                        expressions=[
+                            SelectExpression(
                                 expression=Sum(
-                                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    expression=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='amount'), table_name='o')
+                                    ),
                                 ),
                                 alias='total_amount',
                             ),
@@ -249,6 +255,7 @@ async def test_query_execute_query_to_single_connection_subquery_aggr(
                         ),
                     ),
                 ),
+                alias='total_amount',
             ),
         ],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
@@ -457,15 +464,18 @@ async def test_query_execute_query_with_subquery_annotation_to_multiple_connecti
         only=[
             FieldReferenceAliased(alias='customer_id', field=Field(name='id'), table_name='s'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=SubQueryStatement(
+        expressions=[
+            SelectExpression(
+                expression=SubQueryStatement(
                     alias='total_amount',
                     query=QueryStatement(
-                        aggregations=[
-                            AggregationQuery(
+                        only=[],
+                        expressions=[
+                            SelectExpression(
                                 expression=Sum(
-                                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    expression=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='amount'), table_name='o')
+                                    ),
                                 ),
                                 alias='total_amount',
                             ),
@@ -484,6 +494,7 @@ async def test_query_execute_query_with_subquery_annotation_to_multiple_connecti
                         ),
                     ),
                 ),
+                alias='total_amount',
             ),
         ],
         table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
@@ -509,7 +520,7 @@ async def test_query_execute_distinct(register_default_connection: None) -> None
         only=[
             FieldReference(field=Field(name='first_name'), table_name='c'),
         ],
-        distinct=True,
+        distinct=DistinctClause(),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -540,7 +551,7 @@ async def test_query_execute_distinct_multiple_fields(register_default_connectio
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=True,
+        distinct=DistinctClause(),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -571,9 +582,11 @@ async def test_query_execute_distinct_on_single_field(register_default_connectio
         only=[
             FieldReference(field=Field(name='first_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -587,7 +600,7 @@ async def test_query_execute_distinct_on_single_field(register_default_connectio
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    with pytest.raises(DistinctOnNotSupportedError):
+    with pytest.raises(UnsupportedFeatureError):
         await plan.execute(transaction_id=None, lock_id=None)
 
 
@@ -600,9 +613,11 @@ async def test_query_execute_distinct_on_single_field_multiple_selected(
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -616,7 +631,7 @@ async def test_query_execute_distinct_on_single_field_multiple_selected(
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    with pytest.raises(DistinctOnNotSupportedError):
+    with pytest.raises(UnsupportedFeatureError):
         await plan.execute(transaction_id=None, lock_id=None)
 
 
@@ -627,10 +642,12 @@ async def test_query_execute_distinct_on_multiple(register_default_connection: N
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
@@ -644,5 +661,5 @@ async def test_query_execute_distinct_on_multiple(register_default_connection: N
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    with pytest.raises(DistinctOnNotSupportedError):
+    with pytest.raises(UnsupportedFeatureError):
         await plan.execute(transaction_id=None, lock_id=None)
