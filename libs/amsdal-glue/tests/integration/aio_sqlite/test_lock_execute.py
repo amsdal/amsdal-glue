@@ -5,7 +5,19 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
+from amsdal_glue_core.commands.planner.data_command_planner import AsyncDataCommandPlanner
+from amsdal_glue_core.commands.planner.lock_command_planner import AsyncLockCommandPlanner
+from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import LockAction
+from amsdal_glue_core.common.enums import LockMode
+from amsdal_glue_core.common.enums import LockParameter
+from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.interfaces.connection_manager import AsyncConnectionManager
+from amsdal_glue_core.common.operations.commands import DataCommand
+from amsdal_glue_core.common.operations.commands import LockCommand
+from amsdal_glue_core.common.operations.commands import LockReference
+from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.containers import Container
 
 from amsdal_glue.connections.connection_pool import DefaultAsyncConnectionPool
@@ -40,3 +52,57 @@ async def register_default_connection() -> AsyncGenerator[None, None]:
             yield
         finally:
             await connection_mng.disconnect_all()
+
+
+@pytest.mark.asyncio
+async def test_lock(register_default_connection: None) -> None:  # noqa: ARG001
+    connection_mng = Container.managers.get(AsyncConnectionManager)
+    lock_planner = Container.planners.get(AsyncLockCommandPlanner)
+
+    await lock_planner.plan_lock(
+        LockCommand(
+            lock_id=None,
+            transaction_id=None,
+            action=LockAction.ACQUIRE,
+            mode=LockMode.EXCLUSIVE,
+            parameter=LockParameter.SKIP_LOCKED,
+            locked_objects=[LockReference(reference=SchemaReference(name='customers', version=Version.LATEST))],
+        )
+    ).execute(transaction_id=None, lock_id=None)
+
+    command_planner = Container.planners.get(AsyncDataCommandPlanner)
+    await (
+        await command_planner.plan_data_command(
+            DataCommand(
+                lock_id=None,
+                transaction_id=None,
+                mutations=[
+                    InsertData(
+                        schema=SchemaReference(name='shippings', version=Version.LATEST),
+                        data=[
+                            Data(
+                                data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
+                            )
+                        ],
+                    )
+                ],
+            )
+        )
+    ).execute(transaction_id=None, lock_id=None)
+
+    await lock_planner.plan_lock(
+        LockCommand(
+            lock_id=None,
+            transaction_id=None,
+            action=LockAction.RELEASE,
+            mode=LockMode.EXCLUSIVE,
+            parameter=LockParameter.SKIP_LOCKED,
+            locked_objects=[LockReference(reference=SchemaReference(name='customers', version=Version.LATEST))],
+        )
+    ).execute(transaction_id=None, lock_id=None)
+
+    assert await (
+        await (
+            await connection_mng.get_connection_pool('shippings').get_connection()  # type: ignore[attr-defined]
+        ).execute('SELECT id, customer_id, status FROM shippings')
+    ).fetchall() == [('111', '1', 'shipped')]
