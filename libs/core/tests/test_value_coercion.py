@@ -301,3 +301,25 @@ def test_json_value_passes_through_unchanged(json_type, value):
 
 def test_json_none_passthrough():
     assert Value(None, output_type=ScalarType.JSONB).value is None
+
+
+# ---------------------------------------------------------------------------
+# Non-finite numbers → clean error for INTEGER (valid float values for FLOAT)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize('value', [float('inf'), float('-inf'), float('nan'), Decimal('NaN'), Decimal('Infinity')])
+def test_non_finite_to_integer_raises_clean(value):
+    with pytest.raises(ValueError, match='expected an? '):
+        Value(value, output_type=ScalarType.INTEGER)
+
+
+def test_infinity_is_valid_float():
+    # inf is a valid IEEE-754 float value — accepted for a FLOAT column.
+    assert Value(float('inf'), output_type=ScalarType.FLOAT).value == float('inf')
+
+
+def test_nan_is_valid_float():
+    import math
+
+    assert math.isnan(Value(float('nan'), output_type=ScalarType.FLOAT).value)

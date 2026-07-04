@@ -110,7 +110,12 @@ def _coerce_int(value: Any) -> int:
     if isinstance(value, int):
         return value
     if isinstance(value, float):
-        int_val = int(value)
+        # int(inf) raises OverflowError; int(nan) raises ValueError — surface the clean message.
+        try:
+            int_val = int(value)
+        except (ValueError, OverflowError) as exc:
+            msg = f'expected an integer but got {value!r}'
+            raise ValueError(msg) from exc
         if int_val == value:
             return int_val
         msg = f'expected an integer but got {value!r}'
