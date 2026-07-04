@@ -551,9 +551,12 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         """
         Releases a lock on the PostgreSQL database via ``compile_lock_command``.
 
-        TRANSACTION-scope table locks and ``pg_advisory_xact_lock`` auto-release at COMMIT/ROLLBACK
-        — the Rust generator raises ``UnsupportedFeatureError`` for these cases, which is caught and
-        treated as a no-op (the lock will release when the enclosing transaction ends).
+        A TRANSACTION-scoped lock (table lock or ``pg_advisory_xact_lock``) CANNOT be released
+        explicitly — Postgres holds it until COMMIT/ROLLBACK and offers no unlock counterpart. The
+        Rust generator raises ``UnsupportedFeatureError`` for such a release, and that error is
+        propagated: asking to release a transaction-scoped lock is a caller mistake (the lock is not
+        released early, so silently returning success would be misleading). Only SESSION-scoped
+        advisory locks have a real unlock.
 
         Args:
             lock (LockCommand): The lock command to be released.
@@ -561,15 +564,8 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         Returns:
             Any: The result of the lock release.
         """
-        from amsdal_glue_connections._sql_core import UnsupportedFeatureError
-
-        try:
-            sql, params = self._generator.compile_lock_command(lock)
-            await self.execute(sql, *params)
-        except UnsupportedFeatureError:  # noqa: S110
-            # TRANSACTION-scope locks auto-release at transaction end — no SQL needed;
-            # the Rust generator raises UnsupportedFeatureError precisely for these cases.
-            pass
+        sql, params = self._generator.compile_lock_command(lock)
+        await self.execute(sql, *params)
         return True
 
     async def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:

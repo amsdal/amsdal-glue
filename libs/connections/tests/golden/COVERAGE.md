@@ -191,7 +191,7 @@ LockCommand is intended to map to an advisory lock (e.g. pg_advisory_lock); none
 
 | Gap | Closed by |
 |-----|-----------|
-| Async PG `SELECT … FOR UPDATE` (lock path) | `test_lock.py`: `test_pg_async_acquire_lock_emits_for_update`, `test_pg_async_acquire_lock_no_query_is_noop`, `test_pg_async_release_lock_is_noop` (Task 21) |
+| Async PG `SELECT … FOR UPDATE` (lock path) | `test_lock.py`: `test_pg_async_acquire_lock_emits_for_update`, `test_pg_async_acquire_lock_no_query_is_noop`, `test_pg_async_release_lock_raises` (Task 21) |
 | PG `AddConstraint` — PrimaryKeyConstraint / ForeignKeyConstraint / CheckConstraint not exercised | `test_alter_table.py`: `test_add_constraint_pg_primary_key`, `test_add_constraint_pg_foreign_key`, `test_add_constraint_pg_check` (Task 21) |
 
 ### 4.1 Parity gate limitations

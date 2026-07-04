@@ -17,6 +17,7 @@ Row-level locking (``SELECT … FOR UPDATE``) is NO LONGER part of the lock path
 """
 
 import pytest
+from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
@@ -61,18 +62,19 @@ def test_pg_acquire_lock_shared_emits_lock_table_share() -> None:
     assert conn.captured == [('LOCK TABLE "users" IN SHARE MODE', [])]
 
 
-def test_pg_release_lock_exclusive_is_noop() -> None:
-    """A TRANSACTION-scope lock auto-releases at COMMIT — release emits no SQL."""
+def test_pg_release_lock_exclusive_raises() -> None:
+    """A TRANSACTION-scope table lock cannot be released explicitly — it auto-releases at COMMIT,
+    so an explicit release is a caller mistake and raises rather than silently succeeding."""
     conn = pg_record()
-    result = conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
-    assert result is True
+    with pytest.raises(UnsupportedFeatureError):
+        conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
     assert conn.captured == []
 
 
-def test_pg_release_lock_shared_is_noop() -> None:
+def test_pg_release_lock_shared_raises() -> None:
     conn = pg_record()
-    result = conn.release_lock(_lock(LockMode.SHARED, LockAction.RELEASE))
-    assert result is True
+    with pytest.raises(UnsupportedFeatureError):
+        conn.release_lock(_lock(LockMode.SHARED, LockAction.RELEASE))
     assert conn.captured == []
 
 
@@ -135,8 +137,8 @@ async def test_pg_async_acquire_lock_exclusive_emits_lock_table() -> None:
     assert conn.captured == [('LOCK TABLE "users" IN EXCLUSIVE MODE', [])]
 
 
-async def test_pg_async_release_lock_is_noop() -> None:
+async def test_pg_async_release_lock_raises() -> None:
     conn = pg_async_record()
-    result = await conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
-    assert result is True
+    with pytest.raises(UnsupportedFeatureError):
+        await conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
     assert conn.captured == []
