@@ -65,6 +65,28 @@ def test_query_customers(test_client: TestClient) -> None:
     ]
 
 
+def test_query_customers_with_literal_value_column(test_client: TestClient) -> None:
+    # A literal Value can be sent as a computed SELECT column: SELECT customer_id, ? AS status ...
+    response = test_client.post(
+        '/api/v1/operations/data-query/',
+        json={
+            'table': {'name': 'customers', 'version': 'LATEST'},
+            'only': [{'field': {'name': 'customer_id'}, 'table_name': 'customers'}],
+            'expressions': [
+                {'expression': {'value': 'active'}, 'alias': 'status'},
+                {'expression': {'value': 5, 'output_type': 'integer'}, 'alias': 'rank'},
+            ],
+            'limit': {'limit': 2},
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    assert response.json() == [
+        {'data': {'customer_id': 1, 'status': 'active', 'rank': 5}, 'metadata': None},
+        {'data': {'customer_id': 2, 'status': 'active', 'rank': 5}, 'metadata': None},
+    ]
+
+
 def test_query_customers_with_limit(test_client: TestClient) -> None:
     response = test_client.post(
         '/api/v1/operations/data-query/',

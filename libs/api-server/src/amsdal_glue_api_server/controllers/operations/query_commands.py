@@ -1,4 +1,6 @@
 # mypy: disable-error-code="type-abstract"
+from typing import Any
+
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
@@ -12,12 +14,14 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import JoinType
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.expressions.aggregation import Avg
 from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
 from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.services.queries import DataQueryService
 from amsdal_glue_core.containers import Container
@@ -65,8 +69,13 @@ class MaxBody(BaseModel):
     name: str = 'MAX'
 
 
+class ValueBody(BaseModel):
+    value: Any
+    output_type: ScalarType | None = None
+
+
 class SelectExpressionBody(BaseModel):
-    expression: SumBody | CountBody | AvgBody | MinBody | MaxBody | SubQueryStatementBody
+    expression: SumBody | CountBody | AvgBody | MinBody | MaxBody | SubQueryStatementBody | ValueBody
     alias: str
 
 
@@ -129,9 +138,11 @@ def subquery_statement_to_core_subquery_statement(subquery: SubQueryStatementBod
 
 def select_expression_body_to_core(body: SelectExpressionBody) -> SelectExpression:
     expr = body.expression
-    core_expr: Sum | Count | Avg | Min | Max | SubQueryStatement
+    core_expr: Sum | Count | Avg | Min | Max | SubQueryStatement | Value
     if isinstance(expr, SubQueryStatementBody):
         core_expr = subquery_statement_to_core_subquery_statement(expr)
+    elif isinstance(expr, ValueBody):
+        core_expr = Value(value=expr.value, output_type=expr.output_type)
     else:
         core_expr = _aggregation_body_to_expression(expr)
     return SelectExpression(expression=core_expr, alias=body.alias)
