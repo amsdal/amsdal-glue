@@ -72,7 +72,8 @@ def coerce_to_field_type(value: Any, field_type: Any) -> Any:
     if isinstance(field_type, ArrayType):
         if isinstance(value, (list, tuple)):
             return [coerce_to_field_type(item, field_type.item_type) for item in value]
-        return value
+        msg = f'expected a list for an array type but got {value!r}'
+        raise ValueError(msg)
     if isinstance(field_type, (CustomType, NestedType, DictType, VectorType)):
         return value
     return value
@@ -158,6 +159,9 @@ def _coerce_float(value: Any) -> float:
 def _coerce_decimal(value: Any) -> Decimal:
     if isinstance(value, Decimal):
         return value
+    if isinstance(value, bool):
+        # bool is an int subclass; int/float families already accept it (True->1), so NUMERIC does too.
+        return Decimal(int(value))
     try:
         return Decimal(str(value))
     except InvalidOperation as exc:

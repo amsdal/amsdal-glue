@@ -89,6 +89,11 @@ def test_decimal_identity():
     assert v.value == Decimal('3.14')
 
 
+def test_bool_to_decimal_consistent_with_int_float():
+    assert Value(True, output_type=ScalarType.NUMERIC).value == Decimal(1)
+    assert Value(False, output_type=ScalarType.NUMERIC).value == Decimal(0)
+
+
 # ---------------------------------------------------------------------------
 # Boolean
 # ---------------------------------------------------------------------------
@@ -277,6 +282,12 @@ def test_array_none_passthrough():
     arr_type = ArrayType(item_type=ScalarType.INTEGER)
     v = Value(None, output_type=arr_type)
     assert v.value is None
+
+
+def test_array_non_list_value_raises():
+    arr_type = ArrayType(item_type=ScalarType.INTEGER)
+    with pytest.raises(ValueError, match='expected a list'):
+        Value('not-a-list', output_type=arr_type)
 
 
 # ---------------------------------------------------------------------------
