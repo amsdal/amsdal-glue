@@ -1,11 +1,10 @@
-"""End-to-end execution of the Power (**) and BitwiseXor (^) operators on SQLite.
+"""End-to-end execution of the Power (**) and BitwiseXor (^) operators on Postgres.
 
-The golden tests assert the generated SQL text; these run it against a real SQLite
-database through the standard ``database_connection`` fixture — registering a schema,
-inserting rows, and querying a computed ``a ** b`` / ``a ^ b`` column — to prove the
-emitted forms (``power(?, ?)`` and the ``(a|b)-(a&b)`` expansion) are valid and correct.
-The ``executemany`` batching path (``UpdateManyData.compile_grouped``, used by the
-downstream data layer) is exercised against the same live connection.
+Runs the emitted forms — ``l ^ r`` for ``**`` (Postgres ``^`` is exponentiation) and
+``l # r`` for ``^`` (Postgres ``#`` is bitwise XOR) — against a real Postgres server
+through the standard ``database_connection`` fixture (register schema, insert rows,
+query a computed column). The ``executemany`` batching path
+(``UpdateManyData.compile_grouped``) is exercised on the same live connection.
 """
 
 from amsdal_glue_connections._sql_core import SqlGenerator
@@ -27,52 +26,49 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.combined import Combined
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.common.operations.mutations.data import UpdateItem
 from amsdal_glue_core.common.operations.mutations.data import UpdateManyData
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
-from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
+from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 _ROWS = [(1, 5, 3), (2, 10, 6), (3, 255, 128)]
-_GEN = SqlGenerator('sqlite', param_style='qmark')
+_GEN = SqlGenerator('postgresql', param_style='format')
 
 
 def _nums_ref() -> SchemaReference:
     return SchemaReference(name='nums', version=Version.LATEST)
 
 
-def _setup(connection: SqliteConnection) -> None:
+def _ref(name: str) -> FieldReferenceExpression:
+    return FieldReferenceExpression(field_reference=FieldReference(field=Field(name=name), table_name='nums'))
+
+
+def _setup(connection: PostgresConnection) -> None:
     connection.run_schema_command(
-        _schema_command(
-            RegisterSchema(
-                schema_ref=_nums_ref(),
-                schema=Schema(
-                    name='nums',
-                    version=Version.LATEST,
-                    properties=[
-                        PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
-                        PropertySchema(name='a', type=ScalarType.INTEGER, required=False),
-                        PropertySchema(name='b', type=ScalarType.INTEGER, required=False),
-                        PropertySchema(name='r', type=ScalarType.INTEGER, required=False),
-                    ],
-                ),
-            )
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema_ref=_nums_ref(),
+                    schema=Schema(
+                        name='nums',
+                        version=Version.LATEST,
+                        properties=[
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='a', type=ScalarType.INTEGER, required=False),
+                            PropertySchema(name='b', type=ScalarType.INTEGER, required=False),
+                            PropertySchema(name='r', type=ScalarType.INTEGER, required=False),
+                        ],
+                    ),
+                )
+            ]
         )
     )
     connection.run_mutations(
         [InsertData(schema=_nums_ref(), data=[Data(data={'id': i, 'a': a, 'b': b, 'r': 0}) for i, a, b in _ROWS])]
     )
-
-
-def _schema_command(mutation):
-    from amsdal_glue_core.common.operations.commands import SchemaCommand
-
-    return SchemaCommand(mutations=[mutation])
-
-
-def _ref(name: str) -> FieldReferenceExpression:
-    return FieldReferenceExpression(field_reference=FieldReference(field=Field(name=name), table_name='nums'))
 
 
 def _query(expr, alias: str) -> QueryStatement:
@@ -89,14 +85,14 @@ def _query(expr, alias: str) -> QueryStatement:
     )
 
 
-def test_power_over_columns_executes(database_connection: SqliteConnection) -> None:
+def test_power_over_columns_executes(database_connection: PostgresConnection) -> None:
     _setup(database_connection)
     expr = Combined(left=_ref('a'), operator='**', right=_ref('b'))
     result = database_connection.query(_query(expr, 'p'))
-    assert [row.data['p'] for row in result] == [float(a**b) for _, a, b in _ROWS]
+    assert [float(row.data['p']) for row in result] == [float(a**b) for _, a, b in _ROWS]
 
 
-def test_bitwise_xor_over_columns_matches_native(database_connection: SqliteConnection) -> None:
+def test_bitwise_xor_over_columns_matches_native(database_connection: PostgresConnection) -> None:
     _setup(database_connection)
     expr = Combined(left=_ref('a'), operator='^', right=_ref('b'))
     result = database_connection.query(_query(expr, 'x'))
@@ -104,14 +100,10 @@ def test_bitwise_xor_over_columns_matches_native(database_connection: SqliteConn
 
 
 def _id_eq(value: int) -> Conditions:
-    return Conditions(
-        Condition(left=_ref('id'), lookup=FieldLookup.EQ, right=Value(value)),
-    )
+    return Conditions(Condition(left=_ref('id'), lookup=FieldLookup.EQ, right=Value(value)))
 
 
-def test_bitwise_xor_executemany_updates_live_rows(database_connection: SqliteConnection) -> None:
-    """The batching path used by the data layer: ``UpdateManyData.compile_grouped`` groups
-    items into one SQL template, then ``executemany`` runs it on the live connection."""
+def test_bitwise_xor_executemany_updates_live_rows(database_connection: PostgresConnection) -> None:
     _setup(database_connection)
 
     mutation = UpdateManyData(
@@ -119,10 +111,10 @@ def test_bitwise_xor_executemany_updates_live_rows(database_connection: SqliteCo
         items=[UpdateItem(data={'r': Value(a) ^ Value(b)}, query=_id_eq(i)) for i, a, b in _ROWS],
     )
     grouped = mutation.compile_grouped(_GEN)
-    assert len(grouped) == 1  # identical SQL shape → single executemany batch
+    assert len(grouped) == 1
     sql, param_sets = grouped[0]
-    database_connection.connection.executemany(sql, param_sets)
-    database_connection.connection.commit()
+    with database_connection.connection.cursor() as cur:
+        cur.executemany(sql, param_sets)
 
     result = database_connection.query(_query(_ref('r'), 'r'))
     assert [row.data['r'] for row in result] == [a ^ b for _, a, b in _ROWS]
