@@ -1291,7 +1291,11 @@ fn extract_on_conflict(ob: &Bound<PyAny>, all_columns: &[String]) -> PyResult<On
                 where_clause: None,
             }
         }
-        _ => ConflictAction::DoNothing,
+        other => {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unknown conflict action: '{other}'"
+            )))
+        }
     };
 
     Ok(OnConflictDef { target, action })
