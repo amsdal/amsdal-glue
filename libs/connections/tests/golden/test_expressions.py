@@ -611,8 +611,7 @@ def test_case_in_where() -> None:
         ),
     )
     assert pg(q) == (
-        'SELECT * FROM "orders"'
-        ' WHERE CASE WHEN "orders"."amount" > %s THEN %s ELSE %s END = %s',
+        'SELECT * FROM "orders" WHERE CASE WHEN "orders"."amount" > %s THEN %s ELSE %s END = %s',
         [1000, 'high', 'low', 'high'],
     )
 
@@ -1067,8 +1066,7 @@ def test_search_headline_in_select() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT *, ts_headline(%s, "articles"."body", plainto_tsquery(%s, %s))'
-        ' AS "headline" FROM "articles"',
+        'SELECT *, ts_headline(%s, "articles"."body", plainto_tsquery(%s, %s)) AS "headline" FROM "articles"',
         ['english', 'english', 'highlight'],
     )
 
@@ -1156,8 +1154,7 @@ def test_collate_in_where_pg() -> None:
         ),
     )
     assert pg(q) == (
-        'SELECT * FROM "users"'
-        ' WHERE "users"."name" COLLATE "case_insensitive" = %s',
+        'SELECT * FROM "users" WHERE "users"."name" COLLATE "case_insensitive" = %s',
         ['test'],
     )
 
@@ -1261,3 +1258,46 @@ def test_scalar_subquery_in_where() -> None:
         ' WHERE "orders"."user_id" = "users"."id")'
     )
     assert params == []
+
+
+# ---------------------------------------------------------------------------
+# Power (**) and BitwiseXor (^) — per-dialect native rendering (qcraft >= 2.5.0)
+# ---------------------------------------------------------------------------
+
+
+def _select(expr) -> QueryStatement:
+    return QueryStatement(
+        table=SchemaReference(name='t', version=Version.LATEST),
+        only=[],
+        expressions=[SelectExpression(expression=expr, alias='v')],
+    )
+
+
+def test_power_operator_postgres_uses_caret() -> None:
+    # In Postgres, `^` is the exponentiation operator.
+    q = _select(Combined(left=Value(value=2), operator='**', right=Value(value=3)))
+    assert pg(q) == ('SELECT %s ^ %s AS "v" FROM "t"', [2, 3])
+
+
+def test_power_operator_sqlite_uses_power_function() -> None:
+    # SQLite has no exponentiation operator — the built-in power() function is used.
+    q = _select(Combined(left=Value(value=2), operator='**', right=Value(value=3)))
+    assert lite(q) == ('SELECT power(?, ?) AS "v" FROM "t"', [2, 3])
+
+
+def test_power_operator_over_fields_postgres() -> None:
+    q = _select(Combined(left=_ref('base', 't'), operator='**', right=_ref('exp', 't')))
+    assert pg(q) == ('SELECT "t"."base" ^ "t"."exp" AS "v" FROM "t"', [])
+
+
+def test_bitwise_xor_postgres_uses_hash() -> None:
+    # In Postgres, `#` is the bitwise-XOR operator.
+    q = _select(Combined(left=Value(value=5), operator='^', right=Value(value=3)))
+    assert pg(q) == ('SELECT %s # %s AS "v" FROM "t"', [5, 3])
+
+
+def test_bitwise_xor_sqlite_expands_to_or_minus_and() -> None:
+    # SQLite has no bitwise-XOR operator; the identity a^b = (a|b) - (a&b) is emitted,
+    # fully parenthesised. Each operand appears twice, so its bound value is pushed twice.
+    q = _select(Combined(left=Value(value=5), operator='^', right=Value(value=3)))
+    assert lite(q) == ('SELECT (((?) | (?)) - ((?) & (?))) AS "v" FROM "t"', [5, 3, 5, 3])

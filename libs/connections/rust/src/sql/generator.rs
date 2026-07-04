@@ -128,6 +128,7 @@ impl SqlGenerator {
                     ParamStyle::Dollar => "dollar",
                     ParamStyle::Percent => "format",
                     ParamStyle::QMark => "qmark",
+                    ParamStyle::QMarkNumbered => "qmark_numbered",
                 };
                 let r = qcraft::qcraft_postgres::PostgresRenderer::new().with_param_style(qcraft_style);
                 (RendererKind::Postgres(r), style_name)

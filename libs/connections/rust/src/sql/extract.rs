@@ -291,6 +291,8 @@ pub fn extract_expr(ob: &Bound<PyAny>) -> PyResult<Expr> {
                 "<<" => BinaryOp::ShiftLeft,
                 ">>" => BinaryOp::ShiftRight,
                 "||" => BinaryOp::Concat,
+                "**" => BinaryOp::Power,
+                "^" => BinaryOp::BitwiseXor,
                 _ => {
                     return Err(pyo3::exceptions::PyValueError::new_err(format!(
                         "Unknown combined expression operator: '{operator}'"

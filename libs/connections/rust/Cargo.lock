@@ -152,9 +152,9 @@ dependencies = [
 
 [[package]]
 name = "qcraft"
-version = "2.4.1"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e54bcf65240315db7da625393dcd2335be1d607c49d8ab307573c619cc6d371"
+checksum = "46a90e0a315e91e9438ea2eee981ada71df2699aee3adef54fbed35bc398fd00"
 dependencies = [
  "qcraft-core",
  "qcraft-postgres",
@@ -163,27 +163,27 @@ dependencies = [
 
 [[package]]
 name = "qcraft-core"
-version = "2.4.1"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ac177da6f37bbb3cc036c441a091ca14cd2b96422a548763da7e6312d8bcbe9"
+checksum = "cdb8b5f30d513eec0ff2c90da5801d57def5d82497af0bef1a274106ebd413f4"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "qcraft-postgres"
-version = "2.4.1"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ad3e21aaaaa42c52d9fe21637276592ec009494b2f21fda2f453be3a576e61e"
+checksum = "67154896c70fe41a48c9b751198c32683d23bc4dadb80711ef5f27b22a68ae51"
 dependencies = [
  "qcraft-core",
 ]
 
 [[package]]
 name = "qcraft-sqlite"
-version = "2.4.1"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38aa6816ad3eaa43fa48c385147e6ab438d701c0ca268b031d4528da1411c691"
+checksum = "e8b378fb784ec9d70a73be76a24af62d20a773dc67918fea11270cf72309e79d"
 dependencies = [
  "qcraft-core",
 ]
