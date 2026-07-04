@@ -12,7 +12,8 @@ from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.data_models.types import FieldType  # noqa: F401 (needed for pydantic model_rebuild)
+from amsdal_glue_core.common.data_models.types import FieldType
+from amsdal_glue_core.common.data_models.types import NestedType
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -79,13 +80,14 @@ def constraint_to_core_constraint(
 
 
 def property_type_to_core_property_type(
-    prop_type: Union['SchemaBody', 'SchemaReference', str],
-) -> Schema | SchemaReference | ScalarType:
+    prop_type: Union['SchemaBody', str],
+) -> FieldType:
     if isinstance(prop_type, SchemaBody):
-        return schema_to_core_schema(prop_type)  # type: ignore[return-value]
-
-    if isinstance(prop_type, SchemaReference):
-        return prop_type  # type: ignore[return-value]
+        # A nested object property maps to NestedType (relations are expressed via
+        # ForeignKeyConstraint, never as a property type).
+        return NestedType(
+            properties={prop.name: property_type_to_core_property_type(prop.type) for prop in prop_type.properties}
+        )
 
     return {
         'int': ScalarType.INTEGER,
@@ -100,7 +102,7 @@ def property_type_to_core_property_type(
 def property_to_core_property(prop: 'PropertySchemaBody') -> PropertySchema:
     return PropertySchema(
         name=prop.name,
-        type=property_type_to_core_property_type(prop.type),  # type: ignore[arg-type]
+        type=property_type_to_core_property_type(prop.type),
         required=prop.required,
         description=prop.description,
         default=prop.default,
@@ -160,7 +162,7 @@ class IndexSchemaBody(BaseModel):
 
 
 class PropertySchemaBody(BaseModel):
-    type: Union['SchemaBody', 'SchemaReference', str]
+    type: Union['SchemaBody', str]
     name: str
     required: bool
     description: str | None = None

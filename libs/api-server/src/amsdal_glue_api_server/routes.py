@@ -89,11 +89,7 @@ def model_from_schema(schema: Schema) -> type[BaseModel]:
     properties = {}
     _type: Any
     for prop in schema.properties:
-        if isinstance(prop.type, Schema):
-            _type = model_from_schema(prop.type)
-        elif isinstance(prop.type, SchemaReference):
-            _type = int
-        elif isinstance(prop.type, NestedType | ArrayType | DictType):
+        if isinstance(prop.type, NestedType | ArrayType | DictType):
             _type = _complex_type_to_type(prop.name, prop.type)
         elif isinstance(prop.type, ScalarType):
             _type = _SCALAR_TO_PYTHON.get(prop.type, str)
