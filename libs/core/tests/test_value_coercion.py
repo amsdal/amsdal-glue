@@ -310,7 +310,7 @@ def test_json_none_passthrough():
 
 @pytest.mark.parametrize('value', [float('inf'), float('-inf'), float('nan'), Decimal('NaN'), Decimal('Infinity')])
 def test_non_finite_to_integer_raises_clean(value):
-    with pytest.raises(ValueError, match='expected an? '):
+    with pytest.raises(ValueError, match=r'expected an? '):
         Value(value, output_type=ScalarType.INTEGER)
 
 
