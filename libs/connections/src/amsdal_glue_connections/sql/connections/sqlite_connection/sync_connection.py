@@ -312,11 +312,8 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
-        # Disable the deprecated adapters
-        sqlite3.register_adapter(date, lambda val: val.isoformat())
-        sqlite3.register_adapter(datetime, lambda val: val.isoformat())
-
-        # Register converters if you need to read datetime from DB
+        # date/datetime adapters are registered once, module-level, in base.py (single source of
+        # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
         sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
 
