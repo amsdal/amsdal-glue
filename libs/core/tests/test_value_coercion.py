@@ -90,8 +90,8 @@ def test_decimal_identity():
 
 
 def test_bool_to_decimal_consistent_with_int_float():
-    assert Value(True, output_type=ScalarType.NUMERIC).value == Decimal(1)
-    assert Value(False, output_type=ScalarType.NUMERIC).value == Decimal(0)
+    assert Value(True, output_type=ScalarType.NUMERIC).value == Decimal(1)  # noqa: FBT003
+    assert Value(False, output_type=ScalarType.NUMERIC).value == Decimal(0)  # noqa: FBT003
 
 
 # ---------------------------------------------------------------------------
