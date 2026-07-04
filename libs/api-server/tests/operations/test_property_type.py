@@ -11,9 +11,9 @@ from amsdal_glue_core.common.data_models.types import NestedType
 from amsdal_glue_core.common.enums import ScalarType
 from pydantic import ValidationError
 
+from amsdal_glue_api_server.controllers.operations.schema_commands import property_type_to_core_property_type
 from amsdal_glue_api_server.controllers.operations.schema_commands import PropertySchemaBody
 from amsdal_glue_api_server.controllers.operations.schema_commands import SchemaBody
-from amsdal_glue_api_server.controllers.operations.schema_commands import property_type_to_core_property_type
 
 
 @pytest.mark.parametrize(
