@@ -117,7 +117,9 @@ def _coerce_int(value: Any) -> int:
         raise ValueError(msg)
     if isinstance(value, Decimal):
         dec_int: int | None = None
-        with contextlib.suppress(InvalidOperation):
+        # int(Decimal('NaN')) raises ValueError; int(Decimal('Infinity')) raises OverflowError —
+        # suppress all three so a non-finite Decimal falls through to the clean message below.
+        with contextlib.suppress(ValueError, OverflowError, InvalidOperation):
             dec_int = int(value)
         if dec_int is not None and Decimal(dec_int) == value:
             return dec_int

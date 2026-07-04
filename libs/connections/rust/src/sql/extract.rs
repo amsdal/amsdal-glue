@@ -311,8 +311,7 @@ pub fn extract_expr(ob: &Bound<PyAny>) -> PyResult<Expr> {
             Ok(Expr::JsonArray(items))
         }
         "Now" => Ok(Expr::Now),
-        "Func" | "Coalesce" | "Greatest" | "Least" | "Lower" | "Upper"
-        | "SearchVector" | "SearchQuery" | "SearchRank" | "SearchHeadline" => {
+        "Func" | "SearchVector" | "SearchQuery" | "SearchRank" | "SearchHeadline" => {
             let name: String = ob.getattr(pyo3::intern!(ob.py(), "name"))?.extract()?;
             let args_attr = ob.getattr(pyo3::intern!(ob.py(), "args"))?;
             let args = extract_py_list(&args_attr, extract_expr)?;
