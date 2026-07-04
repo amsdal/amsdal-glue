@@ -1961,7 +1961,10 @@ fn extract_index_type_str(ob: &Bound<PyAny>) -> PyResult<Option<String>> {
             let name: String = ob.getattr(pyo3::intern!(ob.py(), "name"))?.extract()?;
             Ok(Some(name))
         }
-        _ => Ok(None),
+        "NoneType" => Ok(None),
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Unknown index type: '{other}'"
+        ))),
     }
 }
 
