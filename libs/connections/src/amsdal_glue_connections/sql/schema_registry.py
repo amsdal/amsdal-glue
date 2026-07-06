@@ -12,7 +12,7 @@ Available registries
 - ``TABLE_INDEX_REGISTRY`` - non-PK indexes (``table_name``, ``name``, ``index_type``, ``is_unique``)
 """
 
-TABLE_REGISTRY = '__table_registry'
-TABLE_PROPERTY_REGISTRY = '__property_registry'
-TABLE_CONSTRAINT_REGISTRY = '__constraint_registry'
-TABLE_INDEX_REGISTRY = '__index_registry'
+TABLE_REGISTRY = '__amsdal__table_registry'
+TABLE_PROPERTY_REGISTRY = '__amsdal__property_registry'
+TABLE_CONSTRAINT_REGISTRY = '__amsdal__constraint_registry'
+TABLE_INDEX_REGISTRY = '__amsdal__index_registry'

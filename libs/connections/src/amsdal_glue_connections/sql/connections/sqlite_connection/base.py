@@ -16,6 +16,7 @@ from amsdal_glue_core.common.data_models.types import CustomType
 from amsdal_glue_core.common.data_models.types import FieldType
 from amsdal_glue_core.common.enums import ScalarType
 
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
@@ -49,6 +50,22 @@ _REGISTRY_VIEW_SQL: dict[str, str] = {
         'SELECT m.name AS table_name, il.name AS name, '
         '\'btree\' AS index_type, il."unique" AS is_unique '
         "FROM sqlite_master m, pragma_index_list(m.name) il WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%'"
+    ),
+    TABLE_CONSTRAINT_REGISTRY: (
+        # SQLite has no constraint catalog, so approximate one from pragmas. `type` reuses the same
+        # single-char codes Postgres exposes via ``pg_constraint.contype`` ('p' primary key,
+        # 'u' unique, 'f' foreign key) so the SAME QueryStatement works on both back-ends. Only
+        # PK/UNIQUE/FK are representable this way; CHECK/exclusion constraints are out of scope.
+        f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_CONSTRAINT_REGISTRY}" AS '  # noqa: S608
+        'SELECT m.name AS table_name, il.name AS name, '
+        "CASE il.origin WHEN 'pk' THEN 'p' ELSE 'u' END AS type "
+        'FROM sqlite_master m, pragma_index_list(m.name) il '
+        "WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' AND il.origin IN ('pk', 'u') "
+        'UNION ALL '
+        'SELECT m.name AS table_name, '
+        "'fk_' || m.name || '_' || fk.\"id\" AS name, 'f' AS type "
+        'FROM sqlite_master m, pragma_foreign_key_list(m.name) fk '
+        "WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%'"
     ),
 }
 
