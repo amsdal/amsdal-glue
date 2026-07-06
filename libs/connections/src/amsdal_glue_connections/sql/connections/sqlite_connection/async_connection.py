@@ -67,7 +67,6 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
     def __init__(self) -> None:
         self._connection: aiosqlite.Connection | None = None
         self._generator = SqlGenerator('sqlite', param_style='qmark')
-        self._views_created = False
         super().__init__()
 
     @property
@@ -254,13 +253,11 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         return schemas
 
     async def _ensure_schema_views(self) -> None:
-        if self._views_created:
-            return
-
+        # The view DDL is idempotent (CREATE ... IF NOT EXISTS), so it is re-issued on every call
+        # rather than gated by a per-object flag that would go stale across disconnect()/connect()
+        # cycles (temporary views are per-connection, so a reconnect must recreate them).
         for sql in _REGISTRY_VIEW_SQL.values():
             await self.execute(sql)
-
-        self._views_created = True
 
     async def _get_table_ddl(self, table_name: str) -> str:
         cursor = await self.execute(

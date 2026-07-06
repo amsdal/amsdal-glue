@@ -30,7 +30,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 
 from amsdal_glue_connections._sql_core import SqlGenerator
-from amsdal_glue_connections.sql.connections.postgres_connection.base import _REGISTRY_VIEW_SQL
+from amsdal_glue_connections.sql.connections.postgres_connection.base import build_registry_view_sql
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _detect_serial
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _pg_type_to_field_type
@@ -74,7 +74,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
     def __init__(self) -> None:
         self._connection: psycopg.AsyncConnection | None = None
         self._generator = SqlGenerator('postgresql', param_style='format')
-        self._views_created = False
+        self._schema = 'public'
         super().__init__()
 
     @property
@@ -168,11 +168,17 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
+        from psycopg import sql
+
         self._connection = await psycopg.AsyncConnection.connect(dsn, autocommit=autocommit, **kwargs)
         await self._connection.execute("SELECT set_config('TimeZone', %s, false)", [timezone])
 
+        self._schema = schema or 'public'
+
         if schema:
-            await self._connection.execute(f'SET search_path TO {schema}')
+            # ``SET`` cannot take a bind parameter, so the schema identifier is quoted via
+            # psycopg's SQL composition instead of being f-string interpolated (injection-safe).
+            await self._connection.execute(sql.SQL('SET search_path TO {}').format(sql.Identifier(schema)))
 
     async def disconnect(self) -> None:
         """
@@ -261,7 +267,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
                 Schema(
                     name=table_name,
                     version=Version.LATEST,
-                    namespace='public',
+                    namespace=self._schema,
                     properties=properties,
                     constraints=constraints or None,
                     indexes=indexes or None,
@@ -271,13 +277,10 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         return schemas
 
     async def _ensure_schema_views(self) -> None:
-        if self._views_created:
-            return
-
-        for sql in _REGISTRY_VIEW_SQL.values():
-            await self.execute(sql)
-
-        self._views_created = True
+        # The view DDL is idempotent (CREATE OR REPLACE), so it is re-issued on every call rather
+        # than gated by a per-object flag that would go stale across disconnect()/connect() cycles.
+        for stmt in build_registry_view_sql(self._schema).values():
+            await self.execute(stmt.as_string(self.connection))
 
     async def _introspect_columns(self, table_name: str) -> list[PropertySchema]:
         sql = (
@@ -288,13 +291,13 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             ' FROM pg_attribute a '
             ' JOIN pg_class cl ON cl.oid = a.attrelid '
             ' JOIN pg_namespace n ON n.oid = cl.relnamespace '
-            " WHERE n.nspname = 'public' AND cl.relname = c.table_name "
+            ' WHERE n.nspname = %s AND cl.relname = c.table_name '
             '   AND a.attname = c.column_name AND a.attnum > 0 AND NOT a.attisdropped) AS format_type '
             'FROM information_schema.columns c '
-            "WHERE c.table_name = %s AND c.table_schema = 'public' "
+            'WHERE c.table_name = %s AND c.table_schema = %s '
             'ORDER BY c.ordinal_position'
         )
-        cursor = await self.execute(sql, table_name)
+        cursor = await self.execute(sql, self._schema, table_name, self._schema)
         rows = await cursor.fetchall()
         await cursor.close()
 
@@ -395,7 +398,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             '  con.conexclop '
             'FROM pg_constraint con '
             'JOIN pg_class cls ON cls.oid = con.conrelid '
-            "JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace AND nsp.nspname = 'public' "
+            'JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace AND nsp.nspname = %s '
             'CROSS JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS u(attnum, pos) '
             'JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = u.attnum '
             'LEFT JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS fk(attnum, pos) '
@@ -405,7 +408,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             'WHERE cls.relname = %s '
             'GROUP BY con.oid, con.conname, con.contype, con.confrelid, con.confupdtype, con.confdeltype, con.conexclop'
         )
-        cursor = await self.execute(sql, table_name)
+        cursor = await self.execute(sql, self._schema, table_name)
         rows = await cursor.fetchall()
         await cursor.close()
 
@@ -442,7 +445,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             'JOIN pg_class tc ON tc.oid = ix.indrelid '
             'JOIN pg_class ic ON ic.oid = ix.indexrelid '
             'JOIN pg_am am ON am.oid = ic.relam '
-            "JOIN pg_namespace nsp ON nsp.oid = tc.relnamespace AND nsp.nspname = 'public' "
+            'JOIN pg_namespace nsp ON nsp.oid = tc.relnamespace AND nsp.nspname = %s '
             'CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, pos) '
             'JOIN pg_attribute att ON att.attrelid = tc.oid AND att.attnum = k.attnum '
             'LEFT JOIN pg_opclass opc ON opc.oid = ix.indclass[k.pos - 1] '
@@ -454,7 +457,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             '  ) '
             'GROUP BY ic.relname, ix.indisunique, am.amname, ix.indnkeyatts'
         )
-        cursor = await self.execute(sql, 'DESC', 'ASC', table_name, 'u')
+        cursor = await self.execute(sql, 'DESC', 'ASC', self._schema, table_name, 'u')
         rows = await cursor.fetchall()
         await cursor.close()
 

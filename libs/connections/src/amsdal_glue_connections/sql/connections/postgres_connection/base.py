@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Any
+from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
@@ -13,41 +14,58 @@ from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
+if TYPE_CHECKING:
+    from psycopg.sql import Composable
+
 logger = logging.getLogger(__name__)
 
-_REGISTRY_VIEW_SQL: dict[str, str] = {
-    TABLE_REGISTRY: (
-        f'CREATE OR REPLACE TEMPORARY VIEW "{TABLE_REGISTRY}" AS '  # noqa: S608
-        'SELECT table_name AS name '
-        'FROM information_schema.tables '
-        "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
-    ),
-    TABLE_PROPERTY_REGISTRY: (
-        f'CREATE OR REPLACE TEMPORARY VIEW "{TABLE_PROPERTY_REGISTRY}" AS '  # noqa: S608
-        'SELECT table_name, column_name AS name, data_type AS type, '
-        'udt_name, is_nullable, column_default, ordinal_position '
-        'FROM information_schema.columns '
-        "WHERE table_schema = 'public'"
-    ),
-    TABLE_CONSTRAINT_REGISTRY: (
-        f'CREATE OR REPLACE TEMPORARY VIEW "{TABLE_CONSTRAINT_REGISTRY}" AS '  # noqa: S608
-        'SELECT cls.relname AS table_name, con.conname AS name, con.contype AS type '
-        'FROM pg_constraint con '
-        'JOIN pg_class cls ON cls.oid = con.conrelid '
-        "JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace AND nsp.nspname = 'public'"
-    ),
-    TABLE_INDEX_REGISTRY: (
-        f'CREATE OR REPLACE TEMPORARY VIEW "{TABLE_INDEX_REGISTRY}" AS '  # noqa: S608
-        'SELECT tc.relname AS table_name, ic.relname AS name, '
-        'am.amname AS index_type, ix.indisunique AS is_unique '
-        'FROM pg_index ix '
-        'JOIN pg_class tc ON tc.oid = ix.indrelid '
-        'JOIN pg_class ic ON ic.oid = ix.indexrelid '
-        'JOIN pg_am am ON am.oid = ic.relam '
-        "JOIN pg_namespace nsp ON nsp.oid = tc.relnamespace AND nsp.nspname = 'public' "
-        'WHERE NOT ix.indisprimary'
-    ),
-}
+
+def build_registry_view_sql(schema: str) -> 'dict[str, Composable]':
+    """Build the registry-view DDL for a specific connection schema.
+
+    The schema is a value compared against ``information_schema`` / ``pg_namespace`` columns
+    (``table_schema = 'public'`` / ``nspname = 'public'``), so it is injected as a properly quoted
+    SQL literal via ``psycopg.sql.Literal`` — never f-string interpolated — closing the same
+    injection hole handled for ``SET search_path``. The view names are equally quoted via
+    ``psycopg.sql.Identifier`` so the whole DDL is composition-safe.
+    """
+    from psycopg import sql
+
+    schema_literal = sql.Literal(schema)
+
+    return {
+        TABLE_REGISTRY: sql.SQL(
+            'CREATE OR REPLACE TEMPORARY VIEW {view} AS '
+            'SELECT table_name AS name '
+            'FROM information_schema.tables '
+            "WHERE table_schema = {schema} AND table_type = 'BASE TABLE'"
+        ).format(view=sql.Identifier(TABLE_REGISTRY), schema=schema_literal),
+        TABLE_PROPERTY_REGISTRY: sql.SQL(
+            'CREATE OR REPLACE TEMPORARY VIEW {view} AS '
+            'SELECT table_name, column_name AS name, data_type AS type, '
+            'udt_name, is_nullable, column_default, ordinal_position '
+            'FROM information_schema.columns '
+            'WHERE table_schema = {schema}'
+        ).format(view=sql.Identifier(TABLE_PROPERTY_REGISTRY), schema=schema_literal),
+        TABLE_CONSTRAINT_REGISTRY: sql.SQL(
+            'CREATE OR REPLACE TEMPORARY VIEW {view} AS '
+            'SELECT cls.relname AS table_name, con.conname AS name, con.contype AS type '
+            'FROM pg_constraint con '
+            'JOIN pg_class cls ON cls.oid = con.conrelid '
+            'JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace AND nsp.nspname = {schema}'
+        ).format(view=sql.Identifier(TABLE_CONSTRAINT_REGISTRY), schema=schema_literal),
+        TABLE_INDEX_REGISTRY: sql.SQL(
+            'CREATE OR REPLACE TEMPORARY VIEW {view} AS '
+            'SELECT tc.relname AS table_name, ic.relname AS name, '
+            'am.amname AS index_type, ix.indisunique AS is_unique '
+            'FROM pg_index ix '
+            'JOIN pg_class tc ON tc.oid = ix.indrelid '
+            'JOIN pg_class ic ON ic.oid = ix.indexrelid '
+            'JOIN pg_am am ON am.oid = ic.relam '
+            'JOIN pg_namespace nsp ON nsp.oid = tc.relnamespace AND nsp.nspname = {schema} '
+            'WHERE NOT ix.indisprimary'
+        ).format(view=sql.Identifier(TABLE_INDEX_REGISTRY), schema=schema_literal),
+    }
 
 
 class PostgresConnectionMixin:
