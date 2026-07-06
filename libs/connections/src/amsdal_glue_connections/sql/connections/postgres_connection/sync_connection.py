@@ -1,4 +1,5 @@
 import logging
+import re
 from copy import copy
 from typing import Any
 
@@ -117,6 +118,56 @@ def _pg_type_to_field_type(
         return scalar
 
     return CustomType(name=type_name)
+
+
+def parse_pg_type(type_str: str) -> ScalarType | CustomType | ArrayType | VectorType:
+    """Parse a Postgres ``format_type(atttypid, atttypmod)`` string into a FieldType.
+
+    ``format_type`` renders the fully-qualified type together with its modifiers exactly as
+    Postgres would print them, e.g. ``vector(768)``, ``numeric(10,2)``, ``numeric(10,2)[]``,
+    ``character varying(50)``, ``integer`` or ``text[]``. Parsing this single source recovers
+    modifiers that ``information_schema`` drops (array element precision/scale) or never exposes
+    (pgvector dimensions).
+
+    Handling:
+      * trailing ``[]``   -> ArrayType(item_type=<parse of the element type>)
+      * ``vector(N)``     -> VectorType(dimensions=N) (``vector`` alone -> dimensions=0)
+      * ``numeric(p[,s])``/``decimal(...)`` -> CustomType('NUMERIC', {'precision': p[, 'scale': s]})
+      * known scalar names via ``_PG_TYPE_MAP`` (e.g. ``character varying`` -> TEXT)
+      * anything else     -> CustomType(name=...)
+    """
+    s = type_str.strip()
+
+    # Arrays: format_type appends a single trailing '[]' even for multi-dimensional arrays.
+    if s.endswith('[]'):
+        return ArrayType(item_type=parse_pg_type(s[:-2]))
+
+    # Split off an optional modifier group. It may sit at the end ('numeric(10,2)',
+    # 'character varying(50)') or in the middle ('timestamp(6) without time zone').
+    modifier: str | None = None
+    match = re.search(r'\(([^)]*)\)', s)
+    if match is not None:
+        modifier = match.group(1).strip()
+        s = s[: match.start()] + s[match.end() :]
+
+    name = ' '.join(s.split())
+    lookup = name.lower()
+
+    if lookup == 'vector':
+        return VectorType(dimensions=int(modifier) if modifier else 0)
+
+    if lookup in ('numeric', 'decimal') and modifier:
+        parts = [p.strip() for p in modifier.split(',')]
+        params: dict[str, int] = {'precision': int(parts[0])}
+        if len(parts) > 1:
+            params['scale'] = int(parts[1])
+        return CustomType(name='NUMERIC', params=params)
+
+    scalar = _PG_TYPE_MAP.get(lookup)
+    if scalar is not None:
+        return scalar
+
+    return CustomType(name=name)
 
 
 def _detect_serial(data_type: str, column_default: str | None) -> ScalarType | None:
@@ -372,12 +423,18 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
 
     def _introspect_columns(self, table_name: str) -> list[PropertySchema]:
         sql = (
-            'SELECT column_name, data_type, udt_name, is_nullable, column_default, '
-            'is_identity, identity_generation, collation_name, generation_expression, is_generated, '
-            'numeric_precision, numeric_scale '
-            'FROM information_schema.columns '
-            "WHERE table_name = %s AND table_schema = 'public' "
-            'ORDER BY ordinal_position'
+            'SELECT c.column_name, c.data_type, c.udt_name, c.is_nullable, c.column_default, '
+            'c.is_identity, c.identity_generation, c.collation_name, c.generation_expression, c.is_generated, '
+            'c.numeric_precision, c.numeric_scale, '
+            '(SELECT format_type(a.atttypid, a.atttypmod) '
+            ' FROM pg_attribute a '
+            ' JOIN pg_class cl ON cl.oid = a.attrelid '
+            ' JOIN pg_namespace n ON n.oid = cl.relnamespace '
+            " WHERE n.nspname = 'public' AND cl.relname = c.table_name "
+            '   AND a.attname = c.column_name AND a.attnum > 0 AND NOT a.attisdropped) AS format_type '
+            'FROM information_schema.columns c '
+            "WHERE c.table_name = %s AND c.table_schema = 'public' "
+            'ORDER BY c.ordinal_position'
         )
         cursor = self.execute(sql, table_name)
         rows = cursor.fetchall()
@@ -397,12 +454,17 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
             is_generated,
             numeric_precision,
             numeric_scale,
+            format_type_str,
         ) in rows:
             serial_type = _detect_serial(data_type, column_default)
             identity = _resolve_identity(is_identity_col, identity_generation) if serial_type is None else None
 
             if serial_type is not None:
                 field_type: ScalarType | CustomType | ArrayType | VectorType = serial_type
+            elif format_type_str is not None:
+                # format_type carries the real modifiers (vector dims, numeric precision/scale,
+                # array element modifiers), so it is the authoritative source for the type.
+                field_type = parse_pg_type(format_type_str)
             elif data_type in ('ARRAY', 'USER-DEFINED'):
                 field_type = _pg_type_to_field_type(udt_name)
             else:

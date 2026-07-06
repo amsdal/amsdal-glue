@@ -35,6 +35,7 @@ from amsdal_glue_connections.sql.connections.postgres_connection.base import Pos
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _detect_serial
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _pg_type_to_field_type
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _resolve_identity
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import parse_pg_type
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
@@ -280,12 +281,18 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
 
     async def _introspect_columns(self, table_name: str) -> list[PropertySchema]:
         sql = (
-            'SELECT column_name, data_type, udt_name, is_nullable, column_default, '
-            'is_identity, identity_generation, collation_name, generation_expression, is_generated, '
-            'numeric_precision, numeric_scale '
-            'FROM information_schema.columns '
-            "WHERE table_name = %s AND table_schema = 'public' "
-            'ORDER BY ordinal_position'
+            'SELECT c.column_name, c.data_type, c.udt_name, c.is_nullable, c.column_default, '
+            'c.is_identity, c.identity_generation, c.collation_name, c.generation_expression, c.is_generated, '
+            'c.numeric_precision, c.numeric_scale, '
+            '(SELECT format_type(a.atttypid, a.atttypmod) '
+            ' FROM pg_attribute a '
+            ' JOIN pg_class cl ON cl.oid = a.attrelid '
+            ' JOIN pg_namespace n ON n.oid = cl.relnamespace '
+            " WHERE n.nspname = 'public' AND cl.relname = c.table_name "
+            '   AND a.attname = c.column_name AND a.attnum > 0 AND NOT a.attisdropped) AS format_type '
+            'FROM information_schema.columns c '
+            "WHERE c.table_name = %s AND c.table_schema = 'public' "
+            'ORDER BY c.ordinal_position'
         )
         cursor = await self.execute(sql, table_name)
         rows = await cursor.fetchall()
@@ -305,12 +312,17 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             is_generated,
             numeric_precision,
             numeric_scale,
+            format_type_str,
         ) in rows:
             serial_type = _detect_serial(data_type, column_default)
             identity = _resolve_identity(is_identity_col, identity_generation) if serial_type is None else None
 
             if serial_type is not None:
                 field_type = serial_type
+            elif format_type_str is not None:
+                # format_type carries the real modifiers (vector dims, numeric precision/scale,
+                # array element modifiers), so it is the authoritative source for the type.
+                field_type = parse_pg_type(format_type_str)  # type: ignore[assignment]
             elif data_type in ('ARRAY', 'USER-DEFINED'):
                 field_type = _pg_type_to_field_type(udt_name)  # type: ignore[assignment]
             else:
