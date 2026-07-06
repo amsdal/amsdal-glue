@@ -3,7 +3,7 @@
 Old tests used deleted internals: sqlite_value_transform, SqliteConnectionMixin.to_sql_type,
 and DecimalSchemaModel.  Each is re-pointed to the surviving equivalent:
 Value + compile_query for value rendering, compile_schema_mutation for DDL,
-and to_python_type for introspection (still present on SqliteConnectionMixin).
+and _sqlite_type_to_field_type for introspection (the real query_schema path).
 
 SUSPICIOUS items flagged inline.
 """
@@ -22,7 +22,6 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
-from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _sqlite_type_to_field_type
 
 _gen = SqlGenerator('sqlite', param_style='qmark')
@@ -100,14 +99,14 @@ def test_sqlite_type_to_field_type_preserves_precision_scale() -> None:
 
 
 def test_sqlite_decimal_decltype_round_trips() -> None:
-    # to_python_type('DECIMAL_TEXT(10, 2)') must preserve precision/scale for faithful round-trips.
-    conn = SqliteConnectionMixin()
-    result = conn.to_python_type('DECIMAL_TEXT(10, 2)')
+    # _sqlite_type_to_field_type (the real query_schema/_introspect_columns path) must preserve
+    # precision/scale for faithful DECIMAL_TEXT round-trips.
+    result = _sqlite_type_to_field_type('DECIMAL_TEXT(10, 2)')
     assert isinstance(result, CustomType)
     assert result.name == 'decimal_text'
     assert result.params == {'precision': 10, 'scale': 2}
 
-    unconstrained = conn.to_python_type('DECIMAL_TEXT')
+    unconstrained = _sqlite_type_to_field_type('DECIMAL_TEXT')
     assert isinstance(unconstrained, CustomType)
     assert unconstrained.name == 'decimal_text'
     assert unconstrained.params is None

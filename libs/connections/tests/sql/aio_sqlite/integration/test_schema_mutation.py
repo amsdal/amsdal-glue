@@ -2,13 +2,18 @@ import pytest
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import Schema
+from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import ScalarType
+from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 from tests.sql.aio_sqlite.testcases.schema_mutations import add_index
 from tests.sql.aio_sqlite.testcases.schema_mutations import add_last_name_property
 from tests.sql.aio_sqlite.testcases.schema_mutations import add_unique_constraint
@@ -294,19 +299,29 @@ async def test_delete_index(database_connection: AsyncSqliteConnection) -> None:
     assert await _get_indexes(database_connection, 'user') == []
 
 
+async def _query_schema(database_connection: AsyncSqliteConnection, table_name: str) -> Schema | None:
+    # Real introspection path (public query_schema), replacing legacy get_table_info.
+    query = QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+    schemas = [schema for schema in await database_connection.query_schema(query) if schema.name == table_name]
+    return schemas[0] if schemas else None
+
+
 async def _get_indexes(database_connection: AsyncSqliteConnection, table_name: str) -> list[tuple[str, list[str]]]:
-    _, _, indexes = await database_connection.get_table_info(table_name)
+    schema = await _query_schema(database_connection, table_name)
+    indexes = (schema.indexes or []) if schema else []
 
     return [(index.name, [f.name for f in index.fields]) for index in indexes]
 
 
 async def _describe_table(database_connection: AsyncSqliteConnection, table_name: str) -> list[tuple]:
-    properties, _, _ = await database_connection.get_table_info(table_name)
+    schema = await _query_schema(database_connection, table_name)
+    properties = schema.properties if schema else []
 
     return [(prop.name, prop.type) for prop in properties]
 
 
 async def _get_constraints(database_connection: AsyncSqliteConnection, table_name: str) -> list[tuple[str]]:
-    _, constraints, _ = await database_connection.get_table_info(table_name)
+    schema = await _query_schema(database_connection, table_name)
+    constraints = (schema.constraints or []) if schema else []
 
     return [(constraint.name,) for constraint in constraints]
