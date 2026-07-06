@@ -60,9 +60,9 @@ def _setup(connection: SqliteConnection) -> None:
             )
         )
     )
-    connection.run_mutations(
-        [InsertData(schema=_nums_ref(), data=[Data(data={'id': i, 'a': a, 'b': b, 'r': 0}) for i, a, b in _ROWS])]
-    )
+    connection.run_mutations([
+        InsertData(schema=_nums_ref(), data=[Data(data={'id': i, 'a': a, 'b': b, 'r': 0}) for i, a, b in _ROWS])
+    ])
 
 
 def _schema_command(mutation):

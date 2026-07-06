@@ -55,13 +55,7 @@ def test_tsvector_column_pg() -> None:
         ),
     )
     [(sql, _params)] = pg_ddl(mutation)
-    assert sql == (
-        'CREATE TABLE "articles" ('
-        '"id" integer NOT NULL, '
-        '"title" text NOT NULL, '
-        '"search_vector" tsvector'
-        ')'
-    )
+    assert sql == ('CREATE TABLE "articles" ("id" integer NOT NULL, "title" text NOT NULL, "search_vector" tsvector)')
     assert 'tsvector' in sql
 
 
@@ -78,12 +72,7 @@ def test_tsquery_column_pg() -> None:
         ),
     )
     [(sql, _params)] = pg_ddl(mutation)
-    assert sql == (
-        'CREATE TABLE "articles" ('
-        '"id" integer NOT NULL, '
-        '"saved_query" tsquery'
-        ')'
-    )
+    assert sql == ('CREATE TABLE "articles" ("id" integer NOT NULL, "saved_query" tsquery)')
     assert 'tsquery' in sql
 
 
@@ -132,9 +121,7 @@ def test_phrase_query_in_where() -> None:
         ),
     )
     sql, params = pg(query)
-    assert sql == (
-        'SELECT * FROM "articles" WHERE "articles"."search_vector" @@ phraseto_tsquery(%s, %s)'
-    )
+    assert sql == ('SELECT * FROM "articles" WHERE "articles"."search_vector" @@ phraseto_tsquery(%s, %s)')
     assert params == ['english', 'quick brown fox']
     assert '@@' in sql
     assert 'phraseto_tsquery' in sql
@@ -173,9 +160,7 @@ def test_websearch_query_in_where() -> None:
         ),
     )
     sql, params = pg(query)
-    assert sql == (
-        'SELECT * FROM "articles" WHERE "articles"."search_vector" @@ websearch_to_tsquery(%s, %s)'
-    )
+    assert sql == ('SELECT * FROM "articles" WHERE "articles"."search_vector" @@ websearch_to_tsquery(%s, %s)')
     assert params == ['english', '"exact phrase" -excluded']
     assert '@@' in sql
     assert 'websearch_to_tsquery' in sql

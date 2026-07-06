@@ -68,7 +68,7 @@ def test_create_extension_with_version() -> None:
         version='0.7.0',
     )
     [(sql, _params)] = pg_ddl(mutation)
-    assert sql == "CREATE EXTENSION IF NOT EXISTS \"pgvector\" VERSION '0.7.0'"
+    assert sql == 'CREATE EXTENSION IF NOT EXISTS "pgvector" VERSION \'0.7.0\''
     assert 'CREATE EXTENSION IF NOT EXISTS "pgvector"' in sql
     assert "'0.7.0'" in sql
 
@@ -94,7 +94,7 @@ def test_create_extension_full() -> None:
         cascade=True,
     )
     [(sql, _params)] = pg_ddl(mutation)
-    assert sql == "CREATE EXTENSION IF NOT EXISTS \"postgis\" SCHEMA \"public\" VERSION '3.4.0' CASCADE"
+    assert sql == 'CREATE EXTENSION IF NOT EXISTS "postgis" SCHEMA "public" VERSION \'3.4.0\' CASCADE'
     assert 'CREATE EXTENSION IF NOT EXISTS "postgis"' in sql
     assert 'public' in sql
     assert "'3.4.0'" in sql
@@ -160,7 +160,7 @@ def test_create_collation_pg() -> None:
     )
     [(sql, params)] = pg_ddl(mutation)
     assert sql == (
-        "CREATE COLLATION IF NOT EXISTS \"case_insensitive\""
+        'CREATE COLLATION IF NOT EXISTS "case_insensitive"'
         " (LOCALE = 'und-u-ks-level2', PROVIDER = icu, DETERMINISTIC = FALSE)"
     )
     assert 'CREATE COLLATION' in sql
@@ -182,8 +182,7 @@ def test_create_collation_deterministic() -> None:
     )
     [(sql, _params)] = pg_ddl(mutation)
     assert sql == (
-        "CREATE COLLATION IF NOT EXISTS \"ukrainian\""
-        " (LOCALE = 'uk-UA', PROVIDER = icu, DETERMINISTIC = TRUE)"
+        'CREATE COLLATION IF NOT EXISTS "ukrainian" (LOCALE = \'uk-UA\', PROVIDER = icu, DETERMINISTIC = TRUE)'
     )
     assert 'CREATE COLLATION' in sql
     assert '"ukrainian"' in sql
