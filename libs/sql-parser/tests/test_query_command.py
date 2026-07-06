@@ -69,6 +69,26 @@ def test_only_select_query_command(benchmark) -> None:
     ]
 
 
+def test_simple_identifier_with_alias(benchmark) -> None:
+    parser = Container.services.get(SqlParserBase)
+
+    def parse_sql() -> list[Operation]:
+        return parser.parse_sql('SELECT id AS user_id FROM users')
+
+    result = benchmark(parse_sql)
+
+    assert result == [
+        DataQueryOperation(
+            query=QueryStatement(
+                table=SchemaReference(name='users', version=Version.LATEST),
+                only=[
+                    FieldReferenceAliased(field=Field(name='id'), table_name='users', alias='user_id'),
+                ],
+            ),
+        )
+    ]
+
+
 def test_conditions(benchmark) -> None:
     parser = Container.services.get(SqlParserBase)
 

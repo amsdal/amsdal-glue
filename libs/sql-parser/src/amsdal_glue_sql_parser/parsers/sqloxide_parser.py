@@ -556,6 +556,14 @@ class SqlOxideParser(SqlParserBase):
                             alias=_alias,
                         )
                     )
+                elif 'Identifier' in _expression:
+                    fields.append(
+                        FieldReferenceAliased(
+                            field=Field(name=_expression['Identifier']['value']),
+                            table_name=table_name,
+                            alias=_alias,
+                        )
+                    )
 
                 continue
             else:
