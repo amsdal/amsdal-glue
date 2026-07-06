@@ -58,7 +58,7 @@ def polars_operator_constructor(  # noqa: C901, PLR0912
             left_stmt = f'LOWER({left_stmt})'
             right_stmt = f"LIKE '%{right_stmt.lower()}'"
         case FieldLookup.ISNULL:
-            right_stmt = 'IS NULL'
+            right_stmt = 'IS NULL' if getattr(right, 'value', True) else 'IS NOT NULL'
         case FieldLookup.REGEX:
             right_stmt = f'REGEXP {right_stmt}'
         case FieldLookup.IREGEX:
