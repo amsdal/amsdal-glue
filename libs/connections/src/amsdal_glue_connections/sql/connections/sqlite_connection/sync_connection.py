@@ -318,6 +318,10 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
+        # Enable PARSE_DECLTYPES so the DATE/TIMESTAMP converters above actually fire on read-back.
+        # Respect a caller-supplied detect_types (only default it when absent).
+        kwargs.setdefault('detect_types', sqlite3.PARSE_DECLTYPES)
+
         self._db_path = Path(db_path)
         self._connection = sqlite3.connect(db_path, check_same_thread=check_same_thread, **kwargs)
         self._connection.isolation_level = None  # disable implicit transaction opening
