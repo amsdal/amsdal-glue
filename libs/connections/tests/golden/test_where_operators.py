@@ -142,6 +142,38 @@ def test_isnull_sqlite() -> None:
     assert lite(q) == ('SELECT * FROM "users" WHERE "users"."deleted_at" IS NULL', [])
 
 
+def test_isnotnull_pg() -> None:
+    q = QueryStatement(
+        table=SchemaReference(name='users', version=Version.LATEST),
+        where=Conditions(
+            Condition(
+                left=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='deleted_at'), table_name='users'),
+                ),
+                lookup=FieldLookup.ISNULL,
+                right=Value(value=False),
+            ),
+        ),
+    )
+    assert pg(q) == ('SELECT * FROM "users" WHERE "users"."deleted_at" IS NOT NULL', [])
+
+
+def test_isnotnull_sqlite() -> None:
+    q = QueryStatement(
+        table=SchemaReference(name='users', version=Version.LATEST),
+        where=Conditions(
+            Condition(
+                left=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='deleted_at'), table_name='users'),
+                ),
+                lookup=FieldLookup.ISNULL,
+                right=Value(value=False),
+            ),
+        ),
+    )
+    assert lite(q) == ('SELECT * FROM "users" WHERE "users"."deleted_at" IS NOT NULL', [])
+
+
 @pytest.mark.xfail(strict=True, reason='Rust no longer emits = ANY(%s); test documents superseded expectation')
 def test_where_in_pg_params_correct_behaviour() -> None:
     # D2 (superseded): original concern was = ANY(%s) needing [[1,2,3]] for psycopg3.

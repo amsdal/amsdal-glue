@@ -9,6 +9,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.23", features = ["extension-module"] }
-qcraft = { version = "2.5.0", features = ["postgres", "sqlite"] }
+qcraft = { version = "3.0.0", features = ["postgres", "sqlite"] }
 serde_json = "1"
 thiserror = "2"
