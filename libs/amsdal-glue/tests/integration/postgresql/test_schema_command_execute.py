@@ -199,6 +199,18 @@ def test_create_schema() -> None:
                 PrimaryKeyConstraint(name='pk_user_custom_name', fields=['id']),
                 UniqueConstraint(name='uk_user_email', fields=['email']),
                 UniqueConstraint(name='uk_user_email_last_name', fields=['email', 'last_name']),
+                CheckConstraint(
+                    name='ck_user_age',
+                    condition=Conditions(
+                        Condition(
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='')
+                            ),
+                            lookup=FieldLookup.GT,
+                            right=Value(value=18),
+                        ),
+                    ),
+                ),
             ],
             indexes=[
                 IndexSchema(
@@ -296,6 +308,6 @@ def test_create_schema_embeddings() -> None:
     _schema = result[0]
     assert _schema.name == 'user'
     assert {prop.name: prop.type for prop in _schema.properties} == {
-        'embedding': VectorType(dimensions=0),
+        'embedding': VectorType(dimensions=3),
         'name': ScalarType.TEXT,
     }
