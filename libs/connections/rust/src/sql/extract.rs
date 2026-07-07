@@ -1074,23 +1074,44 @@ fn extract_insert(ob: &Bound<PyAny>) -> PyResult<InsertStmt> {
     // Extract column names from first row
     let col_names: Vec<String> = raw_rows[0].iter().map(|(k, _)| k.clone()).collect();
 
-    // Build value rows
+    // Build value rows.
+    //
+    // A single multi-row INSERT emits ONE column list at the SQL level, so every
+    // row must share the first row's exact column set. Validate this here instead
+    // of silently NULL-filling missing columns or dropping extra ones. The checks
+    // piggyback on work already done (length check + slow-path lookup); no extra
+    // pass or allocation is introduced.
     let mut rows: Vec<Vec<Expr>> = Vec::with_capacity(raw_rows.len());
-    for raw_row in &raw_rows {
+    for (row_idx, raw_row) in raw_rows.iter().enumerate() {
+        // A different key count means a column is missing or extra. Report the
+        // offending row's columns against the first row's columns.
+        if raw_row.len() != col_names.len() {
+            let row_cols: Vec<&str> = raw_row.iter().map(|(k, _)| k.as_str()).collect();
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "INSERT row {row_idx} has columns {row_cols:?} that differ from the \
+                 first row's columns {col_names:?}; all rows in a multi-row INSERT \
+                 must share the same columns"
+            )));
+        }
+
         let mut values: Vec<Expr> = Vec::with_capacity(col_names.len());
-        if raw_row.len() == col_names.len()
-            && raw_row.iter().zip(col_names.iter()).all(|((k, _), c)| k == c)
-        {
-            // Fast path: same order
+        if raw_row.iter().zip(col_names.iter()).all(|((k, _), c)| k == c) {
+            // Fast path: same keys in the same order.
             for (_, v) in raw_row {
                 values.push(Expr::Value(pyvalue_to_qcraft(v)));
             }
         } else {
-            // Slow path: reorder by col_names
+            // Slow path: reorder by col_names. Counts match here, so any missing
+            // key means the row carries a different (wrong) column set.
             let row_map: std::collections::HashMap<&str, &PyValue> =
                 raw_row.iter().map(|(k, v)| (k.as_str(), v)).collect();
             for col in &col_names {
-                let v = row_map.get(col.as_str()).copied().unwrap_or(&PyValue::Null);
+                let v = *row_map.get(col.as_str()).ok_or_else(|| {
+                    pyo3::exceptions::PyValueError::new_err(format!(
+                        "INSERT row {row_idx} is missing column '{col}' present in the \
+                         first row; all rows in a multi-row INSERT must share the same columns"
+                    ))
+                })?;
                 values.push(Expr::Value(pyvalue_to_qcraft(v)));
             }
         }
