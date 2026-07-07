@@ -169,9 +169,7 @@ class SqlOxideParser(SqlParserBase):
             return SchemaCommand(
                 mutations=[
                     DeleteSchema(
-                        schema_ref=SchemaReference(
-                            name=parsed_sql['names'][0][0]['value'], version=Version.LATEST
-                        )
+                        schema_ref=SchemaReference(name=parsed_sql['names'][0][0]['value'], version=Version.LATEST)
                     )
                 ]
             )
@@ -216,9 +214,7 @@ class SqlOxideParser(SqlParserBase):
                 )
             elif 'RenameTable' in operation:
                 new_table_name = operation['RenameTable']['table_name'][0]['value']
-                operations.append(
-                    SchemaCommand(mutations=[RenameSchema(schema_ref=schema, new_name=new_table_name)])
-                )
+                operations.append(SchemaCommand(mutations=[RenameSchema(schema_ref=schema, new_name=new_table_name)]))
 
             elif 'AddConstraint' in operation:
                 constraint = operation['AddConstraint']
@@ -679,9 +675,7 @@ class SqlOxideParser(SqlParserBase):
         group_by_queries = []
         for group in group_by:
             field = self._identifier_to_field_reference(group, table_name)
-            group_by_queries.append(
-                GroupByQuery(expression=FieldReferenceExpression(field_reference=field))
-            )
+            group_by_queries.append(GroupByQuery(expression=FieldReferenceExpression(field_reference=field)))
 
         return group_by_queries
 
@@ -695,7 +689,6 @@ class SqlOxideParser(SqlParserBase):
             direction = OrderDirection.ASC if order['asc'] else OrderDirection.DESC
             order_by_queries.append(
                 OrderByQuery(
-                    field=field,
                     expression=FieldReferenceExpression(field_reference=field),
                     direction=direction,
                 )

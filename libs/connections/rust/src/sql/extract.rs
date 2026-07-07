@@ -966,13 +966,7 @@ fn extract_join_query(ob: &Bound<PyAny>) -> PyResult<JoinDef> {
 
 fn extract_order_by(ob: &Bound<PyAny>) -> PyResult<OrderByDef> {
     let direction = extract_order_direction(&ob.getattr(pyo3::intern!(ob.py(), "direction"))?)?;
-    let expr_attr = ob.getattr(pyo3::intern!(ob.py(), "expression"))?;
-    let expr = if expr_attr.is_none() {
-        let field = extract_field_ref(&ob.getattr(pyo3::intern!(ob.py(), "field"))?)?;
-        Expr::Field(field)
-    } else {
-        extract_expr(&expr_attr)?
-    };
+    let expr = extract_expr(&ob.getattr(pyo3::intern!(ob.py(), "expression"))?)?;
     Ok(OrderByDef {
         expr,
         direction,

@@ -290,10 +290,14 @@ def _process_condition(condition: Condition | Conditions) -> CoreCondition | Cor
 
 
 def order_by_body_to_core(order_by: OrderByBody) -> OrderByQuery:
+    expression = (
+        expression_body_to_core(order_by.expression)
+        if order_by.expression is not None
+        else FieldReferenceExpression(field_reference=order_by.field)
+    )
     return OrderByQuery(
-        field=order_by.field,
+        expression=expression,
         direction=order_by.direction,
-        expression=expression_body_to_core(order_by.expression) if order_by.expression is not None else None,
     )
 
 

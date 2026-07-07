@@ -94,7 +94,9 @@ def test_not_exists_returns_customers_without_any_orders() -> None:
         ),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             )
         ],
@@ -117,7 +119,9 @@ def test_exists_returns_customers_with_any_order() -> None:
         ),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             )
         ],
@@ -141,7 +145,9 @@ def test_exists_with_correlation_and_amount_threshold_returns_customer_three() -
         ),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             )
         ],

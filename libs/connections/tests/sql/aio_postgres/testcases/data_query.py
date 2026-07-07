@@ -28,7 +28,9 @@ async def query_customers(database_connection: AsyncPostgresConnection, namespac
             table=SchemaReference(name='customers', alias='c', namespace=namespace, version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='c'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -42,7 +44,9 @@ async def query_orders_with_customers(database_connection: AsyncPostgresConnecti
             table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -83,7 +87,9 @@ async def query_customers_age(database_connection: AsyncPostgresConnection, *, d
         distinct=DistinctClause() if distinct else None,
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='age'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='age'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -98,7 +104,9 @@ async def query_big_orders(database_connection: AsyncPostgresConnection) -> list
             table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -126,7 +134,9 @@ async def query_orders_for_customer(database_connection: AsyncPostgresConnection
             table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -208,7 +218,9 @@ async def query_customers_expenses(database_connection: AsyncPostgresConnection)
             table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='c'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -242,7 +254,9 @@ async def query_expenses_by_customer(database_connection: AsyncPostgresConnectio
             ],
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -299,7 +313,9 @@ async def query_expenses_by_customer_with_name(database_connection: AsyncPostgre
             ],
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='customers'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],

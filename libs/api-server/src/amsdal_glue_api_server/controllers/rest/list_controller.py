@@ -102,7 +102,9 @@ def _process_order(schema: Schema, order: str | None = None):
         desc = _match[2] == 'desc'
         orderings.append(
             OrderByQuery(
-                field=FieldReference(field=Field(name=field_name), table_name=schema.name),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name=field_name), table_name=schema.name),
+                ),
                 direction=OrderDirection.DESC if desc else OrderDirection.ASC,
             )
         )

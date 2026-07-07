@@ -133,7 +133,9 @@ sum_city_population_query = QueryStatement(
     ],
     order_by=[
         OrderByQuery(
-            field=FieldReference(field=Field(name='country_name'), table_name='cts_codes'),
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_name'), table_name='cts_codes')
+            ),
         ),
     ],
 )

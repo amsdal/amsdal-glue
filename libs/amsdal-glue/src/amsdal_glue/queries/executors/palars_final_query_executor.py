@@ -377,9 +377,9 @@ class PolarsFinalQueryDataExecutorMixin:
 
         _stmt = []
 
-        for field in order_by:
-            _item_stmt = self._build_field_reference_stmt(field.field)
-            _stmt.append(f'{_item_stmt} {field.direction.value}')
+        for order in order_by:
+            _item_stmt = self._build_expression(order.expression)
+            _stmt.append(f'{_item_stmt} {order.direction.value}')
 
         return f'ORDER BY {", ".join(_stmt)}'
 

@@ -122,7 +122,9 @@ final_query = QueryStatement(
     ),
     order_by=[
         OrderByQuery(
-            field=FieldReference(field=Field(name='country_code'), table_name='c'),
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_code'), table_name='c')
+            ),
         ),
     ],
 )

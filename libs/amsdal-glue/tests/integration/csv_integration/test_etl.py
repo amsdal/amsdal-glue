@@ -83,7 +83,9 @@ def test_aggregation() -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='device_id'), table_name='devices'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='device_id'), table_name='devices')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

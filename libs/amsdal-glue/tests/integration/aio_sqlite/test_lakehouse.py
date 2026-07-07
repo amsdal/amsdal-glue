@@ -13,6 +13,7 @@ from amsdal_glue import DataQueryOperation
 from amsdal_glue import DefaultAsyncConnectionPool
 from amsdal_glue import Field
 from amsdal_glue import FieldReference
+from amsdal_glue import FieldReferenceExpression
 from amsdal_glue import InsertData
 from amsdal_glue import OrderByQuery
 from amsdal_glue import OrderDirection
@@ -161,7 +162,9 @@ async def test_data_query(lakehouse_app: AsyncLakehouseApplication, mocker: Mock
         table=SchemaReference(name='customers', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='customers'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

@@ -28,7 +28,9 @@ async def query_customers(database_connection: AsyncSqliteConnection, namespace:
             table=SchemaReference(name='customers', alias='c', namespace=namespace, version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='c'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -42,7 +44,9 @@ async def query_orders_with_customers(database_connection: AsyncSqliteConnection
             table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -82,7 +86,9 @@ async def query_customers_age(database_connection: AsyncSqliteConnection, *, dis
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='age'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='age'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -100,7 +106,9 @@ async def query_big_orders(database_connection: AsyncSqliteConnection) -> list[D
             table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -128,7 +136,9 @@ async def query_orders_for_customer(database_connection: AsyncSqliteConnection) 
             table=SchemaReference(name='orders', alias='o', version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -210,7 +220,9 @@ async def query_customers_expenses(database_connection: AsyncSqliteConnection) -
             table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='c'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -244,7 +256,9 @@ async def query_expenses_by_customer(database_connection: AsyncSqliteConnection)
             ],
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='customer_id'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='customer_id'), table_name='o')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -301,7 +315,9 @@ async def query_expenses_by_customer_with_name(database_connection: AsyncSqliteC
             ],
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='id'), table_name='customers'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],

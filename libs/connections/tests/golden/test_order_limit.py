@@ -6,6 +6,8 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+from amsdal_glue_core.common.expressions.func import Func
 
 from ._harness import lite
 from ._harness import pg
@@ -13,6 +15,10 @@ from ._harness import pg
 
 def _ref(name: str) -> FieldReference:
     return FieldReference(field=Field(name=name), table_name='users')
+
+
+def _ref_expr(name: str) -> FieldReferenceExpression:
+    return FieldReferenceExpression(field_reference=_ref(name))
 
 
 # ---------------------------------------------------------------------------
@@ -23,7 +29,11 @@ def _ref(name: str) -> FieldReference:
 def test_order_by_asc_pg() -> None:
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
-        order_by=[OrderByQuery(field=_ref('name'), direction=OrderDirection.ASC)],
+        order_by=[
+            OrderByQuery(
+                expression=FieldReferenceExpression(field_reference=_ref('name')), direction=OrderDirection.ASC
+            )
+        ],
     )
     assert pg(q) == ('SELECT * FROM "users" ORDER BY "users"."name" ASC', [])
 
@@ -31,7 +41,11 @@ def test_order_by_asc_pg() -> None:
 def test_order_by_asc_sqlite() -> None:
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
-        order_by=[OrderByQuery(field=_ref('name'), direction=OrderDirection.ASC)],
+        order_by=[
+            OrderByQuery(
+                expression=FieldReferenceExpression(field_reference=_ref('name')), direction=OrderDirection.ASC
+            )
+        ],
     )
     # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
     assert lite(q) == ('SELECT * FROM "users" ORDER BY "users"."name" ASC', [])
@@ -45,7 +59,11 @@ def test_order_by_asc_sqlite() -> None:
 def test_order_by_desc_pg() -> None:
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
-        order_by=[OrderByQuery(field=_ref('created_at'), direction=OrderDirection.DESC)],
+        order_by=[
+            OrderByQuery(
+                expression=FieldReferenceExpression(field_reference=_ref('created_at')), direction=OrderDirection.DESC
+            )
+        ],
     )
     assert pg(q) == ('SELECT * FROM "users" ORDER BY "users"."created_at" DESC', [])
 
@@ -53,7 +71,11 @@ def test_order_by_desc_pg() -> None:
 def test_order_by_desc_sqlite() -> None:
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
-        order_by=[OrderByQuery(field=_ref('created_at'), direction=OrderDirection.DESC)],
+        order_by=[
+            OrderByQuery(
+                expression=FieldReferenceExpression(field_reference=_ref('created_at')), direction=OrderDirection.DESC
+            )
+        ],
     )
     # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
     assert lite(q) == ('SELECT * FROM "users" ORDER BY "users"."created_at" DESC', [])
@@ -68,8 +90,12 @@ def test_order_by_multi_pg() -> None:
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
         order_by=[
-            OrderByQuery(field=_ref('name'), direction=OrderDirection.ASC),
-            OrderByQuery(field=_ref('created_at'), direction=OrderDirection.DESC),
+            OrderByQuery(
+                expression=FieldReferenceExpression(field_reference=_ref('name')), direction=OrderDirection.ASC
+            ),
+            OrderByQuery(
+                expression=FieldReferenceExpression(field_reference=_ref('created_at')), direction=OrderDirection.DESC
+            ),
         ],
     )
     assert pg(q) == ('SELECT * FROM "users" ORDER BY "users"."name" ASC, "users"."created_at" DESC', [])
@@ -79,8 +105,12 @@ def test_order_by_multi_sqlite() -> None:
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
         order_by=[
-            OrderByQuery(field=_ref('name'), direction=OrderDirection.ASC),
-            OrderByQuery(field=_ref('created_at'), direction=OrderDirection.DESC),
+            OrderByQuery(
+                expression=FieldReferenceExpression(field_reference=_ref('name')), direction=OrderDirection.ASC
+            ),
+            OrderByQuery(
+                expression=FieldReferenceExpression(field_reference=_ref('created_at')), direction=OrderDirection.DESC
+            ),
         ],
     )
     # Re-baselined: SQLite now uses ANSI double-quoted identifiers — DIFFERENT-BUT-VALID
@@ -125,3 +155,46 @@ def test_limit_offset_sqlite() -> None:
     )
     # Re-baselined: Rust generator parameterizes LIMIT/OFFSET values and uses double-quoted identifiers — DIFFERENT-BUT-VALID  # noqa: E501
     assert lite(q) == ('SELECT * FROM "users" LIMIT ? OFFSET ?', [10, 20])
+
+
+# ---------------------------------------------------------------------------
+# ORDER BY an arbitrary expression (expression-only OrderByQuery, no `field`)
+# ---------------------------------------------------------------------------
+
+
+def test_order_by_expression_upper_pg() -> None:
+    # OrderByQuery is expression-only: ordering by a function needs no dummy field.
+    q = QueryStatement(
+        table=SchemaReference(name='users', version=Version.LATEST),
+        order_by=[
+            OrderByQuery(
+                expression=Func(name='UPPER', args=[_ref_expr('name')]),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+    assert pg(q) == ('SELECT * FROM "users" ORDER BY UPPER("users"."name") ASC', [])
+
+
+def test_order_by_expression_upper_sqlite() -> None:
+    q = QueryStatement(
+        table=SchemaReference(name='users', version=Version.LATEST),
+        order_by=[
+            OrderByQuery(
+                expression=Func(name='UPPER', args=[_ref_expr('name')]),
+                direction=OrderDirection.ASC,
+            ),
+        ],
+    )
+    assert lite(q) == ('SELECT * FROM "users" ORDER BY UPPER("users"."name") ASC', [])
+
+
+def test_order_by_plain_field_via_expression_renders_identically() -> None:
+    # A plain field wrapped in FieldReferenceExpression renders exactly like the
+    # legacy `field=`-based ORDER BY did — no SQL change.
+    q = QueryStatement(
+        table=SchemaReference(name='users', version=Version.LATEST),
+        order_by=[OrderByQuery(expression=_ref_expr('name'), direction=OrderDirection.ASC)],
+    )
+    assert pg(q) == ('SELECT * FROM "users" ORDER BY "users"."name" ASC', [])
+    assert lite(q) == ('SELECT * FROM "users" ORDER BY "users"."name" ASC', [])

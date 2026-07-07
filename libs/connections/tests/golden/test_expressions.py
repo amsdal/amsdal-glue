@@ -682,7 +682,9 @@ def test_window_partition_by_single_field_pg() -> None:
                     partition_by=[_ref('department', 'sales')],
                     order_by=[
                         OrderByQuery(
-                            field=FieldReference(field=Field(name='amount'), table_name='sales'),
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='amount'), table_name='sales')
+                            ),
                             direction=OrderDirection.DESC,
                         ),
                     ],
@@ -733,7 +735,9 @@ def test_window_partition_by_single_field_sqlite() -> None:
                     partition_by=[_ref('department', 'sales')],
                     order_by=[
                         OrderByQuery(
-                            field=FieldReference(field=Field(name='amount'), table_name='sales'),
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='amount'), table_name='sales')
+                            ),
                             direction=OrderDirection.DESC,
                         ),
                     ],
@@ -760,7 +764,9 @@ def test_window_rows_frame_pg() -> None:
                     partition_by=[_ref('department', 'sales')],
                     order_by=[
                         OrderByQuery(
-                            field=FieldReference(field=Field(name='amount'), table_name='sales'),
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='amount'), table_name='sales')
+                            ),
                             direction=OrderDirection.ASC,
                         ),
                     ],
@@ -819,7 +825,9 @@ def test_window_range_frame_pg() -> None:
                     expression=Sum(expression=_ref('amount', 'sales')),
                     order_by=[
                         OrderByQuery(
-                            field=FieldReference(field=Field(name='amount'), table_name='sales'),
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='amount'), table_name='sales')
+                            ),
                             direction=OrderDirection.ASC,
                         ),
                     ],
@@ -851,7 +859,9 @@ def test_window_n_preceding_and_following() -> None:
                     expression=Sum(expression=_ref('amount', 'sales')),
                     order_by=[
                         OrderByQuery(
-                            field=FieldReference(field=Field(name='amount'), table_name='sales'),
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='amount'), table_name='sales')
+                            ),
                             direction=OrderDirection.ASC,
                         ),
                     ],
@@ -1189,7 +1199,9 @@ def test_aggregation_with_order_by() -> None:
                     expression=_ref('score', 'users'),
                     order_by=[
                         OrderByQuery(
-                            field=FieldReference(field=Field(name='name'), table_name='users'),
+                            expression=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='name'), table_name='users')
+                            ),
                             direction=OrderDirection.ASC,
                         ),
                     ],

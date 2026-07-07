@@ -9,6 +9,7 @@ from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
+from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -38,6 +39,20 @@ if TYPE_CHECKING:
     import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+def _order_by_field(order: OrderByQuery) -> tuple[str, str]:
+    """Extract the plain (field_name, table_name) to sort by from an ORDER BY clause.
+
+    The CSV backend can only sort by a stored field, so ordering by an arbitrary
+    expression is not supported.
+    """
+    expression = order.expression
+    if isinstance(expression, FieldReferenceExpression):
+        field_reference = expression.field_reference
+        return field_reference.field.name, field_reference.table_name
+    msg = 'CSV connection can only ORDER BY a plain field, not an arbitrary expression.'
+    raise ValueError(msg)
 
 
 class CsvConnection(ConnectionBase):
@@ -449,8 +464,7 @@ class CsvConnection(ConnectionBase):
                     ascending = []
 
                     for order in query.order_by:
-                        field_name = order.field.field.name
-                        table_name = order.field.table_name
+                        field_name, table_name = _order_by_field(order)
 
                         # Find the actual column name in the DataFrame
                         actual_col = self._find_column_for_field(result_df, field_name, table_name)

@@ -60,9 +60,9 @@ def _setup(connection: SqliteConnection) -> None:
             )
         )
     )
-    connection.run_mutations([
-        InsertData(schema=_nums_ref(), data=[Data(data={'id': i, 'a': a, 'b': b, 'r': 0}) for i, a, b in _ROWS])
-    ])
+    connection.run_mutations(
+        [InsertData(schema=_nums_ref(), data=[Data(data={'id': i, 'a': a, 'b': b, 'r': 0}) for i, a, b in _ROWS])]
+    )
 
 
 def _schema_command(mutation):
@@ -82,7 +82,9 @@ def _query(expr, alias: str) -> QueryStatement:
         expressions=[SelectExpression(expression=expr, alias=alias)],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='nums'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='nums')
+                ),
                 direction=OrderDirection.ASC,
             )
         ],

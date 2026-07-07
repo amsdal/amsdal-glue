@@ -445,28 +445,24 @@ def test_query_ordering(benchmark) -> None:
                 ),
                 order_by=[
                     OrderByQuery(
-                        field=FieldReference(field=Field(name='first_name'), table_name='u'),
                         expression=FieldReferenceExpression(
                             field_reference=FieldReference(field=Field(name='first_name'), table_name='u')
                         ),
                         direction=OrderDirection.ASC,
                     ),
                     OrderByQuery(
-                        field=FieldReference(field=Field(name='last_name'), table_name='u'),
                         expression=FieldReferenceExpression(
                             field_reference=FieldReference(field=Field(name='last_name'), table_name='u')
                         ),
                         direction=OrderDirection.DESC,
                     ),
                     OrderByQuery(
-                        field=FieldReference(field=Field(name='status'), table_name='s'),
                         expression=FieldReferenceExpression(
                             field_reference=FieldReference(field=Field(name='status'), table_name='s')
                         ),
                         direction=OrderDirection.ASC,
                     ),
                     OrderByQuery(
-                        field=FieldReference(field=Field(name='address'), table_name='a'),
                         expression=FieldReferenceExpression(
                             field_reference=FieldReference(field=Field(name='address'), table_name='a')
                         ),
@@ -709,7 +705,6 @@ def test_aggregation_with_joins(benchmark) -> None:
                 ],
                 order_by=[
                     OrderByQuery(
-                        field=FieldReference(field=Field(name='id'), table_name='customers'),
                         expression=FieldReferenceExpression(
                             field_reference=FieldReference(field=Field(name='id'), table_name='customers')
                         ),

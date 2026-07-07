@@ -364,7 +364,9 @@ def test_query_execute_query_to_single_model() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -437,11 +439,15 @@ def test_query_execute_query_to_single_connection() -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='o'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -486,11 +492,15 @@ def test_query_execute_query_to_single_connection_fail_due_to_duplicated_selecti
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='o'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -544,7 +554,9 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -592,11 +604,15 @@ def test_query_execute_query_to_multiple_connections() -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -648,11 +664,15 @@ def test_query_execute_query_with_subquery_in_from_to_multiple_connections() -> 
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -704,11 +724,15 @@ def test_query_execute_query_with_subquery_in_join_to_multiple_connections() -> 
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -771,7 +795,9 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
         table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -794,7 +820,9 @@ def test_query_execute_distinct() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -824,7 +852,9 @@ def test_query_execute_distinct_multiple_fields() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -858,7 +888,9 @@ def test_query_execute_distinct_on_single_field() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -892,7 +924,9 @@ def test_query_execute_distinct_on_single_field_multiple_selected() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -927,7 +961,9 @@ def test_query_execute_distinct_on_multiple() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

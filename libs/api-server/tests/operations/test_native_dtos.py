@@ -158,7 +158,8 @@ def test_data_query_body_round_trips_to_core() -> None:
     assert condition.right.value == 1
 
     assert core.order_by is not None
-    assert core.order_by[0].field.table_name == 'customers'
+    assert isinstance(core.order_by[0].expression, FieldReferenceExpression)
+    assert core.order_by[0].expression.field_reference.table_name == 'customers'
 
     assert core.expressions is not None
     assert isinstance(core.expressions[0].expression, Value)

@@ -13,6 +13,7 @@ from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -62,6 +63,19 @@ from elasticsearch import Elasticsearch
 from elasticsearch import NotFoundError
 
 logger = logging.getLogger(__name__)
+
+
+def _order_by_field_name(order: OrderByQuery) -> str:
+    """Extract the plain field name to sort by from an ORDER BY clause.
+
+    Elasticsearch can only sort by a stored field, so ordering by an arbitrary
+    expression is not supported.
+    """
+    expression = order.expression
+    if isinstance(expression, FieldReferenceExpression):
+        return expression.field_reference.field.name
+    msg = 'Elasticsearch can only ORDER BY a plain field, not an arbitrary expression.'
+    raise NotImplementedError(msg)
 
 
 class ElasticsearchConnection(ConnectionBase):
@@ -429,7 +443,7 @@ class ElasticsearchConnection(ConnectionBase):
             def sort_key(data_obj):
                 keys = []
                 for order in query.order_by or []:
-                    field_name = order.field.field.name
+                    field_name = _order_by_field_name(order)
                     value = data_obj.data.get(field_name, '')
 
                     # Handle different data types for sorting
@@ -544,7 +558,7 @@ class ElasticsearchConnection(ConnectionBase):
         def sort_key(data_obj):
             keys = []
             for order in order_by:
-                field_name = order.field.field.name
+                field_name = _order_by_field_name(order)
                 value = data_obj.data.get(field_name, '')
 
                 # Handle different data types for sorting
@@ -817,7 +831,7 @@ class ElasticsearchConnection(ConnectionBase):
             def sort_key(data_obj):
                 keys = []
                 for order in query.order_by or []:
-                    field_name = order.field.field.name
+                    field_name = _order_by_field_name(order)
                     value = data_obj.data.get(field_name)
 
                     # Handle None values - put them last for ASC, first for DESC
@@ -1530,7 +1544,7 @@ class ElasticsearchConnection(ConnectionBase):
             def sort_key(data_dict):
                 keys = []
                 for order in query.order_by or []:
-                    field_name = order.field.field.name
+                    field_name = _order_by_field_name(order)
                     value = data_dict.get(field_name)
 
                     # Handle None values - put them last for ASC, first for DESC

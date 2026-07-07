@@ -73,32 +73,34 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
             ]
         )
     )
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': 1, 'name': 'Alice', 'age': 25})],
-        ),
-        InsertData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': 2, 'name': 'Bob', 'age': 25})],
-        ),
-        InsertData(
-            schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': 3, 'name': 'Charlie', 'age': 35})],
-        ),
-        InsertData(
-            schema=SchemaReference(name='orders', version=Version.LATEST),
-            data=[Data(data={'id': 1, 'customer_id': 1, 'amount': 100})],
-        ),
-        InsertData(
-            schema=SchemaReference(name='orders', version=Version.LATEST),
-            data=[Data(data={'id': 2, 'customer_id': 1, 'amount': 200})],
-        ),
-        InsertData(
-            schema=SchemaReference(name='orders', version=Version.LATEST),
-            data=[Data(data={'id': 3, 'customer_id': 2, 'amount': 400})],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name='customers', version=Version.LATEST),
+                data=[Data(data={'id': 1, 'name': 'Alice', 'age': 25})],
+            ),
+            InsertData(
+                schema=SchemaReference(name='customers', version=Version.LATEST),
+                data=[Data(data={'id': 2, 'name': 'Bob', 'age': 25})],
+            ),
+            InsertData(
+                schema=SchemaReference(name='customers', version=Version.LATEST),
+                data=[Data(data={'id': 3, 'name': 'Charlie', 'age': 35})],
+            ),
+            InsertData(
+                schema=SchemaReference(name='orders', version=Version.LATEST),
+                data=[Data(data={'id': 1, 'customer_id': 1, 'amount': 100})],
+            ),
+            InsertData(
+                schema=SchemaReference(name='orders', version=Version.LATEST),
+                data=[Data(data={'id': 2, 'customer_id': 1, 'amount': 200})],
+            ),
+            InsertData(
+                schema=SchemaReference(name='orders', version=Version.LATEST),
+                data=[Data(data={'id': 3, 'customer_id': 2, 'amount': 400})],
+            ),
+        ]
+    )
     return database_connection
 
 
@@ -244,7 +246,9 @@ def test_aggregation_join_existing(existing_database_connection: CsvConnection) 
             ],
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='device_id'), table_name='devices'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='device_id'), table_name='devices')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -286,7 +290,9 @@ def test_multiple_joins(existing_database_connection: CsvConnection) -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='device_id'), table_name='devices'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='device_id'), table_name='devices')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

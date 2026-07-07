@@ -306,11 +306,15 @@ def test_query_execute_vector_operations_with_annotations(
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='distance_to_value'), table_name='vv'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='distance_to_value'), table_name='vv')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='vv'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='vv')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -441,11 +445,15 @@ def test_query_execute_vector_operations_with_annotations_inner_distance() -> No
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='distance_to_value'), table_name='vv'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='distance_to_value'), table_name='vv')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='vv'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='vv')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
