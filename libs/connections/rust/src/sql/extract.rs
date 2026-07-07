@@ -757,6 +757,20 @@ fn extract_optional_conditions(ob: &Bound<PyAny>, attr: &str) -> PyResult<Option
     }
 }
 
+/// Recursively determine whether a `Conditions` tree carries no actual predicate anywhere.
+///
+/// A tree is "effectively empty" iff it contains NO leaf condition (no `Comparison`, `Exists`,
+/// or `Custom`) at any depth — i.e. every child is a `Group` that is itself effectively empty.
+/// This catches both top-level `Conditions()` and nested-only-empty `Conditions(Conditions())`
+/// (and deeper). Used to reject a WHERE-less-by-accident UPDATE/DELETE rather than silently
+/// turning it into a destructive all-rows statement.
+fn conditions_effectively_empty(c: &Conditions) -> bool {
+    c.children.iter().all(|child| match child {
+        ConditionNode::Group(inner) => conditions_effectively_empty(inner),
+        _ => false,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // SelectExpression / GroupBy / CTE / SelectLock
 // ---------------------------------------------------------------------------
@@ -1168,6 +1182,13 @@ fn extract_update(ob: &Bound<PyAny>) -> PyResult<UpdateStmt> {
     let schema = extract_schema_ref(&ob.getattr(pyo3::intern!(ob.py(), "schema"))?)?;
     let assignments = extract_update_assignments(ob)?;
     let where_clause = extract_optional(ob, "query", extract_conditions)?;
+    if let Some(conditions) = &where_clause {
+        if conditions_effectively_empty(conditions) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "UPDATE with empty WHERE conditions; pass query=None to affect all rows, or provide at least one condition",
+            ));
+        }
+    }
     let from_tables = extract_optional_list(ob, "from_tables", extract_table_source)?;
     let returning = extract_optional_returning(ob)?;
     let ctes = extract_optional_list(ob, "ctes", extract_cte)?;
@@ -1192,6 +1213,13 @@ fn extract_update(ob: &Bound<PyAny>) -> PyResult<UpdateStmt> {
 fn extract_delete(ob: &Bound<PyAny>) -> PyResult<DeleteStmt> {
     let schema = extract_schema_ref(&ob.getattr(pyo3::intern!(ob.py(), "schema"))?)?;
     let where_clause = extract_optional(ob, "query", extract_conditions)?;
+    if let Some(conditions) = &where_clause {
+        if conditions_effectively_empty(conditions) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "DELETE with empty WHERE conditions; pass query=None to affect all rows, or provide at least one condition",
+            ));
+        }
+    }
     let returning = extract_optional_returning(ob)?;
     let ctes = extract_optional_list(ob, "ctes", extract_cte)?;
 
