@@ -16,3 +16,4 @@ pyrightconfig.json
 /cython_build
 *.egg-info
 .superpowers/
+/docs/superpowers
