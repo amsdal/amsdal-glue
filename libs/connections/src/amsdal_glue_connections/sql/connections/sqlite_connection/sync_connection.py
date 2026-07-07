@@ -7,8 +7,10 @@ from datetime import date
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
+from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
@@ -22,12 +24,14 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.enums import BuiltinIndexType
+from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ReferentialAction
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
-from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -50,9 +54,25 @@ from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import _REGISTRY_VIEW_SQL
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
+from amsdal_glue_connections.sql.parsers.conditions import parse_conditions
+from amsdal_glue_connections.sql.parsers.default import parse_sqlite_default
+from amsdal_glue_connections.sql.parsers.default import parser as _default_parser
+from amsdal_glue_connections.sql.parsers.default import sqlite_mapper as _sqlite_mapper
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.data_models.conditions import Conditions
+    from amsdal_glue_core.common.expressions.expression import Expression
+
 logger = logging.getLogger(__name__)
+
+_REFERENTIAL_ACTION_MAP: dict[str, ReferentialAction] = {
+    'NO ACTION': ReferentialAction.NO_ACTION,
+    'RESTRICT': ReferentialAction.RESTRICT,
+    'CASCADE': ReferentialAction.CASCADE,
+    'SET NULL': ReferentialAction.SET_NULL,
+    'SET DEFAULT': ReferentialAction.SET_DEFAULT,
+}
 
 # ---------------------------------------------------------------------------
 # SQLite type mapping
@@ -158,15 +178,30 @@ def _parse_collations(table_ddl: str) -> dict[str, str]:
     return results
 
 
-def _parse_generated_expressions(table_ddl: str) -> dict[str, RawExpression]:
-    results: dict[str, RawExpression] = {}
+def _parse_generated_expressions(table_ddl: str) -> dict[str, 'Expression']:
+    results: dict[str, Expression] = {}
     for match in re.finditer(
         r'"(\w+)"\s+\w+[^,]*\bGENERATED\s+ALWAYS\s+AS\s*\((.+?)\)\s*(?:STORED|VIRTUAL)',
         table_ddl,
         re.IGNORECASE,
     ):
-        results[match.group(1)] = RawExpression(value=match.group(2).strip())
+        node = _default_parser.parse(match.group(2).strip())
+        results[match.group(1)] = _sqlite_mapper.map_node(node)
     return results
+
+
+def _get_check_constraints(table_ddl: str) -> list[CheckConstraint]:
+    """Parse named CHECK constraints from a SQLite table DDL."""
+    constraints: list[CheckConstraint] = []
+    for match in re.finditer(
+        r'CONSTRAINT\s+"(\w+)"\s+CHECK\s*\((.+?)\)(?:\s*,|\s*\))',
+        table_ddl,
+        re.IGNORECASE,
+    ):
+        name = match.group(1)
+        condition = parse_conditions(match.group(2).strip())
+        constraints.append(CheckConstraint(name=name, condition=condition))
+    return constraints
 
 
 def _parse_pk_name(table_sql: str, table_name: str) -> str:
@@ -448,7 +483,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         properties: list[PropertySchema] = []
         for _cid, col_name, col_type, notnull, dflt, _pk, _hidden in rows:
             field_type = _sqlite_type_to_field_type(col_type)
-            default = RawExpression(value=dflt) if dflt is not None else None
+            default = parse_sqlite_default(dflt, field_type)
             identity: bool | None = True if col_name == pk_col else None
 
             properties.append(
@@ -487,9 +522,15 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             return []
 
         fk_groups: dict[int, dict[str, Any]] = {}
-        for fk_id, _seq, ref_table, from_col, to_col, _on_update, _on_delete, _match in rows:
+        for fk_id, _seq, ref_table, from_col, to_col, on_update, on_delete, _match in rows:
             if fk_id not in fk_groups:
-                fk_groups[fk_id] = {'ref_table': ref_table, 'fields': [], 'ref_fields': []}
+                fk_groups[fk_id] = {
+                    'ref_table': ref_table,
+                    'fields': [],
+                    'ref_fields': [],
+                    'on_update': on_update,
+                    'on_delete': on_delete,
+                }
             fk_groups[fk_id]['fields'].append(from_col)
             fk_groups[fk_id]['ref_fields'].append(to_col)
 
@@ -506,6 +547,8 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
                     fields=group['fields'],
                     reference_schema=SchemaReference(name=group['ref_table'], version=Version.LATEST),
                     reference_fields=group['ref_fields'],
+                    on_update=_REFERENTIAL_ACTION_MAP.get(group['on_update'], ReferentialAction.NO_ACTION),
+                    on_delete=_REFERENTIAL_ACTION_MAP.get(group['on_delete'], ReferentialAction.NO_ACTION),
                 ),
             )
 
@@ -520,8 +563,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
         constraints.extend(self._get_fk_constraints(table_name, table_ddl))
         constraints.extend(_get_unique_constraints(table_name, table_ddl, constraints))
-
-        # CheckConstraint: skipped — no SQL→Conditions parser in prod (matches PG).
+        constraints.extend(_get_check_constraints(table_ddl))
 
         return constraints
 
@@ -539,11 +581,45 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             info_rows = cursor.fetchall()
             cursor.close()
 
-            idx_fields = [IndexField(name=row[2]) for row in info_rows if row[2] is not None]
+            idx_fields = [
+                IndexField(
+                    name=row[2],
+                    direction=OrderDirection.DESC if row[3] else OrderDirection.ASC,
+                )
+                for row in info_rows
+                if row[2] is not None  # skip internal rowid column
+            ]
 
-            indexes.append(IndexSchema(name=idx_name, fields=idx_fields, unique=bool(is_unique)))
+            condition = self._parse_index_condition(idx_name)
+
+            indexes.append(
+                IndexSchema(
+                    name=idx_name,
+                    fields=idx_fields,
+                    unique=bool(is_unique),
+                    index_type=BuiltinIndexType.BTREE,
+                    condition=condition,
+                ),
+            )
 
         return indexes
+
+    def _parse_index_condition(self, idx_name: str) -> 'Conditions | None':
+        cursor = self.execute(
+            "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
+            idx_name,
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        if row is None or row[0] is None:
+            return None
+
+        ddl = row[0]
+        match = re.search(r'\bWHERE\s+(.+)$', ddl, re.IGNORECASE)
+        if match is None:
+            return None
+
+        return parse_conditions(match.group(1).strip())
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """

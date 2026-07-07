@@ -1,4 +1,5 @@
 import logging
+import re
 import sqlite3
 import uuid
 from copy import copy
@@ -20,11 +21,13 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import BuiltinIndexType
+from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ReferentialAction
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
-from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -48,16 +51,21 @@ from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import _REGISTRY_VIEW_SQL
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _find_autoincrement_pk_col
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _get_check_constraints
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _get_unique_constraints
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_collations
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_fk_name
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_generated_expressions
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_pk_name
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _REFERENTIAL_ACTION_MAP
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _sqlite_type_to_field_type
+from amsdal_glue_connections.sql.parsers.conditions import parse_conditions
+from amsdal_glue_connections.sql.parsers.default import parse_sqlite_default
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
     import aiosqlite
+    from amsdal_glue_core.common.data_models.conditions import Conditions
 
 logger = logging.getLogger(__name__)
 
@@ -285,7 +293,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         properties: list[PropertySchema] = []
         for _cid, col_name, col_type, notnull, dflt, _pk, _hidden in rows:
             field_type = _sqlite_type_to_field_type(col_type)
-            default = RawExpression(value=dflt) if dflt is not None else None
+            default = parse_sqlite_default(dflt, field_type)
             identity: bool | None = True if col_name == pk_col else None
 
             properties.append(
@@ -324,9 +332,15 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             return []
 
         fk_groups: dict[int, dict[str, Any]] = {}
-        for fk_id, _seq, ref_table, from_col, to_col, _on_update, _on_delete, _match in rows:
+        for fk_id, _seq, ref_table, from_col, to_col, on_update, on_delete, _match in rows:
             if fk_id not in fk_groups:
-                fk_groups[fk_id] = {'ref_table': ref_table, 'fields': [], 'ref_fields': []}
+                fk_groups[fk_id] = {
+                    'ref_table': ref_table,
+                    'fields': [],
+                    'ref_fields': [],
+                    'on_update': on_update,
+                    'on_delete': on_delete,
+                }
             fk_groups[fk_id]['fields'].append(from_col)
             fk_groups[fk_id]['ref_fields'].append(to_col)
 
@@ -343,6 +357,8 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
                     fields=group['fields'],
                     reference_schema=SchemaReference(name=group['ref_table'], version=Version.LATEST),
                     reference_fields=group['ref_fields'],
+                    on_update=_REFERENTIAL_ACTION_MAP.get(group['on_update'], ReferentialAction.NO_ACTION),
+                    on_delete=_REFERENTIAL_ACTION_MAP.get(group['on_delete'], ReferentialAction.NO_ACTION),
                 ),
             )
 
@@ -357,8 +373,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         constraints.extend(await self._get_fk_constraints(table_name, table_ddl))
         constraints.extend(_get_unique_constraints(table_name, table_ddl, constraints))
-
-        # CheckConstraint: skipped — no SQL→Conditions parser in prod (matches PG).
+        constraints.extend(_get_check_constraints(table_ddl))
 
         return constraints
 
@@ -376,11 +391,45 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             info_rows = await cursor.fetchall()
             await cursor.close()
 
-            idx_fields = [IndexField(name=row[2]) for row in info_rows if row[2] is not None]
+            idx_fields = [
+                IndexField(
+                    name=row[2],
+                    direction=OrderDirection.DESC if row[3] else OrderDirection.ASC,
+                )
+                for row in info_rows
+                if row[2] is not None  # skip internal rowid column
+            ]
 
-            indexes.append(IndexSchema(name=idx_name, fields=idx_fields, unique=bool(is_unique)))
+            condition = await self._parse_index_condition(idx_name)
+
+            indexes.append(
+                IndexSchema(
+                    name=idx_name,
+                    fields=idx_fields,
+                    unique=bool(is_unique),
+                    index_type=BuiltinIndexType.BTREE,
+                    condition=condition,
+                ),
+            )
 
         return indexes
+
+    async def _parse_index_condition(self, idx_name: str) -> 'Conditions | None':
+        cursor = await self.execute(
+            "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
+            idx_name,
+        )
+        row = await cursor.fetchone()
+        await cursor.close()
+        if row is None or row[0] is None:
+            return None
+
+        ddl = row[0]
+        match = re.search(r'\bWHERE\s+(.+)$', ddl, re.IGNORECASE)
+        if match is None:
+            return None
+
+        return parse_conditions(match.group(1).strip())
 
     async def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """

@@ -2,8 +2,12 @@ import logging
 import re
 from copy import copy
 from typing import Any
+from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
+from amsdal_glue_core.common.data_models.constraints import CheckConstraint
+from amsdal_glue_core.common.data_models.constraints import ExclusionConstraint
+from amsdal_glue_core.common.data_models.constraints import ExclusionElement
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
@@ -20,11 +24,13 @@ from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.types import ArrayType
 from amsdal_glue_core.common.data_models.types import CustomType
 from amsdal_glue_core.common.data_models.types import VectorType
+from amsdal_glue_core.common.enums import BuiltinIndexType
+from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ReferentialAction
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
-from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -36,9 +42,79 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.postgres_connection.base import build_registry_view_sql
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
+from amsdal_glue_connections.sql.parsers.conditions import parse_conditions
+from amsdal_glue_connections.sql.parsers.default import parse_pg_default
+from amsdal_glue_connections.sql.parsers.default import parser as _default_parser
+from amsdal_glue_connections.sql.parsers.default import pg_mapper as _pg_mapper
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.data_models.conditions import Conditions
+
 logger = logging.getLogger(__name__)
+
+_REFERENTIAL_ACTION_MAP: dict[str, ReferentialAction] = {
+    'a': ReferentialAction.NO_ACTION,
+    'r': ReferentialAction.RESTRICT,
+    'c': ReferentialAction.CASCADE,
+    'n': ReferentialAction.SET_NULL,
+    'd': ReferentialAction.SET_DEFAULT,
+}
+
+_INDEX_TYPE_MAP: dict[str, BuiltinIndexType] = {
+    'btree': BuiltinIndexType.BTREE,
+    'hash': BuiltinIndexType.HASH,
+    'gin': BuiltinIndexType.GIN,
+    'gist': BuiltinIndexType.GIST,
+    'brin': BuiltinIndexType.BRIN,
+}
+
+
+def _parse_exclusion_def(condef: str) -> tuple[list[ExclusionElement], str]:
+    """Parse ``pg_get_constraintdef`` output for an EXCLUDE constraint.
+
+    Example: ``'EXCLUDE USING gist (room_id WITH =)'``.
+    Returns ``(elements, index_method)``.
+    """
+    elements: list[ExclusionElement] = []
+    index_method = 'gist'
+
+    if not condef:
+        return elements, index_method
+
+    try:
+        using_idx = condef.index('USING')
+        paren_start = condef.index('(', using_idx)
+        # Extract index method between USING and (
+        index_method = condef[using_idx + 5 : paren_start].strip()
+
+        paren_end = condef.rindex(')')
+        body = condef[paren_start + 1 : paren_end]
+
+        for raw_part in body.split(','):
+            tokens = raw_part.strip().rsplit(' WITH ', 1)
+            if len(tokens) == 2:  # noqa: PLR2004
+                elements.append(ExclusionElement(field=tokens[0].strip(), operator=tokens[1].strip()))
+    except (ValueError, IndexError):  # noqa: S110
+        pass
+
+    return elements, index_method
+
+
+def _parse_check_condition(condef: str) -> 'Conditions | None':
+    """Parse ``pg_get_constraintdef`` output for a CHECK constraint.
+
+    Example: ``'CHECK ((price > 0))'``.
+    """
+    if not condef:
+        return None
+
+    match = re.search(r'CHECK\s*\(\((.+)\)\)', condef, re.IGNORECASE)
+    if match is None:
+        return None
+
+    return parse_conditions(match.group(1).strip())
+
 
 _PG_TYPE_MAP: dict[str, ScalarType] = {
     'text': ScalarType.TEXT,
@@ -473,10 +549,11 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
             else:
                 field_type = _pg_type_to_field_type(data_type, numeric_precision, numeric_scale)
 
-            default = (
-                RawExpression(value=column_default) if serial_type is None and column_default is not None else None
-            )
-            generated = RawExpression(value=generation_expression) if is_generated == 'ALWAYS' else None
+            default = parse_pg_default(column_default) if serial_type is None else None
+            if is_generated == 'ALWAYS':
+                generated = _pg_mapper.map_node(_default_parser.parse(generation_expression))
+            else:
+                generated = None
 
             properties.append(
                 PropertySchema(
@@ -555,7 +632,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         cursor.close()
 
         constraints: list[BaseConstraint] = []
-        for conname, contype, fields, ref_table, ref_fields, _confupdtype, _confdeltype, _condef, _conexclop in rows:
+        for conname, contype, fields, ref_table, ref_fields, confupdtype, confdeltype, condef, _conexclop in rows:
             if contype == 'p':
                 constraints.append(PrimaryKeyConstraint(name=conname, fields=list(fields)))
             elif contype == 'u':
@@ -567,8 +644,17 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
                         fields=list(fields),
                         reference_schema=SchemaReference(name=ref_table, version=Version.LATEST),
                         reference_fields=list(ref_fields) if ref_fields else [],
+                        on_update=_REFERENTIAL_ACTION_MAP.get(confupdtype or 'a', ReferentialAction.NO_ACTION),
+                        on_delete=_REFERENTIAL_ACTION_MAP.get(confdeltype or 'a', ReferentialAction.NO_ACTION),
                     ),
                 )
+            elif contype == 'c':
+                check_condition = _parse_check_condition(condef)
+                if check_condition is not None:
+                    constraints.append(CheckConstraint(name=conname, condition=check_condition))
+            elif contype == 'x':
+                elements, index_method = _parse_exclusion_def(condef)
+                constraints.append(ExclusionConstraint(name=conname, elements=elements, index_method=index_method))
 
         return constraints
 
@@ -604,14 +690,33 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         cursor.close()
 
         indexes: list[IndexSchema] = []
-        for row in rows:
-            index_name, is_unique, _index_type_name, n_key_atts, fields = row[0], row[1], row[2], row[3], row[4]
-            key_fields = list(fields[:n_key_atts])
+        for index_name, is_unique, index_type_name, n_key_atts, fields, directions, opclasses, opclass_defaults in rows:
+            idx_type = _INDEX_TYPE_MAP.get(index_type_name, BuiltinIndexType.BTREE)
+
+            key_fields = fields[:n_key_atts]
+            key_dirs = directions[:n_key_atts]
+            key_opclasses = opclasses[:n_key_atts]
+            key_opclass_defaults = opclass_defaults[:n_key_atts]
+            include_fields = fields[n_key_atts:]
+
+            idx_fields = [
+                IndexField(
+                    name=f,
+                    direction=OrderDirection.DESC if d == 'DESC' else OrderDirection.ASC,
+                    op_class=opc if not opc_default else None,
+                )
+                for f, d, opc, opc_default in zip(
+                    key_fields, key_dirs, key_opclasses, key_opclass_defaults, strict=True
+                )
+            ]
+
             indexes.append(
                 IndexSchema(
                     name=index_name,
-                    fields=[IndexField(name=f) for f in key_fields],
+                    fields=idx_fields,
                     unique=bool(is_unique),
+                    index_type=idx_type,
+                    include=list(include_fields) or None,
                 ),
             )
 

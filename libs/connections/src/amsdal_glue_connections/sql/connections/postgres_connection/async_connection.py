@@ -4,6 +4,8 @@ from typing import Any
 from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
+from amsdal_glue_core.common.data_models.constraints import CheckConstraint
+from amsdal_glue_core.common.data_models.constraints import ExclusionConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
@@ -17,10 +19,12 @@ from amsdal_glue_core.common.data_models.schema import IdentityConfig
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import BuiltinIndexType
+from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ReferentialAction
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
-from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
@@ -33,9 +37,16 @@ from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.postgres_connection.base import build_registry_view_sql
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _detect_serial
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _INDEX_TYPE_MAP
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _parse_check_condition
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _parse_exclusion_def
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _pg_type_to_field_type
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _REFERENTIAL_ACTION_MAP
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _resolve_identity
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import parse_pg_type
+from amsdal_glue_connections.sql.parsers.default import parse_pg_default
+from amsdal_glue_connections.sql.parsers.default import parser as _default_parser
+from amsdal_glue_connections.sql.parsers.default import pg_mapper as _pg_mapper
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
@@ -331,10 +342,11 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             else:
                 field_type = _pg_type_to_field_type(data_type, numeric_precision, numeric_scale)  # type: ignore[assignment]
 
-            default = (
-                RawExpression(value=column_default) if serial_type is None and column_default is not None else None
-            )
-            generated = RawExpression(value=generation_expression) if is_generated == 'ALWAYS' else None
+            default = parse_pg_default(column_default) if serial_type is None else None
+            if is_generated == 'ALWAYS':
+                generated = _pg_mapper.map_node(_default_parser.parse(generation_expression))
+            else:
+                generated = None
 
             properties.append(
                 PropertySchema(
@@ -413,7 +425,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         await cursor.close()
 
         constraints: list[BaseConstraint] = []
-        for conname, contype, fields, ref_table, ref_fields, _confupdtype, _confdeltype, _condef, _conexclop in rows:
+        for conname, contype, fields, ref_table, ref_fields, confupdtype, confdeltype, condef, _conexclop in rows:
             if contype == 'p':
                 constraints.append(PrimaryKeyConstraint(name=conname, fields=list(fields)))
             elif contype == 'u':
@@ -425,8 +437,17 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
                         fields=list(fields),
                         reference_schema=SchemaReference(name=ref_table, version=Version.LATEST),
                         reference_fields=list(ref_fields) if ref_fields else [],
+                        on_update=_REFERENTIAL_ACTION_MAP.get(confupdtype or 'a', ReferentialAction.NO_ACTION),
+                        on_delete=_REFERENTIAL_ACTION_MAP.get(confdeltype or 'a', ReferentialAction.NO_ACTION),
                     ),
                 )
+            elif contype == 'c':
+                check_condition = _parse_check_condition(condef)
+                if check_condition is not None:
+                    constraints.append(CheckConstraint(name=conname, condition=check_condition))
+            elif contype == 'x':
+                elements, index_method = _parse_exclusion_def(condef)
+                constraints.append(ExclusionConstraint(name=conname, elements=elements, index_method=index_method))
 
         return constraints
 
@@ -462,14 +483,33 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         await cursor.close()
 
         indexes: list[IndexSchema] = []
-        for row in rows:
-            index_name, is_unique, _index_type_name, n_key_atts, fields = row[0], row[1], row[2], row[3], row[4]
-            key_fields = list(fields[:n_key_atts])
+        for index_name, is_unique, index_type_name, n_key_atts, fields, directions, opclasses, opclass_defaults in rows:
+            idx_type = _INDEX_TYPE_MAP.get(index_type_name, BuiltinIndexType.BTREE)
+
+            key_fields = fields[:n_key_atts]
+            key_dirs = directions[:n_key_atts]
+            key_opclasses = opclasses[:n_key_atts]
+            key_opclass_defaults = opclass_defaults[:n_key_atts]
+            include_fields = fields[n_key_atts:]
+
+            idx_fields = [
+                IndexField(
+                    name=f,
+                    direction=OrderDirection.DESC if d == 'DESC' else OrderDirection.ASC,
+                    op_class=opc if not opc_default else None,
+                )
+                for f, d, opc, opc_default in zip(
+                    key_fields, key_dirs, key_opclasses, key_opclass_defaults, strict=True
+                )
+            ]
+
             indexes.append(
                 IndexSchema(
                     name=index_name,
-                    fields=[IndexField(name=f) for f in key_fields],
+                    fields=idx_fields,
                     unique=bool(is_unique),
+                    index_type=idx_type,
+                    include=list(include_fields) or None,
                 ),
             )
 
