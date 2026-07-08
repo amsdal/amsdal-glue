@@ -5,6 +5,8 @@ A relation is NOT a property type — relations are expressed via ``ForeignKeyCo
 so a ``SchemaReference`` is rejected as a property ``type``.
 """
 
+from typing import Any
+
 import pytest
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.types import NestedType
@@ -72,9 +74,10 @@ def test_deeply_nested_object_recurses() -> None:
 def test_schema_reference_is_rejected_as_property_type() -> None:
     # Relations are ForeignKeyConstraints, not property types — a SchemaReference must not
     # be accepted where a property type is expected.
+    invalid_type: Any = SchemaReference(name='customers', version='LATEST')
     with pytest.raises(ValidationError):
         PropertySchemaBody(
             name='customer',
-            type=SchemaReference(name='customers', version='LATEST'),
+            type=invalid_type,
             required=True,
         )

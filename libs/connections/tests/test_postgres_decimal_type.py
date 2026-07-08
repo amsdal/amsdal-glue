@@ -12,7 +12,7 @@ from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import DecimalType
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
@@ -30,15 +30,11 @@ def test_pg_bare_decimal_falls_back_to_numeric() -> None:
 
 
 def test_pg_decimal_schema_model_to_numeric() -> None:
-    # Re-pointed: CustomType(name='NUMERIC', params={...}) compiles to NUMERIC(10, 2) in DDL.
+    # Agnostic DecimalType(precision, scale) compiles to NUMERIC(10, 2) in the PostgreSQL DDL.
     schema_p = Schema(
         name='t',
         version=Version.LATEST,
-        properties=[
-            PropertySchema(
-                name='col', type=CustomType(name='NUMERIC', params={'precision': 10, 'scale': 2}), required=False
-            )
-        ],
+        properties=[PropertySchema(name='col', type=DecimalType(precision=10, scale=2), required=False)],
     )
     [(ddl, _)] = _gen.compile_schema_mutation(
         RegisterSchema(schema_ref=SchemaReference(name='t', version=Version.LATEST), schema=schema_p)
@@ -62,14 +58,14 @@ def test_pg_numeric_introspects_to_decimal_schema_model() -> None:
     result = _pg_type_to_field_type('numeric')
     assert result == ScalarType.NUMERIC
 
-    # When the catalog provides precision/scale, the introspection returns a CustomType
-    # that preserves them for faithful schema round-trips.
+    # When the catalog provides precision/scale, introspection returns the agnostic DecimalType
+    # so a RegisterSchema→introspect cycle round-trips both precision and scale.
     result_with_params = _pg_type_to_field_type('numeric', numeric_precision=10, numeric_scale=2)
-    assert result_with_params == CustomType(name='NUMERIC', params={'precision': 10, 'scale': 2})
+    assert result_with_params == DecimalType(precision=10, scale=2)
 
     # decimal type alias also handled.
     result_decimal = _pg_type_to_field_type('decimal', numeric_precision=5, numeric_scale=3)
-    assert result_decimal == CustomType(name='NUMERIC', params={'precision': 5, 'scale': 3})
+    assert result_decimal == DecimalType(precision=5, scale=3)
 
 
 def test_pg_double_precision_still_float() -> None:
@@ -85,7 +81,7 @@ def test_pg_build_column_update_numeric_uses_cast() -> None:
             schema_ref=SchemaReference(name='test', version=Version.LATEST),
             property=PropertySchema(
                 name='amount',
-                type=CustomType(name='NUMERIC', params={'precision': 10, 'scale': 2}),
+                type=DecimalType(precision=10, scale=2),
                 required=True,
             ),
         )

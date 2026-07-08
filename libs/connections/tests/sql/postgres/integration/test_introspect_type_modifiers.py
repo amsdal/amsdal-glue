@@ -14,7 +14,7 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.types import ArrayType
-from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import DecimalType
 from amsdal_glue_core.common.data_models.types import VectorType
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import Version
@@ -56,7 +56,7 @@ def test_numeric_array_preserves_element_precision_and_scale(
     schema = _introspect_one(database_connection, 'prices')
 
     assert _prop_type(schema, 'amounts') == ArrayType(
-        item_type=CustomType(name='NUMERIC', params={'precision': 10, 'scale': 2}),
+        item_type=DecimalType(precision=10, scale=2),
     )
 
 

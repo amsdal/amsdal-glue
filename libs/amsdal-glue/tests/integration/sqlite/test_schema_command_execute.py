@@ -175,6 +175,18 @@ def test_create_schema() -> None:
                 PrimaryKeyConstraint(name='pk_user_custom_name', fields=['id']),
                 UniqueConstraint(name='uk_user_email', fields=['email'], condition=None),
                 UniqueConstraint(name='uk_user_email_last_name', fields=['email', 'last_name'], condition=None),
+                CheckConstraint(
+                    name='ck_user_age',
+                    condition=Conditions(
+                        Condition(
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='user')
+                            ),
+                            lookup=FieldLookup.GT,
+                            right=Value(value=18),
+                        ),
+                    ),
+                ),
             ],
             indexes=[
                 IndexSchema(

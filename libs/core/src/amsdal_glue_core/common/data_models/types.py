@@ -33,4 +33,18 @@ class VectorType:
     dimensions: int
 
 
-FieldType = ScalarType | CustomType | ArrayType | NestedType | DictType | VectorType
+@dataclass(kw_only=True)
+class DecimalType:
+    """Dialect-agnostic fixed-point decimal.
+
+    Renders ``NUMERIC(precision, scale)`` on PostgreSQL and a TEXT-affinity
+    ``DECIMAL_TEXT(precision, scale)`` on SQLite (so decimal strings are stored
+    without the float coercion that ``NUMERIC`` affinity would cause). ``scale``
+    without ``precision`` is invalid and rejected at render time.
+    """
+
+    precision: int | None = None
+    scale: int | None = None
+
+
+FieldType = ScalarType | CustomType | ArrayType | NestedType | DictType | VectorType | DecimalType

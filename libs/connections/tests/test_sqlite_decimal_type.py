@@ -16,7 +16,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.select_expression import SelectExpression
-from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import DecimalType
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.value import Value
@@ -56,7 +56,7 @@ def test_sqlite_decimal_schema_to_text_affinity() -> None:
         properties=[
             PropertySchema(
                 name='amount',
-                type=CustomType(name='DECIMAL_TEXT', params={'precision': 10, 'scale': 2}),
+                type=DecimalType(precision=10, scale=2),
                 required=False,
             )
         ],
@@ -71,7 +71,7 @@ def test_sqlite_decimal_schema_to_text_affinity() -> None:
         properties=[
             PropertySchema(
                 name='amount',
-                type=CustomType(name='DECIMAL_TEXT'),
+                type=DecimalType(),
                 required=False,
             )
         ],
@@ -84,15 +84,11 @@ def test_sqlite_type_to_field_type_preserves_precision_scale() -> None:
     # _sqlite_type_to_field_type is used by query_schema/_introspect_columns to convert
     # the raw PRAGMA type string to a FieldType.
     result = _sqlite_type_to_field_type('DECIMAL_TEXT(10, 2)')
-    assert isinstance(result, CustomType)
-    assert result.name == 'decimal_text'
-    assert result.params == {'precision': 10, 'scale': 2}
+    assert result == DecimalType(precision=10, scale=2)
 
-    # NUMERIC(p,s) introspects to CustomType so precision/scale survive round-trips.
+    # NUMERIC(p,s) introspects to the agnostic DecimalType so precision/scale survive round-trips.
     result_numeric = _sqlite_type_to_field_type('NUMERIC(10, 2)')
-    assert isinstance(result_numeric, CustomType)
-    assert result_numeric.name == 'NUMERIC'
-    assert result_numeric.params == {'precision': 10, 'scale': 2}
+    assert result_numeric == DecimalType(precision=10, scale=2)
 
     # Bare NUMERIC (no params) stays as ScalarType.NUMERIC.
     assert _sqlite_type_to_field_type('NUMERIC') == ScalarType.NUMERIC
@@ -102,11 +98,8 @@ def test_sqlite_decimal_decltype_round_trips() -> None:
     # _sqlite_type_to_field_type (the real query_schema/_introspect_columns path) must preserve
     # precision/scale for faithful DECIMAL_TEXT round-trips.
     result = _sqlite_type_to_field_type('DECIMAL_TEXT(10, 2)')
-    assert isinstance(result, CustomType)
-    assert result.name == 'decimal_text'
-    assert result.params == {'precision': 10, 'scale': 2}
+    assert result == DecimalType(precision=10, scale=2)
 
+    # Bare DECIMAL_TEXT (the SQLite rendering of DecimalType()) round-trips to DecimalType().
     unconstrained = _sqlite_type_to_field_type('DECIMAL_TEXT')
-    assert isinstance(unconstrained, CustomType)
-    assert unconstrained.name == 'decimal_text'
-    assert unconstrained.params is None
+    assert unconstrained == DecimalType(precision=None, scale=None)
