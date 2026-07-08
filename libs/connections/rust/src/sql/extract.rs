@@ -1675,6 +1675,7 @@ enum FieldTypeInfo {
     Custom { name: String, params: Option<Vec<(String, String)>> },
     Array(Box<FieldTypeInfo>),
     Vector(i64),
+    Decimal { precision: Option<u32>, scale: Option<u32> },
     Nested,
     Dict,
 }
@@ -1683,6 +1684,15 @@ fn extract_optional_i64(obj: &Bound<PyAny>, attr: &str) -> Option<i64> {
     obj.getattr(attr)
         .ok()
         .and_then(|v| if v.is_none() { None } else { v.extract().ok() })
+}
+
+fn extract_optional_u32(obj: &Bound<PyAny>, attr: &str) -> PyResult<Option<u32>> {
+    let val = obj.getattr(attr)?;
+    if val.is_none() {
+        Ok(None)
+    } else {
+        Ok(Some(val.extract()?))
+    }
 }
 
 fn extract_identity_info(ob: &Bound<PyAny>) -> PyResult<Option<IdentityInfo>> {
@@ -1781,6 +1791,11 @@ fn extract_field_type_info(ob: &Bound<PyAny>) -> PyResult<FieldTypeInfo> {
             let dimensions: i64 = ob.getattr(pyo3::intern!(ob.py(), "dimensions"))?.extract()?;
             Ok(FieldTypeInfo::Vector(dimensions))
         }
+        "DecimalType" => {
+            let precision: Option<u32> = extract_optional_u32(ob, "precision")?;
+            let scale: Option<u32> = extract_optional_u32(ob, "scale")?;
+            Ok(FieldTypeInfo::Decimal { precision, scale })
+        }
         "NestedType" => Ok(FieldTypeInfo::Nested),
         "DictType" => Ok(FieldTypeInfo::Dict),
         other => Err(pyo3::exceptions::PyValueError::new_err(format!(
@@ -1804,6 +1819,10 @@ fn property_to_field_type(ft: &FieldTypeInfo) -> FieldType {
         }
         FieldTypeInfo::Array(inner) => FieldType::Array(Box::new(property_to_field_type(inner))),
         FieldTypeInfo::Vector(dims) => FieldType::Vector(*dims),
+        FieldTypeInfo::Decimal { precision, scale } => FieldType::Decimal {
+            precision: *precision,
+            scale: *scale,
+        },
         FieldTypeInfo::Nested | FieldTypeInfo::Dict => FieldType::Scalar("jsonb".to_string()),
     }
 }

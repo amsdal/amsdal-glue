@@ -10,6 +10,7 @@ They run without a live database.
 
 from amsdal_glue_core.common.data_models.types import ArrayType
 from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import DecimalType
 from amsdal_glue_core.common.data_models.types import VectorType
 from amsdal_glue_core.common.enums import ScalarType
 
@@ -26,11 +27,11 @@ def test_vector_without_dimensions_defaults_to_zero() -> None:
 
 
 def test_numeric_scalar_preserves_precision_and_scale() -> None:
-    assert parse_pg_type('numeric(10,2)') == CustomType(name='NUMERIC', params={'precision': 10, 'scale': 2})
+    assert parse_pg_type('numeric(10,2)') == DecimalType(precision=10, scale=2)
 
 
 def test_numeric_scalar_precision_only() -> None:
-    assert parse_pg_type('numeric(10)') == CustomType(name='NUMERIC', params={'precision': 10})
+    assert parse_pg_type('numeric(10)') == DecimalType(precision=10, scale=None)
 
 
 def test_bare_numeric_stays_scalar() -> None:
@@ -41,7 +42,7 @@ def test_numeric_array_preserves_element_precision_and_scale() -> None:
     # Regression: array element modifiers were lost because information_schema exposes
     # numeric_precision as NULL for array columns.
     assert parse_pg_type('numeric(10,2)[]') == ArrayType(
-        item_type=CustomType(name='NUMERIC', params={'precision': 10, 'scale': 2}),
+        item_type=DecimalType(precision=10, scale=2),
     )
 
 

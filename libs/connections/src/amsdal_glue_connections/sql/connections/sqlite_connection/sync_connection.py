@@ -5,6 +5,7 @@ import uuid
 from copy import copy
 from datetime import date
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
@@ -24,6 +25,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import DecimalType
 from amsdal_glue_core.common.enums import BuiltinIndexType
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import ReferentialAction
@@ -137,22 +139,31 @@ _UNIQUE_INLINE_RE = re.compile(
     re.IGNORECASE,
 )
 
-_DECIMAL_PARAMS_RE = re.compile(
-    r'^(DECIMAL_TEXT|NUMERIC|DECIMAL)\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)\s*$',
+_DECIMAL_TYPE_RE = re.compile(
+    r'^(DECIMAL_TEXT|NUMERIC|DECIMAL)\s*(?:\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\))?\s*$',
     re.IGNORECASE,
 )
 
 
-def _sqlite_type_to_field_type(type_name: str) -> ScalarType | CustomType:
-    """Map a SQLite column type string to a FieldType."""
+def _sqlite_type_to_field_type(type_name: str) -> ScalarType | CustomType | DecimalType:
+    """Map a SQLite column type string to a FieldType.
+
+    ``DECIMAL_TEXT``/``NUMERIC``/``DECIMAL`` with an explicit ``(p[, s])`` modifier resolve to a
+    dialect-agnostic ``DecimalType`` so a RegisterSchema→introspect cycle round-trips. A bare
+    ``NUMERIC`` (no modifier) keeps mapping to ``ScalarType.NUMERIC``; a bare ``DECIMAL_TEXT``
+    (the SQLite rendering of ``DecimalType()``) resolves back to ``DecimalType()``.
+    """
     # Detect parameterised decimal types before stripping parens.
-    m = _DECIMAL_PARAMS_RE.match(type_name.strip())
+    m = _DECIMAL_TYPE_RE.match(type_name.strip())
     if m:
         base_name = m.group(1).upper()
-        precision = int(m.group(2))
-        scale = int(m.group(3))
-        name = 'decimal_text' if base_name == 'DECIMAL_TEXT' else 'NUMERIC'
-        return CustomType(name=name, params={'precision': precision, 'scale': scale})
+        precision = int(m.group(2)) if m.group(2) is not None else None
+        scale = int(m.group(3)) if m.group(3) is not None else None
+        # Bare NUMERIC/DECIMAL (no modifier) stays a plain scalar for backwards compatibility;
+        # only DECIMAL_TEXT or a modifier-bearing type resolves to the agnostic DecimalType.
+        if precision is None and base_name != 'DECIMAL_TEXT':
+            return ScalarType.NUMERIC
+        return DecimalType(precision=precision, scale=scale)
 
     cleaned = re.sub(r'\(.*\)', '', type_name).strip().lower()
 
@@ -350,6 +361,9 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
         sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
+        # DECIMAL_TEXT is the TEXT-affinity SQLite rendering of DecimalType; re-hydrate the stored
+        # decimal string back into an exact Decimal so glue returns a typed value, not a str.
+        sqlite3.register_converter('DECIMAL_TEXT', lambda val: Decimal(val.decode()))
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 

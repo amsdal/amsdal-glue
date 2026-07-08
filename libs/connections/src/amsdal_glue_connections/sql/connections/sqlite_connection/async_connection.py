@@ -5,6 +5,7 @@ import uuid
 from copy import copy
 from datetime import date
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
@@ -159,6 +160,9 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
         sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
+        # DECIMAL_TEXT is the TEXT-affinity SQLite rendering of DecimalType; re-hydrate the stored
+        # decimal string back into an exact Decimal so glue returns a typed value, not a str.
+        sqlite3.register_converter('DECIMAL_TEXT', lambda val: Decimal(val.decode()))
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 

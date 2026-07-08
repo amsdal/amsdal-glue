@@ -63,6 +63,7 @@ def coerce_to_field_type(value: Any, field_type: Any) -> Any:
     # Inline imports to guarantee no circular-import cycle with value.py.
     from amsdal_glue_core.common.data_models.types import ArrayType
     from amsdal_glue_core.common.data_models.types import CustomType
+    from amsdal_glue_core.common.data_models.types import DecimalType
     from amsdal_glue_core.common.data_models.types import DictType
     from amsdal_glue_core.common.data_models.types import NestedType
     from amsdal_glue_core.common.data_models.types import VectorType
@@ -74,6 +75,8 @@ def coerce_to_field_type(value: Any, field_type: Any) -> Any:
             return [coerce_to_field_type(item, field_type.item_type) for item in value]
         msg = f'expected a list for an array type but got {value!r}'
         raise ValueError(msg)
+    if isinstance(field_type, DecimalType):
+        return _coerce_decimal(value)
     if isinstance(field_type, (CustomType, NestedType, DictType, VectorType)):
         return value
     return value

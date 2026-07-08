@@ -23,6 +23,7 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.types import ArrayType
 from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import DecimalType
 from amsdal_glue_core.common.data_models.types import VectorType
 from amsdal_glue_core.common.enums import BuiltinIndexType
 from amsdal_glue_core.common.enums import OrderDirection
@@ -174,7 +175,7 @@ def _pg_type_to_field_type(
     type_name: str,
     numeric_precision: int | None = None,
     numeric_scale: int | None = None,
-) -> ScalarType | CustomType | ArrayType | VectorType:
+) -> ScalarType | CustomType | ArrayType | VectorType | DecimalType:
     if type_name.startswith('_') or type_name.endswith('[]'):
         base = type_name.lstrip('_').rstrip('[]')
         item_type = _PG_TYPE_MAP.get(base, CustomType(name=base))
@@ -184,10 +185,7 @@ def _pg_type_to_field_type(
         return VectorType(dimensions=0)
 
     if type_name in ('numeric', 'decimal') and numeric_precision is not None:
-        params: dict[str, int] = {'precision': numeric_precision}
-        if numeric_scale is not None:
-            params['scale'] = numeric_scale
-        return CustomType(name='NUMERIC', params=params)
+        return DecimalType(precision=numeric_precision, scale=numeric_scale)
 
     scalar = _PG_TYPE_MAP.get(type_name)
     if scalar is not None:
@@ -196,7 +194,7 @@ def _pg_type_to_field_type(
     return CustomType(name=type_name)
 
 
-def parse_pg_type(type_str: str) -> ScalarType | CustomType | ArrayType | VectorType:
+def parse_pg_type(type_str: str) -> ScalarType | CustomType | ArrayType | VectorType | DecimalType:
     """Parse a Postgres ``format_type(atttypid, atttypmod)`` string into a FieldType.
 
     ``format_type`` renders the fully-qualified type together with its modifiers exactly as
@@ -208,7 +206,7 @@ def parse_pg_type(type_str: str) -> ScalarType | CustomType | ArrayType | Vector
     Handling:
       * trailing ``[]``   -> ArrayType(item_type=<parse of the element type>)
       * ``vector(N)``     -> VectorType(dimensions=N) (``vector`` alone -> dimensions=0)
-      * ``numeric(p[,s])``/``decimal(...)`` -> CustomType('NUMERIC', {'precision': p[, 'scale': s]})
+      * ``numeric(p[,s])``/``decimal(...)`` -> DecimalType(precision=p[, scale=s])
       * known scalar names via ``_PG_TYPE_MAP`` (e.g. ``character varying`` -> TEXT)
       * anything else     -> CustomType(name=...)
     """
@@ -234,10 +232,8 @@ def parse_pg_type(type_str: str) -> ScalarType | CustomType | ArrayType | Vector
 
     if lookup in ('numeric', 'decimal') and modifier:
         parts = [p.strip() for p in modifier.split(',')]
-        params: dict[str, int] = {'precision': int(parts[0])}
-        if len(parts) > 1:
-            params['scale'] = int(parts[1])
-        return CustomType(name='NUMERIC', params=params)
+        scale = int(parts[1]) if len(parts) > 1 else None
+        return DecimalType(precision=int(parts[0]), scale=scale)
 
     scalar = _PG_TYPE_MAP.get(lookup)
     if scalar is not None:
@@ -539,7 +535,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
             identity = _resolve_identity(is_identity_col, identity_generation) if serial_type is None else None
 
             if serial_type is not None:
-                field_type: ScalarType | CustomType | ArrayType | VectorType = serial_type
+                field_type: ScalarType | CustomType | ArrayType | VectorType | DecimalType = serial_type
             elif format_type_str is not None:
                 # format_type carries the real modifiers (vector dims, numeric precision/scale,
                 # array element modifiers), so it is the authoritative source for the type.
