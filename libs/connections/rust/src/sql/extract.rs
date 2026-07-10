@@ -310,6 +310,18 @@ pub fn extract_expr(ob: &Bound<PyAny>) -> PyResult<Expr> {
             let items = extract_py_list(&args_attr, extract_expr)?;
             Ok(Expr::JsonArray(items))
         }
+        "JsonbObject" => {
+            let pairs_attr = ob.getattr(pyo3::intern!(ob.py(), "pairs"))?;
+            let list = pairs_attr.downcast::<PyList>()?;
+            let mut pairs: Vec<(String, Expr)> = Vec::with_capacity(list.len());
+            for item in list.iter() {
+                let tuple = item.downcast::<PyTuple>()?;
+                let key: String = tuple.get_item(0)?.extract()?;
+                let value = extract_expr(&tuple.get_item(1)?)?;
+                pairs.push((key, value));
+            }
+            Ok(Expr::JsonObject(pairs))
+        }
         "Now" => Ok(Expr::Now),
         "Func" | "SearchVector" | "SearchQuery" | "SearchRank" | "SearchHeadline" => {
             let name: String = ob.getattr(pyo3::intern!(ob.py(), "name"))?.extract()?;
