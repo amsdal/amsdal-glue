@@ -27,6 +27,7 @@ from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import ReferentialAction
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
+from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
@@ -514,6 +515,8 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         except aiosqlite.IntegrityError as exc:
             if 'UNIQUE constraint failed' in str(exc):
                 raise UniqueViolationError(str(exc)) from exc
+            if 'FOREIGN KEY constraint failed' in str(exc):
+                raise ForeignKeyViolationError(str(exc)) from exc
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
         except aiosqlite.Error as exc:

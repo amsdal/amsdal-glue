@@ -7,6 +7,7 @@ parsing backend-specific error messages themselves.
 """
 
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
+from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 
 
@@ -28,5 +29,23 @@ def test_unique_violation_can_be_raised_and_caught_as_amsdal_glue_error():
     msg = 'boom'
     try:
         raise UniqueViolationError(msg)
+    except AmsdalGlueError as exc:
+        assert str(exc) == msg
+
+
+def test_foreign_key_violation_inherits_amsdal_glue_error():
+    assert issubclass(ForeignKeyViolationError, AmsdalGlueError)
+
+
+def test_foreign_key_violation_carries_message():
+    msg = 'update or delete on table "Activity" violates foreign key constraint'
+    exc = ForeignKeyViolationError(msg)
+    assert str(exc) == msg
+
+
+def test_foreign_key_violation_can_be_raised_and_caught_as_amsdal_glue_error():
+    msg = 'boom'
+    try:
+        raise ForeignKeyViolationError(msg)
     except AmsdalGlueError as exc:
         assert str(exc) == msg
