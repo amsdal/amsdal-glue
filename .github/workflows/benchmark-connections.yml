@@ -8,7 +8,7 @@ on:
 jobs:
   connections-benchmark:
     name: Connections benchmark
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -24,6 +24,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install hatch
         run: |
@@ -54,7 +57,7 @@ jobs:
 
   sql-parser-benchmark:
     name: SQL Parser benchmark
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:

@@ -7,68 +7,106 @@ on:
 
 jobs:
   build:
-    name: Build and compile
-    runs-on: self-hosted
+    name: Build wheel (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.10" ]
-    env:
-      PYTHON: ${{ matrix.python-version }}
-      DEPS: yes
+        include:
+          - name: linux-x86_64
+            runner: ubuntu-latest
+            target: x86_64
+            manylinux: '2_28'
+          - name: linux-aarch64
+            runner: ubuntu-latest
+            target: aarch64
+            manylinux: '2_28'
+          - name: macos-arm64
+            runner: macos-14
+            target: aarch64
+            manylinux: 'auto'
+          - name: macos-x86_64
+            runner: macos-13
+            target: x86_64
+            manylinux: 'auto'
+          - name: windows-x64
+            runner: windows-latest
+            target: x64
+            manylinux: 'auto'
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: libs/connections
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          command: build
+          args: --release --out dist
+          sccache: 'true'
+        env:
+          PYO3_USE_ABI3_FORWARD_COMPATIBILITY: '1'
+
+      - name: Store the wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.name }}
+          path: libs/connections/dist/*.whl
+
+  sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: libs/connections
+          command: sdist
+          args: --out dist
+
+      - name: Store the sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: libs/connections/dist/*.tar.gz
+
+  publish:
+    name: Publish to PyPi
+    runs-on: ubuntu-latest
+    needs: [build, sdist]
+    permissions:
+      contents: write
+    env:
+      PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install hatch
-        run: |
-          pip install --upgrade uv hatch
-
-      - name: Build
-        run: cd libs/connections && hatch build
-
-      - name: Store the distribution packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-package-distributions
-          path: libs/connections/dist/
-
-  publish:
-    name: Publish to PyPi
-    runs-on: self-hosted
-    needs: build
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: [ "3.10" ]
-    env:
-      PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
-    steps:
-      - name: Set up python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
 
       - name: Download all the dists
         uses: actions/download-artifact@v4
         with:
-          name: python-package-distributions
-          path: libs/connections/dist/
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist/
 
-      - name: Branch info
-        id: branch_info
+      - name: Tag info
+        id: tag
+        run: echo "value=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Prerelease flag
+        id: pre
         run: |
-          echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
+          case "${GITHUB_REF#refs/tags/}" in
+            *rc*|*a*|*b*) echo "value=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "value=false" >> "$GITHUB_OUTPUT" ;;
+          esac
 
       - name: Install hatch
         run: |
@@ -76,13 +114,13 @@ jobs:
 
       - name: Publish
         run: |
-          cd libs/connections && hatch publish --user ${{ secrets.PYPI_USERNAME }} --auth ${{ secrets.PYPI_TOKEN }}
+          hatch publish --user ${{ secrets.PYPI_USERNAME }} --auth ${{ secrets.PYPI_TOKEN }} dist/
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: libs/connections/dist/*
-          name: ${{ steps.branch_info.outputs.SOURCE_TAG }}
+          files: dist/*
+          name: ${{ steps.tag.outputs.value }}
           body_path: libs/connections/latest-changelogs.md
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.pre.outputs.value }}
