@@ -1,8 +1,7 @@
 import pytest
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -13,9 +12,11 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Avg
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
@@ -40,15 +41,16 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='customers', version=Version.LATEST),
                     schema=Schema(
                         name='customers',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True),
-                            PropertySchema(name='name', type=str, required=True),
-                            PropertySchema(name='age', type=int, required=True),
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='name', type=ScalarType.TEXT, required=True),
+                            PropertySchema(name='age', type=ScalarType.INTEGER, required=True),
                         ],
-                    )
+                    ),
                 )
             ]
         )
@@ -57,15 +59,16 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='orders', version=Version.LATEST),
                     schema=Schema(
                         name='orders',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True),
-                            PropertySchema(name='customer_id', type=int, required=True),
-                            PropertySchema(name='amount', type=int, required=True),
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='customer_id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='amount', type=ScalarType.INTEGER, required=True),
                         ],
-                    )
+                    ),
                 )
             ]
         )
@@ -73,27 +76,27 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
     database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': 1, 'name': 'Alice', 'age': 25})],
+            data=[DataInput(data={'id': 1, 'name': 'Alice', 'age': 25})],
         ),
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': 2, 'name': 'Bob', 'age': 25})],
+            data=[DataInput(data={'id': 2, 'name': 'Bob', 'age': 25})],
         ),
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': 3, 'name': 'Charlie', 'age': 35})],
+            data=[DataInput(data={'id': 3, 'name': 'Charlie', 'age': 35})],
         ),
         InsertData(
             schema=SchemaReference(name='orders', version=Version.LATEST),
-            data=[Data(data={'id': 1, 'customer_id': 1, 'amount': 100})],
+            data=[DataInput(data={'id': 1, 'customer_id': 1, 'amount': 100})],
         ),
         InsertData(
             schema=SchemaReference(name='orders', version=Version.LATEST),
-            data=[Data(data={'id': 2, 'customer_id': 1, 'amount': 200})],
+            data=[DataInput(data={'id': 2, 'customer_id': 1, 'amount': 200})],
         ),
         InsertData(
             schema=SchemaReference(name='orders', version=Version.LATEST),
-            data=[Data(data={'id': 3, 'customer_id': 2, 'amount': 400})],
+            data=[DataInput(data={'id': 3, 'customer_id': 2, 'amount': 400})],
         ),
     ])
     return database_connection
@@ -217,21 +220,33 @@ def test_aggregation_join_existing(existing_database_connection: CsvConnection) 
                 FieldReference(field=Field(name='temp_log'), table_name='logs'),
                 FieldReference(field=Field(name='name'), table_name='devices'),
             ],
-            aggregations=[
-                AggregationQuery(
+            expressions=[
+                SelectExpression(
                     expression=Avg(
-                        field=FieldReference(field=Field(name='temp_log'), table_name='logs'),
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='temp_log'), table_name='logs')
+                        ),
                     ),
                     alias='average_temp',
                 ),
             ],
             group_by=[
-                GroupByQuery(field=FieldReference(field=Field(name='device_id'), table_name='logs')),
-                GroupByQuery(field=FieldReference(field=Field(name='name'), table_name='devices')),
+                GroupByQuery(
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='device_id'), table_name='logs')
+                    )
+                ),
+                GroupByQuery(
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='name'), table_name='devices')
+                    )
+                ),
             ],
             order_by=[
                 OrderByQuery(
-                    field=FieldReference(field=Field(name='device_id'), table_name='devices'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='device_id'), table_name='devices')
+                    ),
                     direction=OrderDirection.ASC,
                 ),
             ],
@@ -273,7 +288,9 @@ def test_multiple_joins(existing_database_connection: CsvConnection) -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='device_id'), table_name='devices'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='device_id'), table_name='devices')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

@@ -22,8 +22,8 @@ class DefaultSchemaQueryService(SchemaQueryService):
         ```python
         from amsdal_glue import init_default_containers
         from amsdal_glue import Container
-        from amsdal_glue import Conditions, Condition, FieldReference, FieldLookup, Value, Field
-        from amsdal_glue import SchemaQueryOperation
+        from amsdal_glue import Conditions, Condition, FieldReference, FieldLookup, Value, Field, QueryStatement
+        from amsdal_glue import SchemaReference, SchemaQueryOperation
         from amsdal_glue.services import SchemaQueryService
 
         # Register default containers
@@ -35,12 +35,15 @@ class DefaultSchemaQueryService(SchemaQueryService):
         # Query `users` schema
         service.execute(
             SchemaQueryOperation(
-                filters=Conditions(
-                    Condition(
-                        field=FieldReference(field=Field(name='name'), table_name='amsdal_schema_registry'),
-                        lookup=FieldLookup.EQ,
-                        value=Value('users'),
-                    )
+                query=QueryStatement(
+                    table=SchemaReference(name='amsdal_schema_registry'),
+                    where=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='name'), table_name='amsdal_schema_registry'),
+                            lookup=FieldLookup.EQ,
+                            value=Value('users'),
+                        )
+                    ),
                 ),
             ),
         )
@@ -63,7 +66,7 @@ class DefaultSchemaQueryService(SchemaQueryService):
         from amsdal_glue_core.containers import Container
 
         _schema_query_planner = Container.planners.get(SchemaQueryPlanner)
-        plan = _schema_query_planner.plan_schema_query(query_op.filters)
+        plan = _schema_query_planner.plan_schema_query(query_op.query)
 
         executor_manager = Container.managers.get(ExecutorManager)
         plan.executor = executor_manager.resolve_by_service(SchemaQueryService)
@@ -91,8 +94,8 @@ class DefaultAsyncSchemaQueryService(AsyncSchemaQueryService):
         ```python
         from amsdal_glue import init_default_containers
         from amsdal_glue import Container
-        from amsdal_glue import Conditions, Condition, FieldReference, FieldLookup, Value, Field
-        from amsdal_glue import SchemaQueryOperation
+        from amsdal_glue import Conditions, Condition, FieldReference, FieldLookup, Value, Field, QueryStatement
+        from amsdal_glue import SchemaReference, SchemaQueryOperation
         from amsdal_glue.services import AsyncSchemaQueryService
 
         # Register default containers
@@ -104,12 +107,15 @@ class DefaultAsyncSchemaQueryService(AsyncSchemaQueryService):
         # Query `users` schema
         await service.execute(
             SchemaQueryOperation(
-                filters=Conditions(
-                    Condition(
-                        field=FieldReference(field=Field(name='name'), table_name='amsdal_schema_registry'),
-                        lookup=FieldLookup.EQ,
-                        value=Value('users'),
-                    )
+                query=QueryStatement(
+                    table=SchemaReference(name='amsdal_schema_registry'),
+                    where=Conditions(
+                        Condition(
+                            field=FieldReference(field=Field(name='name'), table_name='amsdal_schema_registry'),
+                            lookup=FieldLookup.EQ,
+                            value=Value('users'),
+                        )
+                    ),
                 ),
             ),
         )
@@ -132,7 +138,7 @@ class DefaultAsyncSchemaQueryService(AsyncSchemaQueryService):
         from amsdal_glue_core.containers import Container
 
         _schema_query_planner = Container.planners.get(AsyncSchemaQueryPlanner)
-        plan = _schema_query_planner.plan_schema_query(query_op.filters)
+        plan = _schema_query_planner.plan_schema_query(query_op.query)
 
         executor_manager = Container.managers.get(AsyncExecutorManager)
         plan.executor = executor_manager.resolve_by_service(AsyncSchemaQueryService)

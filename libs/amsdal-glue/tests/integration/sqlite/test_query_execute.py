@@ -3,12 +3,11 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_connections.sql.sql_builders.exceptions import DistinctOnNotSupportedError
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -16,6 +15,7 @@ from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
@@ -62,7 +62,9 @@ def test_query_execute_query_to_single_model() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -84,10 +86,13 @@ def test_query_execute_query_to_single_model() -> None:
 
 def test_query_execute_query_aggregation() -> None:
     query = QueryStatement(
-        aggregations=[
-            AggregationQuery(
+        only=[],
+        expressions=[
+            SelectExpression(
                 expression=Sum(
-                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='amount'), table_name='o')
+                    ),
                 ),
                 alias='total_amount',
             ),
@@ -132,11 +137,15 @@ def test_query_execute_query_to_single_connection() -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='o'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -185,11 +194,15 @@ def test_query_execute_query_to_single_connection_fail_due_to_duplicated_selecti
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='o'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -207,15 +220,18 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
         only=[
             FieldReferenceAliased(alias='customer_id', field=Field(name='id'), table_name='c'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=SubQueryStatement(
+        expressions=[
+            SelectExpression(
+                expression=SubQueryStatement(
                     alias='total_amount',
                     query=QueryStatement(
-                        aggregations=[
-                            AggregationQuery(
+                        only=[],
+                        expressions=[
+                            SelectExpression(
                                 expression=Sum(
-                                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    expression=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='amount'), table_name='o')
+                                    ),
                                 ),
                                 alias='total_amount',
                             ),
@@ -234,12 +250,15 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
                         ),
                     ),
                 ),
+                alias='total_amount',
             ),
         ],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -287,11 +306,15 @@ def test_query_execute_query_to_multiple_connections() -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -343,11 +366,15 @@ def test_query_execute_query_with_subquery_in_from_to_multiple_connections() -> 
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -399,11 +426,15 @@ def test_query_execute_query_with_subquery_in_join_to_multiple_connections() -> 
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -430,15 +461,18 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
         only=[
             FieldReferenceAliased(alias='customer_id', field=Field(name='id'), table_name='s'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=SubQueryStatement(
+        expressions=[
+            SelectExpression(
+                expression=SubQueryStatement(
                     alias='total_amount',
                     query=QueryStatement(
-                        aggregations=[
-                            AggregationQuery(
+                        only=[],
+                        expressions=[
+                            SelectExpression(
                                 expression=Sum(
-                                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    expression=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='amount'), table_name='o')
+                                    ),
                                 ),
                                 alias='total_amount',
                             ),
@@ -457,12 +491,15 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
                         ),
                     ),
                 ),
+                alias='total_amount',
             ),
         ],
         table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -481,11 +518,13 @@ def test_query_execute_distinct() -> None:
         only=[
             FieldReference(field=Field(name='first_name'), table_name='c'),
         ],
-        distinct=True,
+        distinct=DistinctClause(),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -511,11 +550,13 @@ def test_query_execute_distinct_multiple_fields() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=True,
+        distinct=DistinctClause(),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -541,13 +582,17 @@ def test_query_execute_distinct_on_single_field() -> None:
         only=[
             FieldReference(field=Field(name='first_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -557,7 +602,7 @@ def test_query_execute_distinct_on_single_field() -> None:
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    with pytest.raises(DistinctOnNotSupportedError):
+    with pytest.raises(UnsupportedFeatureError):
         plan.execute(transaction_id=None, lock_id=None)
 
 
@@ -567,13 +612,17 @@ def test_query_execute_distinct_on_single_field_multiple_selected() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -583,7 +632,7 @@ def test_query_execute_distinct_on_single_field_multiple_selected() -> None:
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    with pytest.raises(DistinctOnNotSupportedError):
+    with pytest.raises(UnsupportedFeatureError):
         plan.execute(transaction_id=None, lock_id=None)
 
 
@@ -593,14 +642,18 @@ def test_query_execute_distinct_on_multiple() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -610,5 +663,5 @@ def test_query_execute_distinct_on_multiple() -> None:
     plan = planner.plan_data_query(query)
     assert plan.final_task is None
 
-    with pytest.raises(DistinctOnNotSupportedError):
+    with pytest.raises(UnsupportedFeatureError):
         plan.execute(transaction_id=None, lock_id=None)

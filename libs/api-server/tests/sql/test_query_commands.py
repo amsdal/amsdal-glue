@@ -1,6 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -19,28 +19,32 @@ def _fixture_data() -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
-                        Data(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
-                        Data(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
-                        Data(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
+                        DataInput(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                        DataInput(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
+                        DataInput(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
+                        DataInput(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
                     ],
                 ),
                 InsertData(
                     schema=SchemaReference(name='logs', version=Version.LATEST),
                     data=[
-                        Data(data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}),
-                        Data(data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}),
-                        Data(data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor incididunt'}),
-                        Data(data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna aliqua'}),
+                        DataInput(data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}),
+                        DataInput(data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}),
+                        DataInput(
+                            data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor incididunt'}
+                        ),
+                        DataInput(
+                            data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna aliqua'}
+                        ),
                     ],
                 ),
                 InsertData(
                     schema=SchemaReference(name='orders', version=Version.LATEST),
                     data=[
-                        Data(data={'order_id': 1, 'customer_id': 1, 'product_id': 1, 'quantity': 1}),
-                        Data(data={'order_id': 2, 'customer_id': 1, 'product_id': 2, 'quantity': 2}),
-                        Data(data={'order_id': 3, 'customer_id': 2, 'product_id': 3, 'quantity': 3}),
-                        Data(data={'order_id': 4, 'customer_id': 2, 'product_id': 4, 'quantity': 4}),
+                        DataInput(data={'order_id': 1, 'customer_id': 1, 'product_id': 1, 'quantity': 1}),
+                        DataInput(data={'order_id': 2, 'customer_id': 1, 'product_id': 2, 'quantity': 2}),
+                        DataInput(data={'order_id': 3, 'customer_id': 2, 'product_id': 3, 'quantity': 3}),
+                        DataInput(data={'order_id': 4, 'customer_id': 2, 'product_id': 4, 'quantity': 4}),
                     ],
                 ),
             ],

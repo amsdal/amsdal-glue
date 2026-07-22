@@ -2,6 +2,7 @@ from unittest.mock import ANY
 
 import pytest
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
@@ -60,7 +61,7 @@ def test_rename_schema(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -86,7 +87,7 @@ def test_delete_schema(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -102,7 +103,7 @@ def test_add_property(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -123,7 +124,7 @@ def test_delete_property(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -139,7 +140,7 @@ def test_update_property(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -156,7 +157,7 @@ def test_add_constraint(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -175,7 +176,7 @@ def test_drop_constraint(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -184,7 +185,7 @@ def test_drop_constraint(database_connection: PostgresConnection) -> None:
         SchemaCommand(
             mutations=[
                 AddConstraint(
-                    schema_reference=DEFAULT_SCHEMA_REF,
+                    schema_ref=DEFAULT_SCHEMA_REF,
                     constraint=UniqueConstraint(
                         name='uk_user_email_unique',
                         fields=['email', 'age'],
@@ -207,7 +208,7 @@ def test_add_index(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -226,7 +227,7 @@ def test_delete_index(database_connection: PostgresConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -235,8 +236,12 @@ def test_delete_index(database_connection: PostgresConnection) -> None:
         SchemaCommand(
             mutations=[
                 AddIndex(
-                    schema_reference=DEFAULT_SCHEMA_REF,
-                    index=IndexSchema(name='idx_user_email', fields=['email', 'age'], condition=None),
+                    schema_ref=DEFAULT_SCHEMA_REF,
+                    index=IndexSchema(
+                        name='idx_user_email',
+                        fields=[IndexField(name='email'), IndexField(name='age')],
+                        condition=None,
+                    ),
                 ),
             ],
         ),

@@ -1,7 +1,7 @@
 # mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -34,7 +34,7 @@ def test_simple_insert_command(benchmark) -> None:
                 InsertData(
                     schema=SchemaReference(name='users', version=Version.LATEST),
                     data=[
-                        Data(
+                        DataInput(
                             data={'name': 'John', 'age': '30'},
                             metadata=None,
                         )
@@ -59,11 +59,11 @@ def test_multiple_inserts(benchmark) -> None:
                 InsertData(
                     schema=SchemaReference(name='users', version=Version.LATEST),
                     data=[
-                        Data(
+                        DataInput(
                             data={'name': 'John', 'age': '30'},
                             metadata=None,
                         ),
-                        Data(
+                        DataInput(
                             data={'name': 'Jane', 'age': '25'},
                             metadata=None,
                         ),
@@ -87,10 +87,7 @@ def test_simple_update_command(benchmark) -> None:
             mutations=[
                 UpdateData(
                     schema=SchemaReference(name='users', version=Version.LATEST),
-                    data=Data(
-                        data={'name': 'Jane', 'age': '25'},
-                        metadata=None,
-                    ),
+                    data=DataInput(data={'name': Value('Jane'), 'age': Value('25')}),
                 )
             ]
         )
@@ -110,10 +107,7 @@ def test_simple_update_command_condition(benchmark) -> None:
             mutations=[
                 UpdateData(
                     schema=SchemaReference(name='users', version=Version.LATEST),
-                    data=Data(
-                        data={'name': 'Jane', 'age': '25'},
-                        metadata=None,
-                    ),
+                    data=DataInput(data={'name': Value('Jane'), 'age': Value('25')}),
                     query=Conditions(
                         Condition(
                             left=FieldReferenceExpression(

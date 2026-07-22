@@ -1,6 +1,7 @@
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -15,12 +16,12 @@ from amsdal_glue_core.common.operations.mutations.data import UpdateData
 from amsdal_glue_connections.sql.connections.csv_connection import CsvConnection
 
 
-def simple_customer_insert(database_connection: CsvConnection, namespace: str = '') -> list[list[Data] | None]:
+def simple_customer_insert(database_connection: CsvConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
@@ -30,14 +31,14 @@ def simple_customer_insert(database_connection: CsvConnection, namespace: str = 
 
 def insert_customers_and_orders(
     database_connection: CsvConnection,
-    namespace_1: str = '',
-    namespace_2: str = '',
+    namespace_1: str | None = None,
+    namespace_2: str | None = None,
 ) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
@@ -45,7 +46,7 @@ def insert_customers_and_orders(
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '2', 'name': 'customer', 'age': 25},
                 )
             ],
@@ -53,7 +54,7 @@ def insert_customers_and_orders(
         InsertData(
             schema=SchemaReference(name='orders', namespace=namespace_2, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'customer_id': '1', 'amount': 100},
                 )
             ],
@@ -61,26 +62,24 @@ def insert_customers_and_orders(
     ])
 
 
-def update_two_customers(database_connection: CsvConnection, namespace: str = '') -> list[list[Data] | None]:
+def update_two_customers(database_connection: CsvConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
         ),
         UpdateData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data=Data(
-                data={'id': '1', 'name': 'new_customer'},
-            ),
+            data=DataInput(data={'name': Value(value='new_customer')}),
         ),
     ])
 
 
-def delete_customer(database_connection: CsvConnection, namespace: str = '') -> list[list[Data] | None]:
+def delete_customer(database_connection: CsvConnection, namespace: str | None = None) -> list[list[Data] | None]:
     return database_connection.run_mutations([
         DeleteData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),

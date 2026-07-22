@@ -1,5 +1,3 @@
-from abc import ABC
-from abc import abstractmethod
 from copy import copy
 from dataclasses import dataclass
 
@@ -10,212 +8,206 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 
 
-class SchemaMutation(ABC):
-    """
-    Abstract base class for schema mutations.
+@dataclass(kw_only=True)
+class SchemaMutation:
+    schema_ref: SchemaReference
 
-    Methods:
-        get_schema_name() -> str:
-            Returns the name of the schema associated with the mutation.
-    """
-
-    @abstractmethod
-    def get_schema_name(self) -> str:
-        """
-        Returns the name of the schema associated with the mutation.
-
-        Returns:
-            str: The name of the schema.
-        """
-        ...
-
-    @abstractmethod
-    def get_schema_reference(self) -> SchemaReference:
-        """
-        Returns the reference to the schema associated with the mutation.
-
-        Returns:
-            SchemaReference: The reference to the schema.
-        """
-        ...
+    def __copy__(self):
+        return SchemaMutation(schema_ref=copy(self.schema_ref))
 
 
 @dataclass(kw_only=True)
 class RegisterSchema(SchemaMutation):
-    """Represents a schema registration mutation.
-
-    Attributes:
-        schema (Schema): The schema to be registered.
-    """
-
     schema: Schema
-
-    def get_schema_name(self) -> str:
-        return self.schema.name
-
-    def get_schema_reference(self) -> SchemaReference:
-        return SchemaReference(name=self.schema.name, version=self.schema.version, metadata=self.schema.metadata)
+    if_not_exists: bool = False
 
     def __copy__(self):
-        return RegisterSchema(schema=copy(self.schema))
-
-
-@dataclass(kw_only=True)
-class ChangeSchema(SchemaMutation):
-    """Represents a schema change mutation.
-
-    Attributes:
-        schema_reference (SchemaReference): The reference to the schema to be changed.
-    """
-
-    schema_reference: SchemaReference
-
-    def get_schema_name(self) -> str:
-        return self.schema_reference.name
-
-    def get_schema_reference(self) -> SchemaReference:
-        return copy(self.schema_reference)
-
-    def __copy__(self):
-        return ChangeSchema(schema_reference=copy(self.schema_reference))
-
-
-@dataclass(kw_only=True)
-class DeleteSchema(ChangeSchema):
-    """Represents a schema deletion mutation."""
-
-    def get_schema_name(self) -> str:
-        return self.schema_reference.name
-
-    def __copy__(self):
-        return DeleteSchema(schema_reference=copy(self.schema_reference))
-
-
-@dataclass(kw_only=True)
-class RenameSchema(ChangeSchema):
-    """Represents a schema rename mutation.
-
-    Attributes:
-        new_schema_name (str): The new name for the schema.
-    """
-
-    new_schema_name: str
-
-    def __copy__(self):
-        return RenameSchema(schema_reference=copy(self.schema_reference), new_schema_name=self.new_schema_name)
-
-
-@dataclass(kw_only=True)
-class AddProperty(ChangeSchema):
-    """Represents an add property mutation.
-
-    Attributes:
-        property (PropertySchema): The property to be added.
-    """
-
-    property: PropertySchema
-
-    def __copy__(self):
-        return AddProperty(schema_reference=copy(self.schema_reference), property=copy(self.property))
-
-
-@dataclass(kw_only=True)
-class DeleteProperty(ChangeSchema):
-    """Represents a delete property mutation.
-
-    Attributes:
-        property_name (str): The name of the property to be deleted.
-    """
-
-    property_name: str
-
-    def __copy__(self):
-        return DeleteProperty(schema_reference=copy(self.schema_reference), property_name=self.property_name)
-
-
-@dataclass(kw_only=True)
-class RenameProperty(ChangeSchema):
-    """Represents a rename property mutation.
-
-    Attributes:
-        old_name (str): The current name of the property.
-        new_name (str): The new name for the property.
-    """
-
-    old_name: str
-    new_name: str
-
-    def __copy__(self):
-        return RenameProperty(
-            schema_reference=copy(self.schema_reference), old_name=self.old_name, new_name=self.new_name
+        return RegisterSchema(
+            schema_ref=copy(self.schema_ref),
+            schema=copy(self.schema),
+            if_not_exists=self.if_not_exists,
         )
 
 
 @dataclass(kw_only=True)
-class UpdateProperty(ChangeSchema):
-    """Represents an update property mutation.
+class DeleteSchema(SchemaMutation):
+    if_exists: bool = False
+    cascade: bool = False
 
-    Attributes:
-        property (PropertySchema): The property to be updated.
-    """
+    def __copy__(self):
+        return DeleteSchema(schema_ref=copy(self.schema_ref), if_exists=self.if_exists, cascade=self.cascade)
 
+
+@dataclass(kw_only=True)
+class RenameSchema(SchemaMutation):
+    new_name: str
+
+    def __copy__(self):
+        return RenameSchema(schema_ref=copy(self.schema_ref), new_name=self.new_name)
+
+
+@dataclass(kw_only=True)
+class AddProperty(SchemaMutation):
     property: PropertySchema
 
     def __copy__(self):
-        return UpdateProperty(schema_reference=copy(self.schema_reference), property=copy(self.property))
+        return AddProperty(schema_ref=copy(self.schema_ref), property=copy(self.property))
 
 
 @dataclass(kw_only=True)
-class AddConstraint(ChangeSchema):
-    """Represents an add constraint mutation.
-
-    Attributes:
-        constraint (BaseConstraint): The constraint to be added.
-    """
-
-    constraint: BaseConstraint
+class DeleteProperty(SchemaMutation):
+    property_name: str
 
     def __copy__(self):
-        return AddConstraint(schema_reference=copy(self.schema_reference), constraint=copy(self.constraint))
+        return DeleteProperty(schema_ref=copy(self.schema_ref), property_name=self.property_name)
 
 
 @dataclass(kw_only=True)
-class DeleteConstraint(ChangeSchema):
-    """Represents a delete constraint mutation.
+class RenameProperty(SchemaMutation):
+    old_name: str
+    new_name: str
 
-    Attributes:
-        constraint_name (str): The name of the constraint to be deleted.
-    """
+    def __copy__(self):
+        return RenameProperty(schema_ref=copy(self.schema_ref), old_name=self.old_name, new_name=self.new_name)
 
+
+@dataclass(kw_only=True)
+class UpdateProperty(SchemaMutation):
+    property: PropertySchema
+
+    def __copy__(self):
+        return UpdateProperty(schema_ref=copy(self.schema_ref), property=copy(self.property))
+
+
+@dataclass(kw_only=True)
+class AddConstraint(SchemaMutation):
+    constraint: BaseConstraint
+    not_valid: bool = False
+
+    def __copy__(self):
+        return AddConstraint(
+            schema_ref=copy(self.schema_ref), constraint=copy(self.constraint), not_valid=self.not_valid
+        )
+
+
+@dataclass(kw_only=True)
+class DeleteConstraint(SchemaMutation):
     constraint_name: str
 
     def __copy__(self):
-        return DeleteConstraint(schema_reference=copy(self.schema_reference), constraint_name=self.constraint_name)
+        return DeleteConstraint(schema_ref=copy(self.schema_ref), constraint_name=self.constraint_name)
 
 
 @dataclass(kw_only=True)
-class AddIndex(ChangeSchema):
-    """Represents an add index mutation.
+class ValidateConstraint(SchemaMutation):
+    constraint_name: str
 
-    Attributes:
-        index (IndexSchema): The index to be added.
-    """
+    def __copy__(self):
+        return ValidateConstraint(schema_ref=copy(self.schema_ref), constraint_name=self.constraint_name)
 
+
+@dataclass(kw_only=True)
+class AddIndex(SchemaMutation):
     index: IndexSchema
+    if_not_exists: bool = False
+    concurrent: bool = False
 
     def __copy__(self):
-        return AddIndex(schema_reference=copy(self.schema_reference), index=copy(self.index))
+        return AddIndex(
+            schema_ref=copy(self.schema_ref),
+            index=copy(self.index),
+            if_not_exists=self.if_not_exists,
+            concurrent=self.concurrent,
+        )
 
 
 @dataclass(kw_only=True)
-class DeleteIndex(ChangeSchema):
-    """Represents a delete index mutation.
-
-    Attributes:
-        index_name (str): The name of the index to be deleted.
-    """
-
+class DeleteIndex(SchemaMutation):
     index_name: str
+    if_exists: bool = False
+    concurrent: bool = False
 
     def __copy__(self):
-        return DeleteIndex(schema_reference=copy(self.schema_reference), index_name=self.index_name)
+        return DeleteIndex(
+            schema_ref=copy(self.schema_ref),
+            index_name=self.index_name,
+            if_exists=self.if_exists,
+            concurrent=self.concurrent,
+        )
+
+
+@dataclass(kw_only=True)
+class CreateExtension(SchemaMutation):
+    extension_name: str
+    if_not_exists: bool = True
+    schema_name: str | None = None
+    version: str | None = None
+    cascade: bool = False
+
+    def __copy__(self):
+        return CreateExtension(
+            schema_ref=copy(self.schema_ref),
+            extension_name=self.extension_name,
+            if_not_exists=self.if_not_exists,
+            schema_name=self.schema_name,
+            version=self.version,
+            cascade=self.cascade,
+        )
+
+
+@dataclass(kw_only=True)
+class DropExtension(SchemaMutation):
+    extension_name: str
+    if_exists: bool = True
+    cascade: bool = False
+
+    def __copy__(self):
+        return DropExtension(
+            schema_ref=copy(self.schema_ref),
+            extension_name=self.extension_name,
+            if_exists=self.if_exists,
+            cascade=self.cascade,
+        )
+
+
+@dataclass(kw_only=True)
+class TruncateSchema(SchemaMutation):
+    restart_identity: bool = False
+    cascade: bool = False
+
+    def __copy__(self):
+        return TruncateSchema(
+            schema_ref=copy(self.schema_ref),
+            restart_identity=self.restart_identity,
+            cascade=self.cascade,
+        )
+
+
+@dataclass(kw_only=True)
+class CreateCollation(SchemaMutation):
+    collation_name: str
+    provider: str = 'icu'
+    locale: str = ''
+    deterministic: bool = True
+
+    def __copy__(self):
+        return CreateCollation(
+            schema_ref=copy(self.schema_ref),
+            collation_name=self.collation_name,
+            provider=self.provider,
+            locale=self.locale,
+            deterministic=self.deterministic,
+        )
+
+
+@dataclass(kw_only=True)
+class RemoveCollation(SchemaMutation):
+    collation_name: str
+    if_exists: bool = True
+
+    def __copy__(self):
+        return RemoveCollation(
+            schema_ref=copy(self.schema_ref),
+            collation_name=self.collation_name,
+            if_exists=self.if_exists,
+        )

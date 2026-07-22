@@ -8,7 +8,7 @@ from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqlit
 from amsdal_glue_core.commands.planner.data_command_planner import AsyncDataCommandPlanner
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -63,7 +63,7 @@ async def test_insert_data_single_element(register_default_connection: AsyncGene
             InsertData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST),
                 data=[
-                    Data(
+                    DataInput(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
                     )
                 ],
@@ -101,8 +101,8 @@ async def test_update_data_single_element(register_default_connection: AsyncGene
         mutations=[
             UpdateData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
-                data=Data(
-                    data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
+                data=DataInput(
+                    data={'id': Value(value='111'), 'customer_id': Value(value='1'), 'status': Value(value='cancelled')}
                 ),
                 query=Conditions(
                     Condition(
@@ -192,15 +192,15 @@ async def test_create_and_update_data_single_element(register_default_connection
             InsertData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST),
                 data=[
-                    Data(
+                    DataInput(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
                     )
                 ],
             ),
             UpdateData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST, alias='s'),
-                data=Data(
-                    data={'id': '111', 'customer_id': '1', 'status': 'cancelled'},
+                data=DataInput(
+                    data={'id': Value(value='111'), 'customer_id': Value(value='1'), 'status': Value(value='cancelled')}
                 ),
                 query=Conditions(
                     Condition(
@@ -243,7 +243,7 @@ async def test_create_and_delete_data_single_element(register_default_connection
             InsertData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST),
                 data=[
-                    Data(
+                    DataInput(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
                     )
                 ],
@@ -292,13 +292,13 @@ async def test_create_multiple_data_elements(register_default_connection: AsyncG
             InsertData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST),
                 data=[
-                    Data(
+                    DataInput(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
                     ),
-                    Data(
+                    DataInput(
                         data={'id': '222', 'customer_id': '2', 'status': 'shipped'},
                     ),
-                    Data(
+                    DataInput(
                         data={'id': '333', 'customer_id': '3', 'status': 'shipped'},
                     ),
                 ],

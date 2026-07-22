@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build and compile
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -40,7 +40,7 @@ jobs:
 
   publish:
     name: Publish to PyPi
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: build
     permissions:
       contents: write
@@ -65,7 +65,11 @@ jobs:
       - name: Branch info
         id: branch_info
         run: |
-          echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
+          echo "SOURCE_TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          case "${GITHUB_REF#refs/tags/}" in
+            *rc*|*a*|*b*) echo "PRERELEASE=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "PRERELEASE=false" >> "$GITHUB_OUTPUT" ;;
+          esac
 
       - name: Install hatch
         run: |
@@ -82,4 +86,4 @@ jobs:
           name: ${{ steps.branch_info.outputs.SOURCE_TAG }}
           body_path: libs/amsdal-glue/latest-changelogs.md
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.branch_info.outputs.PRERELEASE }}

@@ -1,6 +1,7 @@
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -16,13 +17,13 @@ from amsdal_glue_connections.sql.connections.postgres_connection import AsyncPos
 
 
 async def simple_customer_insert(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
 ) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
@@ -32,14 +33,14 @@ async def simple_customer_insert(
 
 async def insert_customers_and_orders(
     database_connection: AsyncPostgresConnection,
-    namespace_1: str = '',
-    namespace_2: str = '',
+    namespace_1: str | None = None,
+    namespace_2: str | None = None,
 ) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
@@ -47,7 +48,7 @@ async def insert_customers_and_orders(
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '2', 'name': 'customer', 'age': 25},
                 )
             ],
@@ -55,7 +56,7 @@ async def insert_customers_and_orders(
         InsertData(
             schema=SchemaReference(name='orders', namespace=namespace_2, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'customer_id': '1', 'amount': 100},
                 )
             ],
@@ -64,27 +65,32 @@ async def insert_customers_and_orders(
 
 
 async def update_two_customers(
-    database_connection: AsyncPostgresConnection, namespace: str = ''
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
 ) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
         ),
         UpdateData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data=Data(
-                data={'id': '1', 'name': 'new_customer'},
+            data=DataInput(
+                data={
+                    'id': Value('1'),
+                    'name': Value('new_customer'),
+                },
             ),
         ),
     ])
 
 
-async def delete_customer(database_connection: AsyncPostgresConnection, namespace: str = '') -> list[list[Data] | None]:
+async def delete_customer(
+    database_connection: AsyncPostgresConnection, namespace: str | None = None
+) -> list[list[Data] | None]:
     return await database_connection.run_mutations([
         DeleteData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),

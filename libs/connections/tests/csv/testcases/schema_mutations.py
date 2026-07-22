@@ -5,11 +5,13 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -26,17 +28,17 @@ DEFAULT_SCHEMA = Schema(
     properties=[
         PropertySchema(
             name='id',
-            type=int,
+            type=ScalarType.INTEGER,
             required=True,
         ),
         PropertySchema(
             name='email',
-            type=str,
+            type=ScalarType.TEXT,
             required=True,
         ),
         PropertySchema(
             name='age',
-            type=int,
+            type=ScalarType.INTEGER,
             required=True,
         ),
     ],
@@ -47,7 +49,7 @@ DEFAULT_SCHEMA_REF = SchemaReference(
 )
 
 
-def create_user_schema(database_connection: CsvConnection, namespace: str = '') -> list[Schema | None]:
+def create_user_schema(database_connection: CsvConnection, namespace: str | None = None) -> list[Schema | None]:
     schema = Schema(
         name='user',
         namespace=namespace,
@@ -55,27 +57,27 @@ def create_user_schema(database_connection: CsvConnection, namespace: str = '') 
         properties=[
             PropertySchema(
                 name='id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='email',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
             PropertySchema(
                 name='age',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='first_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
             PropertySchema(
                 name='last_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
         ],
@@ -98,20 +100,10 @@ def create_user_schema(database_connection: CsvConnection, namespace: str = '') 
             ),
         ],
         indexes=[
-            IndexSchema(name='idx_user_email', fields=['first_name', 'last_name']),
+            IndexSchema(name='idx_user_email', fields=[IndexField(name='first_name'), IndexField(name='last_name')]),
         ],
     )
 
-    return database_connection.run_schema_command(
-        SchemaCommand(
-            mutations=[
-                RegisterSchema(schema=schema),
-            ],
-        ),
-    )
-
-
-def rename_user_schema(database_connection: CsvConnection, namespace: str = '') -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -121,13 +113,13 @@ def rename_user_schema(database_connection: CsvConnection, namespace: str = '') 
     return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RenameSchema(schema_reference=schema_ref, new_schema_name='customer'),
+                RegisterSchema(schema_ref=schema_ref, schema=schema),
             ],
         ),
     )
 
 
-def delete_user_schema(database_connection: CsvConnection, namespace: str = '') -> list[Schema | None]:
+def rename_user_schema(database_connection: CsvConnection, namespace: str | None = None) -> list[Schema | None]:
     schema_ref = SchemaReference(
         name='user',
         namespace=namespace,
@@ -137,7 +129,23 @@ def delete_user_schema(database_connection: CsvConnection, namespace: str = '') 
     return database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                DeleteSchema(schema_reference=schema_ref),
+                RenameSchema(schema_ref=schema_ref, new_name='customer'),
+            ],
+        ),
+    )
+
+
+def delete_user_schema(database_connection: CsvConnection, namespace: str | None = None) -> list[Schema | None]:
+    schema_ref = SchemaReference(
+        name='user',
+        namespace=namespace,
+        version=Version.LATEST,
+    )
+
+    return database_connection.run_schema_command(
+        SchemaCommand(
+            mutations=[
+                DeleteSchema(schema_ref=schema_ref),
             ],
         ),
     )

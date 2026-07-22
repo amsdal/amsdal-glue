@@ -4,9 +4,6 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -16,6 +13,7 @@ from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
@@ -59,9 +57,13 @@ sum_city_population_query = QueryStatement(
         FieldReference(field=Field(name='country_code'), table_name='c'),
         FieldReference(field=Field(name='country_population'), table_name='c'),
     ],
-    aggregations=[
-        AggregationQuery(
-            expression=Sum(field=FieldReference(field=Field(name='Population'), table_name='ci')),
+    expressions=[
+        SelectExpression(
+            expression=Sum(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='Population'), table_name='ci')
+                )
+            ),
             alias='city_population',
         ),
     ],
@@ -85,10 +87,14 @@ sum_city_population_query = QueryStatement(
     ],
     group_by=[
         GroupByQuery(
-            field=FieldReference(field=Field(name='country_code'), table_name='c'),
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_code'), table_name='c')
+            ),
         ),
         GroupByQuery(
-            field=FieldReference(field=Field(name='country_population'), table_name='c'),
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_population'), table_name='c')
+            ),
         ),
     ],
 )
@@ -99,13 +105,15 @@ final_query = QueryStatement(
         FieldReference(field=Field(name='country_code'), table_name='c'),
         FieldReference(field=Field(name='city_population'), table_name='c'),
     ],
-    annotations=[
-        AnnotationQuery(
-            value=ExpressionAnnotation(
-                expression=FieldReference(field=Field(name='country_population'), table_name='c')
-                - FieldReference(field=Field(name='city_population'), table_name='c'),
-                alias='non_city_population',
+    expressions=[
+        SelectExpression(
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_population'), table_name='c')
+            )
+            - FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='city_population'), table_name='c')
             ),
+            alias='non_city_population',
         ),
     ],
     table=SubQueryStatement(
@@ -114,7 +122,9 @@ final_query = QueryStatement(
     ),
     order_by=[
         OrderByQuery(
-            field=FieldReference(field=Field(name='country_code'), table_name='c'),
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_code'), table_name='c')
+            ),
         ),
     ],
 )

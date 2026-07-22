@@ -33,12 +33,18 @@ class JoinType(str, Enum):
         LEFT (str): Left join.
         RIGHT (str): Right join.
         FULL (str): Full join.
+        CROSS (str): Cross join.
+        INNER_LATERAL (str): Inner lateral join.
+        LEFT_LATERAL (str): Left lateral join.
     """
 
     INNER = 'INNER'
     LEFT = 'LEFT'
     RIGHT = 'RIGHT'
     FULL = 'FULL'
+    CROSS = 'CROSS'
+    INNER_LATERAL = 'INNER_LATERAL'
+    LEFT_LATERAL = 'LEFT_LATERAL'
 
 
 class FilterConnector(str, Enum):
@@ -93,6 +99,24 @@ class FieldLookup(str, Enum):
     ISNULL = 'ISNULL'
     REGEX = 'REGEX'
     IREGEX = 'IREGEX'
+    BETWEEN = 'BETWEEN'
+    JSONB_CONTAINS = 'JSONB_CONTAINS'
+    JSONB_CONTAINED_BY = 'JSONB_CONTAINED_BY'
+    JSONB_HAS_KEY = 'JSONB_HAS_KEY'
+    JSONB_HAS_ANY_KEY = 'JSONB_HAS_ANY_KEY'
+    JSONB_HAS_ALL_KEYS = 'JSONB_HAS_ALL_KEYS'
+    FTS_MATCH = 'FTS_MATCH'
+    TRIGRAM_SIMILAR = 'TRIGRAM_SIMILAR'
+    TRIGRAM_WORD_SIMILAR = 'TRIGRAM_WORD_SIMILAR'
+    TRIGRAM_STRICT_WORD_SIMILAR = 'TRIGRAM_STRICT_WORD_SIMILAR'
+    RANGE_CONTAINS = 'RANGE_CONTAINS'
+    RANGE_CONTAINED_BY = 'RANGE_CONTAINED_BY'
+    RANGE_OVERLAP = 'RANGE_OVERLAP'
+    RANGE_STRICTLY_LEFT = 'RANGE_STRICTLY_LEFT'
+    RANGE_STRICTLY_RIGHT = 'RANGE_STRICTLY_RIGHT'
+    RANGE_NOT_LEFT = 'RANGE_NOT_LEFT'
+    RANGE_NOT_RIGHT = 'RANGE_NOT_RIGHT'
+    RANGE_ADJACENT = 'RANGE_ADJACENT'
 
     def __repr__(self) -> str:  # noqa: PLR0911, PLR0912, C901
         match self:
@@ -130,6 +154,42 @@ class FieldLookup(str, Enum):
                 return 'regex'
             case FieldLookup.IREGEX:
                 return 'iregex'
+            case FieldLookup.BETWEEN:
+                return 'between'
+            case FieldLookup.JSONB_CONTAINS:
+                return '@>'
+            case FieldLookup.JSONB_CONTAINED_BY:
+                return '<@'
+            case FieldLookup.JSONB_HAS_KEY:
+                return '?'
+            case FieldLookup.JSONB_HAS_ANY_KEY:
+                return '?|'
+            case FieldLookup.JSONB_HAS_ALL_KEYS:
+                return '?&'
+            case FieldLookup.FTS_MATCH:
+                return '@@'
+            case FieldLookup.TRIGRAM_SIMILAR:
+                return '%'
+            case FieldLookup.TRIGRAM_WORD_SIMILAR:
+                return '<%'
+            case FieldLookup.TRIGRAM_STRICT_WORD_SIMILAR:
+                return '<<%'
+            case FieldLookup.RANGE_CONTAINS:
+                return '@>'
+            case FieldLookup.RANGE_CONTAINED_BY:
+                return '<@'
+            case FieldLookup.RANGE_OVERLAP:
+                return '&&'
+            case FieldLookup.RANGE_STRICTLY_LEFT:
+                return '<<'
+            case FieldLookup.RANGE_STRICTLY_RIGHT:
+                return '>>'
+            case FieldLookup.RANGE_NOT_LEFT:
+                return '&>'
+            case FieldLookup.RANGE_NOT_RIGHT:
+                return '&<'
+            case FieldLookup.RANGE_ADJACENT:
+                return '-|-'
             case _:
                 msg = f'{self} not supported'
                 raise ValueError(msg)
@@ -199,3 +259,92 @@ class LockParameter(str, Enum):
     NOWAIT = 'NOWAIT'
     SKIP_LOCKED = 'SKIP_LOCKED'
     WAIT = 'WAIT'
+
+
+class LockScope(str, Enum):
+    """Lifetime of a non-row lock.
+
+    - ``TRANSACTION`` — auto-released at end of the current transaction
+      (``pg_advisory_xact_lock`` / ``LOCK TABLE`` inside ``BEGIN``).
+    - ``SESSION`` — held until explicit release or connection death
+      (``pg_advisory_lock``); used by infrastructure (e.g. WAL ownership)
+      that must outlive a single transaction.
+    """
+
+    TRANSACTION = 'TRANSACTION'
+    SESSION = 'SESSION'
+
+
+class SetOperationType(str, Enum):
+    UNION = 'union'
+    UNION_ALL = 'union_all'
+    INTERSECT = 'intersect'
+    EXCEPT = 'except'
+
+
+class WindowFrameType(str, Enum):
+    ROWS = 'rows'
+    RANGE = 'range'
+    GROUPS = 'groups'
+
+
+class LockStrength(str, Enum):
+    UPDATE = 'for_update'
+    NO_KEY_UPDATE = 'for_no_key_update'
+    SHARE = 'for_share'
+    KEY_SHARE = 'for_key_share'
+
+
+class ScalarType(str, Enum):
+    TEXT = 'text'
+    INTEGER = 'integer'
+    BIGINT = 'bigint'
+    SMALLINT = 'smallint'
+    FLOAT = 'float'
+    # ANSI ``double precision``: a bare ``double`` is not a valid Postgres type. Rendered verbatim as
+    # the column/cast type on both dialects (SQLite accepts it as REAL affinity), and both introspection
+    # maps resolve ``double precision`` -> DOUBLE, so a RegisterSchema->introspect cycle round-trips.
+    DOUBLE = 'double precision'
+    NUMERIC = 'numeric'
+    BOOLEAN = 'boolean'
+    DATE = 'date'
+    TIME = 'time'
+    TIMESTAMP = 'timestamp'
+    TIMESTAMPTZ = 'timestamptz'
+    INTERVAL = 'interval'
+    BYTEA = 'bytea'
+    JSON = 'json'
+    JSONB = 'jsonb'
+    UUID = 'uuid'
+    SMALLSERIAL = 'smallserial'
+    SERIAL = 'serial'
+    BIGSERIAL = 'bigserial'
+    TSVECTOR = 'tsvector'
+    TSQUERY = 'tsquery'
+    INT4RANGE = 'int4range'
+    INT8RANGE = 'int8range'
+    NUMRANGE = 'numrange'
+    DATERANGE = 'daterange'
+    TSRANGE = 'tsrange'
+    TSTZRANGE = 'tstzrange'
+
+
+class BuiltinIndexType(str, Enum):
+    BTREE = 'btree'
+    HASH = 'hash'
+    GIN = 'gin'
+    GIST = 'gist'
+    BRIN = 'brin'
+
+
+class ReferentialAction(str, Enum):
+    NO_ACTION = 'no_action'
+    RESTRICT = 'restrict'
+    CASCADE = 'cascade'
+    SET_NULL = 'set_null'
+    SET_DEFAULT = 'set_default'
+
+
+class ConflictAction(str, Enum):
+    NOTHING = 'nothing'
+    UPDATE = 'update'

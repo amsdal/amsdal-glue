@@ -1,3 +1,4 @@
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 
 from amsdal_glue import CheckConstraint
@@ -6,10 +7,12 @@ from amsdal_glue import Conditions
 from amsdal_glue import Field
 from amsdal_glue import FieldLookup
 from amsdal_glue import FieldReference
+from amsdal_glue import IndexField
 from amsdal_glue import IndexSchema
 from amsdal_glue import PrimaryKeyConstraint
 from amsdal_glue import PropertySchema
 from amsdal_glue import Schema
+from amsdal_glue import SchemaReference
 from amsdal_glue import UniqueConstraint
 from amsdal_glue import Value
 from amsdal_glue import Version
@@ -20,27 +23,27 @@ user_schema = Schema(
     properties=[
         PropertySchema(
             name='id',
-            type=int,
+            type=ScalarType.INTEGER,
             required=True,
         ),
         PropertySchema(
             name='email',
-            type=str,
+            type=ScalarType.TEXT,
             required=True,
         ),
         PropertySchema(
             name='age',
-            type=int,
+            type=ScalarType.INTEGER,
             required=True,
         ),
         PropertySchema(
             name='first_name',
-            type=str,
+            type=ScalarType.TEXT,
             required=False,
         ),
         PropertySchema(
             name='last_name',
-            type=str,
+            type=ScalarType.TEXT,
             required=False,
         ),
     ],
@@ -61,6 +64,8 @@ user_schema = Schema(
         ),
     ],
     indexes=[
-        IndexSchema(name='idx_user_email', fields=['first_name', 'last_name']),
+        IndexSchema(name='idx_user_email', fields=[IndexField(name='first_name'), IndexField(name='last_name')]),
     ],
 )
+
+user_schema_ref = SchemaReference(name='user', version=Version.LATEST)

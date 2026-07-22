@@ -1,9 +1,12 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/amsdal_glue_connections"]
+[tool.maturin]
+manifest-path = "rust/Cargo.toml"
+python-source = "src"
+module-name = "amsdal_glue_connections._sql_core"
+features = ["pyo3/extension-module"]
 
 [project]
 name = "amsdal-glue-connections"
@@ -12,6 +15,7 @@ description = 'AMSDAL Glue connections implementation.'
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE.txt" }
+license-files = ["LICENSE.txt", "NOTICE.txt"]
 keywords = []
 authors = []
 classifiers = [
@@ -24,7 +28,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue-core>=0.1.0",
+    "amsdal-glue-core>=0.2.0rc1",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +54,7 @@ dev = [
     "amsdal-glue-connections[async-sqlite]",
     "amsdal-glue-connections[postgres-binary]",
     "amsdal-glue-connections[elasticsearch]",
+    "maturin>=1.7,<2.0",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "pytest-mock>=3.14.0",
@@ -81,14 +86,27 @@ pre-install-commands = [
     "uv pip install -e ../core/",
 ]
 
+[tool.hatch.envs.default.env-vars]
+PATH = "{home}/.cargo/bin:{env:PATH}"
+
 [tool.hatch.envs.default.scripts]
 sync = "uv sync --group dev"
 lock = "uv lock"
 lock-upgrade = "uv lock --upgrade"
-test = "pytest -n auto --benchmark-skip {args:tests}"
-test-single = "pytest --benchmark-skip {args:tests}"
+build-rust = "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --manifest-path rust/Cargo.toml"
+test = [
+    "build-rust",
+    "pytest -n auto --benchmark-skip {args:tests}",
+]
+test-single = [
+    "build-rust",
+    "pytest --benchmark-skip {args:tests}",
+]
 benchmark = "pytest --benchmark-only {args:tests}"
-test-cov = "pytest --cov=src -n auto --benchmark-skip {args:tests}"
+test-cov = [
+    "build-rust",
+    "pytest --cov=src -n auto --benchmark-skip {args:tests}",
+]
 cov = [
     "test-cov",
 ]

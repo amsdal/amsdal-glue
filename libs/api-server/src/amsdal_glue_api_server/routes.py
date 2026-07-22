@@ -1,13 +1,18 @@
 # mypy: disable-error-code="type-abstract"
+import datetime
 from types import GenericAlias
 from typing import Any
 
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
-from amsdal_glue_core.common.data_models.schema import DictSchemaModel
-from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import ArrayType
+from amsdal_glue_core.common.data_models.types import DictType
+from amsdal_glue_core.common.data_models.types import NestedType
+from amsdal_glue_core.common.enums import ScalarType
+from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 from amsdal_glue_core.common.services.queries import SchemaQueryService
 from amsdal_glue_core.containers import Container
@@ -37,11 +42,37 @@ from amsdal_glue_api_server.controllers.rest.list_controller import generate_lis
 from amsdal_glue_api_server.controllers.rest.update_controller import generate_update_controller
 from amsdal_glue_api_server.controllers.sql.sql import sql_command
 
+_SCALAR_TO_PYTHON: dict[ScalarType, type] = {
+    ScalarType.INTEGER: int,
+    ScalarType.BIGINT: int,
+    ScalarType.SMALLINT: int,
+    ScalarType.SERIAL: int,
+    ScalarType.BIGSERIAL: int,
+    ScalarType.SMALLSERIAL: int,
+    ScalarType.TEXT: str,
+    ScalarType.UUID: str,
+    ScalarType.TSVECTOR: str,
+    ScalarType.TSQUERY: str,
+    ScalarType.FLOAT: float,
+    ScalarType.DOUBLE: float,
+    ScalarType.NUMERIC: float,
+    ScalarType.BOOLEAN: bool,
+    ScalarType.TIMESTAMP: datetime.datetime,
+    ScalarType.TIMESTAMPTZ: datetime.datetime,
+    ScalarType.DATE: datetime.date,
+    ScalarType.TIME: datetime.time,
+    ScalarType.JSON: dict,
+    ScalarType.JSONB: dict,
+    ScalarType.BYTEA: bytes,
+}
+
 
 def _fetch_schemas() -> list[Schema | None]:
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        SchemaQueryOperation(
+            query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)),
+        ),
     )
 
     if not result.success:
@@ -58,12 +89,10 @@ def model_from_schema(schema: Schema) -> type[BaseModel]:
     properties = {}
     _type: Any
     for prop in schema.properties:
-        if isinstance(prop.type, Schema):
-            _type = model_from_schema(prop.type)
-        elif isinstance(prop.type, SchemaReference):
-            _type = int
-        elif isinstance(prop.type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
+        if isinstance(prop.type, NestedType | ArrayType | DictType):
             _type = _complex_type_to_type(prop.name, prop.type)
+        elif isinstance(prop.type, ScalarType):
+            _type = _SCALAR_TO_PYTHON.get(prop.type, str)
         else:
             _type = prop.type
 
@@ -79,7 +108,7 @@ def _complex_type_to_type(
     field_name: str,
     complex_type: Any,
 ) -> type[BaseModel | Any] | GenericAlias:
-    if isinstance(complex_type, NestedSchemaModel):
+    if isinstance(complex_type, NestedType):
         return create_model(  # type: ignore[call-overload]
             f'{field_name.capitalize()}Nested',
             **{
@@ -87,9 +116,9 @@ def _complex_type_to_type(
                 for prop, prop_type in complex_type.properties.items()
             },
         )
-    if isinstance(complex_type, ArraySchemaModel):
+    if isinstance(complex_type, ArrayType):
         return list[_complex_type_to_type('', complex_type.item_type)]  # type: ignore[misc]
-    if isinstance(complex_type, DictSchemaModel):
+    if isinstance(complex_type, DictType):
         return dict[complex_type.key_type, _complex_type_to_type('', complex_type.value_type)]  # type: ignore[misc,name-defined]
 
     return complex_type

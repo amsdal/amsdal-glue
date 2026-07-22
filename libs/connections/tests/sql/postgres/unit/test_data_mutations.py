@@ -1,6 +1,6 @@
 from unittest import mock
 
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -39,7 +39,7 @@ def test_insert_benchmark(database_connection: MockPostgresConnection, benchmark
 
 def test_insert_benchmark_100(database_connection: MockPostgresConnection, benchmark) -> None:
     _data = [
-        Data(
+        DataInput(
             data={'id': i, 'name': 'customer'},
         )
         for i in range(100)
@@ -58,7 +58,7 @@ def test_insert_benchmark_100(database_connection: MockPostgresConnection, bench
 
 def test_insert_benchmark_1000(database_connection: MockPostgresConnection, benchmark) -> None:
     _data = [
-        Data(
+        DataInput(
             data={'id': i, 'name': 'customer'},
         )
         for i in range(1000)
@@ -77,7 +77,7 @@ def test_insert_benchmark_1000(database_connection: MockPostgresConnection, benc
 
 def test_insert_benchmark_10000(database_connection: MockPostgresConnection, benchmark) -> None:
     _data = [
-        Data(
+        DataInput(
             data={'id': i, 'name': 'customer'},
         )
         for i in range(10000)
@@ -99,8 +99,8 @@ def test_insert_multiple(database_connection: MockPostgresConnection) -> None:
 
     database_connection.execute_mock.assert_has_calls([
         mock.call('INSERT INTO "customers" ("id", "name") VALUES (%s, %s)', ('1', 'customer')),
-        mock.call('INSERT INTO "customers" ("age", "id", "name") VALUES (%s, %s, %s)', (25, '2', 'customer')),
-        mock.call('INSERT INTO "orders" ("amount", "customer_id", "id") VALUES (%s, %s, %s)', (100, '1', '1')),
+        mock.call('INSERT INTO "customers" ("id", "name", "age") VALUES (%s, %s, %s)', ('2', 'customer', 25)),
+        mock.call('INSERT INTO "orders" ("id", "customer_id", "amount") VALUES (%s, %s, %s)', ('1', '1', 100)),
     ])
 
 
@@ -109,8 +109,8 @@ def test_insert_multiple__with_namespaces(database_connection: MockPostgresConne
 
     database_connection.execute_mock.assert_has_calls([
         mock.call('INSERT INTO "ns1"."customers" ("id", "name") VALUES (%s, %s)', ('1', 'customer')),
-        mock.call('INSERT INTO "ns1"."customers" ("age", "id", "name") VALUES (%s, %s, %s)', (25, '2', 'customer')),
-        mock.call('INSERT INTO "ns2"."orders" ("amount", "customer_id", "id") VALUES (%s, %s, %s)', (100, '1', '1')),
+        mock.call('INSERT INTO "ns1"."customers" ("id", "name", "age") VALUES (%s, %s, %s)', ('2', 'customer', 25)),
+        mock.call('INSERT INTO "ns2"."orders" ("id", "customer_id", "amount") VALUES (%s, %s, %s)', ('1', '1', 100)),
     ])
 
 
@@ -148,7 +148,7 @@ def test_delete(database_connection: MockPostgresConnection) -> None:
     delete_customer(database_connection)
 
     database_connection.execute_mock.assert_called_once_with(
-        'DELETE FROM "customers" WHERE age < %s',
+        'DELETE FROM "customers" WHERE "age" < %s',
         (27,),
     )
 
@@ -157,7 +157,7 @@ def test_delete__with_namespace(database_connection: MockPostgresConnection) -> 
     delete_customer(database_connection, namespace='ns1')
 
     database_connection.execute_mock.assert_called_once_with(
-        'DELETE FROM "ns1"."customers" WHERE age < %s',
+        'DELETE FROM "ns1"."customers" WHERE "age" < %s',
         (27,),
     )
 

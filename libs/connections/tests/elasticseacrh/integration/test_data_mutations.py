@@ -1,4 +1,4 @@
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -67,13 +67,13 @@ def test_delete(database_connection: ElasticsearchConnection) -> None:
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 ),
-                Data(
+                DataInput(
                     data={'id': '2', 'name': 'customer', 'age': 25},
                 ),
-                Data(
+                DataInput(
                     data={'id': '3', 'name': 'customer', 'age': 30},
                 ),
             ],

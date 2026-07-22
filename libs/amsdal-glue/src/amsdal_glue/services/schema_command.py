@@ -36,7 +36,7 @@ class DefaultSchemaCommandService(SchemaCommandService):
             SchemaCommand(
                 mutations=[
                     DeleteSchema(
-                        schema_reference=SchemaReference(
+                        schema_ref=SchemaReference(
                             name='user',
                             version=Version.LATEST,
                         ),
@@ -102,7 +102,7 @@ class DefaultAsyncSchemaCommandService(AsyncSchemaCommandService):
             SchemaCommand(
                 mutations=[
                     DeleteSchema(
-                        schema_reference=SchemaReference(
+                        schema_ref=SchemaReference(
                             name='user',
                             version=Version.LATEST,
                         ),

@@ -4,9 +4,6 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -16,12 +13,15 @@ from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
+from amsdal_glue_core.common.expressions.func import Func
+from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.queries import DataQueryOperation
 from amsdal_glue_core.common.services.queries import DataQueryService
@@ -91,9 +91,13 @@ sum_city_population_query = QueryStatement(
         FieldReferenceAliased(field=Field(name='country_name'), table_name='cts_codes', alias='country_name'),
         FieldReferenceAliased(field=Field(name='population'), table_name='cnt', alias='country_population'),
     ],
-    aggregations=[
-        AggregationQuery(
-            expression=Sum(field=FieldReference(field=Field(name='city_population'), table_name='cts_codes')),
+    expressions=[
+        SelectExpression(
+            expression=Sum(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='city_population'), table_name='cts_codes')
+                )
+            ),
             alias='city_population',
         ),
     ],
@@ -117,15 +121,21 @@ sum_city_population_query = QueryStatement(
     ],
     group_by=[
         GroupByQuery(
-            field=FieldReference(field=Field(name='country_name'), table_name='cts_codes'),
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_name'), table_name='cts_codes')
+            ),
         ),
         GroupByQuery(
-            field=FieldReference(field=Field(name='population'), table_name='cnt'),
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='population'), table_name='cnt')
+            ),
         ),
     ],
     order_by=[
         OrderByQuery(
-            field=FieldReference(field=Field(name='country_name'), table_name='cts_codes'),
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_name'), table_name='cts_codes')
+            ),
         ),
     ],
 )
@@ -136,13 +146,15 @@ sum_non_city_population_query = QueryStatement(
         FieldReferenceAliased(field=Field(name='city_population'), table_name='pop', alias='city_population'),
         FieldReferenceAliased(field=Field(name='country_population'), table_name='pop', alias='country_population'),
     ],
-    annotations=[
-        AnnotationQuery(
-            value=ExpressionAnnotation(
-                expression=FieldReference(field=Field(name='country_population'), table_name='pop')
-                - FieldReference(field=Field(name='city_population'), table_name='pop'),
-                alias='non_city_population',
+    expressions=[
+        SelectExpression(
+            expression=FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='country_population'), table_name='pop')
+            )
+            - FieldReferenceExpression(
+                field_reference=FieldReference(field=Field(name='city_population'), table_name='pop')
             ),
+            alias='non_city_population',
         ),
     ],
     table=SubQueryStatement(query=sum_city_population_query, alias='pop'),
@@ -228,42 +240,53 @@ def test_expressions() -> None:
         only=[
             FieldReferenceAliased(field=Field(name='population'), table_name='cnt', alias='country_population'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    expression=FieldReference(field=Field(name='population'), table_name='cnt') + 1000,
-                    alias='add',
-                ),
+        expressions=[
+            SelectExpression(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='population'), table_name='cnt')
+                )
+                + 1000,
+                alias='add',
             ),
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    expression=FieldReference(field=Field(name='population'), table_name='cnt') - 1000,
-                    alias='sub',
-                ),
+            SelectExpression(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='population'), table_name='cnt')
+                )
+                - 1000,
+                alias='sub',
             ),
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    expression=FieldReference(field=Field(name='population'), table_name='cnt') * 1000,
-                    alias='mul',
-                ),
+            SelectExpression(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='population'), table_name='cnt')
+                )
+                * 1000,
+                alias='mul',
             ),
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    expression=FieldReference(field=Field(name='population'), table_name='cnt') / 1000,
-                    alias='div',
-                ),
+            SelectExpression(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='population'), table_name='cnt')
+                )
+                / 1000,
+                alias='div',
             ),
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    expression=FieldReference(field=Field(name='population'), table_name='cnt') ** 2,
-                    alias='pow',
+            SelectExpression(
+                expression=Func(
+                    name='POWER',
+                    args=[
+                        FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='population'), table_name='cnt')
+                        ),
+                        Value(value=2),
+                    ],
                 ),
+                alias='pow',
             ),
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    expression=FieldReference(field=Field(name='population'), table_name='cnt') % 2,
-                    alias='mod',
-                ),
+            SelectExpression(
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='population'), table_name='cnt')
+                )
+                % 2,
+                alias='mod',
             ),
         ],
         table=SchemaReference(name='countries', alias='cnt', version=Version.LATEST),

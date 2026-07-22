@@ -1,53 +1,56 @@
 import logging
 import sqlite3
 import uuid
+from copy import copy
 from datetime import date
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.constraints import BaseConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.data import DataInput
+from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
-from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
-from amsdal_glue_core.common.exceptions import UniqueViolationError
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
+from amsdal_glue_core.common.operations.mutations.data import InsertFromSelect
+from amsdal_glue_core.common.operations.mutations.data import UpdateData
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
+from amsdal_glue_core.common.operations.mutations.schema import AddIndex
+from amsdal_glue_core.common.operations.mutations.schema import AddProperty
 from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
+from amsdal_glue_core.common.operations.mutations.schema import DeleteProperty
+from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
+from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
-from amsdal_glue_connections.sql.connections.sqlite_connection.base import get_sqlite_transform
+from amsdal_glue_connections._sql_core import SqlGenerator
+from amsdal_glue_connections.sql.connections.base_view_introspection import AsyncSchemaAssemblyMixin
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_add_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_create_indexes
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_create_table
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_drop_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_migrate_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_rename_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
-
-logger = logging.getLogger(__name__)
-
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _CONSTRAINT_COLUMNS
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _INDEX_COLUMNS
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _PROPERTY_COLUMNS
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _SQLITE_MAX_IN
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import SqliteSchemaAssemblyMixin
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
     import aiosqlite
@@ -55,9 +58,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
+class AsyncSqliteConnection(
+    AsyncSchemaAssemblyMixin, SqliteSchemaAssemblyMixin, SqliteConnectionMixin, AsyncConnectionBase
+):
+    # `SchemaAssemblyMixin._run_registry` hook: chunk IN-lists at `_SQLITE_MAX_IN` (see comment on
+    # that constant in the sync connection) instead of issuing one unbounded `IN (...)` per table.
+    _MAX_IN_PARAMS = _SQLITE_MAX_IN
+
     def __init__(self) -> None:
         self._connection: aiosqlite.Connection | None = None
+        self._generator = SqlGenerator('sqlite', param_style='qmark')
         super().__init__()
 
     @property
@@ -139,15 +149,24 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
-        # Disable the deprecated adapters
-        sqlite3.register_adapter(date, lambda val: val.isoformat())
-        sqlite3.register_adapter(datetime, lambda val: val.isoformat())
-
-        # Register converters if you need to read datetime from DB
+        # date/datetime adapters are registered once, module-level, in base.py (single source of
+        # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
         sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
+        # A TIMESTAMPTZ-declared column stores a datetime the same way TIMESTAMP does; register the
+        # converter under its declared-type name too so read-back re-hydrates a Python datetime
+        # (``fromisoformat`` restores the tzinfo offset) instead of leaving it a raw ISO string.
+        sqlite3.register_converter('TIMESTAMPTZ', lambda val: datetime.fromisoformat(val.decode()))
+        # DECIMAL_TEXT is the TEXT-affinity SQLite rendering of DecimalType; re-hydrate the stored
+        # decimal string back into an exact Decimal so glue returns a typed value, not a str.
+        sqlite3.register_converter('DECIMAL_TEXT', lambda val: Decimal(val.decode()))
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Enable PARSE_DECLTYPES so the DATE/TIMESTAMP converters above actually fire on read-back.
+        # aiosqlite forwards detect_types to the underlying sqlite3.connect.
+        # Respect a caller-supplied detect_types (only default it when absent).
+        kwargs.setdefault('detect_types', sqlite3.PARSE_DECLTYPES)
 
         self._db_path = Path(db_path)
         self._connection = await aiosqlite.connect(db_path, check_same_thread=check_same_thread, **kwargs)
@@ -174,10 +193,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             ConnectionError: If there is an error executing the query.
             ValueError: If a column name is duplicated.
         """
-        _stmt, _params = build_sql_query(
-            query,
-            transform=get_sqlite_transform(),
-        )
+        _stmt, _params = self._generator.compile_query(query)
 
         try:
             cursor = await self.execute(_stmt, *_params)
@@ -198,42 +214,73 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         return result
 
-    async def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+    async def query_schema(self, query: QueryStatement) -> list[Schema]:
         """
         Queries the schema of the SQLite database.
 
         Args:
-            filters (Conditions, optional): Filters to apply to the schema query. Defaults to None.
+            query (QueryStatement): The query statement referencing the registry view.
 
         Returns:
             list[Schema]: The list of schemas matching the filters.
         """
-        stmt = self.TABLE_SQL
+        await self._ensure_schema_views()
 
-        if filters and filters.children:
-            where, values = build_where(filters, transform=get_sqlite_transform())
-            stmt += f' WHERE {where}'
-        else:
-            values = []
+        ref_name = query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
 
-        cursor = await self.execute(stmt, *values)
-        tables = await cursor.fetchall()
+        resolved = copy(query)
+        resolved.only = [FieldReference(field=Field(name='table_name'), table_name=ref_name)]
+
+        sql, params = self._generator.compile_query(resolved)
+        cursor = await self.execute(sql, *params)
+        rows = await cursor.fetchall()
         await cursor.close()
-        result = []
 
-        for table in tables:
-            table_name = table[0]
-            properties, constraints, indexes = await self.get_table_info(table_name)
-            schema = Schema(
-                name=table_name,
-                version=Version.LATEST,
-                properties=properties,
-                constraints=constraints,
-                indexes=indexes,
-            )
-            result.append(schema)
+        table_names = self._dedupe_names(rows)
 
-        return result
+        if not table_names:
+            return []
+
+        # One bound registry query per catalog aspect plus one batched DDL read -- a constant,
+        # small number of statements regardless of how many tables match (no per-table PRAGMA
+        # N+1). Beyond `_SQLITE_MAX_IN` tables, `_run_registry`/`_batch_ddls` transparently chunk
+        # the IN-list to stay under SQLite's bound-parameter ceiling.
+        property_rows = await self._run_registry(TABLE_PROPERTY_REGISTRY, _PROPERTY_COLUMNS, table_names)
+        index_rows = await self._run_registry(TABLE_INDEX_REGISTRY, _INDEX_COLUMNS, table_names)
+        constraint_rows = await self._run_registry(TABLE_CONSTRAINT_REGISTRY, _CONSTRAINT_COLUMNS, table_names)
+        table_ddls, index_ddls = await self._batch_ddls(table_names)
+
+        return self._build_schemas(
+            table_names,
+            self._group(property_rows),
+            self._group(constraint_rows),
+            self._group(index_rows),
+            table_ddls,
+            index_ddls,
+        )
+
+    async def _batch_ddls(self, names: list[str]) -> tuple[dict[str, str], dict[str, str]]:
+        """Read every table and index DDL for `names` from ``sqlite_master`` (async, chunked).
+
+        Returns ``(table_ddl_by_name, index_ddl_by_name)``. `names` is bound twice per query (table
+        match + index match), so this chunks at `_SQLITE_MAX_IN` -- 2 * 400 = 800 bound params per
+        statement, under `SQLITE_MAX_VARIABLE_NUMBER`'s lowest observed default of 999.
+        """
+        table_ddls: dict[str, str] = {}
+        index_ddls: dict[str, str] = {}
+        for start in range(0, len(names), _SQLITE_MAX_IN):
+            chunk = names[start : start + _SQLITE_MAX_IN]
+            cursor = await self.execute(self._batch_ddls_query(chunk), *chunk, *chunk)
+            self._collect_ddl_rows(await cursor.fetchall(), table_ddls, index_ddls)
+            await cursor.close()
+        return table_ddls, index_ddls
+
+    async def _ensure_schema_views(self) -> None:
+        # The view DDL is idempotent (CREATE ... IF NOT EXISTS), so it is re-issued on every call
+        # rather than gated by a per-object flag that would go stale across disconnect()/connect()
+        # cycles (temporary views are per-connection, so a reconnect must recreate them).
+        for sql in self._REGISTRY_VIEW_SQL.values():
+            await self.execute(sql)
 
     async def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -249,10 +296,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         return [(await self._run_mutation(mutation)) for mutation in mutations]
 
     async def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
-        _stmt, _params = build_sql_data_command(
-            mutation,
-            transform=get_sqlite_transform(),
-        )
+        _stmt, _params = self._generator.compile_mutation(mutation)
 
         try:
             await self.execute(_stmt, *_params)
@@ -307,6 +351,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             raise ImportError(_msg) from None
 
         cursor = await self.connection.cursor()
+        args = bind_params(args)
 
         try:
             if self.debug_queries:
@@ -315,10 +360,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
             await cursor.execute(query, args)
         except aiosqlite.IntegrityError as exc:
-            if 'UNIQUE constraint failed' in str(exc):
-                raise UniqueViolationError(str(exc)) from exc
-            if 'FOREIGN KEY constraint failed' in str(exc):
-                raise ForeignKeyViolationError(str(exc)) from exc
+            self._map_integrity_error(exc)
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
         except aiosqlite.Error as exc:
@@ -327,178 +369,41 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
         return cursor
 
-    async def get_table_info(  # noqa: C901
-        self,
-        table_name: str,
-    ) -> tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]:
-        """
-        Gets the information of a table in the SQLite database.
-
-        Args:
-            table_name (str): The name of the table.
-
-        Returns:
-            tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]: The properties, constraints,
-                                                                                  and indexes of the table.
-        """
-        cursor = await self.execute(f"PRAGMA table_info('{table_name}')")
-        columns = await cursor.fetchall()
-        await cursor.close()
-
-        if not columns:
-            return [], [], []
-
-        cursor = await self.execute(
-            f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';"  # noqa: S608
-        )
-        table_sql = (await cursor.fetchone() or [])[0]
-        await cursor.close()
-
-        properties = [
-            PropertySchema(
-                name=column[1],
-                type=self.to_python_type(column[2]),
-                required=column[3] == 1,
-                description=None,
-                default=column[4],
-            )
-            for column in columns
-        ]
-
-        # Get primary keys
-        constraints: list[BaseConstraint] = []
-
-        pk_columns = [column[1] for column in columns if column[5]]
-        if pk_columns:
-            constraints.append(
-                PrimaryKeyConstraint(
-                    name=self._get_pk_name(table_sql) or f'pk_{table_name}',
-                    fields=pk_columns,
-                )
-            )
-
-        constraints.extend(self._get_unique_constrains(table_name, table_sql))
-
-        # Get constraints info
-        cursor = await self.execute(f"PRAGMA foreign_key_list('{table_name}')")
-        foreign_keys = await cursor.fetchall()
-        await cursor.close()
-
-        # Group foreign keys by their ID to handle composite foreign keys
-        fk_groups = {}
-        for fk in foreign_keys:
-            fk_id = fk[0]  # ID of the foreign key constraint
-            if fk_id not in fk_groups:
-                fk_groups[fk_id] = {
-                    'table': fk[2],  # Referenced table
-                    'fields': [],  # Fields in this table
-                    'ref_fields': [],  # Fields in referenced table
-                }
-            fk_groups[fk_id]['fields'].append(fk[3])
-            fk_groups[fk_id]['ref_fields'].append(fk[4])
-
-        # Create foreign key constraints
-        for fk_group in fk_groups.values():
-            # For composite keys, use the first field for naming if no constraint name is found
-            primary_field = fk_group['fields'][0]
-            constraint_name = self._get_fk_name(table_sql, field_name=primary_field)
-
-            # If no constraint name is found, generate one based on the fields
-            if not constraint_name:
-                if len(fk_group['fields']) == 1:
-                    constraint_name = f'fk_{primary_field}'
-                else:
-                    # For composite keys, include all field names in the constraint name
-                    constraint_name = f'fk_{"_".join(fk_group["fields"])}'
-
-            constraints.append(
-                ForeignKeyConstraint(
-                    name=constraint_name,
-                    fields=fk_group['fields'],
-                    reference_schema=SchemaReference(
-                        name=fk_group['table'],
-                        version=Version.LATEST,
-                    ),
-                    reference_fields=fk_group['ref_fields'],
-                )
-            )
-
-        # Get indexes info
-        cursor = await self.execute(f"PRAGMA index_list('{table_name}')")
-        indexes_list = await cursor.fetchall()
-        await cursor.close()
-
-        indexes = []
-
-        for index in indexes_list:
-            cursor = await self.execute(f"PRAGMA index_info('{index[1]}')")
-            index_info = await cursor.fetchall()
-            await cursor.close()
-
-            index_fields = [field[2] for field in index_info]
-
-            if not self._is_constraint(index_fields, constraints) and not index[2]:
-                if index[2]:
-                    constraints.append(
-                        UniqueConstraint(
-                            name=index[1],
-                            fields=index_fields,
-                            condition=None,
-                        ),
-                    )
-                else:
-                    indexes.append(
-                        IndexSchema(
-                            name=index[1],
-                            fields=index_fields,
-                            condition=None,
-                        ),
-                    )
-
-        return properties, constraints, indexes
-
-    @staticmethod
-    def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
-        for constraint in constraints:
-            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
-                continue
-
-            if index_fields == constraint.fields:
-                return True
-        return False
-
-    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
+    async def acquire_lock(self, lock: LockCommand) -> Any:  # noqa: ARG002
         """
         Acquires a lock on the SQLite database.
 
+        This is a no-op. ``BEGIN EXCLUSIVE`` itself DOES work across async contexts -- aiosqlite
+        keeps the transaction open on its worker thread and blocks other connections/processes,
+        exactly like the sync path. It is not issued here because of the connection pool: for
+        ``transaction_id=None`` operations the pool hands the SAME connection to concurrently
+        running coroutines, so a ``BEGIN EXCLUSIVE`` on it breaks them -- a second acquirer raises
+        ``cannot start a transaction within a transaction`` and an unrelated coroutine's write
+        silently joins the open transaction (losing isolation). The sync path avoids this only
+        because it never interleaves coroutines on one connection. Correct async locking needs a
+        transaction-scoped connection used solely by the lock holder.
+
         Args:
-            lock (ExecutionLockCommand): The lock command.
+            lock (LockCommand): The lock command.
 
         Returns:
             Any: The result of the lock acquisition.
         """
-
-        # TODO: add "BEGIN EXCLUSIVE" similar to sync version
-        # Currently it does not work, probably due to re-using the same connection in
-        # different async contexts. Need to investigate and fix it.
-
         return True
 
-    async def release_lock(self, lock: ExecutionLockCommand) -> Any:  # noqa: ARG002
+    async def release_lock(self, lock: LockCommand) -> Any:  # noqa: ARG002
         """
         Releases a lock on the SQLite database.
 
+        No-op mirror of ``acquire_lock`` (see there for why async locking is not issued on the
+        shared pooled connection).
+
         Args:
-            lock (ExecutionLockCommand): The lock command.
+            lock (LockCommand): The lock command.
 
         Returns:
             Any: The result of the lock release.
         """
-
-        # TODO: add "COMMIT" for "EXCLUSIVE" mode similar to sync version
-        # Currently it does not work, probably due to re-using the same connection in
-        # different async contexts. Need to investigate and fix it.
-
         return True
 
     async def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
@@ -559,157 +464,169 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         Returns:
             Any: The result of the transaction revert.
         """
-        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            await self.connection.execute(f"ROLLBACK TO SAVEPOINT '{transaction.parent_transaction_id}'")
-        else:
-            await self.connection.execute('ROLLBACK')
-        return True
+        return await self.rollback_transaction(transaction)
 
     async def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:
         if isinstance(mutation, UpdateProperty):
-            new_uuid = f'f{uuid.uuid4().hex}'
-
-            new_property = mutation.property.__copy__()
-            new_property.name = new_uuid
-
-            if new_property.required and new_property.default is None:
-                msg = (
-                    f'Cannot update {mutation.property.name} column. '
-                    f"SQLite doesn't support ALTER COLUMN with required=True and no default value."
-                )
-                raise ValueError(msg)
-
-            statements = [
-                build_add_column(mutation.schema_reference, new_property, type_transform=self.to_sql_type),
-                build_migrate_column(mutation.schema_reference, mutation.property.name, new_uuid),
-                build_drop_column(mutation.schema_reference, mutation.property.name),
-                build_rename_column(mutation.schema_reference, new_uuid, mutation.property.name),
-            ]
-        elif isinstance(mutation, AddConstraint | DeleteConstraint):
+            await self._update_property(mutation)
+            return None
+        if isinstance(mutation, AddConstraint | DeleteConstraint):
             await self._recreate_table_with_constraints(mutation)
             return None
-        else:
-            statements = build_schema_mutation(
-                mutation,
-                type_transform=self.to_sql_type,
-                transform=get_sqlite_transform(),
-            )
 
-        for stmt, values in statements:
-            await self.execute(stmt, *values)
+        sql_params_list = self._generator.compile_schema_mutation(mutation)
+
+        for sql, params in sql_params_list:
+            await self.execute(sql, *params)
 
         if isinstance(mutation, RegisterSchema):
             return mutation.schema
 
         return None
 
-    async def _recreate_table_with_constraints(self, mutation: AddConstraint | DeleteConstraint) -> None:  # noqa: C901, PLR0912, PLR0915
-        try:
-            import aiosqlite
-        except ImportError:
-            _msg = (
-                '"aiosqlite" package is required for AsyncSqliteConnection. '
-                'Use "pip install amsdal-glue-connections[async-sqlite]" to install it.'
+    async def _update_property(self, mutation: UpdateProperty) -> None:
+        """Port UpdateProperty to SQLite via ADD / UPDATE / DROP / RENAME column sequence."""
+        if mutation.property.required and mutation.property.default is None:
+            msg = (
+                f'Cannot update {mutation.property.name} column. '
+                "SQLite doesn't support ALTER COLUMN with required=True and no default value."
             )
-            raise ImportError(_msg) from None
+            raise ValueError(msg)
 
-        table_name = mutation.schema_reference.name
-        namespace = mutation.schema_reference.namespace
+        new_uuid = f'f{uuid.uuid4().hex}'
+        new_prop = copy(mutation.property)
+        new_prop.name = new_uuid
 
-        current_schemas = await self.query_schema()
-        current_schema = None
-        for schema in current_schemas:
+        ref = mutation.schema_ref
+
+        # a. Add new column with the requested type under a temporary name.
+        for sql, params in self._generator.compile_schema_mutation(AddProperty(schema_ref=ref, property=new_prop)):
+            await self.execute(sql, *params)
+
+        # b. Copy data from the old column into the new one.
+        copy_stmt, copy_params = self._generator.compile_mutation(
+            UpdateData(
+                schema=ref,
+                data=DataInput(
+                    data={
+                        new_uuid: FieldReferenceExpression(
+                            field_reference=FieldReference(
+                                field=Field(name=mutation.property.name),
+                                table_name=ref.name,
+                            )
+                        )
+                    },
+                ),
+            )
+        )
+        await self.execute(copy_stmt, *copy_params)
+
+        # c. Drop the old column.
+        for sql, params in self._generator.compile_schema_mutation(
+            DeleteProperty(schema_ref=ref, property_name=mutation.property.name)
+        ):
+            await self.execute(sql, *params)
+
+        # d. Rename the temporary column to the original name.
+        for sql, params in self._generator.compile_schema_mutation(
+            RenameProperty(schema_ref=ref, old_name=new_uuid, new_name=mutation.property.name)
+        ):
+            await self.execute(sql, *params)
+
+    async def _recreate_table_with_constraints(  # noqa: C901, PLR0912
+        self, mutation: AddConstraint | DeleteConstraint
+    ) -> None:
+        """Rebuild the table under a temp name to apply AddConstraint / DeleteConstraint on SQLite."""
+        table_name = mutation.schema_ref.name
+        namespace = mutation.schema_ref.namespace
+
+        # Introspect the current schema.
+        all_schemas = await self.query_schema(
+            QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+        )
+        current_schema: Schema | None = None
+        for schema in all_schemas:
             schema_namespace = schema.namespace
             if schema.name == table_name and (
-                (namespace is None and (schema_namespace is None or schema_namespace == ''))
-                or (namespace == '' and (schema_namespace is None or schema_namespace == ''))
-                or (namespace == schema_namespace)
+                (not namespace and not schema_namespace) or namespace == schema_namespace
             ):
                 current_schema = schema
                 break
 
         if current_schema is None:
-            msg = f'Table {table_name} not found. Available tables: {[(s.name, s.namespace) for s in current_schemas]}'
+            msg = f'Table {table_name} not found. Available tables: {[(s.name, s.namespace) for s in all_schemas]}'
             raise ValueError(msg)
 
+        # Compute the new constraint list.
         new_constraints = list(current_schema.constraints or [])
-
         if isinstance(mutation, AddConstraint):
             new_constraints.append(mutation.constraint)
-        elif isinstance(mutation, DeleteConstraint):
+        else:
             new_constraints = [c for c in new_constraints if c.name != mutation.constraint_name]
 
-        new_schema = Schema(
-            name=current_schema.name,
-            namespace=current_schema.namespace,
-            version=current_schema.version,
-            properties=current_schema.properties,
-            constraints=new_constraints,
-            indexes=current_schema.indexes,
-        )
-
+        # Build the temp-table schema.
         temp_table_name = f'temp_{table_name}_{uuid.uuid4().hex[:8]}'
+        temp_ref = SchemaReference(name=temp_table_name, version=Version.LATEST)
+        orig_ref = SchemaReference(name=table_name, version=Version.LATEST, namespace=namespace)
         temp_schema = Schema(
             name=temp_table_name,
-            namespace=namespace or '',
-            version=new_schema.version,
-            properties=new_schema.properties,
-            constraints=new_schema.constraints,
+            namespace=namespace,
+            version=current_schema.version,
+            properties=current_schema.properties,
+            constraints=new_constraints or None,
             indexes=[],
         )
 
-        # Check if we're already in a transaction by testing if we can start one
-        # If we can't start a transaction, we're already in one
+        # Detect whether we are already inside a transaction.
         in_transaction = False
         try:
             await self.connection.execute('BEGIN')
-        except aiosqlite.OperationalError as e:
-            if 'cannot start a transaction within a transaction' in str(e):
+        except Exception as exc:  # aiosqlite wraps sqlite3.OperationalError
+            if 'cannot start a transaction within a transaction' in str(exc):
                 in_transaction = True
             else:
                 raise
 
         try:
-            create_temp_stmt, create_temp_values = build_create_table(
-                temp_schema,
-                type_transform=self.to_sql_type,
-                transform=get_sqlite_transform(),
+            # a. CREATE temp table.
+            for sql, params in self._generator.compile_schema_mutation(
+                RegisterSchema(schema_ref=temp_ref, schema=temp_schema)
+            ):
+                await self.execute(sql, *params)
+
+            # b. Copy all rows from the original table into the temp table.
+            col_names = [prop.name for prop in current_schema.properties]
+            insert_mut = InsertFromSelect(
+                schema=temp_ref,
+                query=QueryStatement(
+                    table=orig_ref,
+                    only=[FieldReference(field=Field(name=c), table_name=table_name) for c in col_names],
+                ),
+                columns=[FieldReference(field=Field(name=c), table_name=temp_table_name) for c in col_names],
             )
-            await self.execute(create_temp_stmt, *create_temp_values)
+            copy_sql, copy_params = self._generator.compile_mutation(insert_mut)
+            await self.execute(copy_sql, *copy_params)
 
-            namespace_prefix = f"'{namespace}'." if namespace else ''
-            column_names = [prop.name for prop in current_schema.properties]
-            columns_str_quoted = ', '.join(f"'{col}'" for col in column_names)
-            columns_str_unquoted = ', '.join(f'"{col}"' for col in column_names)
+            # c. DROP the original table.
+            for sql, params in self._generator.compile_schema_mutation(DeleteSchema(schema_ref=orig_ref)):
+                await self.execute(sql, *params)
 
-            copy_stmt = (
-                f"INSERT INTO {namespace_prefix}'{temp_table_name}' ({columns_str_quoted}) "  # noqa: S608
-                f"SELECT {columns_str_unquoted} FROM {namespace_prefix}'{table_name}'"
-            )
-            await self.execute(copy_stmt)
+            # d. RENAME temp → original.
+            for sql, params in self._generator.compile_schema_mutation(
+                RenameSchema(schema_ref=temp_ref, new_name=table_name)
+            ):
+                await self.execute(sql, *params)
 
-            drop_stmt = f"DROP TABLE {namespace_prefix}'{table_name}'"
-            await self.execute(drop_stmt)
+            # e. Recreate indexes on the renamed table.
+            renamed_ref = SchemaReference(name=table_name, version=Version.LATEST, namespace=namespace)
+            for idx in current_schema.indexes or []:
+                for sql, params in self._generator.compile_schema_mutation(AddIndex(schema_ref=renamed_ref, index=idx)):
+                    await self.execute(sql, *params)
 
-            rename_stmt = f"ALTER TABLE {namespace_prefix}'{temp_table_name}' RENAME TO '{table_name}'"
-            await self.execute(rename_stmt)
-
-            if current_schema.indexes:
-                index_statements = build_create_indexes(
-                    table_name,
-                    namespace or '',
-                    current_schema.indexes,
-                    transform=get_sqlite_transform(),
-                )
-                for index_stmt, index_values in index_statements:
-                    await self.execute(index_stmt, *index_values)
-
-            # Only commit if we started the transaction
             if not in_transaction:
                 await self.connection.execute('COMMIT')
 
         except Exception:
-            # Only rollback if we started the transaction
             if not in_transaction:
                 await self.connection.execute('ROLLBACK')
             raise

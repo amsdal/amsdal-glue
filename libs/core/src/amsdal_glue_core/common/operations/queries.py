@@ -15,10 +15,10 @@ class SchemaQueryOperation(QueryOperationBase):
     """Represents a schema query operation.
 
     Attributes:
-        filters (Conditions | None): The conditions to filter the schema query. Defaults to None.
+        query (QueryStatement): The query statement for the schema query.
     """
 
-    filters: Conditions | None = None
+    query: QueryStatement
 
 
 @dataclass(kw_only=True)

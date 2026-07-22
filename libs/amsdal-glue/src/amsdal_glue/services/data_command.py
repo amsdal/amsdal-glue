@@ -22,7 +22,7 @@ class DefaultDataCommandService(DataCommandService):
         ```python
         from amsdal_glue import init_default_containers
         from amsdal_glue import Container
-        from amsdal_glue import DataCommand, Data, SchemaReference
+        from amsdal_glue import DataCommand, DataInput, SchemaReference
         from amsdal_glue.services import DataCommandService
 
         # Register default containers
@@ -38,19 +38,25 @@ class DefaultDataCommandService(DataCommandService):
                     InsertData(
                         schema=SchemaReference(name='customers', version=Version.LATEST),
                         data=[
-                            Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
-                            Data(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
-                            Data(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
-                            Data(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
+                            DataInput(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                            DataInput(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
+                            DataInput(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
+                            DataInput(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
                         ],
                     ),
                     InsertData(
                         schema=SchemaReference(name='logs', version=Version.LATEST),
                         data=[
-                            Data(data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}),
-                            Data(data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}),
-                            Data(data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor'}),
-                            Data(data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna'}),
+                            DataInput(
+                                data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}
+                            ),
+                            DataInput(
+                                data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}
+                            ),
+                            DataInput(data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor'}),
+                            DataInput(
+                                data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna'}
+                            ),
                         ],
                     ),
                 ],
@@ -100,7 +106,7 @@ class DefaultAsyncDataCommandService(AsyncDataCommandService):
         ```python
         from amsdal_glue import init_default_containers
         from amsdal_glue import Container
-        from amsdal_glue import DataCommand, Data, SchemaReference
+        from amsdal_glue import DataCommand, DataInput, SchemaReference
         from amsdal_glue.services import AsyncDataCommandService
 
         # Register default containers
@@ -116,19 +122,25 @@ class DefaultAsyncDataCommandService(AsyncDataCommandService):
                     InsertData(
                         schema=SchemaReference(name='customers', version=Version.LATEST),
                         data=[
-                            Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
-                            Data(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
-                            Data(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
-                            Data(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
+                            DataInput(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                            DataInput(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
+                            DataInput(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
+                            DataInput(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
                         ],
                     ),
                     InsertData(
                         schema=SchemaReference(name='logs', version=Version.LATEST),
                         data=[
-                            Data(data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}),
-                            Data(data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}),
-                            Data(data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor'}),
-                            Data(data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna'}),
+                            DataInput(
+                                data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}
+                            ),
+                            DataInput(
+                                data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}
+                            ),
+                            DataInput(data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor'}),
+                            DataInput(
+                                data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna'}
+                            ),
                         ],
                     ),
                 ],

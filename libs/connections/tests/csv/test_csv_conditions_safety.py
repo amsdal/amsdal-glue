@@ -29,11 +29,16 @@ def _df() -> pd.DataFrame:
 
 
 def _exists_child() -> Exists:
-    sub = QueryStatement(
-        only=[FieldReference(field=Field(name='1'), table_name='')],
-        table=SchemaReference(name='Other'),
+    from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+
+    sub = SubQueryStatement(
+        query=QueryStatement(
+            only=[FieldReference(field=Field(name='1'), table_name='')],
+            table=SchemaReference(name='Other'),
+        ),
+        alias='_exists_subquery',
     )
-    return Exists(query=sub)
+    return Exists(subquery=sub)
 
 
 def _eq_id_1() -> Condition:

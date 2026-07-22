@@ -9,11 +9,10 @@ import pytest
 from amsdal_glue_connections.elasticsearch_connection.sync_connection import ElasticsearchConnection
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
+from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -23,10 +22,12 @@ from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
@@ -99,69 +100,71 @@ def _register_default_connection() -> Generator[None, None, None]:
             SchemaCommand(
                 mutations=[
                     RegisterSchema(
+                        schema_ref=SchemaReference(name='customers', version=Version.LATEST),
                         schema=Schema(
                             name='customers',
                             version=Version.LATEST,
                             properties=[
                                 PropertySchema(
                                     name='id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='age',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='first_name',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='last_name',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='country',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                             ],
                             constraints=[],
                             indexes=[],
-                        )
+                        ),
                     ),
                     RegisterSchema(
+                        schema_ref=SchemaReference(name='orders', version=Version.LATEST),
                         schema=Schema(
                             name='orders',
                             version=Version.LATEST,
                             properties=[
                                 PropertySchema(
                                     name='id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='customer_id',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='amount',
-                                    type=int,
+                                    type=ScalarType.INTEGER,
                                     required=False,
                                 ),
                                 PropertySchema(
                                     name='item',
-                                    type=str,
+                                    type=ScalarType.TEXT,
                                     required=False,
                                 ),
                             ],
                             constraints=[],
                             indexes=[],
-                        )
+                        ),
                     ),
                 ],
             ),
@@ -175,7 +178,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                     InsertData(
                         schema=SchemaReference(name='customers', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 1,
                                     'age': 31,
@@ -184,7 +187,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'country': 'USA',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 2,
                                     'age': 22,
@@ -193,7 +196,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'country': 'USA',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 3,
                                     'age': 22,
@@ -202,7 +205,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'country': 'UK',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 4,
                                     'age': 25,
@@ -211,7 +214,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'country': 'USA',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 5,
                                     'age': 25,
@@ -225,7 +228,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                     InsertData(
                         schema=SchemaReference(name='orders', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 1,
                                     'customer_id': 4,
@@ -233,7 +236,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Keyboard',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 2,
                                     'customer_id': 4,
@@ -241,7 +244,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Mouse',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 3,
                                     'customer_id': 3,
@@ -249,7 +252,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Monitor',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 4,
                                     'customer_id': 1,
@@ -257,7 +260,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Keyboard',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 5,
                                     'customer_id': 2,
@@ -265,7 +268,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Mousepad',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 6,
                                     'customer_id': 6,
@@ -296,29 +299,30 @@ def _register_default_connection() -> Generator[None, None, None]:
                 SchemaCommand(
                     mutations=[
                         RegisterSchema(
+                            schema_ref=SchemaReference(name='shippings', version=Version.LATEST),
                             schema=Schema(
                                 name='shippings',
                                 version=Version.LATEST,
                                 properties=[
                                     PropertySchema(
                                         name='id',
-                                        type=int,
+                                        type=ScalarType.INTEGER,
                                         required=False,
                                     ),
                                     PropertySchema(
                                         name='customer_id',
-                                        type=int,
+                                        type=ScalarType.INTEGER,
                                         required=False,
                                     ),
                                     PropertySchema(
                                         name='status',
-                                        type=str,
+                                        type=ScalarType.TEXT,
                                         required=False,
                                     ),
                                 ],
                                 constraints=[],
                                 indexes=[],
-                            )
+                            ),
                         ),
                     ],
                 ),
@@ -332,12 +336,12 @@ def _register_default_connection() -> Generator[None, None, None]:
                         InsertData(
                             schema=SchemaReference(name='shippings', version=Version.LATEST),
                             data=[
-                                Data(data={'id': 1, 'customer_id': 2, 'status': 'Pending'}),
-                                Data(data={'id': 2, 'customer_id': 4, 'status': 'Pending'}),
-                                Data(data={'id': 3, 'customer_id': 3, 'status': 'Delivered'}),
-                                Data(data={'id': 4, 'customer_id': 5, 'status': 'Pending'}),
-                                Data(data={'id': 5, 'customer_id': 1, 'status': 'Delivered'}),
-                                Data(data={'id': 6, 'customer_id': 6, 'status': 'Delivered'}),
+                                DataInput(data={'id': 1, 'customer_id': 2, 'status': 'Pending'}),
+                                DataInput(data={'id': 2, 'customer_id': 4, 'status': 'Pending'}),
+                                DataInput(data={'id': 3, 'customer_id': 3, 'status': 'Delivered'}),
+                                DataInput(data={'id': 4, 'customer_id': 5, 'status': 'Pending'}),
+                                DataInput(data={'id': 5, 'customer_id': 1, 'status': 'Delivered'}),
+                                DataInput(data={'id': 6, 'customer_id': 6, 'status': 'Delivered'}),
                             ],
                         ),
                     ],
@@ -360,7 +364,9 @@ def test_query_execute_query_to_single_model() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -382,10 +388,13 @@ def test_query_execute_query_to_single_model() -> None:
 
 def test_query_execute_query_aggregation() -> None:
     query = QueryStatement(
-        aggregations=[
-            AggregationQuery(
+        only=[],
+        expressions=[
+            SelectExpression(
                 expression=Sum(
-                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='amount'), table_name='o'),
+                    ),
                 ),
                 alias='total_amount',
             ),
@@ -430,11 +439,15 @@ def test_query_execute_query_to_single_connection() -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='o'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -479,11 +492,15 @@ def test_query_execute_query_to_single_connection_fail_due_to_duplicated_selecti
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='o'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='o')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -501,15 +518,18 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
         only=[
             FieldReferenceAliased(alias='customer_id', field=Field(name='id'), table_name='c'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=SubQueryStatement(
+        expressions=[
+            SelectExpression(
+                expression=SubQueryStatement(
                     alias='total_amount',
                     query=QueryStatement(
-                        aggregations=[
-                            AggregationQuery(
+                        only=[],
+                        expressions=[
+                            SelectExpression(
                                 expression=Sum(
-                                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    expression=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    ),
                                 ),
                                 alias='total_amount',
                             ),
@@ -528,12 +548,15 @@ def test_query_execute_query_to_single_connection_subquery_aggr() -> None:
                         ),
                     ),
                 ),
+                alias='total_amount',
             ),
         ],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -581,11 +604,15 @@ def test_query_execute_query_to_multiple_connections() -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -637,11 +664,15 @@ def test_query_execute_query_with_subquery_in_from_to_multiple_connections() -> 
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -693,11 +724,15 @@ def test_query_execute_query_with_subquery_in_join_to_multiple_connections() -> 
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -724,15 +759,18 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
         only=[
             FieldReferenceAliased(alias='customer_id', field=Field(name='id'), table_name='s'),
         ],
-        annotations=[
-            AnnotationQuery(
-                value=SubQueryStatement(
+        expressions=[
+            SelectExpression(
+                expression=SubQueryStatement(
                     alias='total_amount',
                     query=QueryStatement(
-                        aggregations=[
-                            AggregationQuery(
+                        only=[],
+                        expressions=[
+                            SelectExpression(
                                 expression=Sum(
-                                    field=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    expression=FieldReferenceExpression(
+                                        field_reference=FieldReference(field=Field(name='amount'), table_name='o'),
+                                    ),
                                 ),
                                 alias='total_amount',
                             ),
@@ -751,12 +789,15 @@ def test_query_execute_query_with_subquery_annotation_to_multiple_connections() 
                         ),
                     ),
                 ),
+                alias='total_amount',
             ),
         ],
         table=SchemaReference(name='shippings', alias='s', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='customer_id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='customer_id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -775,11 +816,13 @@ def test_query_execute_distinct() -> None:
         only=[
             FieldReference(field=Field(name='first_name'), table_name='c'),
         ],
-        distinct=True,
+        distinct=DistinctClause(),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -805,11 +848,13 @@ def test_query_execute_distinct_multiple_fields() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=True,
+        distinct=DistinctClause(),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -835,13 +880,17 @@ def test_query_execute_distinct_on_single_field() -> None:
         only=[
             FieldReference(field=Field(name='first_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -867,13 +916,17 @@ def test_query_execute_distinct_on_single_field_multiple_selected() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -899,14 +952,18 @@ def test_query_execute_distinct_on_multiple() -> None:
             FieldReference(field=Field(name='first_name'), table_name='c'),
             FieldReference(field=Field(name='last_name'), table_name='c'),
         ],
-        distinct=[
-            FieldReference(field=Field(name='first_name'), table_name='c'),
-            FieldReference(field=Field(name='last_name'), table_name='c'),
-        ],
+        distinct=DistinctClause(
+            on_fields=[
+                FieldReference(field=Field(name='first_name'), table_name='c'),
+                FieldReference(field=Field(name='last_name'), table_name='c'),
+            ]
+        ),
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='first_name'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='first_name'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

@@ -1,5 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.set_operation import SetOperation
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
@@ -11,7 +12,7 @@ from amsdal_glue_core.containers import Container
 
 
 def resolve_connection_pool(
-    table: SchemaReference | SubQueryStatement,
+    table: SchemaReference | SubQueryStatement | SetOperation,
     *,
     is_async: bool = False,
 ) -> ConnectionPoolBase | AsyncConnectionPoolBase:
@@ -19,6 +20,8 @@ def resolve_connection_pool(
         _table_name = table.name
     elif isinstance(table, SubQueryStatement):
         return resolve_connection_pool(table.query.table, is_async=is_async)
+    elif isinstance(table, SetOperation):
+        return resolve_connection_pool(table.left.table, is_async=is_async)
     else:
         msg = 'Table must be either a SchemaReference or a SubQueryStatement.'
         raise RuntimeError(msg)  # noqa: TRY004
@@ -30,7 +33,7 @@ def resolve_connection_pool(
 
 
 def resolve_connection(
-    table: SchemaReference | SubQueryStatement,
+    table: SchemaReference | SubQueryStatement | SetOperation,
     transaction_id: str | None,
 ) -> ConnectionBase:
     connection_pool = resolve_connection_pool(table=table)
@@ -42,7 +45,7 @@ def resolve_connection(
 
 
 async def resolve_async_connection(
-    table: SchemaReference | SubQueryStatement,
+    table: SchemaReference | SubQueryStatement | SetOperation,
     transaction_id: str | None,
 ) -> AsyncConnectionBase:
     connection_pool = resolve_connection_pool(table=table, is_async=True)

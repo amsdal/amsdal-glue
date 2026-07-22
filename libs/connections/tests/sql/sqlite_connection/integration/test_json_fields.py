@@ -1,8 +1,9 @@
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ExpressionAnnotation
-from amsdal_glue_core.common.data_models.data import Data
+import json
+
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.expressions.raw import RawExpression
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 
@@ -14,10 +15,10 @@ from ..testcases.schema_mutations import create_json_fields
 def test_insert_and_read_json_data(database_connection: SqliteConnection) -> None:
     schema = create_json_fields(database_connection)
 
-    data = Data(
+    data = DataInput(
         data={
-            'field_dict': {'key': 'value'},
-            'field_list': ['item1', 'item2'],
+            'field_dict': json.dumps({'key': 'value'}),
+            'field_list': json.dumps(['item1', 'item2']),
         },
     )
 
@@ -43,10 +44,10 @@ def test_insert_and_read_json_data(database_connection: SqliteConnection) -> Non
 
 def test_annotate_json_object(database_connection: SqliteConnection) -> None:
     schema = create_json_fields(database_connection)
-    data = Data(
+    data = DataInput(
         data={
-            'field_dict': {'key': 'value'},
-            'field_list': ['item1', 'item2'],
+            'field_dict': json.dumps({'key': 'value'}),
+            'field_list': json.dumps(['item1', 'item2']),
         },
     )
 
@@ -65,12 +66,11 @@ def test_annotate_json_object(database_connection: SqliteConnection) -> None:
     )
     """  # noqa: N806
     query = QueryStatement(
-        annotations=[
-            AnnotationQuery(
-                value=ExpressionAnnotation(
-                    expression=RawExpression(METADATA_SELECT_EXPRESSION),
-                    alias='_metadata',
-                ),
+        only=[],
+        expressions=[
+            SelectExpression(
+                expression=RawExpression(METADATA_SELECT_EXPRESSION),
+                alias='_metadata',
             ),
         ],
         table=SchemaReference(name=schema.name, version=schema.version),

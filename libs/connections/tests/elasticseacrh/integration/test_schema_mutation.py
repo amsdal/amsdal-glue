@@ -1,7 +1,12 @@
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import ScalarType
+from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
 from amsdal_glue_core.common.operations.mutations.schema import AddIndex
@@ -26,7 +31,9 @@ from ..testcases.schema_mutations import update_age_property
 def test_create_schema(database_connection: ElasticsearchConnection, test_prefix: str) -> None:
     create_user_schema(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
 
     # Check that one schema was created
     assert len(result) == 1
@@ -37,11 +44,11 @@ def test_create_schema(database_connection: ElasticsearchConnection, test_prefix
 
     # Verify properties (order may vary in Elasticsearch)
     expected_properties = [
-        PropertySchema(name='age', type=int, required=False),
-        PropertySchema(name='email', type=str, required=False),
-        PropertySchema(name='first_name', type=str, required=False),
-        PropertySchema(name='id', type=int, required=False),
-        PropertySchema(name='last_name', type=str, required=False),
+        PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+        PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+        PropertySchema(name='first_name', type=ScalarType.TEXT, required=False),
+        PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
+        PropertySchema(name='last_name', type=ScalarType.TEXT, required=False),
     ]
 
     # Sort both property lists by name for comparison
@@ -59,26 +66,28 @@ def test_create_schema(database_connection: ElasticsearchConnection, test_prefix
     assert schema.indexes is not None
     assert len(schema.indexes) == 1
     assert schema.indexes[0].name == 'idx_user_email'
-    assert schema.indexes[0].fields == ['first_name', 'last_name']
+    assert [f.name for f in schema.indexes[0].fields] == ['first_name', 'last_name']
 
 
 def test_rename_schema(database_connection: ElasticsearchConnection, test_prefix: str) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='age', type=int, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -87,14 +96,16 @@ def test_rename_schema(database_connection: ElasticsearchConnection, test_prefix
 
     rename_user_schema(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}customer',
             properties=[
-                PropertySchema(name='age', type=int, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -106,19 +117,21 @@ def test_delete_schema(database_connection: ElasticsearchConnection, test_prefix
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='age', type=int, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -126,7 +139,9 @@ def test_delete_schema(database_connection: ElasticsearchConnection, test_prefix
     ]
     delete_user_schema(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
 
     assert result == []
 
@@ -135,19 +150,21 @@ def test_add_property(database_connection: ElasticsearchConnection, test_prefix:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='age', type=int, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -156,15 +173,17 @@ def test_add_property(database_connection: ElasticsearchConnection, test_prefix:
 
     add_last_name_property(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='age', type=int, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
-                PropertySchema(name='last_name', type=str, required=False),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='last_name', type=ScalarType.TEXT, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -176,19 +195,21 @@ def test_delete_property(database_connection: ElasticsearchConnection, test_pref
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='age', type=int, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -197,13 +218,15 @@ def test_delete_property(database_connection: ElasticsearchConnection, test_pref
 
     delete_age_property(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -215,19 +238,21 @@ def test_update_property(database_connection: ElasticsearchConnection, test_pref
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='age', type=int, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -236,14 +261,16 @@ def test_update_property(database_connection: ElasticsearchConnection, test_pref
 
     update_age_property(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='age', type=str, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='age', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -255,19 +282,21 @@ def test_add_constraint(database_connection: ElasticsearchConnection, test_prefi
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert result == [
         Schema(
             name=f'{test_prefix}user',
             properties=[
-                PropertySchema(name='age', type=int, required=False),
-                PropertySchema(name='email', type=str, required=False),
-                PropertySchema(name='id', type=int, required=False),
+                PropertySchema(name='age', type=ScalarType.INTEGER, required=False),
+                PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+                PropertySchema(name='id', type=ScalarType.INTEGER, required=False),
             ],
             indexes=[],
             constraints=[],
@@ -276,7 +305,9 @@ def test_add_constraint(database_connection: ElasticsearchConnection, test_prefi
 
     add_unique_constraint(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.name == f'{test_prefix}user'
@@ -290,7 +321,7 @@ def test_drop_constraint(database_connection: ElasticsearchConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -299,7 +330,7 @@ def test_drop_constraint(database_connection: ElasticsearchConnection) -> None:
         SchemaCommand(
             mutations=[
                 AddConstraint(
-                    schema_reference=DEFAULT_SCHEMA_REF,
+                    schema_ref=DEFAULT_SCHEMA_REF,
                     constraint=UniqueConstraint(
                         name='uk_user_email_unique',
                         fields=['email', 'age'],
@@ -310,7 +341,9 @@ def test_drop_constraint(database_connection: ElasticsearchConnection) -> None:
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.constraints is not None
@@ -319,7 +352,9 @@ def test_drop_constraint(database_connection: ElasticsearchConnection) -> None:
 
     delete_unique_constraint(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.constraints is not None
@@ -330,12 +365,14 @@ def test_add_index(database_connection: ElasticsearchConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.indexes is not None
@@ -343,20 +380,22 @@ def test_add_index(database_connection: ElasticsearchConnection) -> None:
 
     add_index(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.indexes is not None
     assert len(schema.indexes) == 1
     assert schema.indexes[0].name == 'idx_user_email'
-    assert schema.indexes[0].fields == ['email', 'age']
+    assert [f.name for f in schema.indexes[0].fields] == ['email', 'age']
 
 
 def test_delete_index(database_connection: ElasticsearchConnection) -> None:
     database_connection.run_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=DEFAULT_SCHEMA),
+                RegisterSchema(schema_ref=DEFAULT_SCHEMA_REF, schema=DEFAULT_SCHEMA),
             ],
         ),
     )
@@ -365,14 +404,20 @@ def test_delete_index(database_connection: ElasticsearchConnection) -> None:
         SchemaCommand(
             mutations=[
                 AddIndex(
-                    schema_reference=DEFAULT_SCHEMA_REF,
-                    index=IndexSchema(name='idx_user_email', fields=['email', 'age'], condition=None),
+                    schema_ref=DEFAULT_SCHEMA_REF,
+                    index=IndexSchema(
+                        name='idx_user_email',
+                        fields=[IndexField(name='email'), IndexField(name='age')],
+                        condition=None,
+                    ),
                 ),
             ],
         ),
     )
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.indexes is not None
@@ -381,7 +426,9 @@ def test_delete_index(database_connection: ElasticsearchConnection) -> None:
 
     delete_index(database_connection)
 
-    result = database_connection.query_schema()
+    result = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
     assert len(result) == 1
     schema = result[0]
     assert schema.indexes is not None

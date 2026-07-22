@@ -1,29 +1,28 @@
-from typing import Any
+from __future__ import annotations
 
-from amsdal_glue_core.common.expressions.expression import Expression
-from amsdal_glue_core.common.expressions.value import Value
+from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.expressions.expression import Expression
 
 
 class Combinable:
-    """Mixin class to provide combinable operations for expressions.
-
-    This class defines methods for combining expressions using various
-    mathematical operators such as addition, subtraction, multiplication,
-    division, modulus, and exponentiation.
-    """
-
     ADD = '+'
     SUB = '-'
     MUL = '*'
     DIV = '/'
     MOD = '%'
     POW = '**'
-    # Bitwise operators
     XOR = '^'
     AND = '&'
     OR = '|'
 
     def _combine(self, other: Any, operator: str, *, is_reversed: bool = False) -> Expression:
+        from amsdal_glue_core.common.expressions.combined import Combined
+        from amsdal_glue_core.common.expressions.expression import Expression
+        from amsdal_glue_core.common.expressions.value import Value
+
         if not isinstance(other, Expression):
             other = other.to_expression() if hasattr(other, 'to_expression') else Value(other)
 
@@ -33,8 +32,8 @@ class Combinable:
             _self = self
 
         if is_reversed:
-            return CombinedExpression(other, operator, _self)
-        return CombinedExpression(_self, operator, other)
+            return Combined(other, operator, _self)
+        return Combined(_self, operator, other)
 
     def __neg__(self: Any) -> Expression:
         return self._combine(-1, self.MUL, is_reversed=False)
@@ -81,56 +80,14 @@ class Combinable:
     def __rmod__(self, other: Any) -> Expression:
         return self._combine(other, self.MOD, is_reversed=True)
 
-    def __rpow__(self, other: 'Combinable') -> Expression:
+    def __rpow__(self, other: Combinable) -> Expression:
         return self._combine(other, self.POW, is_reversed=True)
 
-    def __rxor__(self, other: 'Combinable') -> Expression:
+    def __rxor__(self, other: Combinable) -> Expression:
         return self._combine(other, self.XOR, is_reversed=True)
 
-    def __rand__(self, other: 'Combinable') -> Expression:
+    def __rand__(self, other: Combinable) -> Expression:
         return self._combine(other, self.AND, is_reversed=True)
 
-    def __ror__(self, other: 'Combinable') -> Expression:
+    def __ror__(self, other: Combinable) -> Expression:
         return self._combine(other, self.OR, is_reversed=True)
-
-
-class CombinedExpression(Expression):
-    """Represents a combined expression using a mathematical operator.
-
-    This class combines two expressions or values using a specified
-    mathematical operator and provides a string representation of the
-    combined expression.
-
-    Attributes:
-        left (Expression): The left operand of the combined expression.
-        operator (str): The operator used to combine the operands.
-        right (Expression): The right operand of the combined expression.
-        output_type (type[Any] | None): The output type of the expression.
-    """
-
-    def __init__(
-        self,
-        left: Expression,
-        operator: str,
-        right: Expression,
-        output_type: type[Any] | None = None,
-    ) -> None:
-        super().__init__(output_type=output_type)
-        self.left = left
-        self.operator = operator
-        self.right = right
-
-    def __repr__(self):
-        return f'<{self.__class__.__name__}: {self}>'
-
-    def __str__(self):
-        return f'{self.left} {self.operator} {self.right}'
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, CombinedExpression):
-            return False
-
-        return self.left == other.left and self.operator == other.operator and self.right == other.right
-
-    def __hash__(self) -> int:
-        return hash((self.left, self.operator, self.right))

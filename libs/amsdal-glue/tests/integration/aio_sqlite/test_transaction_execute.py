@@ -7,7 +7,7 @@ import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
 from amsdal_glue_core.commands.planner.data_command_planner import AsyncDataCommandPlanner
 from amsdal_glue_core.commands.planner.transaction_command_planner import AsyncTransactionCommandPlanner
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
@@ -76,7 +76,7 @@ async def test_transaction(register_default_connection: None) -> None:  # noqa: 
                     InsertData(
                         schema=SchemaReference(name='shippings', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
                             )
                         ],
@@ -84,7 +84,7 @@ async def test_transaction(register_default_connection: None) -> None:  # noqa: 
                     InsertData(
                         schema=SchemaReference(name='customers', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={'id': '1', 'name': 'customer'},
                             )
                         ],
@@ -139,7 +139,7 @@ async def test_transaction_rollback(register_default_connection: None) -> None: 
                     InsertData(
                         schema=SchemaReference(name='shippings', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
                             )
                         ],
@@ -147,7 +147,7 @@ async def test_transaction_rollback(register_default_connection: None) -> None: 
                     InsertData(
                         schema=SchemaReference(name='customers', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={'id': '1', 'name': 'customer'},
                             )
                         ],

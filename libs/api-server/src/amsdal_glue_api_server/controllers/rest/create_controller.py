@@ -1,5 +1,5 @@
 # mypy: disable-error-code="type-abstract"
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
@@ -20,7 +20,7 @@ def generate_create_controller(schema: Schema, schema_model: type[BaseModel]):
                     InsertData(
                         schema=SchemaReference(name=schema.name, version=Version.LATEST),
                         data=[
-                            Data(data=obj.model_dump()),  # type: ignore[attr-defined]
+                            DataInput(data=obj.model_dump()),  # type: ignore[attr-defined]
                         ],
                     ),
                 ],

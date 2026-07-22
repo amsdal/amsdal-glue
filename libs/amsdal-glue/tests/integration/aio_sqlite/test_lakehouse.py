@@ -7,12 +7,13 @@ from pytest_mock import MockerFixture
 
 from amsdal_glue import AsyncSqliteConnection
 from amsdal_glue import Container
-from amsdal_glue import Data
 from amsdal_glue import DataCommand
+from amsdal_glue import DataInput
 from amsdal_glue import DataQueryOperation
 from amsdal_glue import DefaultAsyncConnectionPool
 from amsdal_glue import Field
 from amsdal_glue import FieldReference
+from amsdal_glue import FieldReferenceExpression
 from amsdal_glue import InsertData
 from amsdal_glue import OrderByQuery
 from amsdal_glue import OrderDirection
@@ -63,12 +64,13 @@ async def lakehouse_app() -> AsyncGenerator[AsyncLakehouseApplication, None]:
 @pytest.mark.asyncio
 async def test_schema_command(lakehouse_app: AsyncLakehouseApplication) -> None:
     from .fixtures.user_schema import user_schema
+    from .fixtures.user_schema import user_schema_ref
 
     service = Container.services.get(AsyncSchemaCommandService)
     result = await service.execute(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=user_schema),
+                RegisterSchema(schema_ref=user_schema_ref, schema=user_schema),
             ],
         ),
     )
@@ -103,8 +105,8 @@ async def test_data_command(lakehouse_app: AsyncLakehouseApplication) -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'id': '1', 'name': 'Alice'}),
-                        Data(data={'id': '2', 'name': 'Bob'}),
+                        DataInput(data={'id': '1', 'name': 'Alice'}),
+                        DataInput(data={'id': '2', 'name': 'Bob'}),
                     ],
                 ),
             ],
@@ -137,8 +139,8 @@ async def test_data_query(lakehouse_app: AsyncLakehouseApplication, mocker: Mock
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'id': '1', 'name': 'Alice'}),
-                        Data(data={'id': '2', 'name': 'Bob'}),
+                        DataInput(data={'id': '1', 'name': 'Alice'}),
+                        DataInput(data={'id': '2', 'name': 'Bob'}),
                     ],
                 ),
             ],
@@ -160,7 +162,9 @@ async def test_data_query(lakehouse_app: AsyncLakehouseApplication, mocker: Mock
         table=SchemaReference(name='customers', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='customers'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

@@ -7,12 +7,13 @@ from pytest_mock import MockerFixture
 
 from amsdal_glue import AsyncSqliteConnection
 from amsdal_glue import Container
-from amsdal_glue import Data
 from amsdal_glue import DataCommand
+from amsdal_glue import DataInput
 from amsdal_glue import DataQueryOperation
 from amsdal_glue import DefaultAsyncConnectionPool
 from amsdal_glue import Field
 from amsdal_glue import FieldReference
+from amsdal_glue import FieldReferenceExpression
 from amsdal_glue import InsertData
 from amsdal_glue import OrderByQuery
 from amsdal_glue import OrderDirection
@@ -63,12 +64,13 @@ async def cqrs_app() -> AsyncGenerator[AsyncCQRSApplication, None]:
 @pytest.mark.asyncio
 async def test_schema_command(cqrs_app: AsyncCQRSApplication) -> None:
     from .fixtures.user_schema import user_schema
+    from .fixtures.user_schema import user_schema_ref
 
     service = Container.services.get(AsyncSchemaCommandService)
     result = await service.execute(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=user_schema),
+                RegisterSchema(schema_ref=user_schema_ref, schema=user_schema),
             ],
         ),
     )
@@ -103,8 +105,8 @@ async def test_data_command(cqrs_app: AsyncCQRSApplication) -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'id': '1', 'name': 'Alice'}),
-                        Data(data={'id': '2', 'name': 'Bob'}),
+                        DataInput(data={'id': '1', 'name': 'Alice'}),
+                        DataInput(data={'id': '2', 'name': 'Bob'}),
                     ],
                 ),
             ],
@@ -140,8 +142,8 @@ async def test_data_query(cqrs_app: AsyncCQRSApplication, mocker: MockerFixture)
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'id': '1', 'name': 'Alice'}),
-                        Data(data={'id': '2', 'name': 'Bob'}),
+                        DataInput(data={'id': '1', 'name': 'Alice'}),
+                        DataInput(data={'id': '2', 'name': 'Bob'}),
                     ],
                 ),
             ],
@@ -163,7 +165,9 @@ async def test_data_query(cqrs_app: AsyncCQRSApplication, mocker: MockerFixture)
         table=SchemaReference(name='customers', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='customers'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

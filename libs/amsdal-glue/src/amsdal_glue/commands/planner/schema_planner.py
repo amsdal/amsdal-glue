@@ -38,7 +38,7 @@ class DefaultSchemaCommandPlanner(SchemaCommandPlanner):
         connection_manager = Container.managers.get(ConnectionManager)
 
         for mutation in command.mutations:
-            _schema_name = mutation.get_schema_name()
+            _schema_name = mutation.schema_ref.name
             _connection = connection_manager.get_connection_pool(_schema_name)
             mutations_per_connection[_connection].append(mutation)
 
@@ -93,7 +93,7 @@ class DefaultAsyncSchemaCommandPlanner(AsyncSchemaCommandPlanner):
         connection_manager = Container.managers.get(AsyncConnectionManager)
 
         for mutation in command.mutations:
-            _schema_name = mutation.get_schema_name()
+            _schema_name = mutation.schema_ref.name
             _connection = connection_manager.get_connection_pool(_schema_name)
             mutations_per_connection[_connection].append(mutation)
 

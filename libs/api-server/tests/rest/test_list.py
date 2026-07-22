@@ -1,6 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -19,19 +19,23 @@ def _fixture_data() -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
-                        Data(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
-                        Data(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
-                        Data(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
+                        DataInput(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                        DataInput(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
+                        DataInput(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
+                        DataInput(data={'customer_id': 4, 'name': 'Jane Doe', 'email': 'e4@example.com'}),
                     ],
                 ),
                 InsertData(
                     schema=SchemaReference(name='logs', version=Version.LATEST),
                     data=[
-                        Data(data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}),
-                        Data(data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}),
-                        Data(data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor incididunt'}),
-                        Data(data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna aliqua'}),
+                        DataInput(data={'created_at': '2021-01-01 00:00:00', 'message': 'Lorem ipsum dolor sit amet'}),
+                        DataInput(data={'created_at': '2021-01-02 00:00:00', 'message': 'consectetur adipiscing elit'}),
+                        DataInput(
+                            data={'created_at': '2021-01-03 00:00:00', 'message': 'sed do eiusmod tempor incididunt'}
+                        ),
+                        DataInput(
+                            data={'created_at': '2021-01-04 00:00:00', 'message': 'ut labore et dolore magna aliqua'}
+                        ),
                     ],
                 ),
             ],
@@ -181,20 +185,19 @@ def test_filtering_lt(test_client: TestClient) -> None:
 
 
 def test_filtering_contains(test_client: TestClient) -> None:
+    # On SQLite, CONTAINS is case-sensitive: 'Lo' only matches the capitalised 'Lo'
+    # in 'Lorem ipsum ...'. ICONTAINS is case-insensitive, so it also matches the
+    # lowercase 'lo' inside 'dolore' in 'ut labore et dolore magna aliqua'.
+    lorem_row = {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'}
+    labore_row = {'created_at': '2021-01-04T00:00:00', 'message': 'ut labore et dolore magna aliqua'}
+
     response = test_client.get('/api/v1/schemas/logs/?message=contains.Lo')
     assert response.status_code == 200
-    response_json = response.json()
-    assert response_json == [
-        {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'},
-    ]
+    assert response.json() == [lorem_row]
 
     response = test_client.get('/api/v1/schemas/logs/?message=icontains.Lo')
     assert response.status_code == 200
-    response_json = response.json()
-    assert response_json == [
-        {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'},
-        {'created_at': '2021-01-04T00:00:00', 'message': 'ut labore et dolore magna aliqua'},
-    ]
+    assert response.json() == [lorem_row, labore_row]
 
 
 def test_filtering_startswith(test_client: TestClient) -> None:

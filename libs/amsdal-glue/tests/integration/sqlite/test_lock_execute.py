@@ -8,7 +8,7 @@ import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPlanner
 from amsdal_glue_core.commands.planner.lock_command_planner import LockCommandPlanner
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
@@ -17,7 +17,7 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
 from amsdal_glue_core.common.operations.commands import DataCommand
 from amsdal_glue_core.common.operations.commands import LockCommand
-from amsdal_glue_core.common.operations.commands import LockSchemaReference
+from amsdal_glue_core.common.operations.commands import LockReference
 from amsdal_glue_core.common.operations.mutations.data import InsertData
 from amsdal_glue_core.containers import Container
 
@@ -65,7 +65,7 @@ def test_lock() -> None:
             action=LockAction.ACQUIRE,
             mode=LockMode.EXCLUSIVE,
             parameter=LockParameter.SKIP_LOCKED,
-            locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
+            locked_objects=[LockReference(reference=SchemaReference(name='customers', version=Version.LATEST))],
         )
     )
     lock_plan.execute(transaction_id=None, lock_id=None)
@@ -77,7 +77,7 @@ def test_lock() -> None:
             InsertData(
                 schema=SchemaReference(name='shippings', version=Version.LATEST),
                 data=[
-                    Data(
+                    DataInput(
                         data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
                     )
                 ],
@@ -100,8 +100,7 @@ def test_lock() -> None:
 
     with pytest.raises(ConnectionError):
         (
-            connection_mng
-            .get_connection_pool('shippings')  # type: ignore[attr-defined]
+            connection_mng.get_connection_pool('shippings')  # type: ignore[attr-defined]
             .get_connection()
             .execute('SELECT id, customer_id, status FROM shippings')
             .fetchall()
@@ -115,15 +114,14 @@ def test_lock() -> None:
             action=LockAction.RELEASE,
             mode=LockMode.EXCLUSIVE,
             parameter=LockParameter.SKIP_LOCKED,
-            locked_objects=[LockSchemaReference(schema=SchemaReference(name='customers', version=Version.LATEST))],
+            locked_objects=[LockReference(reference=SchemaReference(name='customers', version=Version.LATEST))],
         )
     )
     lock_plan.execute(transaction_id=None, lock_id=None)
 
     plan.execute(transaction_id=None, lock_id=None)
     assert (
-        connection_mng
-        .get_connection_pool('shippings')  # type: ignore[attr-defined]
+        connection_mng.get_connection_pool('shippings')  # type: ignore[attr-defined]
         .get_connection()
         .execute('SELECT id, customer_id, status FROM shippings')
         .fetchall()

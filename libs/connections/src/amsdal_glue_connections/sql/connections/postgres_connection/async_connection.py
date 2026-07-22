@@ -1,45 +1,37 @@
 import logging
+from copy import copy
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
-from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.constraints import BaseConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
 from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
-from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
-from amsdal_glue_core.common.operations.mutations.schema import AddIndex
-from amsdal_glue_core.common.operations.mutations.schema import AddProperty
-from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
-from amsdal_glue_core.common.operations.mutations.schema import DeleteIndex
-from amsdal_glue_core.common.operations.mutations.schema import DeleteProperty
-from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
-from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
-from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
-from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
-from amsdal_glue_connections.sql.connections.postgres_connection.base import get_pg_transform
+from amsdal_glue_connections._sql_core import SqlGenerator
+from amsdal_glue_connections.sql.connections.base_view_introspection import AsyncSchemaAssemblyMixin
+from amsdal_glue_connections.sql.connections.postgres_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _CONSTRAINT_COLUMNS
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _INDEX_COLUMNS
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _PROPERTY_COLUMNS
+from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import PostgresSchemaAssemblyMixin
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
     import psycopg
@@ -47,7 +39,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
+class AsyncPostgresConnection(
+    AsyncSchemaAssemblyMixin, PostgresSchemaAssemblyMixin, PostgresConnectionMixin, AsyncConnectionBase
+):
     """
     PostgresConnection is responsible for managing connections and executing queries and commands on
     a PostgreSQL database.
@@ -76,6 +70,8 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
 
     def __init__(self) -> None:
         self._connection: psycopg.AsyncConnection | None = None
+        self._generator = SqlGenerator('postgresql', param_style='format')
+        self._schema = 'public'
         super().__init__()
 
     @property
@@ -169,11 +165,17 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
+        from psycopg import sql
+
         self._connection = await psycopg.AsyncConnection.connect(dsn, autocommit=autocommit, **kwargs)
         await self._connection.execute("SELECT set_config('TimeZone', %s, false)", [timezone])
 
+        self._schema = schema or 'public'
+
         if schema:
-            await self._connection.execute(f'SET search_path TO {schema}')
+            # ``SET`` cannot take a bind parameter, so the schema identifier is quoted via
+            # psycopg's SQL composition instead of being f-string interpolated (injection-safe).
+            await self._connection.execute(sql.SQL('SET search_path TO {}').format(sql.Identifier(schema)))
 
     async def disconnect(self) -> None:
         """
@@ -195,10 +197,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         Raises:
             ConnectionError: If there is an error executing the query.
         """
-        _stmt, _params = build_sql_query(
-            query,
-            transform=get_pg_transform(),
-        )
+        _stmt, _params = self._generator.compile_query(query)
 
         try:
             cursor = await self.execute(_stmt, *_params)
@@ -220,45 +219,55 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
 
         return result
 
-    async def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+    async def query_schema(self, query: QueryStatement) -> list[Schema]:
         """
         Queries the schema of the PostgreSQL database.
 
         Args:
-            filters (Conditions | None): The filters to be applied to the schema query.
+            query (QueryStatement): The query statement referencing the registry view.
 
         Returns:
             list[Schema]: The result of the schema query.
         """
-        stmt = self.TABLE_SQL
+        return await self.introspect_schema(query)
 
-        if filters and filters.children:
-            where, values = build_where(
-                filters,
-                transform=get_pg_transform(),
-            )
-            stmt += f' WHERE {where}'
-        else:
-            values = []
+    async def introspect_schema(self, query: QueryStatement) -> list[Schema]:
+        await self._ensure_schema_views()
 
-        cursor = await self.execute(stmt, *values)
-        tables = await cursor.fetchall()
+        ref_name = query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
+
+        resolved = copy(query)
+        resolved.only = [FieldReference(field=Field(name='table_name'), table_name=ref_name)]
+
+        sql, params = self._generator.compile_query(resolved)
+        cursor = await self.execute(sql, *params)
+        rows = await cursor.fetchall()
         await cursor.close()
-        result = []
 
-        for table in tables:
-            table_name = table[0]
-            properties, constraints, indexes = await self.get_table_info(table_name)
-            schema = Schema(
-                name=table_name,
-                version=Version.LATEST,
-                properties=properties,
-                constraints=constraints,
-                indexes=indexes,
-            )
-            result.append(schema)
+        table_names = self._dedupe_names(rows)
 
-        return result
+        if not table_names:
+            return []
+
+        # One bound registry query per catalog aspect -- a constant number of statements regardless
+        # of how many tables match. Every fact is reconstructed from the canonical views (no per-table
+        # ``information_schema`` / ``pg_get_serial_sequence`` reads), so there is no N+1 catalog storm.
+        property_rows = await self._run_registry(TABLE_PROPERTY_REGISTRY, _PROPERTY_COLUMNS, table_names)
+        constraint_rows = await self._run_registry(TABLE_CONSTRAINT_REGISTRY, _CONSTRAINT_COLUMNS, table_names)
+        index_rows = await self._run_registry(TABLE_INDEX_REGISTRY, _INDEX_COLUMNS, table_names)
+
+        return self._build_schemas(
+            table_names,
+            self._group(property_rows),
+            self._group(constraint_rows),
+            self._group(index_rows),
+        )
+
+    async def _ensure_schema_views(self) -> None:
+        # The view DDL is idempotent (CREATE OR REPLACE), so it is re-issued on every call rather
+        # than gated by a per-object flag that would go stale across disconnect()/connect() cycles.
+        for stmt in self._build_registry_view_sql(self._schema).values():
+            await self.execute(stmt.as_string(self.connection))
 
     async def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -273,10 +282,7 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         return [await self._run_mutation(mutation) for mutation in mutations]
 
     async def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
-        _stmt, _params = build_sql_data_command(
-            mutation,
-            transform=get_pg_transform(),
-        )
+        _stmt, _params = self._generator.compile_mutation(mutation)
 
         try:
             await self.execute(_stmt, *_params)
@@ -323,6 +329,8 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         """
         import psycopg
 
+        args = bind_params(args)
+
         try:
             if self.debug_queries:
                 self._queries.append(query)
@@ -338,189 +346,39 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
             raise ConnectionError(msg) from exc
         return cursor
 
-    async def get_table_info(
-        self,
-        table_name: str,
-    ) -> tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]:
+    async def acquire_lock(self, lock: LockCommand) -> Any:
         """
-        Gets the information of a table in the PostgreSQL database.
+        Acquires a lock on the PostgreSQL database via ``compile_lock_command``.
 
         Args:
-            table_name (str): The name of the table.
-
-        Returns:
-            tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]: The properties, constraints,
-                                                                                  and indexes of the table.
-        """
-        cursor = await self.execute(
-            'SELECT ordinal_position, column_name, data_type, is_nullable, column_default, udt_name '  # noqa: S608
-            'FROM information_schema.columns '
-            f"WHERE table_name = '{table_name}';"
-        )
-        columns = await cursor.fetchall()
-        await cursor.close()
-
-        properties: list[PropertySchema] = []
-        for column in columns:
-            column_name = column[1]
-            info = await (
-                await self.execute(
-                    'SELECT c.relname as table_name, a.attname AS column_name, t.typname AS data_type, '  # noqa: S608
-                    'a.atttypmod AS typmod '
-                    'FROM pg_attribute a '
-                    'JOIN pg_class c ON a.attrelid = c.oid '
-                    'JOIN pg_type t ON a.atttypid = t.oid '
-                    f"WHERE c.relname = '{table_name}' "
-                    f"AND a.attname = '{column_name}';"
-                )
-            ).fetchone()
-
-            _info = (
-                {
-                    'table_name': info[0],
-                    'column_name': info[1],
-                    'data_type': info[2],
-                    'typmod': info[3],
-                }
-                if info
-                else {}
-            )
-            udt_name = column[5] if len(column) > 5 else None  # noqa: PLR2004
-
-            properties.append(
-                PropertySchema(
-                    name=column[1],
-                    type=self._to_python_type(column[2], udt_name, _info),
-                    required=column[3].lower() == 'no',  # means is nullable
-                    description=None,
-                    default=column[4],
-                )
-            )
-
-        fid_to_name: dict[int, str] = {column[0]: column[1] for column in columns}
-
-        # Get constraints info
-        cursor = await self.execute(
-            'SELECT conname, contype, confrelid, conkey, confkey, con.oid '  # noqa: S608
-            'FROM pg_catalog.pg_constraint con '
-            'INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid '
-            'INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace '
-            f"WHERE rel.relname = '{table_name}';"
-        )
-        raw_constrains = await cursor.fetchall()
-        await cursor.close()
-
-        constraints: list[BaseConstraint] = []
-        for raw_constrain in raw_constrains:
-            if raw_constrain[1] == 'f':
-                f_table_id = raw_constrain[2]
-                cursor = await self.execute(
-                    f'SELECT relname FROM pg_catalog.pg_class WHERE oid = {f_table_id};'  # noqa: S608
-                )
-                f_table_name = (await cursor.fetchall())[0][0]
-                await cursor.close()
-                cursor = await self.execute(
-                    'SELECT ordinal_position, column_name '  # noqa: S608
-                    'FROM information_schema.columns '
-                    f"WHERE table_name = '{f_table_name}';"
-                )
-                f_table_fields = {row[0]: row[1] for row in await cursor.fetchall()}
-                await cursor.close()
-
-                constraints.append(
-                    ForeignKeyConstraint(
-                        name=raw_constrain[0],
-                        fields=[fid_to_name.get(fk) for fk in raw_constrain[3]],  # type: ignore[misc]
-                        reference_schema=SchemaReference(
-                            name=f_table_name,
-                            version=Version.LATEST,
-                        ),
-                        reference_fields=[f_table_fields.get(fid) for fid in raw_constrain[4]],  # type: ignore[misc]
-                    )
-                )
-
-            elif raw_constrain[1] == 'p':
-                constraints.append(
-                    PrimaryKeyConstraint(
-                        name=raw_constrain[0],
-                        fields=[fid_to_name.get(pk) for pk in raw_constrain[3]],  # type: ignore[misc]
-                    )
-                )
-
-            elif raw_constrain[1] == 'u':
-                constraints.append(
-                    UniqueConstraint(
-                        name=raw_constrain[0],
-                        fields=[fid_to_name.get(u) for u in raw_constrain[3]],  # type: ignore[misc]
-                    )
-                )
-
-        # Get indexes info
-        cursor = await self.execute(
-            'SELECT i.relname AS index_name, array_agg(a.attname ORDER BY ord.n) AS column_names '  # noqa: S608
-            'FROM pg_class t '
-            'JOIN pg_index x ON t.oid = x.indrelid '
-            'JOIN pg_class i ON i.oid = x.indexrelid '
-            'JOIN generate_subscripts(x.indkey, 1) AS ord(n) ON TRUE '
-            'JOIN pg_attribute a ON a.attnum = x.indkey[ord.n] AND a.attrelid = t.oid '
-            f"WHERE t.relname = '{table_name}' "
-            'GROUP BY t.relname, i.relname'
-        )
-        indexes_list = await cursor.fetchall()
-        await cursor.close()
-
-        indexes = [
-            IndexSchema(
-                name=index_name,
-                fields=index_fields,
-                condition=None,
-            )
-            for index_name, index_fields in indexes_list
-            if not self._is_constraint(index_fields, constraints)
-        ]
-
-        return properties, constraints, indexes
-
-    async def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
-        """
-        Acquires a lock on the PostgreSQL database.
-
-        Args:
-            lock (ExecutionLockCommand): The lock command to be executed.
+            lock (LockCommand): The lock command to be executed.
 
         Returns:
             Any: The result of the lock acquisition.
         """
-        if lock.locked_object.query:
-            locked_object = lock.locked_object
-            where, values = build_where(
-                locked_object.query,
-                transform=get_pg_transform(),
-            )
-            _query = f'SELECT * FROM {self._table_name_from_schema_reference(locked_object.schema)}'  # noqa: S608
-
-            if where:
-                _query += f' WHERE {where}'
-
-            _query += ' FOR UPDATE'
-
-            await self.execute(_query, *values)
-
+        sql, params = self._generator.compile_lock_command(lock)
+        await self.execute(sql, *params)
         return True
 
-    async def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    async def release_lock(self, lock: LockCommand) -> Any:
         """
-        Releases a lock on the PostgreSQL database.
+        Releases a lock on the PostgreSQL database via ``compile_lock_command``.
+
+        A TRANSACTION-scoped lock (table lock or ``pg_advisory_xact_lock``) CANNOT be released
+        explicitly — Postgres holds it until COMMIT/ROLLBACK and offers no unlock counterpart. The
+        Rust generator raises ``UnsupportedFeatureError`` for such a release, and that error is
+        propagated: asking to release a transaction-scoped lock is a caller mistake (the lock is not
+        released early, so silently returning success would be misleading). Only SESSION-scoped
+        advisory locks have a real unlock.
 
         Args:
-            lock (ExecutionLockCommand): The lock command to be released.
+            lock (LockCommand): The lock command to be released.
 
         Returns:
             Any: The result of the lock release.
         """
-        if lock.mode == 'EXCLUSIVE':
-            return True
-
+        sql, params = self._generator.compile_lock_command(lock)
+        await self.execute(sql, *params)
         return True
 
     async def commit_transaction(self, transaction: TransactionCommand | str | None) -> Any:
@@ -583,174 +441,14 @@ class AsyncPostgresConnection(PostgresConnectionMixin, AsyncConnectionBase):
         Returns:
             Any: The result of the transaction revert.
         """
-        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            await self.execute(f'ROLLBACK TO SAVEPOINT "{transaction.transaction_id}"')
-            return True
+        return await self.rollback_transaction(transaction)
 
-        await self.execute('ROLLBACK')
-        return True
+    async def _run_schema_mutation(self, migration: SchemaMutation) -> Schema | None:
+        sql_params_list = self._generator.compile_schema_mutation(migration)
 
-    async def _run_schema_mutation(self, migration: SchemaMutation) -> Schema | None:  # noqa: PLR0911, C901
+        for sql, params in sql_params_list:
+            await self.execute(sql, *params)
+
         if isinstance(migration, RegisterSchema):
-            schema = migration.schema
-            await self._create_table(schema)
-
-            return schema
-
-        if isinstance(migration, DeleteSchema):
-            await self._drop_table(migration.schema_reference)
-
-            return None
-
-        if isinstance(migration, RenameSchema):
-            schema_reference = migration.schema_reference
-            new_schema_name = migration.new_schema_name
-            await self._rename_table(schema_reference, new_schema_name)
-
-            return None
-
-        if isinstance(migration, AddProperty):
-            schema_reference = migration.schema_reference
-            _property = migration.property
-            await self._add_column(schema_reference, _property)
-
-            return None
-
-        if isinstance(migration, DeleteProperty):
-            schema_reference = migration.schema_reference
-            property_name = migration.property_name
-            await self._drop_column(schema_reference, property_name)
-
-            return None
-
-        if isinstance(migration, RenameProperty):
-            schema_reference = migration.schema_reference
-            old_name = migration.old_name
-            new_name = migration.new_name
-            await self._rename_column(schema_reference, old_name, new_name)
-
-            return None
-
-        if isinstance(migration, UpdateProperty):
-            schema_reference = migration.schema_reference
-            _property = migration.property
-            await self._update_column(schema_reference, _property)
-
-            return None
-
-        if isinstance(migration, AddConstraint):
-            schema_reference = migration.schema_reference
-            constraint = migration.constraint
-            await self._add_constraint(schema_reference, constraint)
-
-            return None
-
-        if isinstance(migration, DeleteConstraint):
-            schema_reference = migration.schema_reference
-            constraint_name = migration.constraint_name
-            await self._drop_constraint(schema_reference, constraint_name)
-
-            return None
-
-        if isinstance(migration, AddIndex):
-            schema_reference = migration.schema_reference
-            index = migration.index
-            await self._add_index(schema_reference, index)
-
-            return None
-
-        if isinstance(migration, DeleteIndex):
-            schema_reference = migration.schema_reference
-            index_name = migration.index_name
-            await self._drop_index(schema_reference, index_name)
-
-            return None
-
-        msg = f'Unsupported schema mutation: {type(migration)}'
-        raise ValueError(msg)
-
-    async def _create_table(self, schema: Schema) -> None:
-        _constraint_stmts = []
-
-        for _constraint in schema.constraints or []:
-            _constraint_stmt = self._build_constraint(_constraint)
-            _constraint_stmts.append(_constraint_stmt)
-
-        _namespace_prefix = f'"{schema.namespace}".' if schema.namespace else ''
-
-        stmt = f'CREATE TABLE {_namespace_prefix}"{schema.name}" ('
-        stmt += ', '.join(self._build_column(column) for column in schema.properties)
-
-        if _constraint_stmts:
-            stmt += ', '
-            stmt += ', '.join(_constraint_stmts)
-
-        stmt += ')'
-
-        await self.execute(stmt)
-
-        for _index in schema.indexes or []:
-            _index_stmt = self._build_index(schema.name, schema.namespace, _index)
-            await self.execute(_index_stmt)
-
-    def _table_name_from_schema_reference(self, schema_reference: SchemaReference) -> str:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        return f'{_namespace_prefix}"{schema_reference.name}"'
-
-    async def _drop_table(self, schema_reference: SchemaReference) -> None:
-        stmt = f'DROP TABLE {self._table_name_from_schema_reference(schema_reference)}'
-        await self.execute(stmt)
-
-    async def _rename_table(self, schema_reference: SchemaReference, new_schema_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" RENAME TO "{new_schema_name}"'
-        await self.execute(stmt)
-
-    async def _add_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
-        _column = self._build_column(_property, force_nullable=True)
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ADD COLUMN {_column}'
-        await self.execute(stmt)
-
-    async def _drop_column(self, schema_reference: SchemaReference, property_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" DROP COLUMN "{property_name}"'
-        await self.execute(stmt)
-
-    async def _rename_column(self, schema_reference: SchemaReference, old_name: str, new_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE "{schema_reference.name}" RENAME COLUMN "{old_name}" TO "{new_name}"'
-        await self.execute(stmt)
-
-    async def _update_column(self, schema_reference: SchemaReference, _property: PropertySchema) -> None:
-        _column = self._build_column_update(_property)
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" {_column}'
-        await self.execute(stmt)
-
-    async def _add_constraint(self, schema_reference: SchemaReference, constraint: BaseConstraint) -> None:
-        _constraint_stmt = self._build_constraint(constraint)
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" ADD {_constraint_stmt}'
-        await self.execute(stmt)
-
-    async def _drop_constraint(self, schema_reference: SchemaReference, constraint_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-        stmt = f'ALTER TABLE {_namespace_prefix}"{schema_reference.name}" DROP CONSTRAINT "{constraint_name}"'
-        await self.execute(stmt)
-
-    async def _add_index(self, schema_reference: SchemaReference, index: IndexSchema) -> None:
-        _index_stmt = self._build_index(schema_reference.name, schema_reference.namespace or '', index)
-
-        await self.execute(_index_stmt)
-
-    async def _drop_index(self, schema_reference: SchemaReference, index_name: str) -> None:
-        _namespace_prefix = f'"{schema_reference.namespace}".' if schema_reference.namespace else ''
-        stmt = f'DROP INDEX {_namespace_prefix}"{index_name}"'
-        await self.execute(stmt)
+            return migration.schema
+        return None

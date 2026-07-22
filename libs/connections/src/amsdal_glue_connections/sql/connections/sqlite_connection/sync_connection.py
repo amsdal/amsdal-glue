@@ -1,54 +1,460 @@
 import logging
+import re
 import sqlite3
 import uuid
+from collections.abc import Iterable
+from collections.abc import Sequence
+from copy import copy
 from datetime import date
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from typing import TYPE_CHECKING
 
-from amsdal_glue_core.commands.lock_command_node import ExecutionLockCommand
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import BaseConstraint
+from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
+from amsdal_glue_core.common.data_models.field_reference import Field
+from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import CustomType
+from amsdal_glue_core.common.data_models.types import DecimalType
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
-from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
-from amsdal_glue_core.common.exceptions import UniqueViolationError
+from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
+from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
+from amsdal_glue_core.common.operations.mutations.data import InsertFromSelect
+from amsdal_glue_core.common.operations.mutations.data import UpdateData
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
+from amsdal_glue_core.common.operations.mutations.schema import AddIndex
+from amsdal_glue_core.common.operations.mutations.schema import AddProperty
 from amsdal_glue_core.common.operations.mutations.schema import DeleteConstraint
+from amsdal_glue_core.common.operations.mutations.schema import DeleteProperty
+from amsdal_glue_core.common.operations.mutations.schema import DeleteSchema
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
+from amsdal_glue_core.common.operations.mutations.schema import RenameProperty
+from amsdal_glue_core.common.operations.mutations.schema import RenameSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
-from amsdal_glue_connections.sql.connections.sqlite_connection.base import get_sqlite_transform
+from amsdal_glue_connections._sql_core import SqlGenerator
+from amsdal_glue_connections.sql.connections.base_view_introspection import SchemaAssemblyMixin
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
-from amsdal_glue_connections.sql.sql_builders.command_builder import build_sql_data_command
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_where
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_add_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_create_indexes
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_create_table
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_drop_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_migrate_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_rename_column
-from amsdal_glue_connections.sql.sql_builders.schema_builder import build_schema_mutation
+from amsdal_glue_connections.sql.parsers.conditions import try_parse_conditions
+from amsdal_glue_connections.sql.parsers.default import parse_sqlite_default
+from amsdal_glue_connections.sql.parsers.default import parser as _default_parser
+from amsdal_glue_connections.sql.parsers.default import sqlite_mapper as _sqlite_mapper
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
+
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.data_models.conditions import Conditions
+    from amsdal_glue_core.common.expressions.expression import Expression
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# SQLite type mapping
+# ---------------------------------------------------------------------------
 
-class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
+_SQLITE_TYPE_MAP: dict[str, ScalarType] = {
+    'text': ScalarType.TEXT,
+    'varchar': ScalarType.TEXT,
+    'character': ScalarType.TEXT,
+    'char': ScalarType.TEXT,
+    'nvarchar': ScalarType.TEXT,
+    'clob': ScalarType.TEXT,
+    'integer': ScalarType.INTEGER,
+    'int': ScalarType.INTEGER,
+    'bigint': ScalarType.BIGINT,
+    'smallint': ScalarType.SMALLINT,
+    'tinyint': ScalarType.SMALLINT,
+    'real': ScalarType.FLOAT,
+    'float': ScalarType.FLOAT,
+    'double': ScalarType.DOUBLE,
+    'double precision': ScalarType.DOUBLE,
+    'numeric': ScalarType.NUMERIC,
+    'decimal': ScalarType.NUMERIC,
+    'boolean': ScalarType.BOOLEAN,
+    'bool': ScalarType.BOOLEAN,
+    'date': ScalarType.DATE,
+    'time': ScalarType.TIME,
+    'timestamp': ScalarType.TIMESTAMP,
+    'timestamptz': ScalarType.TIMESTAMPTZ,
+    'datetime': ScalarType.TIMESTAMP,
+    'blob': ScalarType.BYTEA,
+    'json': ScalarType.JSON,
+    'jsonb': ScalarType.JSONB,
+    'uuid': ScalarType.UUID,
+}
+
+# ---------------------------------------------------------------------------
+# DDL parsing regexes
+# ---------------------------------------------------------------------------
+
+_PK_NAME_RE = re.compile(
+    r'CONSTRAINT\s+["\']?(\w+)["\']?\s+PRIMARY\s+KEY',
+    re.IGNORECASE,
+)
+
+_FK_NAME_RE = re.compile(
+    r'CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+FOREIGN\s+KEY\s*\(\s*(?P<fields>[^)]+)\)',
+    re.IGNORECASE,
+)
+
+_FK_INLINE_RE = re.compile(
+    r'(?P<field>\w+)\s+(?:\w+\s+)*CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+REFERENCES',
+    re.IGNORECASE,
+)
+
+_UNIQUE_BLOCK_RE = re.compile(
+    r'CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+UNIQUE\s*\((?P<fields>[^)]+)\)',
+    re.IGNORECASE,
+)
+
+_UNIQUE_INLINE_RE = re.compile(
+    r'["\']?(?P<name>\w+)["\']?\s+\w+(?:\([^)]*\))?\s*(?:NOT\s+NULL\s+|NULL\s+)?UNIQUE(?:\s|,|\)|$)',
+    re.IGNORECASE,
+)
+
+_DECIMAL_TYPE_RE = re.compile(
+    r'^(DECIMAL_TEXT|NUMERIC|DECIMAL)\s*(?:\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\))?\s*$',
+    re.IGNORECASE,
+)
+
+
+def _sqlite_type_to_field_type(type_name: str) -> ScalarType | CustomType | DecimalType:
+    """Map a SQLite column type string to a FieldType.
+
+    ``DECIMAL_TEXT``/``NUMERIC``/``DECIMAL`` with an explicit ``(p[, s])`` modifier resolve to a
+    dialect-agnostic ``DecimalType`` so a RegisterSchema→introspect cycle round-trips. A bare
+    ``NUMERIC`` (no modifier) keeps mapping to ``ScalarType.NUMERIC``; a bare ``DECIMAL_TEXT``
+    (the SQLite rendering of ``DecimalType()``) resolves back to ``DecimalType()``.
+    """
+    # Detect parameterised decimal types before stripping parens.
+    m = _DECIMAL_TYPE_RE.match(type_name.strip())
+    if m:
+        base_name = m.group(1).upper()
+        precision = int(m.group(2)) if m.group(2) is not None else None
+        scale = int(m.group(3)) if m.group(3) is not None else None
+        # Bare NUMERIC/DECIMAL (no modifier) stays a plain scalar for backwards compatibility;
+        # only DECIMAL_TEXT or a modifier-bearing type resolves to the agnostic DecimalType.
+        if precision is None and base_name != 'DECIMAL_TEXT':
+            return ScalarType.NUMERIC
+        return DecimalType(precision=precision, scale=scale)
+
+    cleaned = re.sub(r'\(.*\)', '', type_name).strip().lower()
+
+    scalar = _SQLITE_TYPE_MAP.get(cleaned)
+    if scalar is not None:
+        return scalar
+
+    if not cleaned:
+        return ScalarType.TEXT
+
+    return CustomType(name=cleaned)
+
+
+def _find_autoincrement_pk_col(table_ddl: str) -> str | None:
+    match = re.search(r'"(\w+)"\s+\w+[^,]*\bPRIMARY\s+KEY\s+AUTOINCREMENT\b', table_ddl, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def _parse_collations(table_ddl: str) -> dict[str, str]:
+    results: dict[str, str] = {}
+    for match in re.finditer(r'"(\w+)"\s+\w+[^,]*\bCOLLATE\s+"?(\w+)"?', table_ddl, re.IGNORECASE):
+        results[match.group(1)] = match.group(2)
+    return results
+
+
+def _parse_generated_expressions(table_ddl: str) -> dict[str, 'Expression']:
+    results: dict[str, Expression] = {}
+    for match in re.finditer(
+        r'"(\w+)"\s+\w+[^,]*\bGENERATED\s+ALWAYS\s+AS\s*\((.+?)\)\s*(?:STORED|VIRTUAL)',
+        table_ddl,
+        re.IGNORECASE,
+    ):
+        node = _default_parser.parse(match.group(2).strip())
+        results[match.group(1)] = _sqlite_mapper.map_node(node)
+    return results
+
+
+def _get_check_constraints(table_ddl: str) -> list[CheckConstraint]:
+    """Parse named CHECK constraints from a SQLite table DDL."""
+    constraints: list[CheckConstraint] = []
+    for match in re.finditer(
+        r'CONSTRAINT\s+"(\w+)"\s+CHECK\s*\((.+?)\)(?:\s*,|\s*\))',
+        table_ddl,
+        re.IGNORECASE,
+    ):
+        name = match.group(1)
+        # An unparseable CHECK predicate degrades to ``condition=None`` rather than aborting the
+        # whole schema introspection.
+        condition = try_parse_conditions(match.group(2).strip())
+        constraints.append(CheckConstraint(name=name, condition=condition))  # type: ignore[arg-type]
+    return constraints
+
+
+def _parse_pk_name(table_sql: str, table_name: str) -> str:
+    match = _PK_NAME_RE.search(table_sql)
+    if match:
+        return match.group(1)
+    return f'pk_{table_name}'
+
+
+def _parse_fk_name(table_sql: str, field_name: str) -> str:
+    for match in _FK_NAME_RE.finditer(table_sql):
+        name = match.group('name')
+        fields = [f.strip(' "\'') for f in match.group('fields').split(',')]
+        if field_name in fields:
+            return name
+
+    for match in _FK_INLINE_RE.finditer(table_sql):
+        if match.group('field') == field_name:
+            return match.group('name')
+
+    return ''
+
+
+def _get_unique_constraints(
+    table_name: str,
+    table_sql: str,
+    existing: list[BaseConstraint],
+) -> list[UniqueConstraint]:
+    existing_field_sets: list[list[str]] = [
+        c.fields for c in existing if isinstance(c, PrimaryKeyConstraint | UniqueConstraint)
+    ]
+
+    constraints: list[UniqueConstraint] = []
+    seen_field_sets: list[list[str]] = list(existing_field_sets)
+
+    for match in _UNIQUE_BLOCK_RE.finditer(table_sql):
+        name = match.group('name')
+        fields = [f.strip(' "\'') for f in match.group('fields').split(',')]
+        if fields not in seen_field_sets:
+            seen_field_sets.append(fields)
+            constraints.append(UniqueConstraint(name=name, fields=fields))
+
+    for match in _UNIQUE_INLINE_RE.finditer(table_sql):
+        field_name = match.group('name')
+        if [field_name] not in seen_field_sets:
+            seen_field_sets.append([field_name])
+            constraints.append(UniqueConstraint(name=f'uq_{table_name}_{field_name}', fields=[field_name]))
+
+    return constraints
+
+
+# Canonical registry column projections, in the fixed order the assembly path expects. They mirror
+# the columns exposed by the SQLite registry views (see ``_REGISTRY_VIEW_SQL`` in ``base.py``).
+_PROPERTY_COLUMNS = [
+    'table_name',
+    'name',
+    'type',
+    'is_nullable',
+    'column_default',
+    'ordinal_position',
+]
+_INDEX_COLUMNS = ['table_name', 'name', 'is_unique', 'column_name', 'ordinal_position', 'is_descending', 'index_type']
+_CONSTRAINT_COLUMNS = [
+    'table_name',
+    'name',
+    'type',
+    'column_name',
+    'ordinal_position',
+    'ref_table',
+    'ref_column',
+    'on_update',
+    'on_delete',
+]
+
+
+# `SQLITE_MAX_VARIABLE_NUMBER` defaults to 999 on older SQLite builds (newer builds raise it to
+# 32766, but we cannot rely on that at runtime). `_run_registry`'s IN-list binds one parameter per
+# name, so 400 stays comfortably under 999. `_batch_ddls` binds `names` twice (once for the table
+# match, once for the index match), so it chunks at the same 400 -- 2 * 400 = 800 < 999.
+_SQLITE_MAX_IN = 400
+
+
+def _parse_index_condition(index_ddl: str | None) -> 'Conditions | None':
+    """Extract a partial-index ``WHERE`` clause from an index's ``CREATE INDEX`` DDL, if any."""
+    if not index_ddl:
+        return None
+
+    match = re.search(r'\bWHERE\s+(.+)$', index_ddl, re.IGNORECASE)
+    if match is None:
+        return None
+
+    # A partial-index WHERE that the parser cannot represent degrades to ``None`` (the index is still
+    # reported, just without its predicate) rather than aborting the whole schema introspection.
+    return try_parse_conditions(match.group(1).strip())
+
+
+class SqliteSchemaAssemblyMixin(SchemaAssemblyMixin):
+    """SQLite row -> `Schema` reconstruction shared by the sync and async connections.
+
+    The pure (no-I/O) SQLite specialisation of `SchemaAssemblyMixin`: the type/default hooks and the
+    property/constraint/index assembly, including the DDL-text overlays (real constraint names,
+    AUTOINCREMENT identity, ``COLLATE``, generated expressions, partial-index ``WHERE``) that SQLite's
+    catalog cannot express. Both `SqliteConnection` and `AsyncSqliteConnection` mix it in, so this
+    logic is defined once. The DDL text itself is fetched by each connection's own `_batch_ddls`.
+    """
+
+    def _type_to_field_type(self, row: dict[str, Any]) -> ScalarType | CustomType | DecimalType:
+        """`SchemaAssemblyMixin` hook: map a SQLite property row's declared type to a `FieldType`."""
+        return _sqlite_type_to_field_type(row['type'])
+
+    def _parse_default_expression(self, raw: str | None, field_type: Any) -> 'Expression | None':
+        """`SchemaAssemblyMixin` hook: parse a raw SQLite DEFAULT/GENERATED literal to an `Expression`."""
+        return parse_sqlite_default(raw, field_type)
+
+    def _assemble_properties(self, rows: list[dict[str, Any]], table_ddl: str) -> list[PropertySchema]:
+        """Shared property core plus the SQLite DDL-only overlays SQLite exposes no catalog for.
+
+        `identity` (AUTOINCREMENT PK), `generated` (``GENERATED ALWAYS AS (...)``) and `db_collation`
+        (``COLLATE``) are unreadable from the registry views (they are ``NULL`` there), so they are
+        parsed out of the table DDL and layered on top of `_assemble_property_core`.
+        """
+        has_autoincrement = 'AUTOINCREMENT' in table_ddl.upper()
+        autoincrement_pk_col = _find_autoincrement_pk_col(table_ddl) if has_autoincrement else None
+        generated_exprs = _parse_generated_expressions(table_ddl)
+        collations = _parse_collations(table_ddl)
+
+        properties: list[PropertySchema] = []
+        for row in rows:
+            prop = self._assemble_property_core(row)
+            if row['name'] == autoincrement_pk_col:
+                prop.identity = True
+            if row['name'] in generated_exprs:
+                prop.generated = generated_exprs[row['name']]
+            if row['name'] in collations:
+                prop.db_collation = collations[row['name']]
+            properties.append(prop)
+        return properties
+
+    def _assemble_constraints(
+        self, table_name: str, table_ddl: str, constraint_rows: list[dict[str, Any]]
+    ) -> list[BaseConstraint]:
+        """Shared PK/FK core with SQLite DDL overlays for real names, plus UNIQUE + CHECK from DDL.
+
+        The registry views synthesise PK/FK/UNIQUE names (``pk_<t>`` / ``fk_<t>_<id>`` / index name);
+        the real declared names live only in the table DDL, so PK and FK names are swapped in from
+        there. The synthetic UNIQUE constraints are dropped in favour of the DDL-parsed UNIQUE
+        constraints (real names), and CHECK constraints -- which have no catalog at all -- are
+        appended straight from the DDL.
+        """
+        core = self._assemble_constraints_core(constraint_rows)
+
+        constraints: list[BaseConstraint] = []
+        for constraint in core:
+            if isinstance(constraint, PrimaryKeyConstraint):
+                constraints.append(
+                    PrimaryKeyConstraint(name=_parse_pk_name(table_ddl, table_name), fields=constraint.fields),
+                )
+            elif isinstance(constraint, ForeignKeyConstraint):
+                fk_name = _parse_fk_name(table_ddl, constraint.fields[0]) or constraint.name
+                constraints.append(
+                    ForeignKeyConstraint(
+                        name=fk_name,
+                        fields=constraint.fields,
+                        reference_schema=constraint.reference_schema,
+                        reference_fields=constraint.reference_fields,
+                        on_update=constraint.on_update,
+                        on_delete=constraint.on_delete,
+                    ),
+                )
+            elif isinstance(constraint, UniqueConstraint):
+                continue  # SQLite takes UNIQUE constraints from the DDL below (real names).
+
+        constraints.extend(_get_unique_constraints(table_name, table_ddl, constraints))
+        constraints.extend(_get_check_constraints(table_ddl))
+        return constraints
+
+    def _assemble_indexes_with_conditions(
+        self, rows: list[dict[str, Any]], index_ddls: dict[str, str]
+    ) -> list[IndexSchema]:
+        """Shared index assembly plus the SQLite partial-index ``WHERE`` overlay from the DDL."""
+        indexes = self._assemble_indexes(rows)
+        for index in indexes:
+            condition = _parse_index_condition(index_ddls.get(index.name))
+            if condition is not None:
+                index.condition = condition
+        return indexes
+
+    @staticmethod
+    def _batch_ddls_query(chunk: list[str]) -> str:
+        """Build the ``sqlite_master`` DDL-read statement for one chunk (bound twice: table + index)."""
+        placeholders = ', '.join('?' for _ in chunk)
+        return (
+            'SELECT type, name, tbl_name, sql FROM sqlite_master '  # noqa: S608
+            f"WHERE (type='table' AND name IN ({placeholders})) "
+            f"OR (type='index' AND tbl_name IN ({placeholders}))"
+        )
+
+    @staticmethod
+    def _collect_ddl_rows(
+        rows: Iterable[Sequence[Any]], table_ddls: dict[str, str], index_ddls: dict[str, str]
+    ) -> None:
+        """Split ``sqlite_master`` rows into the table- and index-DDL maps (shared by sync + async)."""
+        for row_type, name, _tbl_name, sql_text in rows:
+            target = table_ddls if row_type == 'table' else index_ddls
+            target[name] = sql_text or ''
+
+    def _build_schemas(
+        self,
+        table_names: list[str],
+        properties_by_table: dict[str, list[dict[str, Any]]],
+        constraints_by_table: dict[str, list[dict[str, Any]]],
+        indexes_by_table: dict[str, list[dict[str, Any]]],
+        table_ddls: dict[str, str],
+        index_ddls: dict[str, str],
+    ) -> list[Schema]:
+        """Pure (no-I/O) assembly of the grouped registry rows + DDL overlays into ``Schema`` objects.
+
+        Identical for the sync and async connections, so it lives here and each variant calls it
+        after its own (awaited or not) registry / DDL fetches.
+        """
+        schemas: list[Schema] = []
+        for table_name in table_names:
+            table_property_rows = sorted(properties_by_table.get(table_name, []), key=lambda r: r['ordinal_position'])
+            if not table_property_rows:
+                continue
+
+            table_ddl = table_ddls.get(table_name, '')
+            schemas.append(
+                Schema(
+                    name=table_name,
+                    version=Version.LATEST,
+                    properties=self._assemble_properties(table_property_rows, table_ddl),
+                    constraints=self._assemble_constraints(
+                        table_name, table_ddl, constraints_by_table.get(table_name, [])
+                    )
+                    or None,
+                    indexes=self._assemble_indexes_with_conditions(indexes_by_table.get(table_name, []), index_ddls)
+                    or None,
+                ),
+            )
+
+        return schemas
+
+
+class SqliteConnection(SqliteSchemaAssemblyMixin, SqliteConnectionMixin, ConnectionBase):
     """
     SqliteConnection is responsible for managing connections and executing queries and commands on a SQLite database.
 
@@ -75,8 +481,13 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         to manage connections instead of creating a connection directly.
     """
 
+    # `SchemaAssemblyMixin._run_registry` hook: chunk IN-lists at `_SQLITE_MAX_IN` (see comment on
+    # that constant above) instead of issuing one unbounded `IN (...)` for every matched table.
+    _MAX_IN_PARAMS = _SQLITE_MAX_IN
+
     def __init__(self) -> None:
         self._connection: sqlite3.Connection | None = None
+        self._generator = SqlGenerator('sqlite', param_style='qmark')
         super().__init__()
 
     @property
@@ -140,15 +551,23 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             msg = 'Connection already established'
             raise ConnectionError(msg)
 
-        # Disable the deprecated adapters
-        sqlite3.register_adapter(date, lambda val: val.isoformat())
-        sqlite3.register_adapter(datetime, lambda val: val.isoformat())
-
-        # Register converters if you need to read datetime from DB
+        # date/datetime adapters are registered once, module-level, in base.py (single source of
+        # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
         sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
+        # A TIMESTAMPTZ-declared column stores a datetime the same way TIMESTAMP does; register the
+        # converter under its declared-type name too so read-back re-hydrates a Python datetime
+        # (``fromisoformat`` restores the tzinfo offset) instead of leaving it a raw ISO string.
+        sqlite3.register_converter('TIMESTAMPTZ', lambda val: datetime.fromisoformat(val.decode()))
+        # DECIMAL_TEXT is the TEXT-affinity SQLite rendering of DecimalType; re-hydrate the stored
+        # decimal string back into an exact Decimal so glue returns a typed value, not a str.
+        sqlite3.register_converter('DECIMAL_TEXT', lambda val: Decimal(val.decode()))
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Enable PARSE_DECLTYPES so the DATE/TIMESTAMP converters above actually fire on read-back.
+        # Respect a caller-supplied detect_types (only default it when absent).
+        kwargs.setdefault('detect_types', sqlite3.PARSE_DECLTYPES)
 
         self._db_path = Path(db_path)
         self._connection = sqlite3.connect(db_path, check_same_thread=check_same_thread, **kwargs)
@@ -175,10 +594,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             ConnectionError: If there is an error executing the query.
             ValueError: If a column name is duplicated.
         """
-        _stmt, _params = build_sql_query(
-            query,
-            transform=get_sqlite_transform(),
-        )
+        _stmt, _params = self._generator.compile_query(query)
 
         try:
             cursor = self.execute(_stmt, *_params)
@@ -199,42 +615,79 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
         return result
 
-    def query_schema(self, filters: Conditions | None = None) -> list[Schema]:
+    def query_schema(self, query: QueryStatement) -> list[Schema]:
         """
         Queries the schema of the SQLite database.
 
         Args:
-            filters (Conditions, optional): Filters to apply to the schema query. Defaults to None.
+            query (QueryStatement): The query statement referencing the registry view.
 
         Returns:
             list[Schema]: The list of schemas matching the filters.
         """
-        stmt = self.TABLE_SQL
+        self._ensure_schema_views()
 
-        if filters and filters.children:
-            where, values = build_where(filters, transform=get_sqlite_transform())
-            stmt += f' WHERE {where}'
-        else:
-            values = []
+        ref_name = query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
 
-        cursor = self.execute(stmt, *values)
-        tables = cursor.fetchall()
+        resolved = copy(query)
+        resolved.only = [FieldReference(field=Field(name='table_name'), table_name=ref_name)]
+
+        sql, params = self._generator.compile_query(resolved)
+        cursor = self.execute(sql, *params)
+        rows = cursor.fetchall()
         cursor.close()
-        result = []
 
-        for table in tables:
-            table_name = table[0]
-            properties, constraints, indexes = self.get_table_info(table_name)
-            schema = Schema(
-                name=table_name,
-                version=Version.LATEST,
-                properties=properties,
-                constraints=constraints,
-                indexes=indexes,
-            )
-            result.append(schema)
+        table_names = self._dedupe_names(rows)
 
-        return result
+        if not table_names:
+            return []
+
+        # One bound registry query per catalog aspect plus one batched DDL read -- a constant,
+        # small number of statements regardless of how many tables match (no per-table PRAGMA
+        # N+1). Beyond `_SQLITE_MAX_IN` tables, `_run_registry`/`_batch_ddls` transparently chunk
+        # the IN-list to stay under SQLite's bound-parameter ceiling, so the statement count grows
+        # with table count only past that threshold, never per table.
+        property_rows = self._run_registry(TABLE_PROPERTY_REGISTRY, _PROPERTY_COLUMNS, table_names)
+        index_rows = self._run_registry(TABLE_INDEX_REGISTRY, _INDEX_COLUMNS, table_names)
+        constraint_rows = self._run_registry(TABLE_CONSTRAINT_REGISTRY, _CONSTRAINT_COLUMNS, table_names)
+        table_ddls, index_ddls = self._batch_ddls(table_names)
+
+        return self._build_schemas(
+            table_names,
+            self._group(property_rows),
+            self._group(constraint_rows),
+            self._group(index_rows),
+            table_ddls,
+            index_ddls,
+        )
+
+    def _batch_ddls(self, names: list[str]) -> tuple[dict[str, str], dict[str, str]]:
+        """Read every table and index DDL for `names` from ``sqlite_master``.
+
+        Returns ``(table_ddl_by_name, index_ddl_by_name)`` -- the table DDL feeds the constraint /
+        property overlays (real constraint names, AUTOINCREMENT, COLLATE, generated expressions) and
+        the index DDL feeds the partial-index ``WHERE`` overlay.
+
+        `names` is bound twice per query (once for the table match, once for the index match), so
+        this chunks at `_SQLITE_MAX_IN` -- 2 * 400 = 800 bound params per statement, comfortably
+        under `SQLITE_MAX_VARIABLE_NUMBER`'s lowest observed default of 999 -- merging the per-chunk
+        dicts instead of issuing one unbounded query for every matched table.
+        """
+        table_ddls: dict[str, str] = {}
+        index_ddls: dict[str, str] = {}
+        for start in range(0, len(names), _SQLITE_MAX_IN):
+            chunk = names[start : start + _SQLITE_MAX_IN]
+            cursor = self.execute(self._batch_ddls_query(chunk), *chunk, *chunk)
+            self._collect_ddl_rows(cursor.fetchall(), table_ddls, index_ddls)
+            cursor.close()
+        return table_ddls, index_ddls
+
+    def _ensure_schema_views(self) -> None:
+        # The view DDL is idempotent (CREATE ... IF NOT EXISTS), so it is re-issued on every call
+        # rather than gated by a per-object flag that would go stale across disconnect()/connect()
+        # cycles (temporary views are per-connection, so a reconnect must recreate them).
+        for sql in self._REGISTRY_VIEW_SQL.values():
+            self.execute(sql)
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -250,10 +703,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         return [self._run_mutation(mutation) for mutation in mutations]
 
     def _run_mutation(self, mutation: DataMutation) -> list[Data] | None:
-        _stmt, _params = build_sql_data_command(
-            mutation,
-            transform=get_sqlite_transform(),
-        )
+        _stmt, _params = self._generator.compile_mutation(mutation)
 
         try:
             self.execute(_stmt, *_params)
@@ -299,6 +749,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             ConnectionError: If there is an error executing the query.
         """
         cursor = self.connection.cursor()
+        args = bind_params(args)
 
         try:
             if self.debug_queries:
@@ -307,10 +758,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
             cursor.execute(query, args)
         except sqlite3.IntegrityError as exc:
-            if 'UNIQUE constraint failed' in str(exc):
-                raise UniqueViolationError(str(exc)) from exc
-            if 'FOREIGN KEY constraint failed' in str(exc):
-                raise ForeignKeyViolationError(str(exc)) from exc
+            self._map_integrity_error(exc)
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
         except sqlite3.Error as exc:
@@ -319,139 +767,14 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
         return cursor
 
-    def get_table_info(
-        self,
-        table_name: str,
-    ) -> tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]:
-        """
-        Gets the information of a table in the SQLite database.
-
-        Args:
-            table_name (str): The name of the table.
-
-        Returns:
-            tuple[list[PropertySchema], list[BaseConstraint], list[IndexSchema]]: The properties, constraints,
-                                                                                  and indexes of the table.
-        """
-        cursor = self.execute(f"PRAGMA table_info('{table_name}')")
-        columns = cursor.fetchall()
-        cursor.close()
-
-        cursor = self.execute(
-            f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';"  # noqa: S608
-        )
-        table_sql = cursor.fetchone()[0]
-        cursor.close()
-
-        properties = [
-            PropertySchema(
-                name=column[1],
-                type=self.to_python_type(column[2]),
-                required=column[3] == 1,
-                description=None,
-                default=column[4],
-            )
-            for column in columns
-        ]
-
-        # Get primary keys
-        constraints: list[BaseConstraint] = []
-
-        pk_columns = [column[1] for column in columns if column[5]]
-        if pk_columns:
-            constraints.append(
-                PrimaryKeyConstraint(
-                    name=self._get_pk_name(table_sql) or f'pk_{table_name}',
-                    fields=pk_columns,
-                )
-            )
-
-        constraints.extend(self._get_unique_constrains(table_name, table_sql))
-
-        # Get constraints info
-        cursor = self.execute(f"PRAGMA foreign_key_list('{table_name}')")
-        foreign_keys = cursor.fetchall()
-        cursor.close()
-
-        # Group foreign keys by their ID to handle composite foreign keys
-        fk_groups = {}
-        for fk in foreign_keys:
-            fk_id = fk[0]  # ID of the foreign key constraint
-            if fk_id not in fk_groups:
-                fk_groups[fk_id] = {
-                    'table': fk[2],  # Referenced table
-                    'fields': [],  # Fields in this table
-                    'ref_fields': [],  # Fields in referenced table
-                }
-            fk_groups[fk_id]['fields'].append(fk[3])
-            fk_groups[fk_id]['ref_fields'].append(fk[4])
-
-        # Create foreign key constraints
-        for fk_group in fk_groups.values():
-            # For composite keys, use the first field for naming if no constraint name is found
-            primary_field = fk_group['fields'][0]
-            constraint_name = self._get_fk_name(table_sql, field_name=primary_field)
-
-            # If no constraint name is found, generate one based on the fields
-            if not constraint_name:
-                if len(fk_group['fields']) == 1:
-                    constraint_name = f'fk_{primary_field}'
-                else:
-                    # For composite keys, include all field names in the constraint name
-                    constraint_name = f'fk_{"_".join(fk_group["fields"])}'
-
-            constraints.append(
-                ForeignKeyConstraint(
-                    name=constraint_name,
-                    fields=fk_group['fields'],
-                    reference_schema=SchemaReference(
-                        name=fk_group['table'],
-                        version=Version.LATEST,
-                    ),
-                    reference_fields=fk_group['ref_fields'],
-                )
-            )
-
-        # Get indexes info
-        cursor = self.execute(f"PRAGMA index_list('{table_name}')")
-        indexes_list = cursor.fetchall()
-        cursor.close()
-
-        indexes = []
-
-        for index in indexes_list:
-            cursor = self.execute(f"PRAGMA index_info('{index[1]}')")
-            index_info = cursor.fetchall()
-            cursor.close()
-
-            index_fields = [field[2] for field in index_info]
-
-            if not self._is_constraint(index_fields, constraints) and not index[2]:
-                if index[2]:
-                    constraints.append(
-                        UniqueConstraint(
-                            name=index[1],
-                            fields=index_fields,
-                            condition=None,
-                        ),
-                    )
-                else:
-                    indexes.append(
-                        IndexSchema(
-                            name=index[1],
-                            fields=index_fields,
-                            condition=None,
-                        ),
-                    )
-
-        return properties, constraints, indexes
-
-    def acquire_lock(self, lock: ExecutionLockCommand) -> Any:
+    def acquire_lock(self, lock: LockCommand) -> Any:
         """
         Acquires a lock on the SQLite database.
 
+        SQLite has no ``LOCK TABLE`` syntax, so ``EXCLUSIVE`` mode uses ``BEGIN EXCLUSIVE`` instead.
+
         Args:
-            lock (ExecutionLockCommand): The lock command.
+            lock (LockCommand): The lock command.
 
         Returns:
             Any: The result of the lock acquisition.
@@ -461,12 +784,14 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
         return True
 
-    def release_lock(self, lock: ExecutionLockCommand) -> Any:
+    def release_lock(self, lock: LockCommand) -> Any:
         """
         Releases a lock on the SQLite database.
 
+        Mirrors ``acquire_lock``: ``EXCLUSIVE`` mode commits the ``BEGIN EXCLUSIVE`` transaction.
+
         Args:
-            lock (ExecutionLockCommand): The lock command.
+            lock (LockCommand): The lock command.
 
         Returns:
             Any: The result of the lock release.
@@ -534,148 +859,169 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         Returns:
             Any: The result of the transaction revert.
         """
-        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            self.connection.execute(f"ROLLBACK TO SAVEPOINT '{transaction.parent_transaction_id}'")
-        else:
-            self.connection.execute('ROLLBACK')
-        return True
+        return self.rollback_transaction(transaction)
 
     def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:
         if isinstance(mutation, UpdateProperty):
-            new_uuid = f'f{uuid.uuid4().hex}'
-
-            new_property = mutation.property.__copy__()
-            new_property.name = new_uuid
-
-            if new_property.required and new_property.default is None:
-                msg = (
-                    f'Cannot update {mutation.property.name} column. '
-                    f"SQLite doesn't support ALTER COLUMN with required=True and no default value."
-                )
-                raise ValueError(msg)
-
-            statements = [
-                build_add_column(mutation.schema_reference, new_property, type_transform=self.to_sql_type),
-                build_migrate_column(mutation.schema_reference, mutation.property.name, new_uuid),
-                build_drop_column(mutation.schema_reference, mutation.property.name),
-                build_rename_column(mutation.schema_reference, new_uuid, mutation.property.name),
-            ]
-        elif isinstance(mutation, AddConstraint | DeleteConstraint):
+            self._update_property(mutation)
+            return None
+        if isinstance(mutation, AddConstraint | DeleteConstraint):
             self._recreate_table_with_constraints(mutation)
             return None
-        else:
-            statements = build_schema_mutation(
-                mutation,
-                type_transform=self.to_sql_type,
-                transform=get_sqlite_transform(),
-            )
 
-        for stmt, values in statements:
-            self.execute(stmt, *values)
+        sql_params_list = self._generator.compile_schema_mutation(mutation)
+
+        for sql, params in sql_params_list:
+            self.execute(sql, *params)
 
         if isinstance(mutation, RegisterSchema):
             return mutation.schema
 
         return None
 
-    def _recreate_table_with_constraints(self, mutation: AddConstraint | DeleteConstraint) -> None:  # noqa: C901, PLR0912
-        table_name = mutation.schema_reference.name
-        namespace = mutation.schema_reference.namespace
+    def _update_property(self, mutation: UpdateProperty) -> None:
+        """Port UpdateProperty to SQLite via ADD / UPDATE / DROP / RENAME column sequence."""
+        if mutation.property.required and mutation.property.default is None:
+            msg = (
+                f'Cannot update {mutation.property.name} column. '
+                "SQLite doesn't support ALTER COLUMN with required=True and no default value."
+            )
+            raise ValueError(msg)
 
-        current_schemas = self.query_schema()
-        current_schema = None
-        for schema in current_schemas:
+        new_uuid = f'f{uuid.uuid4().hex}'
+        new_prop = copy(mutation.property)
+        new_prop.name = new_uuid
+
+        ref = mutation.schema_ref
+
+        # a. Add new column with the requested type under a temporary name.
+        for sql, params in self._generator.compile_schema_mutation(AddProperty(schema_ref=ref, property=new_prop)):
+            self.execute(sql, *params)
+
+        # b. Copy data from the old column into the new one.
+        copy_stmt, copy_params = self._generator.compile_mutation(
+            UpdateData(
+                schema=ref,
+                data=DataInput(
+                    data={
+                        new_uuid: FieldReferenceExpression(
+                            field_reference=FieldReference(
+                                field=Field(name=mutation.property.name),
+                                table_name=ref.name,
+                            )
+                        )
+                    },
+                ),
+            )
+        )
+        self.execute(copy_stmt, *copy_params)
+
+        # c. Drop the old column.
+        for sql, params in self._generator.compile_schema_mutation(
+            DeleteProperty(schema_ref=ref, property_name=mutation.property.name)
+        ):
+            self.execute(sql, *params)
+
+        # d. Rename the temporary column to the original name.
+        for sql, params in self._generator.compile_schema_mutation(
+            RenameProperty(schema_ref=ref, old_name=new_uuid, new_name=mutation.property.name)
+        ):
+            self.execute(sql, *params)
+
+    def _recreate_table_with_constraints(  # noqa: C901, PLR0912
+        self, mutation: AddConstraint | DeleteConstraint
+    ) -> None:
+        """Rebuild the table under a temp name to apply AddConstraint / DeleteConstraint on SQLite."""
+        table_name = mutation.schema_ref.name
+        namespace = mutation.schema_ref.namespace
+
+        # Introspect the current schema.
+        all_schemas = self.query_schema(
+            QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))
+        )
+        current_schema: Schema | None = None
+        for schema in all_schemas:
             schema_namespace = schema.namespace
             if schema.name == table_name and (
-                (namespace is None and (schema_namespace is None or schema_namespace == ''))
-                or (namespace == '' and (schema_namespace is None or schema_namespace == ''))
-                or (namespace == schema_namespace)
+                (not namespace and not schema_namespace) or namespace == schema_namespace
             ):
                 current_schema = schema
                 break
 
         if current_schema is None:
-            msg = f'Table {table_name} not found. Available tables: {[(s.name, s.namespace) for s in current_schemas]}'
+            msg = f'Table {table_name} not found. Available tables: {[(s.name, s.namespace) for s in all_schemas]}'
             raise ValueError(msg)
 
+        # Compute the new constraint list.
         new_constraints = list(current_schema.constraints or [])
-
         if isinstance(mutation, AddConstraint):
             new_constraints.append(mutation.constraint)
-        elif isinstance(mutation, DeleteConstraint):
+        else:
             new_constraints = [c for c in new_constraints if c.name != mutation.constraint_name]
 
-        new_schema = Schema(
-            name=current_schema.name,
-            namespace=current_schema.namespace,
-            version=current_schema.version,
-            properties=current_schema.properties,
-            constraints=new_constraints,
-            indexes=current_schema.indexes,
-        )
-
+        # Build the temp-table schema.
         temp_table_name = f'temp_{table_name}_{uuid.uuid4().hex[:8]}'
+        temp_ref = SchemaReference(name=temp_table_name, version=Version.LATEST)
+        orig_ref = SchemaReference(name=table_name, version=Version.LATEST, namespace=namespace)
         temp_schema = Schema(
             name=temp_table_name,
-            namespace=namespace or '',
-            version=new_schema.version,
-            properties=new_schema.properties,
-            constraints=new_schema.constraints,
+            namespace=namespace,
+            version=current_schema.version,
+            properties=current_schema.properties,
+            constraints=new_constraints or None,
             indexes=[],
         )
 
-        # Check if we're already in a transaction by testing if we can start one
-        # If we can't start a transaction, we're already in one
+        # Detect whether we are already inside a transaction.
         in_transaction = False
         try:
             self.connection.execute('BEGIN')
-        except sqlite3.OperationalError as e:
-            if 'cannot start a transaction within a transaction' in str(e):
+        except sqlite3.OperationalError as exc:
+            if 'cannot start a transaction within a transaction' in str(exc):
                 in_transaction = True
             else:
                 raise
 
         try:
-            create_temp_stmt, create_temp_values = build_create_table(
-                temp_schema,
-                type_transform=self.to_sql_type,
-                transform=get_sqlite_transform(),
+            # a. CREATE temp table.
+            for sql, params in self._generator.compile_schema_mutation(
+                RegisterSchema(schema_ref=temp_ref, schema=temp_schema)
+            ):
+                self.execute(sql, *params)
+
+            # b. Copy all rows from the original table into the temp table.
+            col_names = [prop.name for prop in current_schema.properties]
+            insert_mut = InsertFromSelect(
+                schema=temp_ref,
+                query=QueryStatement(
+                    table=orig_ref,
+                    only=[FieldReference(field=Field(name=c), table_name=table_name) for c in col_names],
+                ),
+                columns=[FieldReference(field=Field(name=c), table_name=temp_table_name) for c in col_names],
             )
-            self.execute(create_temp_stmt, *create_temp_values)
+            copy_sql, copy_params = self._generator.compile_mutation(insert_mut)
+            self.execute(copy_sql, *copy_params)
 
-            namespace_prefix = f"'{namespace}'." if namespace else ''
-            column_names = [prop.name for prop in current_schema.properties]
-            columns_str_quoted = ', '.join(f"'{col}'" for col in column_names)
-            columns_str_unquoted = ', '.join(f'"{col}"' for col in column_names)
+            # c. DROP the original table.
+            for sql, params in self._generator.compile_schema_mutation(DeleteSchema(schema_ref=orig_ref)):
+                self.execute(sql, *params)
 
-            copy_stmt = (
-                f"INSERT INTO {namespace_prefix}'{temp_table_name}' ({columns_str_quoted}) "  # noqa: S608
-                f"SELECT {columns_str_unquoted} FROM {namespace_prefix}'{table_name}'"
-            )
-            self.execute(copy_stmt)
+            # d. RENAME temp → original.
+            for sql, params in self._generator.compile_schema_mutation(
+                RenameSchema(schema_ref=temp_ref, new_name=table_name)
+            ):
+                self.execute(sql, *params)
 
-            drop_stmt = f"DROP TABLE {namespace_prefix}'{table_name}'"
-            self.execute(drop_stmt)
+            # e. Recreate indexes on the renamed table.
+            renamed_ref = SchemaReference(name=table_name, version=Version.LATEST, namespace=namespace)
+            for idx in current_schema.indexes or []:
+                for sql, params in self._generator.compile_schema_mutation(AddIndex(schema_ref=renamed_ref, index=idx)):
+                    self.execute(sql, *params)
 
-            rename_stmt = f"ALTER TABLE {namespace_prefix}'{temp_table_name}' RENAME TO '{table_name}'"
-            self.execute(rename_stmt)
-
-            if current_schema.indexes:
-                index_statements = build_create_indexes(
-                    table_name,
-                    namespace or '',
-                    current_schema.indexes,
-                    transform=get_sqlite_transform(),
-                )
-                for index_stmt, index_values in index_statements:
-                    self.execute(index_stmt, *index_values)
-
-            # Only commit if we started the transaction
             if not in_transaction:
                 self.connection.execute('COMMIT')
 
         except Exception:
-            # Only rollback if we started the transaction
             if not in_transaction:
                 self.connection.execute('ROLLBACK')
             raise

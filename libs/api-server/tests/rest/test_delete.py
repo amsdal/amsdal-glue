@@ -1,6 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
@@ -22,9 +22,9 @@ def _fixture_data() -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
-                        Data(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
-                        Data(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
+                        DataInput(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                        DataInput(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
+                        DataInput(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
                     ],
                 ),
             ],

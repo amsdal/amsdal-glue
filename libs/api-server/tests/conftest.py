@@ -1,5 +1,4 @@
 # mypy: disable-error-code="type-abstract"
-import datetime
 import tempfile
 from collections.abc import Generator
 from typing import Any
@@ -20,6 +19,7 @@ from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -77,17 +77,17 @@ def create_schemas(_register_connections) -> None:
         properties=[
             PropertySchema(
                 name='customer_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
             PropertySchema(
                 name='email',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
         ],
@@ -101,22 +101,22 @@ def create_schemas(_register_connections) -> None:
         properties=[
             PropertySchema(
                 name='profile_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='customer_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='address',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
             PropertySchema(
                 name='phone',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
         ],
@@ -135,17 +135,17 @@ def create_schemas(_register_connections) -> None:
         properties=[
             PropertySchema(
                 name='product_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
             PropertySchema(
                 name='price',
-                type=float,
+                type=ScalarType.FLOAT,
                 required=True,
             ),
         ],
@@ -159,22 +159,22 @@ def create_schemas(_register_connections) -> None:
         properties=[
             PropertySchema(
                 name='order_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='customer_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='product_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='quantity',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
         ],
@@ -201,17 +201,17 @@ def create_schemas(_register_connections) -> None:
         properties=[
             PropertySchema(
                 name='customer_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='product_id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='quantity',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
         ],
@@ -225,12 +225,12 @@ def create_schemas(_register_connections) -> None:
         properties=[
             PropertySchema(
                 name='message',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
             PropertySchema(
                 name='created_at',
-                type=datetime.datetime,
+                type=ScalarType.TIMESTAMP,
                 required=True,
             ),
         ],
@@ -238,22 +238,64 @@ def create_schemas(_register_connections) -> None:
 
     service = Container.services.get(SchemaCommandService)
     service.execute(
-        SchemaCommand(mutations=[RegisterSchema(schema=customers_schema)]),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema_ref=SchemaReference(name=customers_schema.name, version=Version.LATEST),
+                    schema=customers_schema,
+                )
+            ]
+        ),
     )
     service.execute(
-        SchemaCommand(mutations=[RegisterSchema(schema=profile_schema)]),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema_ref=SchemaReference(name=profile_schema.name, version=Version.LATEST),
+                    schema=profile_schema,
+                )
+            ]
+        ),
     )
     service.execute(
-        SchemaCommand(mutations=[RegisterSchema(schema=products_schema)]),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema_ref=SchemaReference(name=products_schema.name, version=Version.LATEST),
+                    schema=products_schema,
+                )
+            ]
+        ),
     )
     service.execute(
-        SchemaCommand(mutations=[RegisterSchema(schema=orders_schema)]),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema_ref=SchemaReference(name=orders_schema.name, version=Version.LATEST),
+                    schema=orders_schema,
+                )
+            ]
+        ),
     )
     service.execute(
-        SchemaCommand(mutations=[RegisterSchema(schema=cart_schema)]),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema_ref=SchemaReference(name=cart_schema.name, version=Version.LATEST),
+                    schema=cart_schema,
+                )
+            ]
+        ),
     )
     service.execute(
-        SchemaCommand(mutations=[RegisterSchema(schema=logs_schema)]),
+        SchemaCommand(
+            mutations=[
+                RegisterSchema(
+                    schema_ref=SchemaReference(name=logs_schema.name, version=Version.LATEST),
+                    schema=logs_schema,
+                )
+            ]
+        ),
     )
 
 

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -13,13 +14,17 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
-from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
-from amsdal_glue_core.common.data_models.schema import DictSchemaModel
-from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import DictType
+from amsdal_glue_core.common.data_models.types import NestedType
 from amsdal_glue_core.common.enums import FieldLookup
+from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -59,27 +64,27 @@ def test_create_schema() -> None:
         properties=[
             PropertySchema(
                 name='id',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='email',
-                type=str,
+                type=ScalarType.TEXT,
                 required=True,
             ),
             PropertySchema(
                 name='age',
-                type=int,
+                type=ScalarType.INTEGER,
                 required=True,
             ),
             PropertySchema(
                 name='first_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
             PropertySchema(
                 name='last_name',
-                type=str,
+                type=ScalarType.TEXT,
                 required=False,
             ),
         ],
@@ -101,7 +106,7 @@ def test_create_schema() -> None:
             ),
         ],
         indexes=[
-            IndexSchema(name='idx_user_email', fields=['first_name', 'last_name']),
+            IndexSchema(name='idx_user_email', fields=[IndexField(name='first_name'), IndexField(name='last_name')]),
         ],
     )
 
@@ -109,27 +114,30 @@ def test_create_schema() -> None:
     plan = planner.plan_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=schema),
+                RegisterSchema(
+                    schema=schema,
+                    schema_ref=SchemaReference(name='user', version=Version.LATEST),
+                ),
             ],
         ),
     )
     plan.execute(transaction_id=None, lock_id=None)
 
     conn = connection_mng.get_connection_pool('user').get_connection()
-    result = conn.query_schema(filters=None)
+    result = conn.query_schema(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)))
     assert len(result) == 1
     _schema = result[0]
     assert _schema.name == 'user'
     assert {prop.name: prop.type for prop in _schema.properties} == {
-        'id': int,
-        'email': str,
-        'age': int,
-        'first_name': str,
-        'last_name': str,
+        'id': ScalarType.INTEGER,
+        'email': ScalarType.TEXT,
+        'age': ScalarType.INTEGER,
+        'first_name': ScalarType.TEXT,
+        'last_name': ScalarType.TEXT,
     }
     query_service = Container.services.get(SchemaQueryService)
     schema_result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        SchemaQueryOperation(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST))),
     )
 
     assert schema_result.schemas == [
@@ -139,27 +147,27 @@ def test_create_schema() -> None:
             properties=[
                 PropertySchema(
                     name='id',
-                    type=int,
+                    type=ScalarType.INTEGER,
                     required=True,
                 ),
                 PropertySchema(
                     name='email',
-                    type=str,
+                    type=ScalarType.TEXT,
                     required=True,
                 ),
                 PropertySchema(
                     name='age',
-                    type=int,
+                    type=ScalarType.INTEGER,
                     required=True,
                 ),
                 PropertySchema(
                     name='first_name',
-                    type=str,
+                    type=ScalarType.TEXT,
                     required=False,
                 ),
                 PropertySchema(
                     name='last_name',
-                    type=str,
+                    type=ScalarType.TEXT,
                     required=False,
                 ),
             ],
@@ -167,9 +175,27 @@ def test_create_schema() -> None:
                 PrimaryKeyConstraint(name='pk_user_custom_name', fields=['id']),
                 UniqueConstraint(name='uk_user_email', fields=['email'], condition=None),
                 UniqueConstraint(name='uk_user_email_last_name', fields=['email', 'last_name'], condition=None),
+                CheckConstraint(
+                    name='ck_user_age',
+                    condition=Conditions(
+                        Condition(
+                            left=FieldReferenceExpression(
+                                field_reference=FieldReference(field=Field(name='age'), table_name='user')
+                            ),
+                            lookup=FieldLookup.GT,
+                            right=Value(value=18),
+                        ),
+                    ),
+                ),
             ],
             indexes=[
-                IndexSchema(name='idx_user_email', fields=['first_name', 'last_name']),
+                IndexSchema(
+                    name='idx_user_email',
+                    fields=[
+                        IndexField(name='first_name', direction=OrderDirection.ASC, op_class=None),
+                        IndexField(name='last_name', direction=OrderDirection.ASC, op_class=None),
+                    ],
+                ),
             ],
         )
     ]
@@ -183,17 +209,12 @@ def test_create_schema_complex_types() -> None:
         properties=[
             PropertySchema(
                 name='dictionary',
-                type=DictSchemaModel(key_type=str, value_type=int),
-                required=True,
-            ),
-            PropertySchema(
-                name='array',
-                type=ArraySchemaModel(item_type=str),
+                type=DictType(key_type=ScalarType.TEXT, value_type=ScalarType.INTEGER),
                 required=True,
             ),
             PropertySchema(
                 name='nested_schema',
-                type=NestedSchemaModel(properties={'string': str, 'integer': int, 'float': float}),
+                type=NestedType(properties={'string': ScalarType.TEXT, 'integer': ScalarType.INTEGER}),
                 required=True,
             ),
         ],
@@ -203,19 +224,21 @@ def test_create_schema_complex_types() -> None:
     plan = planner.plan_schema_command(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=schema),
+                RegisterSchema(
+                    schema=schema,
+                    schema_ref=SchemaReference(name='user', version=Version.LATEST),
+                ),
             ],
         ),
     )
     plan.execute(transaction_id=None, lock_id=None)
 
     conn = connection_mng.get_connection_pool('user').get_connection()
-    result = conn.query_schema(filters=None)
+    result = conn.query_schema(query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)))
     assert len(result) == 1
     _schema = result[0]
     assert _schema.name == 'user'
     assert {prop.name: prop.type for prop in _schema.properties} == {
-        'dictionary': dict,
-        'array': dict,
-        'nested_schema': dict,
+        'dictionary': ScalarType.JSONB,
+        'nested_schema': ScalarType.JSONB,
     }

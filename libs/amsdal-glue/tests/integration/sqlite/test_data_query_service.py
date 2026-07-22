@@ -57,7 +57,9 @@ def test_data_query_service() -> None:
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],
@@ -107,11 +109,15 @@ def test_data_query_service_multiple_connections() -> None:
         ],
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             ),
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='s'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='s')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

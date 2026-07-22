@@ -1,13 +1,18 @@
-from typing import Any
+from __future__ import annotations
+
 from typing import Literal
+from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.expressions.expression import Expression
+
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.data_models.types import FieldType
 
 
 class VectorExpression(Expression):
     operator: Literal['<->', '<#>', '<=>', '<+>', '<~>', '<%>']
 
-    def __init__(self, left: Expression, right: Expression, output_type: type[Any] | None = None) -> None:
+    def __init__(self, left: Expression, right: Expression, output_type: FieldType | None = None) -> None:
         super().__init__(output_type=output_type)
         self.left = left
         self.right = right
@@ -28,17 +33,17 @@ class VectorExpression(Expression):
         return hash((self.left, self.right, self.operator))
 
 
-class L2DistanceExpression(VectorExpression):
+class L2Distance(VectorExpression):
     operator = '<->'
 
 
-class InnerProductExpression(VectorExpression):
+class InnerProduct(VectorExpression):
     operator = '<#>'
 
 
-class CosineDistanceExpression(VectorExpression):
+class CosineDistance(VectorExpression):
     operator = '<=>'
 
 
-class L1DistanceExpression(VectorExpression):
+class L1Distance(VectorExpression):
     operator = '<+>'

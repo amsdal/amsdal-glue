@@ -14,3 +14,6 @@ pyrightconfig.json
 /build
 /cython_build
 *.egg-info
+# maturin-built Rust extension (compiled per-interpreter; never committed)
+*.so
+/rust/target

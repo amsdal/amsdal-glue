@@ -7,10 +7,14 @@ from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import FieldType
+from amsdal_glue_core.common.data_models.types import NestedType
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import AddConstraint
@@ -76,22 +80,23 @@ def constraint_to_core_constraint(
 
 
 def property_type_to_core_property_type(
-    prop_type: Union['SchemaBody', 'SchemaReference', str],
-) -> Schema | SchemaReference | type[Any]:
+    prop_type: Union['SchemaBody', str],
+) -> FieldType:
     if isinstance(prop_type, SchemaBody):
-        return schema_to_core_schema(prop_type)
-
-    if isinstance(prop_type, SchemaReference):
-        return prop_type
+        # A nested object property maps to NestedType (relations are expressed via
+        # ForeignKeyConstraint, never as a property type).
+        return NestedType(
+            properties={prop.name: property_type_to_core_property_type(prop.type) for prop in prop_type.properties}
+        )
 
     return {
-        'int': int,
-        'str': str,
-        'float': float,
-        'bool': bool,
-        'list': list,
-        'dict': dict,
-    }.get(prop_type, str)
+        'int': ScalarType.INTEGER,
+        'str': ScalarType.TEXT,
+        'float': ScalarType.FLOAT,
+        'bool': ScalarType.BOOLEAN,
+        'list': ScalarType.JSON,
+        'dict': ScalarType.JSONB,
+    }.get(prop_type, ScalarType.TEXT)
 
 
 def property_to_core_property(prop: 'PropertySchemaBody') -> PropertySchema:
@@ -108,18 +113,17 @@ def schema_to_core_schema(schema: 'SchemaBody') -> Schema:
     return Schema(
         name=schema.name,
         version=schema.version,
-        extends=schema.extends,
         properties=[property_to_core_property(prop) for prop in schema.properties],
         constraints=None,
-        namespace=schema.namespace,
-        indexes=[index_to_core_index(index) for index in schema.indexes or []],
+        namespace=schema.namespace or None,
+        indexes=[index_to_core_index(index) for index in schema.indexes or []] or None,
     )
 
 
 def index_to_core_index(index: 'IndexSchemaBody') -> IndexSchema:
     return IndexSchema(
         name=index.name,
-        fields=index.fields,
+        fields=[IndexField(name=f) for f in index.fields],
         condition=conditions_to_core_conditions(index.condition),
     )
 
@@ -158,7 +162,7 @@ class IndexSchemaBody(BaseModel):
 
 
 class PropertySchemaBody(BaseModel):
-    type: Union['SchemaBody', 'SchemaReference', str]
+    type: Union['SchemaBody', str]
     name: str
     required: bool
     description: str | None = None
@@ -168,10 +172,13 @@ class PropertySchemaBody(BaseModel):
 class SchemaBody(BaseModel):
     properties: list[PropertySchemaBody]
     indexes: list[IndexSchemaBody] | None = None
-    extends: SchemaReference | None = None
     namespace: str = ''
     name: str
     version: str | Version
+
+
+PropertySchemaBody.model_rebuild()
+SchemaBody.model_rebuild()
 
 
 class RegisterSchemaBody(BaseModel):
@@ -254,8 +261,12 @@ async def register_schema(
     root_transaction_id: str | None = None,
     transaction_id: str | None = None,
 ) -> Response:
+    _schema = schema_to_core_schema(register_schema_body.schema)
     return await _execute_schema_command(
-        schema_mutation=RegisterSchema(schema=schema_to_core_schema(register_schema_body.schema)),
+        schema_mutation=RegisterSchema(
+            schema_ref=SchemaReference(name=_schema.name, version=_schema.version, namespace=_schema.namespace),
+            schema=_schema,
+        ),
         lock_id=lock_id,
         root_transaction_id=root_transaction_id,
         transaction_id=transaction_id,
@@ -269,7 +280,7 @@ async def delete_schema(
     transaction_id: str | None = None,
 ) -> Response:
     return await _execute_schema_command(
-        schema_mutation=DeleteSchema(schema_reference=delete_schema_body.schema_reference),
+        schema_mutation=DeleteSchema(schema_ref=delete_schema_body.schema_reference),
         lock_id=lock_id,
         root_transaction_id=root_transaction_id,
         transaction_id=transaction_id,
@@ -284,8 +295,8 @@ async def rename_schema(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=RenameSchema(
-            schema_reference=rename_schema_body.schema_reference,
-            new_schema_name=rename_schema_body.new_schema_name,
+            schema_ref=rename_schema_body.schema_reference,
+            new_name=rename_schema_body.new_schema_name,
         ),
         lock_id=lock_id,
         root_transaction_id=root_transaction_id,
@@ -301,7 +312,7 @@ async def add_property(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=AddProperty(
-            schema_reference=add_property_body.schema_reference,
+            schema_ref=add_property_body.schema_reference,
             property=property_to_core_property(add_property_body.property),
         ),
         lock_id=lock_id,
@@ -318,7 +329,7 @@ async def delete_property(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=DeleteProperty(
-            schema_reference=delete_property_body.schema_reference,
+            schema_ref=delete_property_body.schema_reference,
             property_name=delete_property_body.property_name,
         ),
         lock_id=lock_id,
@@ -335,7 +346,7 @@ async def rename_property(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=RenameProperty(
-            schema_reference=rename_property_body.schema_reference,
+            schema_ref=rename_property_body.schema_reference,
             old_name=rename_property_body.old_name,
             new_name=rename_property_body.new_name,
         ),
@@ -353,7 +364,7 @@ async def update_property(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=UpdateProperty(
-            schema_reference=update_property_body.schema_reference,
+            schema_ref=update_property_body.schema_reference,
             property=property_to_core_property(update_property_body.property),
         ),
         lock_id=lock_id,
@@ -370,7 +381,7 @@ async def add_constraint(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=AddConstraint(
-            schema_reference=add_constraint_body.schema_reference,
+            schema_ref=add_constraint_body.schema_reference,
             constraint=constraint_to_core_constraint(add_constraint_body.constraint),
         ),
         lock_id=lock_id,
@@ -387,7 +398,7 @@ async def delete_constraint(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=DeleteConstraint(
-            schema_reference=delete_constraint_body.schema_reference,
+            schema_ref=delete_constraint_body.schema_reference,
             constraint_name=delete_constraint_body.constraint_name,
         ),
         lock_id=lock_id,
@@ -404,7 +415,7 @@ async def add_index(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=AddIndex(
-            schema_reference=add_index_body.schema_reference,
+            schema_ref=add_index_body.schema_reference,
             index=index_to_core_index(add_index_body.index),
         ),
         lock_id=lock_id,
@@ -421,7 +432,7 @@ async def delete_index(
 ) -> Response:
     return await _execute_schema_command(
         schema_mutation=DeleteIndex(
-            schema_reference=delete_index_body.schema_reference,
+            schema_ref=delete_index_body.schema_reference,
             index_name=delete_index_body.index_name,
         ),
         lock_id=lock_id,

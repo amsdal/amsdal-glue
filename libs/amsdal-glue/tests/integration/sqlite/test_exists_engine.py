@@ -11,6 +11,7 @@ from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
@@ -85,10 +86,17 @@ def test_not_exists_returns_customers_without_any_orders() -> None:
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(query=_correlated_orders_subquery(min_amount=0), negated=True)),
+        where=Conditions(
+            Exists(
+                subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=0), alias='_exists'),
+                negated=True,
+            )
+        ),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             )
         ],
@@ -106,10 +114,14 @@ def test_exists_returns_customers_with_any_order() -> None:
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(query=_correlated_orders_subquery(min_amount=0))),
+        where=Conditions(
+            Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=0), alias='_exists'))
+        ),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             )
         ],
@@ -128,10 +140,14 @@ def test_exists_with_correlation_and_amount_threshold_returns_customer_three() -
     query = QueryStatement(
         only=[FieldReference(field=Field(name='id'), table_name='c')],
         table=SchemaReference(name='customers', alias='c', version=Version.LATEST),
-        where=Conditions(Exists(query=_correlated_orders_subquery(min_amount=5000))),
+        where=Conditions(
+            Exists(subquery=SubQueryStatement(query=_correlated_orders_subquery(min_amount=5000), alias='_exists'))
+        ),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='c'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='c')
+                ),
                 direction=OrderDirection.ASC,
             )
         ],

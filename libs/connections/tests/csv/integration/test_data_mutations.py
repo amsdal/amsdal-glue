@@ -1,12 +1,11 @@
-import datetime
-
 import numpy as np
 import pandas as pd
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -25,15 +24,16 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='customers', version=Version.LATEST),
                     schema=Schema(
                         name='customers',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True),
-                            PropertySchema(name='name', type=str, required=True),
-                            PropertySchema(name='age', type=int, required=True),
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='name', type=ScalarType.TEXT, required=True),
+                            PropertySchema(name='age', type=ScalarType.INTEGER, required=True),
                         ],
-                    )
+                    ),
                 )
             ]
         )
@@ -42,16 +42,17 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
         SchemaCommand(
             mutations=[
                 RegisterSchema(
+                    schema_ref=SchemaReference(name='orders', version=Version.LATEST),
                     schema=Schema(
                         name='orders',
                         version=Version.LATEST,
                         properties=[
-                            PropertySchema(name='id', type=int, required=True),
-                            PropertySchema(name='customer_id', type=int, required=True),
-                            PropertySchema(name='amount', type=int, required=True),
-                            PropertySchema(name='date', type=datetime.date, required=True),
+                            PropertySchema(name='id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='customer_id', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='amount', type=ScalarType.INTEGER, required=True),
+                            PropertySchema(name='date', type=ScalarType.DATE, required=True),
                         ],
-                    )
+                    ),
                 )
             ]
         )
@@ -100,13 +101,13 @@ def test_delete(fixture_connection: CsvConnection) -> None:
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 ),
-                Data(
+                DataInput(
                     data={'id': '2', 'name': 'customer', 'age': 25},
                 ),
-                Data(
+                DataInput(
                     data={'id': '3', 'name': 'customer', 'age': 30},
                 ),
             ],

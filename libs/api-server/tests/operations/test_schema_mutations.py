@@ -1,9 +1,17 @@
 # mypy: disable-error-code="type-abstract"
 import pytest
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
+from amsdal_glue_core.common.data_models.query import QueryStatement
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.queries import SchemaQueryOperation
 from amsdal_glue_core.common.services.queries import SchemaQueryService
 from amsdal_glue_core.containers import Container
 from fastapi.testclient import TestClient
+
+_SCHEMA_QUERY = SchemaQueryOperation(
+    query=QueryStatement(table=SchemaReference(name=TABLE_REGISTRY, version=Version.LATEST)),
+)
 
 
 def test_register_schema(test_client: TestClient) -> None:
@@ -25,7 +33,7 @@ def test_register_schema(test_client: TestClient) -> None:
 
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        _SCHEMA_QUERY,
     )
     assert {'test_schema', 'products', 'orders', 'cart', 'logs', 'profile', 'customers'} == {
         schema.name  # type: ignore[union-attr]
@@ -42,7 +50,7 @@ def test_delete_schema(test_client: TestClient) -> None:
 
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        _SCHEMA_QUERY,
     )
     assert {'orders', 'cart', 'logs', 'profile', 'customers'} == {schema.name for schema in result.schemas}  # type: ignore[union-attr]
 
@@ -56,7 +64,7 @@ def test_rename_schema(test_client: TestClient) -> None:
 
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        _SCHEMA_QUERY,
     )
     assert {'products', 'orders_v2', 'cart', 'logs', 'profile', 'customers'} == {
         schema.name  # type: ignore[union-attr]
@@ -76,7 +84,7 @@ def test_add_property(test_client: TestClient) -> None:
 
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        _SCHEMA_QUERY,
     )
     assert {
         'customer_id',
@@ -95,7 +103,7 @@ def test_delete_property(test_client: TestClient) -> None:
 
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        _SCHEMA_QUERY,
     )
     assert {
         'customer_id',
@@ -116,7 +124,7 @@ def test_rename_property(test_client: TestClient) -> None:
 
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        _SCHEMA_QUERY,
     )
     assert {
         'customer_id',
@@ -138,7 +146,7 @@ def test_update_property(test_client: TestClient) -> None:
 
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        _SCHEMA_QUERY,
     )
     assert {
         'customer_id',
@@ -160,7 +168,7 @@ def test_add_constraint(test_client: TestClient) -> None:
 
     query_service = Container.services.get(SchemaQueryService)
     result = query_service.execute(
-        SchemaQueryOperation(filters=None),
+        _SCHEMA_QUERY,
     )
     assert {
         'email_unique',

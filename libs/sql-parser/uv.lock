@@ -4,36 +4,96 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "amsdal-glue"
-version = "0.1.5"
-source = { registry = "https://pypi.org/simple" }
+source = { directory = "../amsdal-glue" }
 dependencies = [
     { name = "amsdal-glue-connections" },
     { name = "polars" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6a/b5/1019cfa4d6f5b2bdc2eea1f84842dfad1e9e69bab90ff1ca034cec9dd2cc/amsdal_glue-0.1.5.tar.gz", hash = "sha256:25c915aee9dbdc5c8782f6e75bb9aad57dd8b44d8d9d8af535561a11574295fd", size = 18807588, upload-time = "2025-08-26T17:45:50.555Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0b/10/d03352aae5a9ede14e8ba989329418ccad9a81e1f326822595fcc7fbb99f/amsdal_glue-0.1.5-py3-none-any.whl", hash = "sha256:7658b1394a79325c5769d7d7728273a2fce239c50ed9057c9b8a634ecd68988a", size = 54410, upload-time = "2025-08-26T17:45:47.977Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "amsdal-glue-connections", directory = "../connections" },
+    { name = "amsdal-glue-connections", extras = ["async-sqlite"], marker = "extra == 'async-sqlite'", directory = "../connections" },
+    { name = "amsdal-glue-connections", extras = ["csv"], marker = "extra == 'csv'", directory = "../connections" },
+    { name = "amsdal-glue-connections", extras = ["elasticsearch"], marker = "extra == 'elasticsearch'", directory = "../connections" },
+    { name = "amsdal-glue-connections", extras = ["postgres-binary"], marker = "extra == 'postgres-binary'", directory = "../connections" },
+    { name = "amsdal-glue-connections", extras = ["postgres-c"], marker = "extra == 'postgres-c'", directory = "../connections" },
+    { name = "polars", specifier = ">=1.20" },
+]
+provides-extras = ["async-sqlite", "csv", "elasticsearch", "postgres-binary", "postgres-c"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "amsdal-glue", extras = ["async-sqlite"] },
+    { name = "amsdal-glue", extras = ["csv"] },
+    { name = "amsdal-glue", extras = ["elasticsearch"] },
+    { name = "amsdal-glue", extras = ["postgres-binary"] },
+    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-benchmark", specifier = ">=5.1.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
+    { name = "ruff", specifier = ">=0.12.4" },
+    { name = "towncrier", specifier = ">=24.8.0" },
+    { name = "types-pytz" },
 ]
 
 [[package]]
 name = "amsdal-glue-connections"
-version = "0.1.21"
-source = { registry = "https://pypi.org/simple" }
+source = { directory = "../connections" }
 dependencies = [
     { name = "amsdal-glue-core" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/21/b8e68169c56694a43f1628000d80978741359fa0ec914f095c4be4cc5d91/amsdal_glue_connections-0.1.21.tar.gz", hash = "sha256:9ff6ddd73c52793152b5a54866eb012f7a4b388ec3e45b05f178b42b5902f0b6", size = 148818, upload-time = "2025-11-03T15:29:31.806Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/85/d9d28a69944eef2f8d088e4e688f14e7384ce4c3b1cf1209f9a96766bdfe/amsdal_glue_connections-0.1.21-py3-none-any.whl", hash = "sha256:87c86c59729f509b701b689392c684a0bd4cf791d6497dbf34170d08ad50d42a", size = 86995, upload-time = "2025-11-03T15:29:30.651Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "aiosqlite", marker = "extra == 'async-sqlite'", specifier = ">=0.20.0" },
+    { name = "amsdal-glue-core", directory = "../core" },
+    { name = "elasticsearch", marker = "extra == 'elasticsearch'", specifier = ">=8.18.1,<9.0.0" },
+    { name = "pandas", marker = "extra == 'csv'", specifier = ">=2.2.3" },
+    { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'postgres-binary'", specifier = ">=3.2.1" },
+    { name = "psycopg", extras = ["c", "pool"], marker = "extra == 'postgres-c'", specifier = ">=3.2.1" },
+]
+provides-extras = ["async-sqlite", "csv", "elasticsearch", "postgres-binary", "postgres-c"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "amsdal-glue-connections", extras = ["async-sqlite"] },
+    { name = "amsdal-glue-connections", extras = ["csv"] },
+    { name = "amsdal-glue-connections", extras = ["elasticsearch"] },
+    { name = "amsdal-glue-connections", extras = ["postgres-binary"] },
+    { name = "docker", specifier = ">=7.1.0" },
+    { name = "maturin", specifier = ">=1.7,<2.0" },
+    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.5" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-benchmark", specifier = ">=5.1.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
+    { name = "ruff", specifier = ">=0.12.4" },
+    { name = "towncrier", specifier = ">=24.8.0" },
 ]
 
 [[package]]
 name = "amsdal-glue-core"
-version = "0.1.7"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/47/66/7862d8a9540ba715d238718d1d02290e4664023f2a19ec88293cdf29d2ab/amsdal_glue_core-0.1.7.tar.gz", hash = "sha256:4f6fce3183d1ffd6f1c99ad1ea497b3e23d2b7048af5dc7bfe3d826e8bef33a0", size = 57161, upload-time = "2025-06-26T20:16:15.095Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/99/a072515f3eb55cbf5437dc0a28ede979f99450ef645b8b06d5c5a35eb909/amsdal_glue_core-0.1.7-py3-none-any.whl", hash = "sha256:b036922c168acdde5a86143d99db34f8800d57d9faa0435333448ef28a57d990", size = 63790, upload-time = "2025-06-26T20:16:13.755Z" },
+source = { directory = "../core" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
+    { name = "ruff", specifier = ">=0.12.4" },
+    { name = "towncrier", specifier = ">=23.11.0" },
 ]
 
 [[package]]
@@ -63,7 +123,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "amsdal-glue", specifier = ">=0.1.0" },
+    { name = "amsdal-glue", directory = "../amsdal-glue" },
     { name = "sqloxide", marker = "extra == 'sqloxide'", specifier = "==0.1.47" },
 ]
 provides-extras = ["sqloxide"]

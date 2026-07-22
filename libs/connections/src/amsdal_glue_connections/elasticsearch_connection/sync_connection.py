@@ -11,20 +11,25 @@ from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
+from amsdal_glue_core.common.data_models.order_by import OrderByQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
-from amsdal_glue_core.common.data_models.schema import DictSchemaModel
-from amsdal_glue_core.common.data_models.schema import FIELD_TYPE
-from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
-from amsdal_glue_core.common.data_models.schema import VectorSchemaModel
+from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
+from amsdal_glue_core.common.data_models.types import ArrayType
+from amsdal_glue_core.common.data_models.types import DictType
+from amsdal_glue_core.common.data_models.types import FieldType
+from amsdal_glue_core.common.data_models.types import NestedType
+from amsdal_glue_core.common.data_models.types import VectorType
 from amsdal_glue_core.common.data_models.vector import Vector
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import JoinType
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
+from amsdal_glue_core.common.expressions.aggregation import Aggregation
 from amsdal_glue_core.common.expressions.aggregation import Avg
 from amsdal_glue_core.common.expressions.aggregation import Count
 from amsdal_glue_core.common.expressions.aggregation import Max
@@ -32,10 +37,10 @@ from amsdal_glue_core.common.expressions.aggregation import Min
 from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
-from amsdal_glue_core.common.expressions.vector import CosineDistanceExpression
-from amsdal_glue_core.common.expressions.vector import InnerProductExpression
-from amsdal_glue_core.common.expressions.vector import L1DistanceExpression
-from amsdal_glue_core.common.expressions.vector import L2DistanceExpression
+from amsdal_glue_core.common.expressions.vector import CosineDistance
+from amsdal_glue_core.common.expressions.vector import InnerProduct
+from amsdal_glue_core.common.expressions.vector import L1Distance
+from amsdal_glue_core.common.expressions.vector import L2Distance
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.commands import TransactionCommand
@@ -58,6 +63,19 @@ from elasticsearch import Elasticsearch
 from elasticsearch import NotFoundError
 
 logger = logging.getLogger(__name__)
+
+
+def _order_by_field_name(order: OrderByQuery) -> str:
+    """Extract the plain field name to sort by from an ORDER BY clause.
+
+    Elasticsearch can only sort by a stored field, so ordering by an arbitrary
+    expression is not supported.
+    """
+    expression = order.expression
+    if isinstance(expression, FieldReferenceExpression):
+        return expression.field_reference.field.name
+    msg = 'Elasticsearch can only ORDER BY a plain field, not an arbitrary expression.'
+    raise NotImplementedError(msg)
 
 
 class ElasticsearchConnection(ConnectionBase):
@@ -149,7 +167,7 @@ class ElasticsearchConnection(ConnectionBase):
                 return self._execute_subquery(query)
 
             # Handle aggregations (which may include joins)
-            if query.aggregations:
+            if any(isinstance(sel.expression, Aggregation) for sel in (query.expressions or [])):
                 return self._execute_aggregation_query(query)
 
             # Handle joins by doing application-level joins
@@ -157,7 +175,7 @@ class ElasticsearchConnection(ConnectionBase):
                 return self._execute_join_query(query)
 
             # Handle annotations by executing main query then annotating each result
-            if query.annotations:
+            if any(not isinstance(sel.expression, Aggregation) for sel in (query.expressions or [])):
                 return self._execute_annotation_query(query)
 
             # Handle simple queries
@@ -217,12 +235,12 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=index_name,
                 body={'mappings': {'dynamic': True}},
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
 
         results = []
         for data in mutation.data:
-            doc_data = data.data.copy()  # Make a copy to avoid modifying original
+            doc_data = data.literals()
             # Transform vector data for Elasticsearch
             doc_data = self._transform_vector_data(doc_data)
             # Use 'id' field as document ID if present, otherwise let ES auto-generate
@@ -247,7 +265,7 @@ class ElasticsearchConnection(ConnectionBase):
         Executes an update mutation on Elasticsearch.
         """
         index_name = self._build_index(mutation.schema.name)
-        doc_data = mutation.data.data
+        doc_data: dict[str, Any] = mutation.data.literals()
 
         # For updates, we need to specify which document to update
         # If 'id' is in the data, use it as the document ID
@@ -347,13 +365,15 @@ class ElasticsearchConnection(ConnectionBase):
                 where=query.where,
                 order_by=query.order_by,
                 group_by=query.group_by,
-                aggregations=query.aggregations,
-                annotations=query.annotations,
+                expressions=query.expressions,
                 joins=query.joins,
                 distinct=query.distinct,
             )
             return self._execute_subquery(subquery_wrapper)
 
+        if not isinstance(query.table, SchemaReference):
+            msg = f'Unsupported table type for simple query: {type(query.table).__name__}'
+            raise TypeError(msg)
         index_name = self._build_index(query.table.name)
 
         # Build Elasticsearch query
@@ -368,7 +388,7 @@ class ElasticsearchConnection(ConnectionBase):
             source_fields = [field_ref.field.name for field_ref in query.only]
             es_query['_source'] = source_fields
 
-        # Skip ES sorting for now, always use Python sorting to avoid fielddata issues
+        # Use Python sorting instead of ES sorting to avoid fielddata issues
         es_sort_applied = False
 
         # Set size limit
@@ -423,7 +443,7 @@ class ElasticsearchConnection(ConnectionBase):
             def sort_key(data_obj):
                 keys = []
                 for order in query.order_by or []:
-                    field_name = order.field.field.name
+                    field_name = _order_by_field_name(order)
                     value = data_obj.data.get(field_name, '')
 
                     # Handle different data types for sorting
@@ -451,22 +471,20 @@ class ElasticsearchConnection(ConnectionBase):
             results.sort(key=sort_key, reverse=reverse_sort)
 
         # Handle distinct
-        distinct_fields = getattr(query, 'distinct', None)
-        if distinct_fields:
+        if query.distinct:
             seen = set()
             unique_results = []
             for result in results:
-                if isinstance(distinct_fields, bool):
-                    # If distinct is True, apply to all fields
-                    data_tuple = tuple(sorted(result.data.items()))
-                else:
-                    # If distinct is a list of field references, only consider those fields
+                if query.distinct.on_fields:
                     distinct_values = []
-                    for field_ref in distinct_fields:
+                    for field_ref in query.distinct.on_fields:
                         field_name = field_ref.field.name
                         field_value = result.data.get(field_name)
                         distinct_values.append((field_name, field_value))
                     data_tuple = tuple(distinct_values)
+                else:
+                    # DistinctClause with no on_fields = distinct on all fields
+                    data_tuple = tuple(sorted(result.data.items()))
 
                 if data_tuple not in seen:
                     seen.add(data_tuple)
@@ -540,7 +558,7 @@ class ElasticsearchConnection(ConnectionBase):
         def sort_key(data_obj):
             keys = []
             for order in order_by:
-                field_name = order.field.field.name
+                field_name = _order_by_field_name(order)
                 value = data_obj.data.get(field_name, '')
 
                 # Handle different data types for sorting
@@ -572,8 +590,7 @@ class ElasticsearchConnection(ConnectionBase):
 
     def _evaluate_conditions_on_data(self, data: dict, conditions: Conditions) -> bool:  # noqa: C901, PLR0912
         """Evaluate conditions against a data dictionary."""
-        # For now, implement basic condition evaluation
-        # This is a simplified version - in a full implementation you'd handle all condition types
+        # Simplified condition evaluation covering the common condition types
         result = True
         for child in conditions.children:
             # Handle nested Conditions recursively
@@ -626,19 +643,17 @@ class ElasticsearchConnection(ConnectionBase):
         """Evaluate an expression against a result dictionary."""
 
         # Handle vector distance expressions
-        if isinstance(
-            expression, L2DistanceExpression | CosineDistanceExpression | L1DistanceExpression | InnerProductExpression
-        ):
+        if isinstance(expression, L2Distance | CosineDistance | L1Distance | InnerProduct):
             left_value = self._extract_expression_value(expression.left, result_dict)
             right_value = self._extract_expression_value(expression.right, result_dict)
 
-            if isinstance(expression, L2DistanceExpression):
+            if isinstance(expression, L2Distance):
                 return self._calculate_l2_distance(left_value, right_value)
-            if isinstance(expression, CosineDistanceExpression):
+            if isinstance(expression, CosineDistance):
                 return self._calculate_cosine_distance(left_value, right_value)
-            if isinstance(expression, L1DistanceExpression):
+            if isinstance(expression, L1Distance):
                 return self._calculate_l1_distance(left_value, right_value)
-            if isinstance(expression, InnerProductExpression):
+            if isinstance(expression, InnerProduct):
                 return self._calculate_inner_product(left_value, right_value)
 
         # Handle other expression types as needed
@@ -717,7 +732,7 @@ class ElasticsearchConnection(ConnectionBase):
         # Build query for main table
         main_query: dict[str, Any] = {'query': {'match_all': {}}}
 
-        # For now, don't apply WHERE conditions to main table - we'll filter after joins
+        # WHERE conditions are applied after joins rather than to the main table query
         # TODO: Optimize by applying WHERE conditions that only involve main table columns
 
         main_query['size'] = 1000  # type: ignore[assignment]
@@ -815,7 +830,7 @@ class ElasticsearchConnection(ConnectionBase):
             def sort_key(data_obj):
                 keys = []
                 for order in query.order_by or []:
-                    field_name = order.field.field.name
+                    field_name = _order_by_field_name(order)
                     value = data_obj.data.get(field_name)
 
                     # Handle None values - put them last for ASC, first for DESC
@@ -927,10 +942,10 @@ class ElasticsearchConnection(ConnectionBase):
         result_dicts = [result.data for result in main_results]
 
         # For each annotation, execute the subquery and add results
-        for annotation in query.annotations or []:
-            if hasattr(annotation.value, 'query'):  # SubQueryStatement
-                subquery = annotation.value.query
-                alias = annotation.value.alias
+        for annotation in [sel for sel in (query.expressions or []) if not isinstance(sel.expression, Aggregation)]:
+            if isinstance(annotation.expression, SubQueryStatement):
+                subquery = annotation.expression.query
+                alias = annotation.alias
 
                 # For each main result, execute the subquery with context
                 for result_dict in result_dicts:
@@ -942,9 +957,9 @@ class ElasticsearchConnection(ConnectionBase):
                         query.only,
                     )
                     result_dict[alias] = annotation_value
-            elif hasattr(annotation.value, 'expression'):  # ExpressionAnnotation
-                alias = annotation.value.alias
-                expression = annotation.value.expression
+            else:
+                alias = annotation.alias
+                expression = annotation.expression
                 for result_dict in result_dicts:
                     annotation_value = self._evaluate_expression(expression, result_dict)
                     result_dict[alias] = annotation_value
@@ -992,10 +1007,14 @@ class ElasticsearchConnection(ConnectionBase):
             )
 
         # Handle aggregations
-        if subquery.aggregations:
-            for agg in subquery.aggregations:
-                if hasattr(agg.expression, 'field'):
-                    field_name = agg.expression.field.field.name
+        _subquery_aggs = [sel for sel in (subquery.expressions or []) if isinstance(sel.expression, Aggregation)]
+        if _subquery_aggs:
+            for agg in _subquery_aggs:
+                if not isinstance(agg.expression, Aggregation):
+                    continue
+                agg_expr = agg.expression
+                if isinstance(agg_expr.expression, FieldReferenceExpression):
+                    field_name = agg_expr.expression.field_reference.field.name
 
                     # Validate field name
                     if not field_name:
@@ -1022,8 +1041,8 @@ class ElasticsearchConnection(ConnectionBase):
         response = self.connection.search(index=index_name, body=es_query)
 
         # Extract the aggregation result
-        if subquery.aggregations:
-            agg_alias = subquery.aggregations[0].alias
+        if _subquery_aggs:
+            agg_alias = _subquery_aggs[0].alias
             agg_result = response['aggregations'].get(agg_alias, {})
             value = agg_result.get('value')
 
@@ -1034,7 +1053,7 @@ class ElasticsearchConnection(ConnectionBase):
             if total_hits == 0:
                 # For Count aggregations, return 0 instead of None
 
-                if subquery.aggregations and isinstance(subquery.aggregations[0].expression, Count):
+                if _subquery_aggs and isinstance(_subquery_aggs[0].expression, Count):
                     return 0
                 return None
 
@@ -1339,21 +1358,25 @@ class ElasticsearchConnection(ConnectionBase):
             es_query['query'] = self._conditions_to_es_query(query.where)
 
         # Build aggregations
-        for agg in query.aggregations or []:
-            if hasattr(agg.expression, 'field'):
-                field_name = agg.expression.field.field.name
+        _aggs = [sel for sel in (query.expressions or []) if isinstance(sel.expression, Aggregation)]
+        for agg in _aggs:
+            if not isinstance(agg.expression, Aggregation):
+                continue
+            agg_expr = agg.expression
+            if isinstance(agg_expr.expression, FieldReferenceExpression):
+                field_name = agg_expr.expression.field_reference.field.name
 
                 # Handle different aggregation types
 
-                if isinstance(agg.expression, Sum):
+                if isinstance(agg_expr, Sum):
                     es_query['aggs'][agg.alias] = {'sum': {'field': field_name}}  # type: ignore[index]
-                elif isinstance(agg.expression, Count):
+                elif isinstance(agg_expr, Count):
                     es_query['aggs'][agg.alias] = {'value_count': {'field': field_name}}  # type: ignore[index]
-                elif isinstance(agg.expression, Avg):
+                elif isinstance(agg_expr, Avg):
                     es_query['aggs'][agg.alias] = {'avg': {'field': field_name}}  # type: ignore[index]
-                elif isinstance(agg.expression, Min):
+                elif isinstance(agg_expr, Min):
                     es_query['aggs'][agg.alias] = {'min': {'field': field_name}}  # type: ignore[index]
-                elif isinstance(agg.expression, Max):
+                elif isinstance(agg_expr, Max):
                     es_query['aggs'][agg.alias] = {'max': {'field': field_name}}  # type: ignore[index]
                 else:
                     # Default to sum for backwards compatibility
@@ -1362,7 +1385,11 @@ class ElasticsearchConnection(ConnectionBase):
         # Add group by
         if query.group_by:
             # For group by, we need to create a terms aggregation
-            group_field = query.group_by[0].field.field.name
+            _gb0_expr = query.group_by[0].expression
+            if not isinstance(_gb0_expr, FieldReferenceExpression):
+                msg = f'Unsupported group-by expression type: {type(_gb0_expr).__name__}'
+                raise TypeError(msg)
+            group_field = _gb0_expr.field_reference.field.name
 
             # Wrap existing aggregations in a terms aggregation
             inner_aggs = es_query['aggs'].copy()  # type: ignore[attr-defined]
@@ -1381,18 +1408,22 @@ class ElasticsearchConnection(ConnectionBase):
             for bucket in response['aggregations']['group_by']['buckets']:
                 data = {}
                 # Add the group field
-                group_field_name = query.group_by[0].field.field.name
+                _gb0_expr_2 = query.group_by[0].expression
+                if not isinstance(_gb0_expr_2, FieldReferenceExpression):
+                    msg = f'Unsupported group-by expression type: {type(_gb0_expr_2).__name__}'
+                    raise TypeError(msg)
+                group_field_name = _gb0_expr_2.field_reference.field.name
                 data[group_field_name] = bucket['key']
 
                 # Add aggregated values
-                for agg in query.aggregations or []:
+                for agg in _aggs:
                     data[agg.alias] = bucket[agg.alias]['value']
 
                 results.append(Data(data=data))
         else:
             # Handle simple aggregations
             data = {}
-            for agg in query.aggregations or []:
+            for agg in _aggs:
                 data[agg.alias] = response['aggregations'][agg.alias]['value']
             results.append(Data(data=data))
 
@@ -1434,8 +1465,11 @@ class ElasticsearchConnection(ConnectionBase):
             group_data = {}
 
             for group_field in query.group_by or []:
-                field_name = group_field.field.field.name
-                table_alias = group_field.field.table_name
+                _gf_expr = group_field.expression
+                if not isinstance(_gf_expr, FieldReferenceExpression):
+                    continue
+                field_name = _gf_expr.field_reference.field.name
+                table_alias = _gf_expr.field_reference.table_name
 
                 # Look for field in row data (could be prefixed with table alias)
                 if table_alias and f'{table_alias}_{field_name}' in row:
@@ -1457,15 +1491,19 @@ class ElasticsearchConnection(ConnectionBase):
 
         # Step 3: Apply aggregations to each group
         results: list[dict[str, Any]] = []
+        _join_aggs = [sel for sel in (query.expressions or []) if isinstance(sel.expression, Aggregation)]
 
         for group_info in groups.values():
             result_data = copy.copy(group_info['group_data'])
 
             # Apply each aggregation
-            for agg in query.aggregations or []:
-                if hasattr(agg.expression, 'field'):
-                    agg_field_name = agg.expression.field.field.name
-                    agg_table_alias = agg.expression.field.table_name
+            for agg in _join_aggs:
+                if not isinstance(agg.expression, Aggregation):
+                    continue
+                agg_expr = agg.expression
+                if isinstance(agg_expr.expression, FieldReferenceExpression):
+                    agg_field_name = agg_expr.expression.field_reference.field.name
+                    agg_table_alias = agg_expr.expression.field_reference.table_name
 
                     # Collect values for this group
                     values = []
@@ -1483,15 +1521,15 @@ class ElasticsearchConnection(ConnectionBase):
 
                     # Calculate aggregation based on type
 
-                    if isinstance(agg.expression, Sum):
+                    if isinstance(agg_expr, Sum):
                         result_data[agg.alias] = sum(values) if values else 0  # type: ignore[arg-type,index]
-                    elif isinstance(agg.expression, Count):
+                    elif isinstance(agg_expr, Count):
                         result_data[agg.alias] = len(values)  # type: ignore[index]
-                    elif isinstance(agg.expression, Avg):
+                    elif isinstance(agg_expr, Avg):
                         result_data[agg.alias] = sum(values) / len(values) if values else None  # type: ignore[arg-type,index]
-                    elif isinstance(agg.expression, Min):
+                    elif isinstance(agg_expr, Min):
                         result_data[agg.alias] = min(values) if values else None  # type: ignore[index]
-                    elif isinstance(agg.expression, Max):
+                    elif isinstance(agg_expr, Max):
                         result_data[agg.alias] = max(values) if values else None  # type: ignore[index]
                     else:
                         # Default to sum for backwards compatibility
@@ -1505,7 +1543,7 @@ class ElasticsearchConnection(ConnectionBase):
             def sort_key(data_dict):
                 keys = []
                 for order in query.order_by or []:
-                    field_name = order.field.field.name
+                    field_name = _order_by_field_name(order)
                     value = data_dict.get(field_name)
 
                     # Handle None values - put them last for ASC, first for DESC
@@ -1569,7 +1607,7 @@ class ElasticsearchConnection(ConnectionBase):
                     for index_schema in schema.indexes:
                         index_data = {
                             'name': index_schema.name,
-                            'fields': index_schema.fields,
+                            'fields': [field.name for field in index_schema.fields],
                         }
                         if hasattr(index_schema, 'condition') and index_schema.condition:
                             index_data['condition'] = str(index_schema.condition)
@@ -1583,9 +1621,9 @@ class ElasticsearchConnection(ConnectionBase):
             return schema
 
         if isinstance(mutation, RenameSchema):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             old_base = ref.name
-            new_base = mutation.new_schema_name
+            new_base = mutation.new_name
 
             old_full = self._build_index(old_base)
             new_full = self._build_index(new_base)
@@ -1629,7 +1667,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=new_full,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
 
             # Reindex documents from old to new
@@ -1649,7 +1687,7 @@ class ElasticsearchConnection(ConnectionBase):
             return new_schema
 
         if isinstance(mutation, DeleteSchema):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             base = ref.name
             full = self._build_index(base)
             try:
@@ -1660,7 +1698,7 @@ class ElasticsearchConnection(ConnectionBase):
             return None
 
         if isinstance(mutation, AddProperty):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             base = ref.name
             full = self._build_index(base)
 
@@ -1688,7 +1726,7 @@ class ElasticsearchConnection(ConnectionBase):
             return new_schema
 
         if isinstance(mutation, DeleteProperty):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             base = ref.name
             full = self._build_index(base)
             prop_name = mutation.property_name  # or mutation.property.name depending on your DeleteProperty API
@@ -1730,7 +1768,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=tmp_index,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
 
             # Reindex all docs from original to temp
@@ -1745,7 +1783,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=full,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
             self.connection.reindex(
                 body={'source': {'index': tmp_index}, 'dest': {'index': full}},
@@ -1762,7 +1800,7 @@ class ElasticsearchConnection(ConnectionBase):
             return self.get_index_schema(base)
 
         if isinstance(mutation, UpdateProperty):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             base = ref.name
             full = self._build_index(base)
             new_prop: PropertySchema = mutation.property
@@ -1804,7 +1842,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=tmp_index,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
 
             # Determine if a conversion script is needed
@@ -1858,7 +1896,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=full,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
             self.connection.reindex(
                 body={'source': {'index': tmp_index}, 'dest': {'index': full}},
@@ -1876,7 +1914,7 @@ class ElasticsearchConnection(ConnectionBase):
             return self.get_index_schema(base)
 
         if isinstance(mutation, AddConstraint):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             base = ref.name
             full = self._build_index(base)
             constraint = mutation.constraint
@@ -1893,7 +1931,7 @@ class ElasticsearchConnection(ConnectionBase):
             return self.get_index_schema(base)
 
         if isinstance(mutation, DeleteConstraint):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             base = ref.name
             full = self._build_index(base)
             constraint_name = mutation.constraint_name
@@ -1910,7 +1948,7 @@ class ElasticsearchConnection(ConnectionBase):
             return self.get_index_schema(base)
 
         if isinstance(mutation, AddIndex):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             base = ref.name
             full = self._build_index(base)
             index = mutation.index
@@ -1927,7 +1965,7 @@ class ElasticsearchConnection(ConnectionBase):
             return self.get_index_schema(base)
 
         if isinstance(mutation, DeleteIndex):
-            ref = mutation.schema_reference
+            ref = mutation.schema_ref
             base = ref.name
             full = self._build_index(base)
             index_name = mutation.index_name
@@ -2010,7 +2048,7 @@ class ElasticsearchConnection(ConnectionBase):
             # Store index details
             index_data = {
                 'name': index_schema.name,
-                'fields': index_schema.fields,
+                'fields': [field.name for field in index_schema.fields],
             }
 
             # Add condition if exists
@@ -2091,7 +2129,7 @@ class ElasticsearchConnection(ConnectionBase):
             for idx_name, index_data in indexes_meta.items():
                 index_schema = IndexSchema(
                     name=idx_name,
-                    fields=index_data.get('fields', []),
+                    fields=[IndexField(name=f) for f in index_data.get('fields', [])],
                     condition=None,  # Would need parsing to reconstruct condition
                 )
                 indexes.append(index_schema)
@@ -2104,7 +2142,27 @@ class ElasticsearchConnection(ConnectionBase):
 
     def _to_es_mapping(self, prop) -> dict:  # noqa: PLR0911
         # Translate PropertySchema to ES mapping type
-        # Handle basic types
+        # Handle ScalarType enum values
+        if isinstance(prop.type, ScalarType):
+            _scalar_map: dict[ScalarType, dict] = {
+                ScalarType.TEXT: {'type': 'text'},
+                ScalarType.INTEGER: {'type': 'long'},
+                ScalarType.BIGINT: {'type': 'long'},
+                ScalarType.SMALLINT: {'type': 'long'},
+                ScalarType.FLOAT: {'type': 'float'},
+                ScalarType.DOUBLE: {'type': 'double'},
+                ScalarType.NUMERIC: {'type': 'double'},
+                ScalarType.BOOLEAN: {'type': 'boolean'},
+                ScalarType.DATE: {'type': 'date'},
+                ScalarType.TIMESTAMP: {'type': 'date'},
+                ScalarType.TIMESTAMPTZ: {'type': 'date'},
+                ScalarType.BYTEA: {'type': 'binary'},
+                ScalarType.JSON: {'type': 'object'},
+                ScalarType.JSONB: {'type': 'object'},
+                ScalarType.UUID: {'type': 'keyword'},
+            }
+            return _scalar_map.get(prop.type, {'type': 'keyword'})
+        # Handle raw Python types (legacy fallback)
         if prop.type is str:
             return {'type': 'text'}
         if prop.type is int:
@@ -2115,9 +2173,9 @@ class ElasticsearchConnection(ConnectionBase):
             return {'type': 'boolean'}
         # Handle complex types
         if hasattr(prop.type, '__class__'):
-            if isinstance(prop.type, VectorSchemaModel):
+            if isinstance(prop.type, VectorType):
                 return {'type': 'dense_vector', 'dims': prop.type.dimensions}
-            if isinstance(prop.type, DictSchemaModel | ArraySchemaModel | NestedSchemaModel):
+            if isinstance(prop.type, DictType | ArrayType | NestedType):
                 # All complex types map to object in Elasticsearch
                 return {'type': 'object'}
 
@@ -2175,28 +2233,28 @@ class ElasticsearchConnection(ConnectionBase):
             _index = f'{_index}{self.index_suffix}'
         return _index
 
-    def _es_type_to_python_type(self, es_type: str) -> type:
+    def _es_type_to_python_type(self, es_type: str) -> ScalarType:
         """
-        Maps Elasticsearch types to Python types used in PropertySchema.
+        Maps Elasticsearch types to ScalarType values used in PropertySchema.
         """
-        mapping = {
-            'text': str,
-            'keyword': str,
-            'long': int,
-            'integer': int,
-            'short': int,
-            'byte': int,
-            'double': float,
-            'float': float,
-            'scaled_float': float,
-            'half_float': float,
-            'boolean': bool,
-            'date': str,  # could be datetime if you parse it elsewhere
-            'object': dict,
-            'nested': list,
+        mapping: dict[str, ScalarType] = {
+            'text': ScalarType.TEXT,
+            'keyword': ScalarType.TEXT,
+            'long': ScalarType.INTEGER,
+            'integer': ScalarType.INTEGER,
+            'short': ScalarType.INTEGER,
+            'byte': ScalarType.INTEGER,
+            'double': ScalarType.DOUBLE,
+            'float': ScalarType.FLOAT,
+            'scaled_float': ScalarType.FLOAT,
+            'half_float': ScalarType.FLOAT,
+            'boolean': ScalarType.BOOLEAN,
+            'date': ScalarType.TIMESTAMP,
+            'object': ScalarType.JSONB,
+            'nested': ScalarType.JSONB,
             # extend with geo_point, ip, etc. as needed
         }
-        return mapping.get(es_type, str)
+        return mapping.get(es_type, ScalarType.TEXT)
 
     def _parse_es_properties(self, properties: dict, prefix: str = '') -> list:
         """
@@ -2210,7 +2268,7 @@ class ElasticsearchConnection(ConnectionBase):
                 # Recurse into nested/object fields
                 result.extend(self._parse_es_properties(spec['properties'], prefix=full_name))
             else:
-                py_type = self._es_type_to_python_type(es_type) if es_type else str
+                py_type = self._es_type_to_python_type(es_type) if es_type else ScalarType.TEXT
                 prop_schema = PropertySchema(name=full_name, type=py_type, required=False)
                 result.append(prop_schema)
         return result
@@ -2267,7 +2325,7 @@ class ElasticsearchConnection(ConnectionBase):
         schema = self.get_index_schema(table_name)
         return schema.properties, schema.constraints or [], schema.indexes or []
 
-    def query_schema(self, filters: Conditions | None = None) -> list[Schema]:  # noqa: ARG002
+    def query_schema(self, query: QueryStatement) -> list[Schema]:  # noqa: ARG002
         """
         Returns the available index schemas in Elasticsearch.
         """
@@ -2295,9 +2353,9 @@ class ElasticsearchConnection(ConnectionBase):
 
         return schemas
 
-    def _es_spec_to_field_type(self, spec: dict) -> FIELD_TYPE:
+    def _es_spec_to_field_type(self, spec: dict) -> FieldType:
         """
-        Converts an Elasticsearch field mapping spec into the corresponding FIELD_TYPE
+        Converts an Elasticsearch field mapping spec into the corresponding FieldType
         (primitives, nested structure, arrays, etc.).
         """
         es_type = spec.get('type')
@@ -2305,56 +2363,56 @@ class ElasticsearchConnection(ConnectionBase):
         # --- dense_vector: handle vector fields specially ---
         if es_type == 'dense_vector':
             dims = spec.get('dims', 128)  # Default to 128 if not specified
-            return VectorSchemaModel(dimensions=dims)
+            return VectorType(dimensions=dims)
 
         # --- nested: array of objects with their own properties ---
         if es_type == 'nested' and 'properties' in spec:
             inner_props = {name: self._es_spec_to_field_type(subspec) for name, subspec in spec['properties'].items()}
-            return ArraySchemaModel(item_type=NestedSchemaModel(properties=inner_props))
+            return ArrayType(item_type=NestedType(properties=inner_props))
 
         # --- object with defined properties ---
         if (es_type == 'object' or es_type is None) and 'properties' in spec:
             inner_props = {name: self._es_spec_to_field_type(subspec) for name, subspec in spec['properties'].items()}
-            return NestedSchemaModel(properties=inner_props)
+            return NestedType(properties=inner_props)
 
         # --- object with no explicit properties (dynamic object) ---
         if es_type == 'object' and 'properties' not in spec:
-            return DictSchemaModel(key_type=str, value_type=str)
+            return DictType(key_type=ScalarType.TEXT, value_type=ScalarType.TEXT)
 
         # --- multi-fields: keep base and subfields in a nested model ---
         if 'fields' in spec:
             # base type
-            base_type: FIELD_TYPE
+            base_type: FieldType
 
             # primitive base
-            base_type = self._primitive_es_type_to_python(es_type) if es_type else str
+            base_type = self._primitive_es_type_to_python(es_type) if es_type else ScalarType.TEXT
             # subfields
             subfields = {fname: self._es_spec_to_field_type(f_spec) for fname, f_spec in spec['fields'].items()}
             # represent as nested with base + subfields
-            return NestedSchemaModel(properties={'base': base_type, **subfields})
+            return NestedType(properties={'base': base_type, **subfields})
 
         # --- primitive / simple types ---
         return self._primitive_es_type_to_python(es_type)
 
-    def _primitive_es_type_to_python(self, es_type: str | None) -> type:
-        mapping: dict[str, type] = {
-            'text': str,
-            'keyword': str,
-            'long': int,
-            'integer': int,
-            'short': int,
-            'byte': int,
-            'double': float,
-            'float': float,
-            'scaled_float': float,
-            'half_float': float,
-            'boolean': bool,
-            'date': str,  # could be datetime if parsed elsewhere
-            'binary': bytes,
-            'ip': str,
-            'geo_point': dict,
+    def _primitive_es_type_to_python(self, es_type: str | None) -> ScalarType:
+        mapping: dict[str, ScalarType] = {
+            'text': ScalarType.TEXT,
+            'keyword': ScalarType.TEXT,
+            'long': ScalarType.INTEGER,
+            'integer': ScalarType.INTEGER,
+            'short': ScalarType.INTEGER,
+            'byte': ScalarType.INTEGER,
+            'double': ScalarType.DOUBLE,
+            'float': ScalarType.FLOAT,
+            'scaled_float': ScalarType.FLOAT,
+            'half_float': ScalarType.FLOAT,
+            'boolean': ScalarType.BOOLEAN,
+            'date': ScalarType.TIMESTAMP,
+            'binary': ScalarType.BYTEA,
+            'ip': ScalarType.TEXT,
+            'geo_point': ScalarType.TEXT,
             # extend as needed
         }
         if es_type is None:
-            return str
-        return mapping.get(es_type, str)
+            return ScalarType.TEXT
+        return mapping.get(es_type, ScalarType.TEXT)

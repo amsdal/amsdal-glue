@@ -1,37 +1,49 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from datetime import date
-from datetime import datetime
 from typing import Any
+from typing import TYPE_CHECKING
 
 from amsdal_glue_core.common.expressions.expression import Expression
+
+if TYPE_CHECKING:
+    from amsdal_glue_core.common.data_models.types import FieldType
 
 
 @dataclass(kw_only=True)
 class Value(Expression):
-    """Represents a value expression.
-
-    Attributes:
-        value (Any): The value of the expression.
-    """
-
     value: Any
 
-    def __init__(self, value: Any, output_type: type[Any] | None = None) -> None:
+    def __init__(self, value: Any, output_type: FieldType | None = None) -> None:
         super().__init__(output_type=output_type)
+        if output_type is not None and value is not None:
+            from amsdal_glue_core.common.expressions._coerce import coerce_to_field_type
+
+            value = coerce_to_field_type(value, output_type)
         self.value = value
 
     def __repr__(self) -> str:
-        if self.output_type in (date, datetime):
-            _value = self.value
+        from amsdal_glue_core.common.enums import ScalarType
 
+        if self.output_type == ScalarType.DATE:
+            from datetime import date
+
+            _value = self.value
+            if isinstance(_value, date):
+                _value = _value.isoformat()
+            return f'DATE {_value!r}'
+
+        if self.output_type == ScalarType.TIMESTAMP:
+            from datetime import date
+            from datetime import datetime
+
+            _value = self.value
             if isinstance(_value, datetime):
                 _value = _value.date().isoformat()
             elif isinstance(_value, date):
                 _value = _value.isoformat()
-
-            if self.output_type is date:
-                return f'DATE {_value!r}'
             return f'TIMESTAMP {_value!r}'
+
         return repr(self.value)
 
     def __hash__(self):

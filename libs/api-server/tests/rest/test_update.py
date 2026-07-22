@@ -1,6 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
@@ -22,9 +22,9 @@ def _fixture_data() -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
-                        Data(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
-                        Data(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
+                        DataInput(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                        DataInput(data={'customer_id': 2, 'name': 'Jane Doe', 'email': 'e2@example.com'}),
+                        DataInput(data={'customer_id': 3, 'name': 'Josh Doe', 'email': 'e3@example.com'}),
                     ],
                 ),
             ],
@@ -79,13 +79,7 @@ def test_update_customer_change_id_to_existing(test_client: TestClient) -> None:
     )
     assert response.status_code == 400
     response_json = response.json()
-    assert response_json == {
-        'detail': (
-            "Mutation failed: Error executing SQL: UPDATE 'customers' SET 'customer_id' = ?, 'email' = ?, "
-            "'name' = ? WHERE 'customers'.'customer_id' = ? with args: (2, 'e123@example.com', 'John Doe', '1'). "
-            'Exception: UNIQUE constraint failed: customers.customer_id'
-        )
-    }
+    assert response_json == {'detail': 'UNIQUE constraint failed: customers.customer_id'}
 
     query = QueryStatement(table=SchemaReference(name='customers', version=Version.LATEST))
     query_service = Container.services.get(DataQueryService)

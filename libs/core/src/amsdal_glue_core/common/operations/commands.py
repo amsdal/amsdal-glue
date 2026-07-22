@@ -1,11 +1,11 @@
 from copy import copy
 from dataclasses import dataclass
 
-from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
 from amsdal_glue_core.common.enums import LockParameter
+from amsdal_glue_core.common.enums import LockScope
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.operations.base import Operation
 from amsdal_glue_core.common.operations.mutations.data import DataMutation
@@ -71,23 +71,39 @@ class TransactionCommand(Operation):
         )
 
 
-@dataclass(kw_only=True)
-class LockSchemaReference:
-    """Represents a reference to a schema for locking purposes.
+@dataclass(kw_only=True, frozen=True, slots=True)
+class LockIdentifier:
+    """Opaque application-level key for non-row locks.
 
-    Attributes:
-        schema (SchemaReference): The schema reference to be locked.
-        query (Conditions | None): The conditions for the lock. Defaults to None.
+    Used as a ``LockReference.reference`` target when the lock is not a
+    table or row lock but an application-defined rendezvous
+    (``pg_advisory_lock`` in PostgreSQL, ``GET_LOCK`` in MySQL,
+    ``sp_getapplock`` in SQL Server, ``DBMS_LOCK.REQUEST`` in Oracle).
+
+    ``pool`` names the logical connection pool that owns the lock.
+    Required because advisory locks are connection-scoped — there is no
+    table to route by, so the caller must address a pool explicitly.
     """
 
-    schema: SchemaReference
-    query: Conditions | None = None
+    key: str
+    pool: str
+
+
+@dataclass(kw_only=True)
+class LockReference:
+    """Lock target — discriminated by the type of ``reference``.
+
+    - ``SchemaReference`` → table-level lock (``LOCK TABLE …``).
+    - ``LockIdentifier``  → session advisory lock (``pg_advisory_lock(key)``).
+
+    Row-level ``SELECT … FOR UPDATE`` is not expressed here; it lives on
+    ``QueryStatement.lock`` and is handled inside ``query()``.
+    """
+
+    reference: SchemaReference | LockIdentifier
 
     def __copy__(self):
-        return LockSchemaReference(
-            schema=copy(self.schema),
-            query=copy(self.query) if self.query is not None else None,
-        )
+        return LockReference(reference=copy(self.reference))
 
 
 @dataclass(kw_only=True)
@@ -98,18 +114,34 @@ class LockCommand(Operation):
         action (LockAction): The action to be performed for the lock.
         mode (LockMode): The mode of the lock.
         parameter (LockParameter): The parameter for the lock.
-        locked_objects (list[LockSchemaReference]): The list of schema references to be locked.
+        locked_objects (list[LockReference]): The list of lock references to be locked.
+
+    Note: inherits ``transaction_id``, ``lock_id`` and ``root_transaction_id`` from ``Operation``.
     """
 
     action: LockAction
     mode: LockMode
     parameter: LockParameter
-    locked_objects: list[LockSchemaReference]
+    locked_objects: list[LockReference]
+    timeout: float | None = None
+    """Maximum seconds to wait for the lock.  ``None`` → block indefinitely
+    unless ``parameter=NOWAIT``.  Support is driver-specific: MySQL, Oracle
+    and SQL Server accept per-call timeouts natively; PG advisory locks
+    ignore it (use ``parameter=NOWAIT`` for non-blocking); table-level
+    ``LOCK TABLE`` uses ``SET LOCAL lock_timeout``."""
+    scope: LockScope = LockScope.TRANSACTION
+    """Lifetime of the lock.  ``TRANSACTION`` (default) — auto-released at
+    the end of the current transaction; ``SESSION`` — held until explicit
+    release or connection death.  Public ``Engine`` API requires an active
+    transaction and always uses ``TRANSACTION``; ``SESSION`` is reserved
+    for infrastructure (e.g. WAL ownership)."""
 
     def __copy__(self):
         return LockCommand(
             action=self.action,
             mode=self.mode,
             parameter=self.parameter,
-            locked_objects=[copy(locked_object) for locked_object in self.locked_objects],
+            locked_objects=[copy(o) for o in self.locked_objects],
+            timeout=self.timeout,
+            scope=self.scope,
         )

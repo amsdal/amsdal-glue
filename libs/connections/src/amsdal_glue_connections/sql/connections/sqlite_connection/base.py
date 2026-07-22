@@ -1,251 +1,140 @@
+import datetime as _dt
 import json
 import logging
-import re
-from contextlib import suppress
-from datetime import date
-from datetime import datetime
+import sqlite3
+from decimal import Decimal
 from typing import Any
+from typing import ClassVar
+from uuid import UUID
 
-from amsdal_glue_core.common.data_models.constraints import BaseConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
-from amsdal_glue_core.common.data_models.data import Data
-from amsdal_glue_core.common.data_models.schema import ArraySchemaModel
-from amsdal_glue_core.common.data_models.schema import DecimalSchemaModel
-from amsdal_glue_core.common.data_models.schema import DictSchemaModel
-from amsdal_glue_core.common.data_models.schema import NestedSchemaModel
-from amsdal_glue_core.common.data_models.schema import Schema
-from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.json_value import JsonValue
+from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
+from amsdal_glue_core.common.exceptions import UniqueViolationError
 
-from amsdal_glue_connections.sql.constants import SCHEMA_REGISTRY_TABLE
-from amsdal_glue_connections.sql.sql_builders.math_operator_transform import sqlite_math_operator_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.cast import sqlite_cast_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.func_transform import func_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.nested_field import sqlite_nested_field_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.type_transform import sqlite_value_type_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_placeholder import sqlite_value_placeholder_transform
-from amsdal_glue_connections.sql.sql_builders.sqlite_utils.value_transform import sqlite_value_transform
-from amsdal_glue_connections.sql.sql_builders.transform import Transform
-from amsdal_glue_connections.sql.sql_builders.transform import TransformTypes
+from amsdal_glue_connections.sql.connections.base_connection import SqlConnectionMixinBase
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 logger = logging.getLogger(__name__)
 
-UNIQUE_CONSTRAINT_RE = re.compile(r'CONSTRAINT\s["\']?(?P<name>\w+)["\']?\s+UNIQUE\s+\((?P<fields>[^)]+)\)')
-PRIMARY_KEY_RE = re.compile(r'CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+PRIMARY KEY', re.IGNORECASE)
-FOREIGN_KEY_RE = re.compile(
-    r'CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+FOREIGN\s+KEY\s*\(\s*["\']?(?P<fields>[^)]+)["\']?\s*\)',
-    re.IGNORECASE,
+# The stdlib sqlite3 driver only binds int/float/str/bytes/None natively. Since `Value` coerces
+# typed params to canonical Python objects (Decimal for NUMERIC, uuid.UUID for UUID, date/datetime),
+# register adapters so those bind as TEXT (date/datetime default adapters were deprecated in Python
+# 3.12). Module-level so it also covers the async (aiosqlite) driver.
+sqlite3.register_adapter(Decimal, str)
+sqlite3.register_adapter(UUID, str)
+sqlite3.register_adapter(_dt.date, _dt.date.isoformat)
+# Use the default ISO 'T' separator so every datetime row shares one homogeneous format; a space
+# separator (0x20 < 'T' 0x54) would corrupt ORDER BY/range/equality against 'T'-formatted rows.
+sqlite3.register_adapter(_dt.datetime, _dt.datetime.isoformat)
+# A Python ``list`` reaches the driver as a native list (the generator maps it to a SQL array), which
+# sqlite3 cannot bind, so serialise it to JSON text. A ``dict`` needs no adapter: it is JSON by
+# construction, so it arrives as a ``JsonValue`` marker and is bound by :func:`bind_params`. Minified
+# output is compatible with older spaced rows: every query-time JSON comparison is wrapped in
+# ``jsonb()``/``json()`` (see ``lower.rs``), which normalises whitespace, so spaced and minified rows
+# compare equal and no migration is needed. (Postgres stays SPACED: psycopg's ``Json``/``Jsonb`` dump
+# with spaces.)
+_JSON_SEPARATORS = (',', ':')
+
+
+def _dumps_minified(value: Any) -> str:
+    return json.dumps(value, separators=_JSON_SEPARATORS)
+
+
+sqlite3.register_adapter(list, _dumps_minified)
+
+
+def bind_params(args: tuple[Any, ...]) -> tuple[Any, ...]:
+    """Bind the generator's JSON-typed parameters as JSON text.
+
+    SQLite has no JSON type: a JSON value is TEXT holding JSON, and that is what every JSON function
+    and operator expects. ``Value(x, output_type=JSONB)`` therefore serialises here, whatever ``x`` is.
+
+    Scalars compared against a native extraction never reach this path -- the generator has already
+    unwrapped them, because `col ->> 'age'` yields INTEGER 36 and would otherwise be compared to TEXT.
+
+    Serialised MINIFIED; ``jsonb()``/``json()`` normalisation at query time keeps older spaced rows
+    matching, so no data migration is required.
+    """
+    return tuple(_dumps_minified(arg.value) if isinstance(arg, JsonValue) else arg for arg in args)
+
+
+_NORM_ACTION = (
+    "CASE {c} WHEN 'CASCADE' THEN 'CASCADE' WHEN 'SET NULL' THEN 'SET_NULL' "
+    "WHEN 'SET DEFAULT' THEN 'SET_DEFAULT' WHEN 'RESTRICT' THEN 'RESTRICT' ELSE 'NO_ACTION' END"
 )
-FOREIGN_KEY_INLINE_RE = re.compile(
-    r'(?P<field>\w+)\s+(\w+\s+)*CONSTRAINT\s+["\']?(?P<name>\w+)["\']?\s+REFERENCES',
-    re.IGNORECASE,
-)
-FIELDS_RE = re.compile(r'["\'](?P<name>\w+)["\']')
-DECIMAL_TEXT_RE = re.compile(r'\((\d+)\s*,\s*(\d+)\)')
+
+_REGISTRY_VIEW_SQL: dict[str, str] = {
+    TABLE_REGISTRY: (
+        f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_REGISTRY}" AS '  # noqa: S608
+        'SELECT name, name AS table_name FROM sqlite_master '
+        "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ),
+    TABLE_PROPERTY_REGISTRY: (
+        f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_PROPERTY_REGISTRY}" AS '  # noqa: S608
+        'SELECT m.name AS table_name, p.name AS name, p.type AS type, '
+        "CASE WHEN p.\"notnull\" THEN 'NO' ELSE 'YES' END AS is_nullable, "
+        'p.dflt_value AS column_default, p.cid AS ordinal_position, '
+        'CASE WHEN p.hidden IN (2, 3) THEN 1 ELSE 0 END AS is_generated, '
+        'NULL AS collation, NULL AS generation_expression, NULL AS is_identity '
+        'FROM sqlite_master m, pragma_table_xinfo(m.name) p '
+        "WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%'"
+    ),
+    TABLE_INDEX_REGISTRY: (
+        f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_INDEX_REGISTRY}" AS '  # noqa: S608
+        'SELECT m.name AS table_name, il.name AS name, il."unique" AS is_unique, '
+        'ix.name AS column_name, ix.seqno AS ordinal_position, ix."desc" AS is_descending, '
+        "'btree' AS index_type "
+        'FROM sqlite_master m JOIN pragma_index_list(m.name) il JOIN pragma_index_xinfo(il.name) ix '
+        # ``ix.name IS NOT NULL`` drops expression columns; ``ix.key = 1`` drops auxiliary (non-key)
+        # columns -- notably a WITHOUT ROWID table's PK columns, which have real names and would
+        # otherwise be over-reported as extra index columns.
+        "WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' AND il.origin='c' "
+        'AND ix.name IS NOT NULL AND ix.key = 1'
+    ),
+    TABLE_CONSTRAINT_REGISTRY: (
+        # SQLite has no constraint catalog, so approximate one from pragmas. `type` reuses the same
+        # single-char codes Postgres exposes via ``pg_constraint.contype`` ('p' primary key,
+        # 'u' unique, 'f' foreign key) so the SAME QueryStatement works on both back-ends. Only
+        # PK/UNIQUE/FK are representable this way; CHECK/exclusion constraints are out of scope.
+        f'CREATE TEMPORARY VIEW IF NOT EXISTS "{TABLE_CONSTRAINT_REGISTRY}" AS '  # noqa: S608
+        "SELECT m.name AS table_name, 'pk_' || m.name AS name, 'p' AS type, "
+        'p.name AS column_name, p.pk - 1 AS ordinal_position, '
+        'NULL AS ref_table, NULL AS ref_column, NULL AS on_update, NULL AS on_delete '
+        'FROM sqlite_master m, pragma_table_xinfo(m.name) p '
+        "WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' AND p.pk > 0 "
+        'UNION ALL '
+        "SELECT m.name, 'fk_' || m.name || '_' || fk.\"id\", 'f', "
+        'fk."from", fk.seq, fk."table", fk."to", '
+        f'{_NORM_ACTION.format(c="fk.on_update")}, {_NORM_ACTION.format(c="fk.on_delete")} '
+        'FROM sqlite_master m, pragma_foreign_key_list(m.name) fk '
+        "WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' "
+        'UNION ALL '
+        "SELECT m.name, il.name, 'u', ii.name, ii.seqno, NULL, NULL, NULL, NULL "
+        'FROM sqlite_master m JOIN pragma_index_list(m.name) il JOIN pragma_index_info(il.name) ii '
+        "WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' AND il.origin='u'"
+    ),
+}
 
 
-class JsonTypeMeta(type):
-    def __eq__(cls, other: object) -> bool:
-        return other in (list, dict)
-
-    def __hash__(cls) -> int:
-        return super().__hash__()
-
-
-class JsonType(dict, metaclass=JsonTypeMeta): ...  # type: ignore[misc]
-
-
-_sqlite_transform = None
-
-
-def get_sqlite_transform() -> Transform:
-    global _sqlite_transform  # noqa: PLW0603
-
-    if not _sqlite_transform:
-        _sqlite_transform = Transform()
-        _sqlite_transform.register(TransformTypes.CAST, sqlite_cast_transform)
-        _sqlite_transform.register(TransformTypes.VALUE_PLACEHOLDER, sqlite_value_placeholder_transform)
-        _sqlite_transform.register(TransformTypes.VALUE, sqlite_value_transform)
-        _sqlite_transform.register(TransformTypes.NESTED_FIELD, sqlite_nested_field_transform)
-        _sqlite_transform.register(TransformTypes.MATH_OPERATOR, sqlite_math_operator_transform)
-        _sqlite_transform.register(TransformTypes.FUNC, func_transform)
-    return _sqlite_transform
-
-
-class SqliteConnectionMixin:
-    TABLE_SQL = (
-        f'SELECT * FROM (SELECT name AS table_name FROM sqlite_master WHERE type="table") AS {SCHEMA_REGISTRY_TABLE}'  # noqa: S608
-    )
-
-    def __init__(self) -> None:
-        self._queries: list[str] = []
-        self._queries_params: list[tuple[Any, ...]] = []
-
-    @staticmethod
-    def build_data(data: dict[str, Any]) -> Data:
-        """
-        Builds a Data object from a dictionary.
-
-        Args:
-            data (dict[str, Any]): The data dictionary.
-
-        Returns:
-            Data: The Data object.
-        """
-        for key, value in data.items():
-            if isinstance(value, str) and (
-                (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']'))
-            ):
-                data[key] = json.loads(value)
-
-        return Data(data=data)
+class SqliteConnectionMixin(SqlConnectionMixinBase):
+    # Registry-view DDLs used by ``_ensure_schema_views``. Exposed as an overridable class attribute
+    # so a subclass (e.g. a versioned / lakehouse connection) can redefine one or more views -- it is
+    # read via ``self`` so the override takes effect.
+    _REGISTRY_VIEW_SQL: ClassVar[dict[str, str]] = _REGISTRY_VIEW_SQL
 
     @staticmethod
-    def _is_constraint(index_fields: list[str], constraints: list[BaseConstraint]) -> bool:
-        for constraint in constraints:
-            if not isinstance(constraint, PrimaryKeyConstraint | ForeignKeyConstraint | UniqueConstraint):
-                continue
+    def _map_integrity_error(exc: Exception) -> None:
+        """Translate a recognised SQLite ``IntegrityError`` into the typed glue error.
 
-            if index_fields == constraint.fields:
-                return True
-        return False
-
-    @staticmethod
-    def to_sql_type(
-        property_type: Schema
-        | SchemaReference
-        | NestedSchemaModel
-        | ArraySchemaModel
-        | DictSchemaModel
-        | DecimalSchemaModel
-        | type[Any],
-    ) -> str:
-        with suppress(ValueError):
-            return sqlite_value_type_transform(property_type)  # type: ignore[arg-type]
-
-        if isinstance(property_type, DecimalSchemaModel):
-            if property_type.precision is not None and property_type.scale is not None:
-                return f'DECIMAL_TEXT({property_type.precision}, {property_type.scale})'
-            return 'DECIMAL_TEXT'
-        if isinstance(property_type, Schema | SchemaReference):
-            return 'TEXT'
-        if isinstance(property_type, NestedSchemaModel | ArraySchemaModel | DictSchemaModel):
-            logger.warning('Unsupported type: %s. Using JSON instead.', property_type)
-            return 'JSON'
-
-        msg = f'Unsupported type: {property_type}'
-        raise ValueError(msg)
-
-    def _get_unique_constrains(self, table_name: str, table_sql: str) -> list[UniqueConstraint]:
-        unique_constraints = []
-        _unique_fields = []
-
-        for constraint_name, field_names in UNIQUE_CONSTRAINT_RE.findall(table_sql):
-            fields = FIELDS_RE.findall(field_names)
-            _unique_fields.append(fields)
-            unique_constraints.append(
-                UniqueConstraint(
-                    name=constraint_name,
-                    fields=fields,
-                    condition=None,
-                )
-            )
-
-        # Match unique constraints defined inline within column definitions
-        normalized_table_sql = re.sub(r'\s+', ' ', table_sql.strip())
-        inline_unique_re = re.compile(
-            r'["\']?(?P<name>\w+)["\']?\s+\w+(?:\([^)]*\))?\s*(?:NOT\s+NULL|NULL)?\s+UNIQUE(?:\s|,|\)|$)',
-            re.IGNORECASE,
-        )
-
-        for match in inline_unique_re.finditer(normalized_table_sql):
-            field_name = match.group('name')
-
-            if [field_name] in _unique_fields:
-                continue
-
-            _unique_fields.append([field_name])
-            unique_constraints.append(
-                UniqueConstraint(
-                    name=f'unq_{table_name}_{field_name}',
-                    fields=[field_name],
-                    condition=None,
-                )
-            )
-
-        return unique_constraints
-
-    def _get_pk_name(self, table_sql: str) -> str:
-        for constraint_name in PRIMARY_KEY_RE.findall(table_sql):
-            return constraint_name
-
-        return ''
-
-    def _get_fk_name(self, table_sql: str, field_name: str) -> str:
-        # Look for a foreign key constraint that includes this field
-        for match in FOREIGN_KEY_RE.finditer(table_sql):
-            constraint_name = match.group('name')
-            fields_str = match.group('fields')
-            fields = [f.strip(' "\'') for f in fields_str.split(',')]
-
-            if field_name in fields:
-                return constraint_name
-
-        for match in FOREIGN_KEY_INLINE_RE.finditer(table_sql):
-            constraint_name = match.group('name')
-            field_str = match.group('field')
-            fields = [field_str]
-
-            if field_name in fields:
-                return constraint_name
-
-        return ''
-
-    def to_python_type(self, sql_type: str) -> type[Any] | DecimalSchemaModel:  # noqa: PLR0911, C901
-        sql_type = sql_type.upper()
-
-        if sql_type.startswith('DECIMAL_TEXT'):
-            match = DECIMAL_TEXT_RE.search(sql_type)
-            if match:
-                return DecimalSchemaModel(precision=int(match.group(1)), scale=int(match.group(2)))
-            return DecimalSchemaModel(precision=None, scale=None)
-        if sql_type == 'TEXT' or sql_type.startswith('VARCHAR'):
-            return str
-        if sql_type in ('INTEGER', 'INT'):
-            return int
-        if sql_type == 'REAL':
-            return float
-        if sql_type == 'BOOLEAN':
-            return bool
-        if sql_type in ('JSON', 'JSONB'):
-            return JsonType
-        if sql_type == 'BLOB':
-            return bytes
-        if sql_type == 'TIMESTAMP':
-            return datetime
-        if sql_type == 'DATE':
-            return date
-
-        msg = f'Unsupported type: {sql_type}'
-        raise ValueError(msg)
-
-    @property
-    def queries(self) -> list[str]:
+        Raises the matching :class:`UniqueViolationError` / :class:`ForeignKeyViolationError`; returns
+        (so the caller falls through to a generic ``ConnectionError``) for anything unrecognised.
+        Shared by the sync and async ``execute`` implementations.
         """
-        Returns the queries executed on this connection.
-
-        Returns:
-            list[str]: The queries executed.
-        """
-        return self._queries
-
-    @property
-    def queries_params(self) -> list[tuple[Any, ...]]:
-        """
-        Returns the parameters bound to each captured query, aligned by index with ``queries``.
-
-        Returns:
-            list[tuple[Any, ...]]: The query parameters, in the same order as ``queries``.
-        """
-        return self._queries_params
+        text = str(exc)
+        if 'UNIQUE constraint failed' in text:
+            raise UniqueViolationError(text) from exc
+        if 'FOREIGN KEY constraint failed' in text:
+            raise ForeignKeyViolationError(text) from exc

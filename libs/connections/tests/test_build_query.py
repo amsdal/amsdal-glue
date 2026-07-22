@@ -1,7 +1,5 @@
 import pytest
-from amsdal_glue_core.common.data_models.aggregation import AggregationQuery
-from amsdal_glue_core.common.data_models.annotation import AnnotationQuery
-from amsdal_glue_core.common.data_models.annotation import ValueAnnotation
+from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.field_reference import Field
@@ -12,6 +10,7 @@ from amsdal_glue_core.common.data_models.join import JoinQuery
 from amsdal_glue_core.common.data_models.limit import LimitQuery
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.select_expression import SelectExpression
 from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import FilterConnector
@@ -25,16 +24,14 @@ from amsdal_glue_core.common.expressions.aggregation import Sum
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
 
-from amsdal_glue_connections.sql.connections.postgres_connection import get_pg_transform
-from amsdal_glue_connections.sql.sql_builders.query_builder import build_sql_query
+_gen = SqlGenerator('postgresql', param_style='format')
 
 
 def test_build_sql_query_simple() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST),
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == 'SELECT * FROM "users"'
@@ -44,7 +41,7 @@ def test_build_sql_query_simple() -> None:
 def test_build_sql_query_pg_regex_uses_tilde_operator() -> None:
     """Postgres uses `~` / `~*` for regex matching, NOT `REGEXP`
     (`REGEXP` is SQLite/MySQL syntax and raises a syntax error on Postgres)."""
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST),
             where=Conditions(
@@ -57,7 +54,6 @@ def test_build_sql_query_pg_regex_uses_tilde_operator() -> None:
                 ),
             ),
         ),
-        transform=get_pg_transform(),
     )
 
     assert 'REGEXP' not in sql
@@ -68,7 +64,7 @@ def test_build_sql_query_pg_regex_uses_tilde_operator() -> None:
 def test_build_sql_query_pg_iregex_uses_case_insensitive_tilde_operator() -> None:
     """`IREGEX` maps to Postgres `~*` (case-insensitive regex), without lowering
     the regex pattern itself — that would corrupt metacharacters like `\\D`."""
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST),
             where=Conditions(
@@ -81,7 +77,6 @@ def test_build_sql_query_pg_iregex_uses_case_insensitive_tilde_operator() -> Non
                 ),
             ),
         ),
-        transform=get_pg_transform(),
     )
 
     assert 'REGEXP' not in sql
@@ -90,7 +85,7 @@ def test_build_sql_query_pg_iregex_uses_case_insensitive_tilde_operator() -> Non
 
 
 def test_build_sql_query_simple__only() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
             only=[
@@ -98,7 +93,6 @@ def test_build_sql_query_simple__only() -> None:
                 FieldReferenceAliased(field=Field(name='age'), table_name='u', alias='user_age'),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == 'SELECT "u"."full_name", "u"."age" AS "user_age" FROM "users" AS "u"'
@@ -106,7 +100,7 @@ def test_build_sql_query_simple__only() -> None:
 
 
 def test_build_sql_query_simple_with_namespace__only() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', namespace='my_schema', version=Version.LATEST, alias='u'),
             only=[
@@ -114,7 +108,6 @@ def test_build_sql_query_simple_with_namespace__only() -> None:
                 FieldReferenceAliased(field=Field(name='age'), table_name='u', alias='user_age'),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == 'SELECT "u"."full_name", "u"."age" AS "user_age" FROM "my_schema"."users" AS "u"'
@@ -122,12 +115,15 @@ def test_build_sql_query_simple_with_namespace__only() -> None:
 
 
 def test_build_sql_query_simple__annotations() -> None:
-    sql, value = build_sql_query(
+    # §6: old annotations=[AnnotationQuery(...)] → only=[], expressions=[SelectExpression(...)].
+    # LIMIT is parameterized (LIMIT %s, value in params).
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
-            annotations=[
-                AnnotationQuery(
-                    value=SubQueryStatement(
+            only=[],
+            expressions=[
+                SelectExpression(
+                    expression=SubQueryStatement(
                         query=QueryStatement(
                             table=SchemaReference(name='user_roles', version=Version.LATEST, alias='ur'),
                             only=[
@@ -137,41 +133,39 @@ def test_build_sql_query_simple__annotations() -> None:
                         ),
                         alias='role',
                     ),
+                    alias='role',
                 ),
-                AnnotationQuery(
-                    value=ValueAnnotation(
-                        value=Value(100),
-                        alias='max_age',
-                    ),
+                SelectExpression(
+                    expression=Value(100),
+                    alias='max_age',
                 ),
-                AnnotationQuery(
-                    value=ValueAnnotation(
-                        value=Value('hello'),
-                        alias='custom_greeting',
-                    ),
+                SelectExpression(
+                    expression=Value('hello'),
+                    alias='custom_greeting',
                 ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == (
         'SELECT '
-        '(SELECT "ur"."role" FROM "user_roles" AS "ur" LIMIT 1) AS "role", '
+        '(SELECT "ur"."role" FROM "user_roles" AS "ur" LIMIT %s) AS "role", '
         '%s AS "max_age", '
         '%s AS "custom_greeting" '
         'FROM "users" AS "u"'
     )
-    assert value == [100, 'hello']
+    # LIMIT 1 is a param.
+    assert value == [1, 100, 'hello']
 
 
 def test_build_sql_query_simple_with_namespace__annotations() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST, alias='u'),
-            annotations=[
-                AnnotationQuery(
-                    value=SubQueryStatement(
+            only=[],
+            expressions=[
+                SelectExpression(
+                    expression=SubQueryStatement(
                         query=QueryStatement(
                             table=SchemaReference(
                                 name='user_roles', namespace='ns2', version=Version.LATEST, alias='ur'
@@ -183,62 +177,81 @@ def test_build_sql_query_simple_with_namespace__annotations() -> None:
                         ),
                         alias='role',
                     ),
+                    alias='role',
                 ),
-                AnnotationQuery(
-                    value=ValueAnnotation(
-                        value=Value(100),
-                        alias='max_age',
-                    ),
+                SelectExpression(
+                    expression=Value(100),
+                    alias='max_age',
                 ),
-                AnnotationQuery(
-                    value=ValueAnnotation(
-                        value=Value('hello'),
-                        alias='custom_greeting',
-                    ),
+                SelectExpression(
+                    expression=Value('hello'),
+                    alias='custom_greeting',
                 ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == (
         'SELECT '
-        '(SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" LIMIT 1) AS "role", '
+        '(SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" LIMIT %s) AS "role", '
         '%s AS "max_age", '
         '%s AS "custom_greeting" '
         'FROM "ns1"."users" AS "u"'
     )
-    assert value == [100, 'hello']
+    assert value == [1, 100, 'hello']
 
 
 def test_build_sql_query_simple__aggregations() -> None:
-    sql, value = build_sql_query(
+    # §6: old aggregations=[AggregationQuery(expression=e, alias=a)] →
+    #     only=[], expressions=[SelectExpression(expression=e, alias=a)].
+    # §2a: Count/Sum/Avg/Min/Max field= → expression=FieldReferenceExpression(...).
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
-            aggregations=[
-                AggregationQuery(
-                    expression=Sum(field=FieldReference(field=Field(name='amount'), table_name='u')),
+            only=[],
+            expressions=[
+                SelectExpression(
+                    expression=Sum(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='amount'), table_name='u')
+                        )
+                    ),
                     alias='total_amount',
                 ),
-                AggregationQuery(
-                    expression=Min(field=FieldReference(field=Field(name='amount'), table_name='u')),
+                SelectExpression(
+                    expression=Min(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='amount'), table_name='u')
+                        )
+                    ),
                     alias='min_amount',
                 ),
-                AggregationQuery(
-                    expression=Max(field=FieldReference(field=Field(name='amount'), table_name='u')),
+                SelectExpression(
+                    expression=Max(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='amount'), table_name='u')
+                        )
+                    ),
                     alias='max_amount',
                 ),
-                AggregationQuery(
-                    expression=Count(field=FieldReference(field=Field(name='id'), table_name='u')),
+                SelectExpression(
+                    expression=Count(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                        )
+                    ),
                     alias='total_count',
                 ),
-                AggregationQuery(
-                    expression=Avg(field=FieldReference(field=Field(name='id'), table_name='u')),
+                SelectExpression(
+                    expression=Avg(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='id'), table_name='u')
+                        )
+                    ),
                     alias='avg_count',
                 ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == (
@@ -254,7 +267,7 @@ def test_build_sql_query_simple__aggregations() -> None:
 
 
 def test_build_sql_query_simple__where() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
             where=Conditions(
@@ -284,19 +297,20 @@ def test_build_sql_query_simple__where() -> None:
                 ),
             ),
         ),
-        transform=get_pg_transform(),
     )
 
+    #  - CONTAINS param uses % wildcards.
+    #  - ISTARTSWITH uses native ILIKE.
     assert sql == (
         'SELECT * FROM "users" AS "u" WHERE ("u"."age" >= %s AND "u"."name" LIKE %s) OR '
-        '("u"."age" >= %s AND LOWER("u"."email") LIKE %s)'
+        '("u"."age" >= %s AND "u"."email" ILIKE %s)'
     )
-    assert value == [18, '*John*', 18, 'john%']
+    assert value == [18, '%John%', 18, 'john%']
 
 
 @pytest.mark.parametrize('join_type', [JoinType.INNER, JoinType.LEFT, JoinType.RIGHT, JoinType.FULL])
 def test_build_sql_query_simple__joins(join_type) -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
             joins=[
@@ -317,9 +331,9 @@ def test_build_sql_query_simple__joins(join_type) -> None:
                 ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
+    # A default projection over a join qualifies the star to the base alias to avoid column pollution.
     assert (
         sql
         == f'SELECT "u".* FROM "users" AS "u" {join_type.value} JOIN "user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'  # noqa: S608
@@ -329,7 +343,7 @@ def test_build_sql_query_simple__joins(join_type) -> None:
 
 @pytest.mark.parametrize('join_type', [JoinType.INNER, JoinType.LEFT, JoinType.RIGHT, JoinType.FULL])
 def test_build_sql_query_simple_with_namespace__joins(join_type) -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', namespace='ns1', version=Version.LATEST, alias='u'),
             joins=[
@@ -350,7 +364,6 @@ def test_build_sql_query_simple_with_namespace__joins(join_type) -> None:
                 ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == (
@@ -361,20 +374,30 @@ def test_build_sql_query_simple_with_namespace__joins(join_type) -> None:
 
 
 def test_build_sql_query_simple__group_by() -> None:
-    sql, value = build_sql_query(
+    # §6 + §2a: aggregations + Count(field=) → expressions + Sum(expression=...).
+    # §7: GroupByQuery(field=ref) → GroupByQuery(expression=FieldReferenceExpression(ref)).
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
-            aggregations=[
-                AggregationQuery(
-                    expression=Sum(field=FieldReference(field=Field(name='amount'), table_name='u')),
+            only=[],
+            expressions=[
+                SelectExpression(
+                    expression=Sum(
+                        expression=FieldReferenceExpression(
+                            field_reference=FieldReference(field=Field(name='amount'), table_name='u')
+                        )
+                    ),
                     alias='amount_per_role',
                 ),
             ],
             group_by=[
-                GroupByQuery(field=FieldReference(field=Field(name='role_id'), table_name='u')),
+                GroupByQuery(
+                    expression=FieldReferenceExpression(
+                        field_reference=FieldReference(field=Field(name='role_id'), table_name='u')
+                    )
+                ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == 'SELECT SUM("u"."amount") AS "amount_per_role" FROM "users" AS "u" GROUP BY "u"."role_id"'
@@ -382,20 +405,20 @@ def test_build_sql_query_simple__group_by() -> None:
 
 
 def test_build_sql_query_simple__limit() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
             limit=LimitQuery(limit=10, offset=20),
         ),
-        transform=get_pg_transform(),
     )
 
-    assert sql == 'SELECT * FROM "users" AS "u" LIMIT 10 OFFSET 20'
-    assert value == []
+    # LIMIT/OFFSET are parameterized.
+    assert sql == 'SELECT * FROM "users" AS "u" LIMIT %s OFFSET %s'
+    assert value == [10, 20]
 
 
 def test_build_sql_query_complex() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SubQueryStatement(
                 query=QueryStatement(
@@ -413,7 +436,6 @@ def test_build_sql_query_complex() -> None:
                 alias='sub',
             ),
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == 'SELECT * FROM (SELECT * FROM "users" AS "u" WHERE "u"."age" >= %s) AS "sub"'
@@ -421,7 +443,7 @@ def test_build_sql_query_complex() -> None:
 
 
 def test_build_sql_query_complex_with_namespace() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SubQueryStatement(
                 query=QueryStatement(
@@ -439,7 +461,6 @@ def test_build_sql_query_complex_with_namespace() -> None:
                 alias='sub',
             ),
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == 'SELECT * FROM (SELECT * FROM "ns1"."users" AS "u" WHERE "u"."age" >= %s) AS "sub"'
@@ -447,7 +468,7 @@ def test_build_sql_query_complex_with_namespace() -> None:
 
 
 def test_build_sql_query_complex_joins() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SubQueryStatement(
                 query=QueryStatement(
@@ -499,20 +520,21 @@ def test_build_sql_query_complex_joins() -> None:
                 ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
+    # The outer join qualifies its star to the subquery alias "sub"; the inner subqueries have no
+    # joins and keep their own projection. STARTSWITH 'staff_' escapes the underscore ('staff\_%').
     assert sql == (
         'SELECT "sub".* FROM '
         '(SELECT * FROM "users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
         'LEFT JOIN (SELECT "ur"."role" FROM "user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
     )
-    assert value == [18, 'staff_%']
+    assert value == [18, 'staff\\_%']
 
 
 def test_build_sql_query_complex_joins_with_namespace() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SubQueryStatement(
                 query=QueryStatement(
@@ -569,7 +591,6 @@ def test_build_sql_query_complex_joins_with_namespace() -> None:
                 ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == (
@@ -578,11 +599,11 @@ def test_build_sql_query_complex_joins_with_namespace() -> None:
         'LEFT JOIN (SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
     )
-    assert value == [18, 'staff_%']
+    assert value == [18, 'staff\\_%']
 
 
 def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
-    sql, value = build_sql_query(
+    sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SubQueryStatement(
                 query=QueryStatement(
@@ -640,7 +661,6 @@ def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
                 ),
             ],
         ),
-        transform=get_pg_transform(),
     )
 
     assert sql == (
@@ -650,4 +670,4 @@ def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
         'SELECT "ns2"."user_roles"."role" FROM "ns2"."user_roles" WHERE "ns2"."user_roles"."role" LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
     )
-    assert value == [18, 'staff_%']
+    assert value == [18, 'staff\\_%']

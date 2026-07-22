@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.interfaces.connection_manager import ConnectionManager
@@ -54,7 +54,7 @@ def test_data_command_service() -> None:
                 InsertData(
                     schema=SchemaReference(name='Shipping', version=Version.LATEST),
                     data=[
-                        Data(
+                        DataInput(
                             data={'id': 'id-1', 'customer_id': 'customer-1', 'status': 'shipped'},
                         ),
                     ],
@@ -76,7 +76,7 @@ def test_data_command_service_multiple_databases() -> None:
                 InsertData(
                     schema=SchemaReference(name='Shipping', version=Version.LATEST),
                     data=[
-                        Data(
+                        DataInput(
                             data={'id': 'id-1', 'customer_id': 'customer-1', 'status': 'shipped'},
                         ),
                     ],
@@ -84,7 +84,7 @@ def test_data_command_service_multiple_databases() -> None:
                 InsertData(
                     schema=SchemaReference(name='Customer', version=Version.LATEST),
                     data=[
-                        Data(
+                        DataInput(
                             data={'id': 'customer-1', 'name': 'John Doe'},
                         ),
                     ],

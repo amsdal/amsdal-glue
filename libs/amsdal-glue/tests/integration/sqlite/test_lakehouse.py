@@ -6,12 +6,13 @@ import pytest
 from pytest_mock import MockerFixture
 
 from amsdal_glue import Container
-from amsdal_glue import Data
 from amsdal_glue import DataCommand
+from amsdal_glue import DataInput
 from amsdal_glue import DataQueryOperation
 from amsdal_glue import DefaultConnectionPool
 from amsdal_glue import Field
 from amsdal_glue import FieldReference
+from amsdal_glue import FieldReferenceExpression
 from amsdal_glue import InsertData
 from amsdal_glue import OrderByQuery
 from amsdal_glue import OrderDirection
@@ -62,12 +63,13 @@ def lakehouse_app() -> Generator[LakehouseApplication, None, None]:
 
 def test_schema_command(lakehouse_app: LakehouseApplication) -> None:
     from .fixtures.user_schema import user_schema
+    from .fixtures.user_schema import user_schema_ref
 
     service = Container.services.get(SchemaCommandService)
     result = service.execute(
         SchemaCommand(
             mutations=[
-                RegisterSchema(schema=user_schema),
+                RegisterSchema(schema_ref=user_schema_ref, schema=user_schema),
             ],
         ),
     )
@@ -101,8 +103,8 @@ def test_data_command(lakehouse_app: LakehouseApplication):
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'id': '1', 'name': 'Alice'}),
-                        Data(data={'id': '2', 'name': 'Bob'}),
+                        DataInput(data={'id': '1', 'name': 'Alice'}),
+                        DataInput(data={'id': '2', 'name': 'Bob'}),
                     ],
                 ),
             ],
@@ -134,8 +136,8 @@ def test_data_query(lakehouse_app: LakehouseApplication, mocker: MockerFixture):
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'id': '1', 'name': 'Alice'}),
-                        Data(data={'id': '2', 'name': 'Bob'}),
+                        DataInput(data={'id': '1', 'name': 'Alice'}),
+                        DataInput(data={'id': '2', 'name': 'Bob'}),
                     ],
                 ),
             ],
@@ -156,7 +158,9 @@ def test_data_query(lakehouse_app: LakehouseApplication, mocker: MockerFixture):
         table=SchemaReference(name='customers', version=Version.LATEST),
         order_by=[
             OrderByQuery(
-                field=FieldReference(field=Field(name='id'), table_name='customers'),
+                expression=FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='customers')
+                ),
                 direction=OrderDirection.ASC,
             ),
         ],

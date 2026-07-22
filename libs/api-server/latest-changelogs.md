@@ -1,5 +1,5 @@
-## [v0.1.1](https://pypi.org/project/amsdal-glue-api-server/0.1.1/) - 2025-06-17
+## [v0.2.0rc1](https://pypi.org/project/amsdal-glue-api-server/0.2.0rc1/) - 2026-07-22
 
 ### Changed
 
-- Update package manager to `uv` for better performance and compatibility.
+- Validation error handling aligned with the updated input DTOs.

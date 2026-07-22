@@ -1,6 +1,9 @@
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
+from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
+from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import SchemaCommand
 from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
@@ -14,15 +17,16 @@ def test_simple_table_info(database_connection: ElasticsearchConnection, test_pr
         name='customers',
         version=Version.LATEST,
         properties=[
-            PropertySchema(name='id', type=int, required=True, description=None, default=None),
-            PropertySchema(name='name', type=str, required=False, description=None, default=None),
-            PropertySchema(name='age', type=int, required=False, description=None, default=None),
+            PropertySchema(name='id', type=ScalarType.INTEGER, required=True, description=None, default=None),
+            PropertySchema(name='name', type=ScalarType.TEXT, required=False, description=None, default=None),
+            PropertySchema(name='age', type=ScalarType.INTEGER, required=False, description=None, default=None),
         ],
         constraints=[PrimaryKeyConstraint(name='customers_pkey', fields=['id'])],
         indexes=[],
     )
 
-    customers_command = SchemaCommand(mutations=[RegisterSchema(schema=customers_schema)])
+    customers_ref = SchemaReference(name='customers', version=Version.LATEST)
+    customers_command = SchemaCommand(mutations=[RegisterSchema(schema_ref=customers_ref, schema=customers_schema)])
     database_connection.run_schema_command(customers_command)
 
     # Create orders index
@@ -30,18 +34,19 @@ def test_simple_table_info(database_connection: ElasticsearchConnection, test_pr
         name='orders',
         version=Version.LATEST,
         properties=[
-            PropertySchema(name='id', type=int, required=True, description=None, default=None),
-            PropertySchema(name='customer_id', type=int, required=False, description=None, default=None),
-            PropertySchema(name='amount', type=int, required=False, description=None, default=None),
+            PropertySchema(name='id', type=ScalarType.INTEGER, required=True, description=None, default=None),
+            PropertySchema(name='customer_id', type=ScalarType.INTEGER, required=False, description=None, default=None),
+            PropertySchema(name='amount', type=ScalarType.INTEGER, required=False, description=None, default=None),
             PropertySchema(
-                name='date', type=str, required=False, description=None, default=None
+                name='date', type=ScalarType.TEXT, required=False, description=None, default=None
             ),  # ES doesn't have date type like SQL
         ],
         constraints=[PrimaryKeyConstraint(name='orders_pkey', fields=['id'])],
         indexes=[],
     )
 
-    orders_command = SchemaCommand(mutations=[RegisterSchema(schema=orders_schema)])
+    orders_ref = SchemaReference(name='orders', version=Version.LATEST)
+    orders_command = SchemaCommand(mutations=[RegisterSchema(schema_ref=orders_ref, schema=orders_schema)])
     database_connection.run_schema_command(orders_command)
 
     # Test get_table_info for orders index
@@ -50,10 +55,10 @@ def test_simple_table_info(database_connection: ElasticsearchConnection, test_pr
     # Check properties (Elasticsearch doesn't preserve order, so we need to sort)
     # Note: Elasticsearch doesn't have native "required" concept, so all fields are required=False when retrieved
     expected_properties = [
-        PropertySchema(name='id', type=int, required=False, description=None, default=None),
-        PropertySchema(name='customer_id', type=int, required=False, description=None, default=None),
-        PropertySchema(name='amount', type=int, required=False, description=None, default=None),
-        PropertySchema(name='date', type=str, required=False, description=None, default=None),
+        PropertySchema(name='id', type=ScalarType.INTEGER, required=False, description=None, default=None),
+        PropertySchema(name='customer_id', type=ScalarType.INTEGER, required=False, description=None, default=None),
+        PropertySchema(name='amount', type=ScalarType.INTEGER, required=False, description=None, default=None),
+        PropertySchema(name='date', type=ScalarType.TEXT, required=False, description=None, default=None),
     ]
 
     # Sort both lists by property name for comparison
@@ -72,7 +77,9 @@ def test_simple_table_info(database_connection: ElasticsearchConnection, test_pr
     assert indexes == []
 
     # Test query_schema() method
-    schemas = database_connection.query_schema()
+    schemas = database_connection.query_schema(
+        query=QueryStatement(table=SchemaReference(name='*', version=Version.LATEST))
+    )
 
     # Elasticsearch may return schemas in any order, and properties may also be in any order
     # So we need to sort for comparison
@@ -82,13 +89,12 @@ def test_simple_table_info(database_connection: ElasticsearchConnection, test_pr
     expected_customers = Schema(
         name=f'{test_prefix}customers',  # Elasticsearch returns full index name with prefix
         version=Version.LATEST,
-        extends=None,
         properties=[
-            PropertySchema(name='age', type=int, required=False, description=None, default=None),
+            PropertySchema(name='age', type=ScalarType.INTEGER, required=False, description=None, default=None),
             PropertySchema(
-                name='id', type=int, required=False, description=None, default=None
+                name='id', type=ScalarType.INTEGER, required=False, description=None, default=None
             ),  # ES doesn't have required concept
-            PropertySchema(name='name', type=str, required=False, description=None, default=None),
+            PropertySchema(name='name', type=ScalarType.TEXT, required=False, description=None, default=None),
         ],
         constraints=[PrimaryKeyConstraint(name='customers_pkey', fields=['id'])],
         indexes=[],
@@ -98,13 +104,12 @@ def test_simple_table_info(database_connection: ElasticsearchConnection, test_pr
     expected_orders = Schema(
         name=f'{test_prefix}orders',  # Elasticsearch returns full index name with prefix
         version=Version.LATEST,
-        extends=None,
         properties=[
-            PropertySchema(name='amount', type=int, required=False, description=None, default=None),
-            PropertySchema(name='customer_id', type=int, required=False, description=None, default=None),
-            PropertySchema(name='date', type=str, required=False, description=None, default=None),
+            PropertySchema(name='amount', type=ScalarType.INTEGER, required=False, description=None, default=None),
+            PropertySchema(name='customer_id', type=ScalarType.INTEGER, required=False, description=None, default=None),
+            PropertySchema(name='date', type=ScalarType.TEXT, required=False, description=None, default=None),
             PropertySchema(
-                name='id', type=int, required=False, description=None, default=None
+                name='id', type=ScalarType.INTEGER, required=False, description=None, default=None
             ),  # ES doesn't have required concept
         ],
         constraints=[PrimaryKeyConstraint(name='orders_pkey', fields=['id'])],

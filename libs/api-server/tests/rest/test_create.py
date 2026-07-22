@@ -53,13 +53,7 @@ def test_create_customer_duplicate_error(test_client: TestClient) -> None:
     )
     assert response.status_code == 400
     response_json = response.json()
-    assert response_json == {
-        'detail': (
-            "Mutation failed: Error executing SQL: INSERT INTO 'customers' ('customer_id', 'email', 'name') VALUES "
-            "(?, ?, ?) with args: (1, 'e1@example.com', 'John Doe'). "
-            'Exception: UNIQUE constraint failed: customers.customer_id'
-        )
-    }
+    assert response_json == {'detail': 'UNIQUE constraint failed: customers.customer_id'}
 
     query = QueryStatement(table=SchemaReference(name='customers', version=Version.LATEST))
     query_service = Container.services.get(DataQueryService)

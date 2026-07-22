@@ -52,9 +52,7 @@ class SchemaCommandNodeExecutor:
             msg = 'No mutations to resolve connection for'
             raise ValueError(msg)
 
-        return self.connection_manager.get_connection_pool(mutations[0].get_schema_name()).get_connection(
-            transaction_id
-        )
+        return self.connection_manager.get_connection_pool(mutations[0].schema_ref.name).get_connection(transaction_id)
 
 
 class AsyncSchemaCommandNodeExecutor:
@@ -104,6 +102,6 @@ class AsyncSchemaCommandNodeExecutor:
             msg = 'No mutations to resolve connection for'
             raise ValueError(msg)
 
-        return await self.connection_manager.get_connection_pool(mutations[0].get_schema_name()).get_connection(
+        return await self.connection_manager.get_connection_pool(mutations[0].schema_ref.name).get_connection(
             transaction_id
         )

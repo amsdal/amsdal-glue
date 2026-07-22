@@ -8,7 +8,7 @@ on:
 
 jobs:
   amsdal_glue:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: pgvector/pgvector:pg17
@@ -54,6 +54,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Hatch and UV setup
         run: |
           pip install --upgrade uv hatch
@@ -73,10 +76,10 @@ jobs:
           hatch run test
 
   connections:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:latest
+        image: pgvector/pgvector:pg17
         ports:
           - 5432:5432
         env:
@@ -97,7 +100,7 @@ jobs:
       - name: Start Elasticsearch
         run: |
           docker pull docker.elastic.co/elasticsearch/elasticsearch:8.9.2
-          docker rm -f es-for-tests
+          docker rm -f es-for-tests || true
           docker run -d --name es-for-tests \
             -p 9200:9200 -p 9300:9300 \
             -e "xpack.security.enabled=false" \
@@ -119,6 +122,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Hatch and UV setup
         run: |
           pip install --upgrade uv hatch
@@ -138,7 +144,7 @@ jobs:
           hatch run test
 
   core:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -167,7 +173,7 @@ jobs:
           hatch run all
 
   sql_parser:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -201,7 +207,7 @@ jobs:
           hatch run test
 
   api_server:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -215,6 +221,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Hatch and UV setup
         run: |
