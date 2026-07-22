@@ -3,6 +3,7 @@ from typing import Annotated
 
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -31,7 +32,9 @@ def generate_update_controller(schema: Schema, schema_model: type[BaseModel], pk
                 mutations=[
                     UpdateData(
                         schema=SchemaReference(name=schema.name, version=Version.LATEST),
-                        data={k: Value(value=v) for k, v in obj.model_dump().items()},  # type: ignore[attr-defined]
+                        data=DataInput(
+                            data={k: Value(value=v) for k, v in obj.model_dump().items()}  # type: ignore[attr-defined]
+                        ),
                         query=Conditions(
                             *(
                                 Condition(

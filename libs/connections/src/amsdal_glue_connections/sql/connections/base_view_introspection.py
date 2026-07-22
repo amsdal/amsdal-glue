@@ -10,8 +10,6 @@ identity, Postgres CHECK / exclusion constraints) live in the connection classes
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable
-from collections.abc import Sequence
 from typing import Any
 from typing import TYPE_CHECKING
 
@@ -37,7 +35,9 @@ from amsdal_glue_core.common.expressions.field_reference import FieldReferenceEx
 from amsdal_glue_core.common.expressions.value import Value
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from collections.abc import Iterator
+    from collections.abc import Sequence
 
     from amsdal_glue_core.common.data_models.types import FieldType
     from amsdal_glue_core.common.expressions.expression import Expression

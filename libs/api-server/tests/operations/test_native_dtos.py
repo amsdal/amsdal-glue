@@ -89,9 +89,9 @@ def test_value_shape_with_output_type_coerces() -> None:
 
 
 def test_field_reference_shape_routes_to_field_arm() -> None:
-    parsed = _EXPRESSION_ADAPTER.validate_python(
-        {'field_reference': {'field': {'name': 'customer_id'}, 'table_name': 'c'}}
-    )
+    parsed = _EXPRESSION_ADAPTER.validate_python({
+        'field_reference': {'field': {'name': 'customer_id'}, 'table_name': 'c'}
+    })
     assert isinstance(parsed, FieldRefBody)
     core = expression_body_to_core(parsed)
     assert isinstance(core, FieldReferenceExpression)
@@ -99,9 +99,10 @@ def test_field_reference_shape_routes_to_field_arm() -> None:
 
 
 def test_aggregation_shape_routes_to_aggregation_arm() -> None:
-    parsed = _EXPRESSION_ADAPTER.validate_python(
-        {'name': 'SUM', 'field': {'field': {'name': 'quantity'}, 'table_name': 'o'}}
-    )
+    parsed = _EXPRESSION_ADAPTER.validate_python({
+        'name': 'SUM',
+        'field': {'field': {'name': 'quantity'}, 'table_name': 'o'},
+    })
     assert isinstance(parsed, SumBody)
     core = expression_body_to_core(parsed)
     assert isinstance(core, Sum)
@@ -118,34 +119,32 @@ def test_unmatched_shape_raises_single_clear_error() -> None:
 
 
 def test_data_query_body_round_trips_to_core() -> None:
-    body = QueryStatementBody.model_validate(
-        {
-            'table': {'name': 'customers', 'version': 'LATEST'},
-            'only': [{'field': {'name': 'customer_id'}, 'table_name': 'customers'}],
-            'expressions': [
-                {'expression': {'value': 'active'}, 'alias': 'status'},
-                {
-                    'expression': {
-                        'name': 'SUM',
-                        'field': {'field': {'name': 'quantity'}, 'table_name': 'customers'},
-                    },
-                    'alias': 'total',
+    body = QueryStatementBody.model_validate({
+        'table': {'name': 'customers', 'version': 'LATEST'},
+        'only': [{'field': {'name': 'customer_id'}, 'table_name': 'customers'}],
+        'expressions': [
+            {'expression': {'value': 'active'}, 'alias': 'status'},
+            {
+                'expression': {
+                    'name': 'SUM',
+                    'field': {'field': {'name': 'quantity'}, 'table_name': 'customers'},
                 },
-            ],
-            'where': {
-                'children': [
-                    {
-                        'left': {'field_reference': {'field': {'name': 'customer_id'}, 'table_name': 'customers'}},
-                        'lookup': 'EQ',
-                        'right': {'value': 1},
-                    }
-                ],
+                'alias': 'total',
             },
-            'order_by': [
-                {'field': {'field': {'name': 'customer_id'}, 'table_name': 'customers'}, 'direction': 'ASC'},
+        ],
+        'where': {
+            'children': [
+                {
+                    'left': {'field_reference': {'field': {'name': 'customer_id'}, 'table_name': 'customers'}},
+                    'lookup': 'EQ',
+                    'right': {'value': 1},
+                }
             ],
-        }
-    )
+        },
+        'order_by': [
+            {'field': {'field': {'name': 'customer_id'}, 'table_name': 'customers'}, 'direction': 'ASC'},
+        ],
+    })
 
     core = query_statement_to_core_query_statement(body)
     assert isinstance(core, QueryStatement)
@@ -167,13 +166,11 @@ def test_data_query_body_round_trips_to_core() -> None:
 
 
 def test_condition_to_core_condition_converts_both_sides() -> None:
-    condition = Condition.model_validate(
-        {
-            'left': {'field_reference': {'field': {'name': 'a'}, 'table_name': 't'}},
-            'lookup': 'EQ',
-            'right': {'value': 42},
-        }
-    )
+    condition = Condition.model_validate({
+        'left': {'field_reference': {'field': {'name': 'a'}, 'table_name': 't'}},
+        'lookup': 'EQ',
+        'right': {'value': 42},
+    })
     core = condition_to_core_condition(condition)
     assert isinstance(core.left, FieldReferenceExpression)
     assert isinstance(core.right, Value)

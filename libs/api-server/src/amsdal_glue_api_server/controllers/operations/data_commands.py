@@ -1,5 +1,6 @@
 # mypy: disable-error-code="type-abstract"
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.expressions.value import Value
 from amsdal_glue_core.common.operations.commands import DataCommand
@@ -62,7 +63,10 @@ async def insert_command(
     transaction_id: str | None = None,
 ) -> Response:
     return await _data_command(
-        mutation_command=InsertData(schema=insert_data.schema, data=insert_data.data),
+        mutation_command=InsertData(
+            schema=insert_data.schema,
+            data=[DataInput(data=row.data, metadata=row.metadata) for row in insert_data.data],
+        ),
         lock_id=lock_id,
         root_transaction_id=root_transaction_id,
         transaction_id=transaction_id,
@@ -75,11 +79,14 @@ async def update_command(
     root_transaction_id: str | None = None,
     transaction_id: str | None = None,
 ) -> Response:
-    update_expressions: dict[str, Value] = {k: Value(value=v) for k, v in update_data.data.data.items()}
+    update_input = DataInput(
+        data={k: Value(value=v) for k, v in update_data.data.data.items()},
+        metadata=update_data.data.metadata,
+    )
     return await _data_command(
         mutation_command=UpdateData(
             schema=update_data.schema,
-            data=update_expressions,  # type: ignore[arg-type]
+            data=update_input,
             query=conditions_to_core_conditions(update_data.query),
         ),
         lock_id=lock_id,

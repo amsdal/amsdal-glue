@@ -7,6 +7,8 @@ Postgres path -- both dialects must agree.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
@@ -16,9 +18,10 @@ from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 
-from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
-
 from tests.sql.json_output_type_cases import register_and_seed
+
+if TYPE_CHECKING:
+    from amsdal_glue_connections.sql.connections.postgres_connection import PostgresConnection
 
 TABLE = 'JsonOrderProjPg'
 ROWS = [

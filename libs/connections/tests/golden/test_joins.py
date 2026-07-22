@@ -53,8 +53,14 @@ EXPECTED_PG: dict[str, tuple[str, list]] = {
     'RIGHT': ('SELECT "users".* FROM "users" RIGHT JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
     'FULL': ('SELECT "users".* FROM "users" FULL JOIN "orders" ON "users"."id" = "orders"."user_id"', []),
     'CROSS': ('SELECT "users".* FROM "users" CROSS JOIN "orders"', []),
-    'INNER_LATERAL': ('SELECT "users".* FROM "users" INNER JOIN LATERAL "orders" ON "users"."id" = "orders"."user_id"', []),
-    'LEFT_LATERAL': ('SELECT "users".* FROM "users" LEFT JOIN LATERAL "orders" ON "users"."id" = "orders"."user_id"', []),
+    'INNER_LATERAL': (
+        'SELECT "users".* FROM "users" INNER JOIN LATERAL "orders" ON "users"."id" = "orders"."user_id"',
+        [],
+    ),
+    'LEFT_LATERAL': (
+        'SELECT "users".* FROM "users" LEFT JOIN LATERAL "orders" ON "users"."id" = "orders"."user_id"',
+        [],
+    ),
 }
 
 # Expected output:

@@ -2,13 +2,13 @@ import logging
 import re
 import sqlite3
 import uuid
+from collections.abc import Iterable
+from collections.abc import Sequence
 from copy import copy
 from datetime import date
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from collections.abc import Iterable
-from collections.abc import Sequence
 from typing import Any
 from typing import TYPE_CHECKING
 

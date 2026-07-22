@@ -1,5 +1,5 @@
 # mypy: disable-error-code="type-abstract"
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
@@ -46,9 +46,9 @@ def test_update_customer(test_client: TestClient) -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
-                        Data(data={'customer_id': 2, 'name': 'Jake Doe', 'email': 'e2@example.com'}),
-                        Data(data={'customer_id': 3, 'name': 'Jane Doe', 'email': 'e3@example.com'}),
+                        DataInput(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                        DataInput(data={'customer_id': 2, 'name': 'Jake Doe', 'email': 'e2@example.com'}),
+                        DataInput(data={'customer_id': 3, 'name': 'Jane Doe', 'email': 'e3@example.com'}),
                     ],
                 ),
             ],
@@ -81,9 +81,9 @@ def test_delete_customer(test_client: TestClient) -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
-                        Data(data={'customer_id': 2, 'name': 'Jake Doe', 'email': 'e2@example.com'}),
-                        Data(data={'customer_id': 3, 'name': 'Jane Doe', 'email': 'e3@example.com'}),
+                        DataInput(data={'customer_id': 1, 'name': 'John Doe', 'email': 'e1@example.com'}),
+                        DataInput(data={'customer_id': 2, 'name': 'Jake Doe', 'email': 'e2@example.com'}),
+                        DataInput(data={'customer_id': 3, 'name': 'Jane Doe', 'email': 'e3@example.com'}),
                     ],
                 ),
             ],
