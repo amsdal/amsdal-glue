@@ -90,6 +90,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          token: ${{ secrets.ACCESS_KEY }}
           files: libs/sql-parser/dist/*
           name: ${{ steps.branch_info.outputs.SOURCE_TAG }}
           body_path: libs/sql-parser/latest-changelogs.md

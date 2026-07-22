@@ -90,6 +90,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          token: ${{ secrets.ACCESS_KEY }}
           files: libs/api-server/dist/*
           name: ${{ steps.branch_info.outputs.SOURCE_TAG }}
           body_path: libs/api-server/latest-changelogs.md
