@@ -1,3 +1,9 @@
+## [v0.2.0rc1](https://pypi.org/project/amsdal-glue/0.2.0rc1/) - 2026-07-22
+
+### Changed
+
+- Data mutation operations align with the `DataInput` input model and the structured `IndexField` schema.
+
 ## [v0.1.7](https://pypi.org/project/amsdal-glue/0.1.7/) - 2026-05-20
 
 ### Added

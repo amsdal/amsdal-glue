@@ -1,7 +1,5 @@
-## [v0.1.7](https://pypi.org/project/amsdal-glue/0.1.7/) - 2026-05-20
+## [v0.2.0rc1](https://pypi.org/project/amsdal-glue/0.2.0rc1/) - 2026-07-22
 
-### Added
+### Changed
 
-- Public exports for `Exists` expression.
-- Polars final query executor exposed in the public API.
-- Connection pool live check.
+- Data mutation operations align with the `DataInput` input model and the structured `IndexField` schema.

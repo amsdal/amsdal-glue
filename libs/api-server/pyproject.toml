@@ -24,8 +24,8 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue>=0.1.0",
-    "amsdal-glue-sql-parser[sqloxide]>=0.1.0",
+    "amsdal-glue>=0.2.0rc1",
+    "amsdal-glue-sql-parser[sqloxide]>=0.2.0rc1",
     "fastapi>=0.111.1",
     "uvicorn>=0.30.3",
 ]
@@ -43,6 +43,12 @@ dev = [
     "types-PyYAML",
     "types-ujson",
 ]
+
+[tool.uv.sources]
+amsdal-glue = { path = "../amsdal-glue" }
+amsdal-glue-sql-parser = { path = "../sql-parser" }
+amsdal-glue-connections = { path = "../connections" }
+amsdal-glue-core = { path = "../core" }
 
 [project.urls]
 Documentation = "https://github.com/amsdal/amsdal-glue?tab=readme-ov-file#amsdal-glue-project"
