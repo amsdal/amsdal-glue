@@ -45,9 +45,7 @@ def test_jsonb_object_expression_renders_function_call_sqlite() -> None:
 
     sql, values = _q(_lite, expr)
 
-    assert sql == (
-        'SELECT json_object(\'slug\', "Parent"."slug", \'realm\', "Parent"."realm") AS "obj" FROM "Parent"'
-    )
+    assert sql == ('SELECT json_object(\'slug\', "Parent"."slug", \'realm\', "Parent"."realm") AS "obj" FROM "Parent"')
     assert values == []
 
 
@@ -81,6 +79,4 @@ def test_jsonb_object_expression_preserves_key_order_from_mapping() -> None:
 
     sql, _ = _q(_pg, expr)
 
-    assert sql == (
-        'SELECT jsonb_build_object(\'a\', "Parent"."x", \'b\', "Parent"."y") AS "obj" FROM "Parent"'
-    )
+    assert sql == ('SELECT jsonb_build_object(\'a\', "Parent"."x", \'b\', "Parent"."y") AS "obj" FROM "Parent"')

@@ -15,7 +15,7 @@ from ._harness import pg
 # QueryStatement uses `only` (projection list) + `expressions` (extra SELECT
 # items).  A pure annotation with no other columns is expressed as
 # only=[] + expressions=[SelectExpression(expression=<value>, alias='...')].
-# Without only=[] the Rust generator emits SELECT *, <expr> — wrong projection.
+# Without only=[] the generator emits SELECT *, <expr> — wrong projection.
 
 
 def test_value_annotation_pg() -> None:
@@ -28,7 +28,7 @@ def test_value_annotation_pg() -> None:
 
 
 def test_value_annotation_lite() -> None:
-    # SQLite now uses ANSI double-quote identifiers — valid; re-baselined.
+    # SQLite uses ANSI double-quote identifiers.
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
         only=[],
@@ -38,8 +38,7 @@ def test_value_annotation_lite() -> None:
 
 
 def test_expression_annotation_pg() -> None:
-    # Rust omits the cosmetic parentheses the old Python builder wrapped around
-    # field references — SQL semantics unchanged; re-baselined.
+    # No cosmetic parentheses around field references; SQL semantics unchanged.
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
         only=[],
@@ -56,7 +55,7 @@ def test_expression_annotation_pg() -> None:
 
 
 def test_expression_annotation_lite() -> None:
-    # ANSI double quotes + no cosmetic parens — valid; re-baselined.
+    # ANSI double quotes + no cosmetic parens.
     q = QueryStatement(
         table=SchemaReference(name='users', version=Version.LATEST),
         only=[],
@@ -86,7 +85,7 @@ def test_subquery_annotation_pg() -> None:
 
 
 def test_subquery_annotation_lite() -> None:
-    # ANSI double quotes — valid; re-baselined.
+    # ANSI double quotes.
     sub = SubQueryStatement(
         query=QueryStatement(table=SchemaReference(name='orders', version=Version.LATEST)),
         alias='order_q',

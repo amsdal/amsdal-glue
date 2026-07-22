@@ -12,9 +12,7 @@ _lite = SqlGenerator('sqlite', param_style='qmark')
 
 
 def test_three_level_nested_subquery_qualified_column_resolves() -> None:
-    # Re-baselined: SQLite identifiers are now ANSI double-quoted ("x"."y") instead of
-    # the old builder's single-quoted ('x'.'y'). Both are valid SQL; double quotes are
-    # the standard ANSI form.
+    # SQLite identifiers are ANSI double-quoted ("x"."y"), the standard ANSI form.
     inner = QueryStatement(
         only=[
             FieldReferenceAliased(
@@ -54,7 +52,7 @@ def test_three_level_nested_subquery_qualified_column_resolves() -> None:
 
 def test_multi_version_alias_pattern_renders() -> None:
     """Alias contains __<v[:8]> hex suffix — common in amsdal_models historical builder."""
-    # Re-baselined: double-quoted identifiers.
+    # Double-quoted identifiers.
     inner = QueryStatement(
         only=[
             FieldReferenceAliased(

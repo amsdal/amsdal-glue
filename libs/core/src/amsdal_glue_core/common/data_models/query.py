@@ -60,7 +60,7 @@ class QueryStatement:
     def __copy__(self):
         return QueryStatement(
             table=self.table,
-            only=list(self.only) if self.only else None,
+            only=None if self.only is None else list(self.only),
             distinct=self.distinct,
             expressions=list(self.expressions) if self.expressions else None,
             joins=list(self.joins) if self.joins else None,

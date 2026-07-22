@@ -13,7 +13,7 @@ from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPl
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
@@ -151,7 +151,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                     InsertData(
                         schema=SchemaReference(name='customers', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 1,
                                     'age': 31,
@@ -160,7 +160,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'country': 'USA',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 2,
                                     'age': 22,
@@ -169,7 +169,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'country': 'USA',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 3,
                                     'age': 22,
@@ -178,7 +178,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'country': 'UK',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 4,
                                     'age': 25,
@@ -187,7 +187,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'country': 'USA',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 5,
                                     'age': 25,
@@ -201,7 +201,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                     InsertData(
                         schema=SchemaReference(name='orders', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 1,
                                     'customer_id': 4,
@@ -209,7 +209,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Keyboard',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 2,
                                     'customer_id': 4,
@@ -217,7 +217,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Mouse',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 3,
                                     'customer_id': 3,
@@ -225,7 +225,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Monitor',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 4,
                                     'customer_id': 1,
@@ -233,7 +233,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Keyboard',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 5,
                                     'customer_id': 2,
@@ -241,7 +241,7 @@ def _register_default_connection() -> Generator[None, None, None]:
                                     'item': 'Mousepad',
                                 },
                             ),
-                            Data(
+                            DataInput(
                                 data={
                                     'id': 6,
                                     'customer_id': 6,

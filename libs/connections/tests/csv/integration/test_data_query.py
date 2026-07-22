@@ -1,7 +1,7 @@
 import pytest
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.field_reference import FieldReferenceAliased
@@ -73,34 +73,32 @@ def fixture_connection(database_connection: CsvConnection) -> CsvConnection:
             ]
         )
     )
-    database_connection.run_mutations(
-        [
-            InsertData(
-                schema=SchemaReference(name='customers', version=Version.LATEST),
-                data=[Data(data={'id': 1, 'name': 'Alice', 'age': 25})],
-            ),
-            InsertData(
-                schema=SchemaReference(name='customers', version=Version.LATEST),
-                data=[Data(data={'id': 2, 'name': 'Bob', 'age': 25})],
-            ),
-            InsertData(
-                schema=SchemaReference(name='customers', version=Version.LATEST),
-                data=[Data(data={'id': 3, 'name': 'Charlie', 'age': 35})],
-            ),
-            InsertData(
-                schema=SchemaReference(name='orders', version=Version.LATEST),
-                data=[Data(data={'id': 1, 'customer_id': 1, 'amount': 100})],
-            ),
-            InsertData(
-                schema=SchemaReference(name='orders', version=Version.LATEST),
-                data=[Data(data={'id': 2, 'customer_id': 1, 'amount': 200})],
-            ),
-            InsertData(
-                schema=SchemaReference(name='orders', version=Version.LATEST),
-                data=[Data(data={'id': 3, 'customer_id': 2, 'amount': 400})],
-            ),
-        ]
-    )
+    database_connection.run_mutations([
+        InsertData(
+            schema=SchemaReference(name='customers', version=Version.LATEST),
+            data=[DataInput(data={'id': 1, 'name': 'Alice', 'age': 25})],
+        ),
+        InsertData(
+            schema=SchemaReference(name='customers', version=Version.LATEST),
+            data=[DataInput(data={'id': 2, 'name': 'Bob', 'age': 25})],
+        ),
+        InsertData(
+            schema=SchemaReference(name='customers', version=Version.LATEST),
+            data=[DataInput(data={'id': 3, 'name': 'Charlie', 'age': 35})],
+        ),
+        InsertData(
+            schema=SchemaReference(name='orders', version=Version.LATEST),
+            data=[DataInput(data={'id': 1, 'customer_id': 1, 'amount': 100})],
+        ),
+        InsertData(
+            schema=SchemaReference(name='orders', version=Version.LATEST),
+            data=[DataInput(data={'id': 2, 'customer_id': 1, 'amount': 200})],
+        ),
+        InsertData(
+            schema=SchemaReference(name='orders', version=Version.LATEST),
+            data=[DataInput(data={'id': 3, 'customer_id': 2, 'amount': 400})],
+        ),
+    ])
     return database_connection
 
 

@@ -50,8 +50,8 @@ def _exists(negated: bool = False) -> Exists:  # noqa: FBT001, FBT002
 
 
 def test_exists_renders_via_build_expression() -> None:
-    # Re-pointed: was build_expression(Exists(...)); now via compile_query in WHERE.
-    # Rust emits EXISTS( (no space before paren) vs old builder EXISTS (.
+    # EXISTS is rendered via compile_query in a WHERE clause.
+    # EXISTS( has no space before the paren.
     query = QueryStatement(
         table=SchemaReference(name='Company'),
         where=Conditions(_exists()),
@@ -64,7 +64,6 @@ def test_exists_renders_via_build_expression() -> None:
 
 
 def test_not_exists_renders_via_build_expression() -> None:
-    # Re-pointed: was build_expression(Exists(..., negated=True)).
     query = QueryStatement(
         table=SchemaReference(name='Company'),
         where=Conditions(_exists(negated=True)),
@@ -75,7 +74,6 @@ def test_not_exists_renders_via_build_expression() -> None:
 
 
 def test_exists_inside_conditions_children_renders_in_where() -> None:
-    # Re-pointed: was build_conditions(Conditions(Exists(...))).
     query = QueryStatement(
         table=SchemaReference(name='Company'),
         where=Conditions(_exists()),
@@ -86,7 +84,6 @@ def test_exists_inside_conditions_children_renders_in_where() -> None:
 
 
 def test_not_exists_inside_conditions_combined_with_other_condition() -> None:
-    # Re-pointed: was build_conditions(where) where where combined a Condition + NOT EXISTS.
     query = QueryStatement(
         table=SchemaReference(name='Company'),
         where=Conditions(
@@ -166,7 +163,6 @@ def test_exists_in_join_on_clause() -> None:
 
 def test_exists_inside_condition_left_with_eq_value() -> None:
     """Awkward but valid: `WHERE EXISTS(...) = TRUE`."""
-    # Re-pointed: was build_conditions(Conditions(Condition(left=Exists(...)))).
     query = QueryStatement(
         table=SchemaReference(name='Company'),
         where=Conditions(

@@ -1,6 +1,6 @@
-"""Build helpers for golden-master SQL characterization tests.
+"""Build helpers for SQL generator tests.
 
-Each helper turns a glue AST node into the exact (sql, params) the Rust
+Each helper turns a glue AST node into the exact (sql, params) the
 SqlGenerator produces, for one dialect. The returned tuple is asserted
 against a captured literal in the feature tests.
 """
@@ -11,6 +11,7 @@ from amsdal_glue_connections._sql_core import SqlGenerator
 
 from amsdal_glue_connections.sql.connections.postgres_connection.async_connection import AsyncPostgresConnection
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import PostgresConnection
+from amsdal_glue_connections.sql.connections.sqlite_connection.async_connection import AsyncSqliteConnection
 from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import SqliteConnection
 
 _pg_gen = SqlGenerator('postgresql', param_style='format')
@@ -42,7 +43,7 @@ def lite_ddl(mutation: Any) -> list[tuple[str, list[Any]]]:
 
 
 # Recording connections drive the real connection execute() path — used by
-# lock/transaction characterization tests (test_lock.py). The connections
+# lock/transaction tests (test_lock.py). The connections
 # have their own internal SqlGenerator, so no transform wiring is needed.
 class _RecordingPG(PostgresConnection):
     def __init__(self) -> None:
@@ -74,9 +75,19 @@ class _RecordingAsyncPG(AsyncPostgresConnection):
         return None
 
 
+class _RecordingAsyncSqlite(AsyncSqliteConnection):
+    def __init__(self) -> None:
+        super().__init__()
+        self.captured: list[tuple[str, list[Any]]] = []
+
+    async def execute(self, query: str, *args: Any) -> Any:  # type: ignore[override]
+        self.captured.append((query, list(args)))
+        return None
+
+
 def pg_record() -> _RecordingPG:
     """Postgres connection whose execute() records (sql, params). For lock/transaction
-    characterization (Task 14): call the connection method, then read .captured."""
+    tests: call the connection method, then read .captured."""
     return _RecordingPG()
 
 
@@ -89,3 +100,9 @@ def pg_async_record() -> _RecordingAsyncPG:
     """Async Postgres recording connection — execute() records (sql, params).
     Call an async connection method, then read .captured. No live DB needed."""
     return _RecordingAsyncPG()
+
+
+def lite_async_record() -> _RecordingAsyncSqlite:
+    """Async SQLite recording connection — execute() records (sql, params).
+    Call an async connection method, then read .captured. No live DB needed."""
+    return _RecordingAsyncSqlite()

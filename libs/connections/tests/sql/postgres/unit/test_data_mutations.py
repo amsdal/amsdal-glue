@@ -1,6 +1,6 @@
 from unittest import mock
 
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -39,7 +39,7 @@ def test_insert_benchmark(database_connection: MockPostgresConnection, benchmark
 
 def test_insert_benchmark_100(database_connection: MockPostgresConnection, benchmark) -> None:
     _data = [
-        Data(
+        DataInput(
             data={'id': i, 'name': 'customer'},
         )
         for i in range(100)
@@ -58,7 +58,7 @@ def test_insert_benchmark_100(database_connection: MockPostgresConnection, bench
 
 def test_insert_benchmark_1000(database_connection: MockPostgresConnection, benchmark) -> None:
     _data = [
-        Data(
+        DataInput(
             data={'id': i, 'name': 'customer'},
         )
         for i in range(1000)
@@ -77,7 +77,7 @@ def test_insert_benchmark_1000(database_connection: MockPostgresConnection, benc
 
 def test_insert_benchmark_10000(database_connection: MockPostgresConnection, benchmark) -> None:
     _data = [
-        Data(
+        DataInput(
             data={'id': i, 'name': 'customer'},
         )
         for i in range(10000)

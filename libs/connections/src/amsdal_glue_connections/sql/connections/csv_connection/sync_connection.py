@@ -658,7 +658,6 @@ class CsvConnection(ConnectionBase):
                         left=condition.left, lookup=condition.lookup, right=Value(row[field_name])
                     )
 
-                    # Replace the old condition with the new one
                     conditions.children[i] = new_condition
 
     def _process_expression(self, expression: Expression, df: 'pd.DataFrame') -> Any:
@@ -843,7 +842,7 @@ class CsvConnection(ConnectionBase):
 
             # Append new data
             if mutation.data:
-                new_data = pd.DataFrame([data.data for data in mutation.data])
+                new_data = pd.DataFrame([data.literals() for data in mutation.data])
 
                 # Ensure all required columns exist
                 for col in df.columns:
@@ -1126,11 +1125,7 @@ class CsvConnection(ConnectionBase):
         try:
             df = self._get_df(mutation.schema.name)
 
-            # mutation.data is dict[str, Expression]; extract scalar value from Value nodes
-            _update_dict = {
-                field: (expr.value if isinstance(expr, Value) else expr)
-                for field, expr in mutation.data.items()  # type: ignore[union-attr]
-            }
+            _update_dict = mutation.data.literals()
 
             if mutation.query:
                 update_mask = self._get_conditions(mutation.query, df)

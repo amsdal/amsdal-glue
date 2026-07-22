@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -101,13 +101,13 @@ def test_delete(fixture_connection: CsvConnection) -> None:
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 ),
-                Data(
+                DataInput(
                     data={'id': '2', 'name': 'customer', 'age': 25},
                 ),
-                Data(
+                DataInput(
                     data={'id': '3', 'name': 'customer', 'age': 30},
                 ),
             ],

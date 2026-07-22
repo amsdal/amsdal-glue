@@ -301,7 +301,10 @@ class ScalarType(str, Enum):
     BIGINT = 'bigint'
     SMALLINT = 'smallint'
     FLOAT = 'float'
-    DOUBLE = 'double'
+    # ANSI ``double precision``: a bare ``double`` is not a valid Postgres type. Rendered verbatim as
+    # the column/cast type on both dialects (SQLite accepts it as REAL affinity), and both introspection
+    # maps resolve ``double precision`` -> DOUBLE, so a RegisterSchema->introspect cycle round-trips.
+    DOUBLE = 'double precision'
     NUMERIC = 'numeric'
     BOOLEAN = 'boolean'
     DATE = 'date'

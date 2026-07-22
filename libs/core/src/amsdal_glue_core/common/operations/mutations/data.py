@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from amsdal_glue_core.common.data_models.conditions import Conditions
     from amsdal_glue_core.common.data_models.cte import CommonTableExpression
-    from amsdal_glue_core.common.data_models.data import Data
+    from amsdal_glue_core.common.data_models.data import DataInput
     from amsdal_glue_core.common.data_models.field_reference import FieldReference
     from amsdal_glue_core.common.data_models.from_values import FromValues
     from amsdal_glue_core.common.data_models.query import QueryStatement
@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from amsdal_glue_core.common.data_models.select_expression import SelectExpression
     from amsdal_glue_core.common.data_models.sub_query import SubQueryStatement
     from amsdal_glue_core.common.enums import ConflictAction
-    from amsdal_glue_core.common.expressions.expression import Expression
 
     ReturningItem = FieldReference | SelectExpression
 
@@ -42,7 +41,7 @@ class DataMutation:
 
 @dataclass(kw_only=True)
 class InsertData(DataMutation):
-    data: list[Data]
+    data: list[DataInput]
     on_conflict: OnConflict | None = None
     returning: list[ReturningItem] | None = None
     ctes: list[CommonTableExpression] | None = None
@@ -76,7 +75,7 @@ class InsertFromSelect(DataMutation):
 
 @dataclass(kw_only=True)
 class UpdateData(DataMutation):
-    data: dict[str, Expression]
+    data: DataInput
     query: Conditions | None = None
     from_tables: list[SchemaReference | SubQueryStatement | FromValues] | None = None
     returning: list[ReturningItem] | None = None
@@ -85,7 +84,7 @@ class UpdateData(DataMutation):
     def __copy__(self):
         return UpdateData(
             schema=copy(self.schema),
-            data=self.data.copy(),
+            data=copy(self.data),
             query=copy(self.query) if self.query else None,
             from_tables=copy(self.from_tables) if self.from_tables else None,
             returning=copy(self.returning) if self.returning else None,
@@ -112,12 +111,12 @@ class DeleteData(DataMutation):
 
 @dataclass(kw_only=True)
 class UpdateItem:
-    data: dict[str, Expression]
+    data: DataInput
     query: Conditions | None = None
 
     def __copy__(self):
         return UpdateItem(
-            data=self.data.copy(),
+            data=copy(self.data),
             query=copy(self.query) if self.query else None,
         )
 

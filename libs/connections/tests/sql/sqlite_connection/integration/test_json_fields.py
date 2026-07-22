@@ -1,6 +1,6 @@
 import json
 
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.select_expression import SelectExpression
@@ -15,7 +15,7 @@ from ..testcases.schema_mutations import create_json_fields
 def test_insert_and_read_json_data(database_connection: SqliteConnection) -> None:
     schema = create_json_fields(database_connection)
 
-    data = Data(
+    data = DataInput(
         data={
             'field_dict': json.dumps({'key': 'value'}),
             'field_list': json.dumps(['item1', 'item2']),
@@ -44,7 +44,7 @@ def test_insert_and_read_json_data(database_connection: SqliteConnection) -> Non
 
 def test_annotate_json_object(database_connection: SqliteConnection) -> None:
     schema = create_json_fields(database_connection)
-    data = Data(
+    data = DataInput(
         data={
             'field_dict': json.dumps({'key': 'value'}),
             'field_list': json.dumps(['item1', 'item2']),

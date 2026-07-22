@@ -1,12 +1,12 @@
 # libs/connections/tests/golden/test_expressions.py
-"""Golden-master tests for expression rendering in the SQL generator.
+"""Tests for expression rendering in the SQL generator.
 
 Covers: Combined/arithmetic operators, Func (COALESCE/UPPER/…), RawExpression,
 Cast, Case/WhenClause, Exists/NOT EXISTS, Window functions, vector operators,
 JsonbArray, ArraySubquery, Collate, FTS helpers (SearchVector/SearchRank/
 SearchHeadline), and aggregations with ORDER BY.
 
-Each test calls our Rust-backed SqlGenerator and asserts the exact emitted
+Each test calls the SqlGenerator and asserts the exact emitted
 (sql, params) tuple — no live database required.
 """
 
@@ -107,7 +107,7 @@ def test_combined_multiply_in_where() -> None:
         ),
     )
     assert pg(q) == (
-        'SELECT * FROM "orders" WHERE "orders"."price" * "orders"."quantity" > %s',
+        'SELECT * FROM "orders" WHERE ("orders"."price" * "orders"."quantity") > %s',
         [100],
     )
 
@@ -442,7 +442,7 @@ def test_cast_double_sqlite() -> None:
             ),
         ],
     )
-    assert lite(q) == ('SELECT *, CAST("data"."val" AS double) AS "val_real" FROM "data"', [])
+    assert lite(q) == ('SELECT *, CAST("data"."val" AS double precision) AS "val_real" FROM "data"', [])
 
 
 def test_cast_uuid_sqlite() -> None:
@@ -953,7 +953,11 @@ def test_vector_l1_distance_pg() -> None:
     )
 
 
-def test_vector_sqlite_unsupported() -> None:
+def test_vector_sqlite_renders_operator() -> None:
+    # glue does NOT forbid a vector operator on SQLite: a caller who has loaded a vector extension may
+    # legitimately want it. The operator is rendered as written and left for the engine to accept or
+    # reject at execution time -- SQLite reports the missing operator itself, rather than glue
+    # pre-empting a use case it cannot know is unsupported.
     q = QueryStatement(
         table=SchemaReference(name='items', version=Version.LATEST),
         expressions=[
@@ -963,8 +967,10 @@ def test_vector_sqlite_unsupported() -> None:
             ),
         ],
     )
-    with pytest.raises(UnsupportedFeatureError):
-        lite(q)
+
+    sql, _ = lite(q)
+
+    assert '<->' in sql
 
 
 # ---------------------------------------------------------------------------
@@ -989,7 +995,8 @@ def test_jsonb_build_array_pg() -> None:
 
 
 def test_jsonb_build_array_sqlite_mapped() -> None:
-    # SQLite has no jsonb_build_array; the generator maps it to json_array().
+    # SQLite has no jsonb_build_array; it maps to jsonb_array with the json_valid CASE WHEN
+    # wrapping per element. Each arg is bound three times.
     q = QueryStatement(
         table=SchemaReference(name='data', version=Version.LATEST),
         expressions=[
@@ -999,7 +1006,13 @@ def test_jsonb_build_array_sqlite_mapped() -> None:
             ),
         ],
     )
-    assert lite(q) == ('SELECT *, json_array(?, ?) AS "arr" FROM "data"', [1, 2])
+    assert lite(q) == (
+        'SELECT *, jsonb_array('
+        'CASE WHEN json_valid(?) = 1 THEN jsonb(?) ELSE ? END, '
+        'CASE WHEN json_valid(?) = 1 THEN jsonb(?) ELSE ? END'
+        ') AS "arr" FROM "data"',
+        [1, 1, 1, 2, 2, 2],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1164,7 +1177,7 @@ def test_collate_in_where_pg() -> None:
         ),
     )
     assert pg(q) == (
-        'SELECT * FROM "users" WHERE "users"."name" COLLATE "case_insensitive" = %s',
+        'SELECT * FROM "users" WHERE ("users"."name" COLLATE "case_insensitive") = %s',
         ['test'],
     )
 

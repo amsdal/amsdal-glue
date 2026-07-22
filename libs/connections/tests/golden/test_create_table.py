@@ -1,11 +1,11 @@
 # libs/connections/tests/golden/test_create_table.py
-"""Golden-master tests for CREATE TABLE DDL paths.
+"""Tests for CREATE TABLE DDL paths.
 
 Covers: CREATE TABLE with columns + defaults, PRIMARY KEY, UNIQUE,
 FOREIGN KEY, CHECK constraints, and CREATE INDEX — for both SQLite
 and Postgres dialects.
 
-Both SQLite and Postgres now route through the Rust SqlGenerator
+Both SQLite and Postgres route through the SqlGenerator
 (``compile_schema_mutation``), which uses ANSI double-quoted identifiers
 for both dialects and lowercase type names.
 """
@@ -120,8 +120,7 @@ def test_register_schema_pg() -> None:
 
 
 def test_register_schema_pg_pk_quoted_correct_behaviour() -> None:
-    # Rust generator now correctly quotes all constraint names and emits no trailing
-    # space — the divergence tracked by §3-D6 is resolved.
+    # All constraint names are quoted and no trailing space is emitted.
     captured = pg_ddl(
         RegisterSchema(
             schema_ref=SchemaReference(name='Person', version=Version.LATEST),
@@ -204,7 +203,7 @@ def test_unique_constraint_pg() -> None:
 
 
 def test_unique_constraint_pg_quoted_correct_behaviour() -> None:
-    # Rust generator now correctly quotes all constraint names — §3-D7 resolved.
+    # All constraint names are quoted.
     captured = pg_ddl(
         RegisterSchema(
             schema_ref=SchemaReference(name='Person', version=Version.LATEST),
@@ -396,7 +395,7 @@ def test_check_constraint_pg() -> None:
 
 
 def test_check_constraint_pg_quoted_correct_behaviour() -> None:
-    # Rust generator now correctly quotes all constraint names — §3-D9 resolved.
+    # All constraint names are quoted.
     captured = pg_ddl(
         RegisterSchema(
             schema_ref=SchemaReference(name='Person', version=Version.LATEST),
@@ -448,3 +447,37 @@ def test_add_index_pg() -> None:
     assert stmts == [
         ('CREATE INDEX "idx_person_email" ON "Person" USING btree ("email" ASC)', []),
     ]
+
+
+# ---------------------------------------------------------------------------
+# Scalar type spelling: DOUBLE must render the ANSI ``double precision`` (a bare
+# ``double`` is not a valid Postgres type), TIMESTAMPTZ renders ``timestamptz``.
+# ---------------------------------------------------------------------------
+
+
+def test_double_column_pg() -> None:
+    stmts = pg_ddl(
+        RegisterSchema(
+            schema_ref=SchemaReference(name='Metric', version=Version.LATEST),
+            schema=Schema(
+                name='Metric',
+                version=Version.LATEST,
+                properties=[PropertySchema(name='value', type=ScalarType.DOUBLE, required=True)],
+            ),
+        ),
+    )
+    assert stmts == [('CREATE TABLE "Metric" ("value" double precision NOT NULL)', [])]
+
+
+def test_double_column_sqlite() -> None:
+    stmts = lite_ddl(
+        RegisterSchema(
+            schema_ref=SchemaReference(name='Metric', version=Version.LATEST),
+            schema=Schema(
+                name='Metric',
+                version=Version.LATEST,
+                properties=[PropertySchema(name='value', type=ScalarType.DOUBLE, required=True)],
+            ),
+        ),
+    )
+    assert stmts == [('CREATE TABLE "Metric" ("value" double precision NOT NULL)', [])]

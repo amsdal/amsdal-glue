@@ -1,5 +1,4 @@
 import logging
-import re
 import sqlite3
 import uuid
 from copy import copy
@@ -10,25 +9,15 @@ from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
-from amsdal_glue_core.common.data_models.constraints import BaseConstraint
-from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.indexes import IndexField
-from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
-from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
-from amsdal_glue_core.common.enums import BuiltinIndexType
-from amsdal_glue_core.common.enums import OrderDirection
-from amsdal_glue_core.common.enums import ReferentialAction
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
-from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
-from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection import AsyncConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
@@ -50,29 +39,32 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
 from amsdal_glue_connections._sql_core import SqlGenerator
-from amsdal_glue_connections.sql.connections.sqlite_connection.base import _REGISTRY_VIEW_SQL
+from amsdal_glue_connections.sql.connections.base_view_introspection import AsyncSchemaAssemblyMixin
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _find_autoincrement_pk_col
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _get_check_constraints
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _get_unique_constraints
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_collations
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_fk_name
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_generated_expressions
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _parse_pk_name
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _REFERENTIAL_ACTION_MAP
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _sqlite_type_to_field_type
-from amsdal_glue_connections.sql.parsers.conditions import parse_conditions
-from amsdal_glue_connections.sql.parsers.default import parse_sqlite_default
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _CONSTRAINT_COLUMNS
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _INDEX_COLUMNS
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _PROPERTY_COLUMNS
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _SQLITE_MAX_IN
+from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import SqliteSchemaAssemblyMixin
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
     import aiosqlite
-    from amsdal_glue_core.common.data_models.conditions import Conditions
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
+class AsyncSqliteConnection(
+    AsyncSchemaAssemblyMixin, SqliteSchemaAssemblyMixin, SqliteConnectionMixin, AsyncConnectionBase
+):
+    # `SchemaAssemblyMixin._run_registry` hook: chunk IN-lists at `_SQLITE_MAX_IN` (see comment on
+    # that constant in the sync connection) instead of issuing one unbounded `IN (...)` per table.
+    _MAX_IN_PARAMS = _SQLITE_MAX_IN
+
     def __init__(self) -> None:
         self._connection: aiosqlite.Connection | None = None
         self._generator = SqlGenerator('sqlite', param_style='qmark')
@@ -161,6 +153,10 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
         sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
+        # A TIMESTAMPTZ-declared column stores a datetime the same way TIMESTAMP does; register the
+        # converter under its declared-type name too so read-back re-hydrates a Python datetime
+        # (``fromisoformat`` restores the tzinfo offset) instead of leaving it a raw ISO string.
+        sqlite3.register_converter('TIMESTAMPTZ', lambda val: datetime.fromisoformat(val.decode()))
         # DECIMAL_TEXT is the TEXT-affinity SQLite rendering of DecimalType; re-hydrate the stored
         # decimal string back into an exact Decimal so glue returns a typed value, not a str.
         sqlite3.register_converter('DECIMAL_TEXT', lambda val: Decimal(val.decode()))
@@ -233,208 +229,58 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         ref_name = query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
 
         resolved = copy(query)
-        resolved.only = [FieldReference(field=Field(name='name'), table_name=ref_name)]
+        resolved.only = [FieldReference(field=Field(name='table_name'), table_name=ref_name)]
 
         sql, params = self._generator.compile_query(resolved)
         cursor = await self.execute(sql, *params)
         rows = await cursor.fetchall()
         await cursor.close()
 
-        seen: set[str] = set()
-        table_names: list[str] = []
-        for (name,) in rows:
-            if name not in seen:
-                seen.add(name)
-                table_names.append(name)
+        table_names = self._dedupe_names(rows)
 
-        schemas: list[Schema] = []
-        for table_name in table_names:
-            table_ddl = await self._get_table_ddl(table_name)
-            properties = await self._introspect_columns(table_name, table_ddl)
-            if not properties:
-                continue
+        if not table_names:
+            return []
 
-            constraints = await self._introspect_constraints(table_name, table_ddl)
-            indexes = await self._introspect_indexes(table_name)
+        # One bound registry query per catalog aspect plus one batched DDL read -- a constant,
+        # small number of statements regardless of how many tables match (no per-table PRAGMA
+        # N+1). Beyond `_SQLITE_MAX_IN` tables, `_run_registry`/`_batch_ddls` transparently chunk
+        # the IN-list to stay under SQLite's bound-parameter ceiling.
+        property_rows = await self._run_registry(TABLE_PROPERTY_REGISTRY, _PROPERTY_COLUMNS, table_names)
+        index_rows = await self._run_registry(TABLE_INDEX_REGISTRY, _INDEX_COLUMNS, table_names)
+        constraint_rows = await self._run_registry(TABLE_CONSTRAINT_REGISTRY, _CONSTRAINT_COLUMNS, table_names)
+        table_ddls, index_ddls = await self._batch_ddls(table_names)
 
-            schemas.append(
-                Schema(
-                    name=table_name,
-                    version=Version.LATEST,
-                    properties=properties,
-                    constraints=constraints or None,
-                    indexes=indexes or None,
-                ),
-            )
+        return self._build_schemas(
+            table_names,
+            self._group(property_rows),
+            self._group(constraint_rows),
+            self._group(index_rows),
+            table_ddls,
+            index_ddls,
+        )
 
-        return schemas
+    async def _batch_ddls(self, names: list[str]) -> tuple[dict[str, str], dict[str, str]]:
+        """Read every table and index DDL for `names` from ``sqlite_master`` (async, chunked).
+
+        Returns ``(table_ddl_by_name, index_ddl_by_name)``. `names` is bound twice per query (table
+        match + index match), so this chunks at `_SQLITE_MAX_IN` -- 2 * 400 = 800 bound params per
+        statement, under `SQLITE_MAX_VARIABLE_NUMBER`'s lowest observed default of 999.
+        """
+        table_ddls: dict[str, str] = {}
+        index_ddls: dict[str, str] = {}
+        for start in range(0, len(names), _SQLITE_MAX_IN):
+            chunk = names[start : start + _SQLITE_MAX_IN]
+            cursor = await self.execute(self._batch_ddls_query(chunk), *chunk, *chunk)
+            self._collect_ddl_rows(await cursor.fetchall(), table_ddls, index_ddls)
+            await cursor.close()
+        return table_ddls, index_ddls
 
     async def _ensure_schema_views(self) -> None:
         # The view DDL is idempotent (CREATE ... IF NOT EXISTS), so it is re-issued on every call
         # rather than gated by a per-object flag that would go stale across disconnect()/connect()
         # cycles (temporary views are per-connection, so a reconnect must recreate them).
-        for sql in _REGISTRY_VIEW_SQL.values():
+        for sql in self._REGISTRY_VIEW_SQL.values():
             await self.execute(sql)
-
-    async def _get_table_ddl(self, table_name: str) -> str:
-        cursor = await self.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
-            table_name,
-        )
-        row = await cursor.fetchone()
-        await cursor.close()
-        return row[0] if row else ''
-
-    async def _introspect_columns(self, table_name: str, table_ddl: str) -> list[PropertySchema]:
-        cursor = await self.execute(f'PRAGMA table_xinfo("{table_name}")')
-        rows = await cursor.fetchall()
-        await cursor.close()
-
-        has_autoincrement = 'AUTOINCREMENT' in table_ddl.upper()
-        pk_col = _find_autoincrement_pk_col(table_ddl) if has_autoincrement else None
-        generated_exprs = _parse_generated_expressions(table_ddl)
-        collations = _parse_collations(table_ddl)
-
-        properties: list[PropertySchema] = []
-        for _cid, col_name, col_type, notnull, dflt, _pk, _hidden in rows:
-            field_type = _sqlite_type_to_field_type(col_type)
-            default = parse_sqlite_default(dflt, field_type)
-            identity: bool | None = True if col_name == pk_col else None
-
-            properties.append(
-                PropertySchema(
-                    name=col_name,
-                    type=field_type,
-                    required=bool(notnull),
-                    default=default,
-                    identity=identity,
-                    generated=generated_exprs.get(col_name),
-                    db_collation=collations.get(col_name),
-                ),
-            )
-
-        return properties
-
-    async def _get_pk_fields(self, table_name: str) -> list[str]:
-        cursor = await self.execute(f'PRAGMA table_info("{table_name}")')
-        rows = await cursor.fetchall()
-        await cursor.close()
-
-        pk_cols: list[tuple[int, str]] = []
-        for _cid, col_name, _col_type, _notnull, _dflt, pk_idx in rows:
-            if pk_idx > 0:
-                pk_cols.append((pk_idx, col_name))
-
-        pk_cols.sort()
-        return [name for _, name in pk_cols]
-
-    async def _get_fk_constraints(self, table_name: str, table_sql: str) -> list[ForeignKeyConstraint]:
-        cursor = await self.execute(f'PRAGMA foreign_key_list("{table_name}")')
-        rows = await cursor.fetchall()
-        await cursor.close()
-
-        if not rows:
-            return []
-
-        fk_groups: dict[int, dict[str, Any]] = {}
-        for fk_id, _seq, ref_table, from_col, to_col, on_update, on_delete, _match in rows:
-            if fk_id not in fk_groups:
-                fk_groups[fk_id] = {
-                    'ref_table': ref_table,
-                    'fields': [],
-                    'ref_fields': [],
-                    'on_update': on_update,
-                    'on_delete': on_delete,
-                }
-            fk_groups[fk_id]['fields'].append(from_col)
-            fk_groups[fk_id]['ref_fields'].append(to_col)
-
-        constraints: list[ForeignKeyConstraint] = []
-        for fk_id, group in fk_groups.items():
-            primary_field = group['fields'][0]
-            fk_name = _parse_fk_name(table_sql, primary_field)
-            if not fk_name:
-                fk_name = f'fk_{table_name}_{fk_id}'
-
-            constraints.append(
-                ForeignKeyConstraint(
-                    name=fk_name,
-                    fields=group['fields'],
-                    reference_schema=SchemaReference(name=group['ref_table'], version=Version.LATEST),
-                    reference_fields=group['ref_fields'],
-                    on_update=_REFERENTIAL_ACTION_MAP.get(group['on_update'], ReferentialAction.NO_ACTION),
-                    on_delete=_REFERENTIAL_ACTION_MAP.get(group['on_delete'], ReferentialAction.NO_ACTION),
-                ),
-            )
-
-        return constraints
-
-    async def _introspect_constraints(self, table_name: str, table_ddl: str) -> list[BaseConstraint]:
-        constraints: list[BaseConstraint] = []
-
-        pk_fields = await self._get_pk_fields(table_name)
-        if pk_fields:
-            constraints.append(PrimaryKeyConstraint(name=_parse_pk_name(table_ddl, table_name), fields=pk_fields))
-
-        constraints.extend(await self._get_fk_constraints(table_name, table_ddl))
-        constraints.extend(_get_unique_constraints(table_name, table_ddl, constraints))
-        constraints.extend(_get_check_constraints(table_ddl))
-
-        return constraints
-
-    async def _introspect_indexes(self, table_name: str) -> list[IndexSchema]:
-        cursor = await self.execute(f'PRAGMA index_list("{table_name}")')
-        idx_rows = await cursor.fetchall()
-        await cursor.close()
-
-        indexes: list[IndexSchema] = []
-        for _seq, idx_name, is_unique, origin, _partial in idx_rows:
-            if origin in ('u', 'pk'):
-                continue
-
-            cursor = await self.execute(f'PRAGMA index_xinfo("{idx_name}")')
-            info_rows = await cursor.fetchall()
-            await cursor.close()
-
-            idx_fields = [
-                IndexField(
-                    name=row[2],
-                    direction=OrderDirection.DESC if row[3] else OrderDirection.ASC,
-                )
-                for row in info_rows
-                if row[2] is not None  # skip internal rowid column
-            ]
-
-            condition = await self._parse_index_condition(idx_name)
-
-            indexes.append(
-                IndexSchema(
-                    name=idx_name,
-                    fields=idx_fields,
-                    unique=bool(is_unique),
-                    index_type=BuiltinIndexType.BTREE,
-                    condition=condition,
-                ),
-            )
-
-        return indexes
-
-    async def _parse_index_condition(self, idx_name: str) -> 'Conditions | None':
-        cursor = await self.execute(
-            "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
-            idx_name,
-        )
-        row = await cursor.fetchone()
-        await cursor.close()
-        if row is None or row[0] is None:
-            return None
-
-        ddl = row[0]
-        match = re.search(r'\bWHERE\s+(.+)$', ddl, re.IGNORECASE)
-        if match is None:
-            return None
-
-        return parse_conditions(match.group(1).strip())
 
     async def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -505,6 +351,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
             raise ImportError(_msg) from None
 
         cursor = await self.connection.cursor()
+        args = bind_params(args)
 
         try:
             if self.debug_queries:
@@ -513,10 +360,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
 
             await cursor.execute(query, args)
         except aiosqlite.IntegrityError as exc:
-            if 'UNIQUE constraint failed' in str(exc):
-                raise UniqueViolationError(str(exc)) from exc
-            if 'FOREIGN KEY constraint failed' in str(exc):
-                raise ForeignKeyViolationError(str(exc)) from exc
+            self._map_integrity_error(exc)
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
         except aiosqlite.Error as exc:
@@ -529,11 +373,15 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         """
         Acquires a lock on the SQLite database.
 
-        Deliberate divergence from the Rust ``compile_lock_command`` path: SQLite does not
-        support ``LOCK TABLE`` syntax.  TODO spec §3.5.
-
-        Note: ``BEGIN EXCLUSIVE`` is not attempted here — it does not work reliably when the same
-        connection is shared across async contexts.
+        This is a no-op. ``BEGIN EXCLUSIVE`` itself DOES work across async contexts -- aiosqlite
+        keeps the transaction open on its worker thread and blocks other connections/processes,
+        exactly like the sync path. It is not issued here because of the connection pool: for
+        ``transaction_id=None`` operations the pool hands the SAME connection to concurrently
+        running coroutines, so a ``BEGIN EXCLUSIVE`` on it breaks them -- a second acquirer raises
+        ``cannot start a transaction within a transaction`` and an unrelated coroutine's write
+        silently joins the open transaction (losing isolation). The sync path avoids this only
+        because it never interleaves coroutines on one connection. Correct async locking needs a
+        transaction-scoped connection used solely by the lock holder.
 
         Args:
             lock (LockCommand): The lock command.
@@ -547,8 +395,8 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         """
         Releases a lock on the SQLite database.
 
-        Deliberate divergence from the Rust ``compile_lock_command`` path — mirrors ``acquire_lock``.
-        TODO spec §3.5.
+        No-op mirror of ``acquire_lock`` (see there for why async locking is not issued on the
+        shared pooled connection).
 
         Args:
             lock (LockCommand): The lock command.
@@ -616,11 +464,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         Returns:
             Any: The result of the transaction revert.
         """
-        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            await self.connection.execute(f"ROLLBACK TO SAVEPOINT '{transaction.parent_transaction_id}'")
-        else:
-            await self.connection.execute('ROLLBACK')
-        return True
+        return await self.rollback_transaction(transaction)
 
     async def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:
         if isinstance(mutation, UpdateProperty):
@@ -663,14 +507,16 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         copy_stmt, copy_params = self._generator.compile_mutation(
             UpdateData(
                 schema=ref,
-                data={
-                    new_uuid: FieldReferenceExpression(
-                        field_reference=FieldReference(
-                            field=Field(name=mutation.property.name),
-                            table_name=ref.name,
+                data=DataInput(
+                    data={
+                        new_uuid: FieldReferenceExpression(
+                            field_reference=FieldReference(
+                                field=Field(name=mutation.property.name),
+                                table_name=ref.name,
+                            )
                         )
-                    )
-                },
+                    },
+                ),
             )
         )
         await self.execute(copy_stmt, *copy_params)
@@ -702,9 +548,7 @@ class AsyncSqliteConnection(SqliteConnectionMixin, AsyncConnectionBase):
         for schema in all_schemas:
             schema_namespace = schema.namespace
             if schema.name == table_name and (
-                (namespace is None and (schema_namespace is None or schema_namespace == ''))
-                or (namespace == '' and (schema_namespace is None or schema_namespace == ''))
-                or (namespace == schema_namespace)
+                (not namespace and not schema_namespace) or namespace == schema_namespace
             ):
                 current_schema = schema
                 break

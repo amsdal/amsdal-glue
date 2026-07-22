@@ -19,7 +19,7 @@ from ._harness import pg
 # NOTE (evolved model): the new QueryStatement separates the projection (`only`) from extra select
 # items (`expressions`). The old `aggregations=` REPLACED the projection; the new `expressions=`
 # ADD to it, and `only=None` defaults to `*`. So a pure aggregation `SELECT COUNT(...) FROM t` is
-# `only=[]` + `expressions=[SelectExpression(Count(...))]`. Without `only=[]` the Rust generator
+# `only=[]` + `expressions=[SelectExpression(Count(...))]`. Without `only=[]` the generator
 # (correctly) emits `SELECT *, COUNT(...)`.
 
 
@@ -47,7 +47,7 @@ EXPECTED_AGG_PG: dict[str, tuple[str, list]] = {
     'max': ('SELECT MAX("orders"."amount") AS "max_value" FROM "orders"', []),
 }
 
-# SQLite now uses ANSI double-quote identifiers (old Python builder used single quotes) — valid.
+# SQLite uses ANSI double-quote identifiers.
 EXPECTED_AGG_LITE: dict[str, tuple[str, list]] = {
     'count': ('SELECT COUNT("orders"."id") AS "count_value" FROM "orders"', []),
     'sum': ('SELECT SUM("orders"."amount") AS "sum_value" FROM "orders"', []),

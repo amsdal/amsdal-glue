@@ -1,7 +1,7 @@
 """SQL emission for `Conditions.negated` at every level.
 
-Re-pointed to Rust SqlGenerator: conditions are wrapped in a minimal QueryStatement
-and compile_query is called; the WHERE portion is extracted from the result.
+Conditions are wrapped in a minimal QueryStatement and compile_query is called;
+the WHERE portion is extracted from the result.
 """
 
 from amsdal_glue_connections._sql_core import SqlGenerator
@@ -42,7 +42,7 @@ def test_build_conditions_root_negated_emits_not_wrap() -> None:
 
     sql, values = _build_conditions(c)
 
-    # Re-baselined: identifiers are double-quoted (was unquoted in old builder).
+    # Identifiers are double-quoted.
     assert sql == 'NOT ("a" = ? AND "b" = ?)'
     assert values == [1, 2]
 
@@ -70,13 +70,13 @@ def test_build_conditions_nested_and_root_negation_both_emit() -> None:
     sql, _ = _build_conditions(outer)
 
     assert sql.startswith('NOT (')
-    # Re-baselined: identifiers are double-quoted.
+    # Identifiers are double-quoted.
     assert 'NOT ("x" = ?)' in sql
 
 
 def test_build_conditions_empty_negated_returns_empty() -> None:
     """An empty `Conditions` group must be FILTERED OUT by `compile_query` — with or without NOT —
-    so no WHERE is emitted (never the invalid `WHERE NOT ()`). Matches the old builder's ('', [])."""
+    so no WHERE is emitted (never the invalid `WHERE NOT ()`), yielding ('', [])."""
     c = Conditions(negated=True)
 
     sql, params = _gen.compile_query(QueryStatement(table=_TABLE, where=c))

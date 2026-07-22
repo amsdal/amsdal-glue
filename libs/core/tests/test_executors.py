@@ -11,7 +11,7 @@ from amsdal_glue_core.commands.executors.transaction_command_executor import Tra
 from amsdal_glue_core.commands.mutation_nodes import DataMutationNode
 from amsdal_glue_core.commands.mutation_nodes import SchemaCommandNode
 from amsdal_glue_core.commands.transaction_node import ExecutionTransactionCommandNode
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import TransactionAction
@@ -42,7 +42,9 @@ def _register_mocks(
 
 def test_data_command_executor(mock_connection_manager: MockConnectionManager) -> None:
     data_mutation_node = DataMutationNode(
-        mutations=[InsertData(schema=SchemaReference(name=DEFAULT_SCHEMA_NAME), data=[Data(data={'key': 'value'})])]
+        mutations=[
+            InsertData(schema=SchemaReference(name=DEFAULT_SCHEMA_NAME), data=[DataInput(data={'key': 'value'})])
+        ]
     )
     DataCommandNodeExecutor().execute(data_mutation_node, transaction_id=None, lock_id=None)
 
@@ -53,7 +55,9 @@ def test_data_command_executor(mock_connection_manager: MockConnectionManager) -
 
 async def test_async_data_command_executor(mock_async_connection_manager: MockAsyncConnectionManager) -> None:
     data_mutation_node = DataMutationNode(
-        mutations=[InsertData(schema=SchemaReference(name=DEFAULT_SCHEMA_NAME), data=[Data(data={'key': 'value'})])]
+        mutations=[
+            InsertData(schema=SchemaReference(name=DEFAULT_SCHEMA_NAME), data=[DataInput(data={'key': 'value'})])
+        ]
     )
     await AsyncDataCommandNodeExecutor().execute(data_mutation_node, transaction_id=None, lock_id=None)
 

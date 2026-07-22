@@ -23,10 +23,25 @@ pub fn extract_query_stmt(ob: &Bound<PyAny>) -> PyResult<QueryStmt> {
     let where_clause = extract_optional_conditions(ob, "where")?;
     let group_by = extract_optional_list(ob, "group_by", extract_group_by)?;
     let having = extract_optional_conditions(ob, "having")?;
-    let order_by = extract_optional_list(ob, "order_by", extract_order_by)?;
+    let order_by = extract_order_by_list(ob)?;
     let limit = extract_optional(ob, "limit", extract_limit)?;
     let ctes = extract_optional_list(ob, "ctes", extract_cte)?;
     let lock = extract_optional(ob, "lock", extract_select_lock)?;
+
+    // A default projection (`only=None` -> bare `SELECT *`) over a query WITH joins would expand to
+    // every joined table's columns; tables sharing a name (e.g. `partition_key`) then yield a
+    // duplicated result column. Qualify the star to the base table/subquery so only its row is
+    // projected. No joins, or an empty base alias, keeps bare `*`.
+    let columns = if matches!(columns.as_slice(), [SelectColumn::Star(None)])
+        && joins.as_ref().is_some_and(|j| !j.is_empty())
+    {
+        match from.as_ref().and_then(from_item_base_alias) {
+            Some(alias) => vec![SelectColumn::Star(Some(alias))],
+            None => columns,
+        }
+    } else {
+        columns
+    };
 
     // Merge `only` columns and `expressions` into qcraft columns
     let mut all_columns = columns;
@@ -106,6 +121,24 @@ fn extract_from_item(ob: &Bound<PyAny>) -> PyResult<FromItem> {
         sample: None,
         index_hint: None,
     })
+}
+
+/// The alias a bare `*` should be qualified to for a joined default projection: the FROM item's
+/// alias, or a plain table's name when it has no alias. Returns None for an empty alias or a source
+/// with no stable single name (set-op, values, …), which keeps the star bare.
+fn from_item_base_alias(from: &FromItem) -> Option<String> {
+    let name = match &from.source {
+        TableSource::Table(schema_ref) => schema_ref.alias.clone().unwrap_or_else(|| schema_ref.name.clone()),
+        TableSource::SubQuery(sub) => sub.alias.clone(),
+        TableSource::Function { alias, .. } => alias.clone()?,
+        TableSource::Values { alias, .. } => alias.clone(),
+        TableSource::SetOp(_) | TableSource::Lateral(_) | TableSource::Custom(_) => return None,
+    };
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
 }
 
 fn extract_table_source(ob: &Bound<PyAny>) -> PyResult<TableSource> {
@@ -220,6 +253,89 @@ fn extract_field_ref(ob: &Bound<PyAny>) -> PyResult<FieldRef> {
     Ok(FieldRef { field, table_name, namespace })
 }
 
+pub fn is_json_type(to_type: &str) -> bool {
+    matches!(to_type, "json" | "jsonb")
+}
+
+/// The declared result type of an expression, as an SQL type name (``ScalarType.value``).
+fn extract_output_type(ob: &Bound<PyAny>) -> PyResult<Option<String>> {
+    let attr = ob.getattr(pyo3::intern!(ob.py(), "output_type"))?;
+    if attr.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(extract_field_type_str(&attr)?))
+}
+
+/// A JSON-typed parameter. The Python value is serialised as-is, so a scalar, a container and
+/// ``None`` (a JSON ``null``) all become JSON -- which is what ``output_type=JSONB`` asked for.
+fn json_param(ob: &Bound<PyAny>, to_type: &str) -> PyResult<Value> {
+    let text = serde_json::to_string(&py_any_to_serde_json(ob)?).unwrap_or_default();
+    Ok(if to_type == "json" {
+        Value::Json(text)
+    } else {
+        Value::Jsonb(text)
+    })
+}
+
+/// Render a field reference in its canonical (Postgres) form, keyed by ``output_type``.
+///
+/// Postgres is the reference dialect, so the AST built here is exactly what Postgres must emit;
+/// ``lower::lower_query_for_sqlite`` rewrites it into the SQLite forms that return the same rows.
+fn build_field_expr(field_ref: FieldRef, output_type: Option<String>) -> Expr {
+    let Some(to_type) = output_type else {
+        return Expr::Field(field_ref);
+    };
+
+    // A JSON column, and a `->` extraction out of one, already ARE JSON -- there is nothing to cast.
+    // (Casting would also be actively wrong on SQLite: `CAST(col AS jsonb)` gives NUMERIC affinity.)
+    if is_json_type(&to_type) {
+        return Expr::Field(field_ref);
+    }
+
+    if field_ref.field.child.is_none() {
+        return Expr::Cast {
+            expr: Box::new(Expr::Field(field_ref)),
+            to_type,
+        };
+    }
+
+    let FieldRef {
+        mut field,
+        table_name,
+        namespace,
+    } = field_ref;
+    let last_key = strip_last_child(&mut field);
+    let text = Expr::JsonPathText {
+        expr: Box::new(Expr::Field(FieldRef {
+            field,
+            table_name,
+            namespace,
+        })),
+        path: last_key,
+    };
+
+    if to_type == "text" {
+        return text;
+    }
+
+    // qcraft parenthesises a Cast's operand when precedence needs it -- `("p"->>'age')::bigint`, not
+    // the mis-parsing `"p"->>'age'::bigint` -- so the cast wraps the extraction directly.
+    Expr::Cast {
+        expr: Box::new(text),
+        to_type,
+    }
+}
+
+/// Map a resolved field reference to a select column, treating ``Field(name='*')`` as the
+/// dedicated (optionally table-qualified) star node rather than a column literally named "*".
+fn field_ref_to_select_column(f: FieldRef) -> SelectColumn {
+    if f.field.name == "*" {
+        SelectColumn::Star((!f.table_name.is_empty()).then(|| f.table_name.clone()))
+    } else {
+        SelectColumn::Field { field: f, alias: None }
+    }
+}
+
 fn extract_field_selection(ob: &Bound<PyAny>) -> PyResult<SelectColumn> {
     let type_name: String = ob.get_type().qualname()?.extract()?;
     match type_name.as_str() {
@@ -228,10 +344,7 @@ fn extract_field_selection(ob: &Bound<PyAny>) -> PyResult<SelectColumn> {
             let alias: String = ob.getattr(pyo3::intern!(ob.py(), "alias"))?.extract()?;
             Ok(SelectColumn::Field { field: field_ref, alias: Some(alias) })
         }
-        _ => {
-            let field_ref = extract_field_ref(ob)?;
-            Ok(SelectColumn::Field { field: field_ref, alias: None })
-        }
+        _ => Ok(field_ref_to_select_column(extract_field_ref(ob)?)),
     }
 }
 
@@ -245,12 +358,7 @@ fn extract_distinct_clause(ob: &Bound<PyAny>) -> PyResult<DistinctDef> {
         Ok(DistinctDef::Distinct)
     } else {
         let list: Vec<Expr> = extract_py_list(&on_fields_attr, |item| {
-            let type_name: String = item.get_type().qualname()?.extract()?;
-            let fr = match type_name.as_str() {
-                "FieldReferenceAliased" => extract_field_ref(item)?,
-                _ => extract_field_ref(item)?,
-            };
-            Ok(Expr::Field(fr))
+            Ok(Expr::Field(extract_field_ref(item)?))
         })?;
         Ok(DistinctDef::DistinctOn(list))
     }
@@ -266,15 +374,21 @@ pub fn extract_expr(ob: &Bound<PyAny>) -> PyResult<Expr> {
         "Value" | "LazyValue" | "LazyTupleValue" => {
             let value_attr = ob.getattr(pyo3::intern!(ob.py(), "value"))?;
             if value_attr.is_instance_of::<PyTuple>() {
-                extract_tuple_expr(&value_attr)
-            } else {
-                let val = extract_py_value(&value_attr)?;
-                Ok(Expr::Value(pyvalue_to_qcraft(&val)))
+                return extract_tuple_expr(&value_attr);
             }
+            // ``output_type=JSON/JSONB`` types the *parameter*, not the SQL: whatever the Python value
+            // is -- a scalar, a dict, a list, or None (a JSON ``null``) -- it is bound as JSON.
+            if let Some(to_type) = extract_output_type(ob)? {
+                if is_json_type(&to_type) {
+                    return Ok(Expr::Value(json_param(&value_attr, &to_type)?));
+                }
+            }
+            let val = extract_py_value(&value_attr)?;
+            Ok(Expr::Value(pyvalue_to_qcraft(&val)))
         }
         "FieldReferenceExpression" => {
             let field_ref = extract_field_ref(&ob.getattr(pyo3::intern!(ob.py(), "field_reference"))?)?;
-            Ok(Expr::Field(field_ref))
+            Ok(build_field_expr(field_ref, extract_output_type(ob)?))
         }
         "Combined" => {
             let left = extract_expr(&ob.getattr(pyo3::intern!(ob.py(), "left"))?)?;
@@ -378,22 +492,12 @@ pub fn extract_expr(ob: &Bound<PyAny>) -> PyResult<Expr> {
             let params_attr = ob.getattr(pyo3::intern!(ob.py(), "params"))?;
             let params = if params_attr.is_none() {
                 vec![]
-            } else if params_attr.is_instance_of::<PyTuple>() {
-                let tuple = params_attr.downcast::<PyTuple>()?;
-                tuple
-                    .iter()
-                    .map(|item| {
-                        let pv = extract_py_value(&item)?;
-                        Ok(pyvalue_to_qcraft(&pv))
-                    })
-                    .collect::<PyResult<Vec<_>>>()?
-            } else if params_attr.is_instance_of::<PyList>() {
-                let list = params_attr.downcast::<PyList>()?;
-                list.iter()
-                    .map(|item| {
-                        let pv = extract_py_value(&item)?;
-                        Ok(pyvalue_to_qcraft(&pv))
-                    })
+            } else if params_attr.is_instance_of::<PyTuple>()
+                || params_attr.is_instance_of::<PyList>()
+            {
+                params_attr
+                    .try_iter()?
+                    .map(|item| Ok(pyvalue_to_qcraft(&extract_py_value(&item?)?)))
                     .collect::<PyResult<Vec<_>>>()?
             } else {
                 let type_name: String = params_attr.get_type().qualname()?.extract()?;
@@ -406,7 +510,7 @@ pub fn extract_expr(ob: &Bound<PyAny>) -> PyResult<Expr> {
         "Window" => {
             let expression = extract_expr(&ob.getattr(pyo3::intern!(ob.py(), "expression"))?)?;
             let partition_by = extract_optional_list_expr(ob, "partition_by")?;
-            let order_by = extract_optional_list(ob, "order_by", extract_order_by)?;
+            let order_by = extract_order_by_list(ob)?;
             let frame = extract_optional(ob, "frame", extract_window_frame)?;
             Ok(Expr::Window(WindowDef {
                 expression: Box::new(expression),
@@ -487,7 +591,7 @@ fn extract_aggregation_expr(ob: &Bound<PyAny>) -> PyResult<Expr> {
     let distinct: bool = ob.getattr(pyo3::intern!(ob.py(), "distinct"))?.extract()?;
     let filter = extract_optional(ob, "filter", extract_conditions)?;
     let args = extract_optional_list(ob, "args", extract_expr)?;
-    let order_by = extract_optional_list(ob, "order_by", extract_order_by)?;
+    let order_by = extract_order_by_list(ob)?;
 
     Ok(Expr::Aggregate(AggregationDef {
         name,
@@ -512,14 +616,14 @@ fn extract_window_frame(ob: &Bound<PyAny>) -> PyResult<WindowFrameDef> {
         WindowFrameBound::Preceding(None) // UNBOUNDED PRECEDING
     } else {
         let n: i64 = start_attr.extract()?;
-        i64_to_frame_bound(n, true)
+        i64_to_frame_bound(n)
     };
     let end_attr = ob.getattr(pyo3::intern!(ob.py(), "end"))?;
     let end = if end_attr.is_none() {
         Some(WindowFrameBound::CurrentRow)
     } else {
         let n: i64 = end_attr.extract()?;
-        Some(i64_to_frame_bound(n, false))
+        Some(i64_to_frame_bound(n))
     };
     Ok(WindowFrameDef {
         frame_type,
@@ -528,7 +632,7 @@ fn extract_window_frame(ob: &Bound<PyAny>) -> PyResult<WindowFrameDef> {
     })
 }
 
-fn i64_to_frame_bound(val: i64, _is_start: bool) -> WindowFrameBound {
+fn i64_to_frame_bound(val: i64) -> WindowFrameBound {
     match val {
         0 => WindowFrameBound::CurrentRow,
         n if n > 0 => WindowFrameBound::Following(Some(n as u64)),
@@ -616,7 +720,9 @@ pub fn extract_py_value(ob: &Bound<PyAny>) -> PyResult<PyValue> {
 
     let type_name: String = ob.get_type().qualname()?.extract()?;
     match type_name.as_str() {
-        "datetime" => Ok(PyValue::DateTime(ob.str()?.extract()?)),
+        // isoformat() uses the default 'T' separator, so datetime columns sort/range/compare as one
+        // homogeneous format. str(datetime) would emit a space instead, breaking ordering.
+        "datetime" => Ok(PyValue::DateTime(ob.call_method0("isoformat")?.extract()?)),
         "date" => Ok(PyValue::Date(ob.str()?.extract()?)),
         "time" => Ok(PyValue::Time(ob.str()?.extract()?)),
         "Decimal" => Ok(PyValue::Decimal(ob.str()?.extract()?)),
@@ -667,8 +773,23 @@ fn py_any_to_serde_json(ob: &Bound<PyAny>) -> PyResult<serde_json::Value> {
         return Ok(serde_json::Value::Bool(ob.extract()?));
     }
     if ob.is_instance_of::<PyInt>() {
-        let i: i64 = ob.extract()?;
-        return Ok(serde_json::json!(i));
+        // A Python int is arbitrary-precision. Fast paths for the common widths; otherwise carry the
+        // EXACT decimal digits as a JSON number via serde_json's `arbitrary_precision` feature, so a
+        // big int (> i64::MAX, e.g. a snowflake id) round-trips as a number -- not an `OverflowError`,
+        // and not a lossy float. Mirrors the `Decimal` fallback in `extract_py_value`.
+        if let Ok(i) = ob.extract::<i64>() {
+            return Ok(serde_json::json!(i));
+        }
+        if let Ok(u) = ob.extract::<u64>() {
+            return Ok(serde_json::json!(u));
+        }
+        let digits: String = ob.str()?.extract()?;
+        let number: serde_json::Number = digits.parse().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Cannot convert Python int '{digits}' to a JSON number"
+            ))
+        })?;
+        return Ok(serde_json::Value::Number(number));
     }
     if ob.is_instance_of::<PyFloat>() {
         let f: f64 = ob.extract()?;
@@ -710,7 +831,12 @@ fn py_any_to_serde_json(ob: &Bound<PyAny>) -> PyResult<serde_json::Value> {
 fn extract_condition(ob: &Bound<PyAny>) -> PyResult<Comparison> {
     let left = extract_expr(&ob.getattr(pyo3::intern!(ob.py(), "left"))?)?;
     let lookup = extract_compare_op(&ob.getattr(pyo3::intern!(ob.py(), "lookup"))?)?;
-    let right = extract_expr(&ob.getattr(pyo3::intern!(ob.py(), "right"))?)?;
+    let right_ob = ob.getattr(pyo3::intern!(ob.py(), "right"))?;
+    let right = if matches!(lookup, CompareOp::In) {
+        extract_in_rhs(&right_ob)?
+    } else {
+        extract_expr(&right_ob)?
+    };
     let negate: bool = ob.getattr(pyo3::intern!(ob.py(), "negate"))?.extract()?;
     Ok(Comparison {
         left,
@@ -718,6 +844,26 @@ fn extract_condition(ob: &Bound<PyAny>) -> PyResult<Comparison> {
         right,
         negate,
     })
+}
+
+/// The right-hand side of an ``IN``: a ``Value`` holding a list is a list of candidates, not one
+/// value. A JSON ``output_type`` therefore types each ELEMENT, not the list as a JSON array.
+fn extract_in_rhs(ob: &Bound<PyAny>) -> PyResult<Expr> {
+    let type_name: String = ob.get_type().qualname()?.extract()?;
+    if type_name == "Value" {
+        if let Some(to_type) = extract_output_type(ob)? {
+            let value_attr = ob.getattr(pyo3::intern!(ob.py(), "value"))?;
+            if is_json_type(&to_type) && value_attr.is_instance_of::<PyList>() {
+                let items: PyResult<Vec<Value>> = value_attr
+                    .downcast::<PyList>()?
+                    .iter()
+                    .map(|item| json_param(&item, &to_type))
+                    .collect();
+                return Ok(Expr::Value(Value::Array(items?)));
+            }
+        }
+    }
+    extract_expr(ob)
 }
 
 fn extract_condition_node(ob: &Bound<PyAny>) -> PyResult<ConditionNode> {
@@ -990,6 +1136,14 @@ fn extract_join_query(ob: &Bound<PyAny>) -> PyResult<JoinDef> {
 // Order By
 // ---------------------------------------------------------------------------
 
+/// Extract `order_by`, collapsing an empty list to None. A `QueryStatement` whose order-by list
+/// ends up empty (e.g. every requested item was dropped upstream) must NOT render an `ORDER BY`
+/// with no columns -- that is invalid SQL ("incomplete input"), so an empty list omits the clause.
+/// `only`/`expressions` keep their own empty-list meaning, so only `order_by` is collapsed here.
+fn extract_order_by_list(ob: &Bound<PyAny>) -> PyResult<Option<Vec<OrderByDef>>> {
+    Ok(extract_optional_list(ob, "order_by", extract_order_by)?.filter(|list| !list.is_empty()))
+}
+
 fn extract_order_by(ob: &Bound<PyAny>) -> PyResult<OrderByDef> {
     let direction = extract_order_direction(&ob.getattr(pyo3::intern!(ob.py(), "direction"))?)?;
     let expr = extract_expr(&ob.getattr(pyo3::intern!(ob.py(), "expression"))?)?;
@@ -1124,12 +1278,12 @@ fn extract_insert(ob: &Bound<PyAny>) -> PyResult<InsertStmt> {
         if raw_row.iter().zip(col_names.iter()).all(|((k, _), c)| k == c) {
             // Fast path: same keys in the same order.
             for (_, v) in raw_row {
-                values.push(Expr::Value(pyvalue_to_qcraft(v)));
+                values.push(v.clone());
             }
         } else {
             // Slow path: reorder by col_names. Counts match here, so any missing
             // key means the row carries a different (wrong) column set.
-            let row_map: std::collections::HashMap<&str, &PyValue> =
+            let row_map: std::collections::HashMap<&str, &Expr> =
                 raw_row.iter().map(|(k, v)| (k.as_str(), v)).collect();
             for col in &col_names {
                 let v = *row_map.get(col.as_str()).ok_or_else(|| {
@@ -1138,7 +1292,7 @@ fn extract_insert(ob: &Bound<PyAny>) -> PyResult<InsertStmt> {
                          first row; all rows in a multi-row INSERT must share the same columns"
                     ))
                 })?;
-                values.push(Expr::Value(pyvalue_to_qcraft(v)));
+                values.push(v.clone());
             }
         }
         rows.push(values);
@@ -1253,22 +1407,7 @@ fn extract_delete(ob: &Bound<PyAny>) -> PyResult<DeleteStmt> {
 fn extract_returning_item(ob: &Bound<PyAny>) -> PyResult<SelectColumn> {
     let class_name: String = ob.get_type().qualname()?.extract()?;
     match class_name.as_str() {
-        "FieldReference" => {
-            let f = extract_field_ref(ob)?;
-            if f.field.name == "*" {
-                let table = if f.table_name.is_empty() {
-                    None
-                } else {
-                    Some(f.table_name.clone())
-                };
-                Ok(SelectColumn::Star(table))
-            } else {
-                Ok(SelectColumn::Field {
-                    field: f,
-                    alias: None,
-                })
-            }
-        }
+        "FieldReference" => Ok(field_ref_to_select_column(extract_field_ref(ob)?)),
         "SelectExpression" => {
             let (expr, alias) = extract_select_expr(ob)?;
             Ok(SelectColumn::Expr {
@@ -1301,7 +1440,7 @@ fn extract_optional_returning(ob: &Bound<PyAny>) -> PyResult<Option<Vec<SelectCo
 fn extract_on_conflict(ob: &Bound<PyAny>, all_columns: &[String]) -> PyResult<OnConflictDef> {
     let fields_attr = ob.getattr(pyo3::intern!(ob.py(), "fields"))?;
     let fields = extract_py_list(&fields_attr, extract_field_ref)?;
-    let action_str = extract_conflict_action(&ob.getattr(pyo3::intern!(ob.py(), "action"))?)?;
+    let action_str = extract_enum_value(&ob.getattr(pyo3::intern!(ob.py(), "action"))?)?;
     let update_fields = extract_optional_list(ob, "update_fields", extract_field_ref)?;
     let where_clause = extract_optional(ob, "where", extract_conditions)?;
 
@@ -1355,20 +1494,25 @@ fn extract_on_conflict(ob: &Bound<PyAny>, all_columns: &[String]) -> PyResult<On
     Ok(OnConflictDef { target, action })
 }
 
-fn extract_data_row(ob: &Bound<PyAny>) -> PyResult<Vec<(String, PyValue)>> {
+/// A row of a ``DataInput``: the values are expressions, so a caller can declare what a value IS
+/// (`Value(x, output_type=JSONB)` binds `x` as JSON) instead of leaving the binding layer to guess
+/// from the Python type -- guessing only ever worked for `dict` and `list`.
+fn extract_data_row(ob: &Bound<PyAny>) -> PyResult<Vec<(String, Expr)>> {
     let data_attr = ob.getattr(pyo3::intern!(ob.py(), "data"))?;
     let dict = data_attr.downcast::<PyDict>()?;
     let mut pairs = Vec::new();
     for (key, value) in dict.iter() {
         let col_name: String = key.extract()?;
-        let py_val = extract_py_value(&value)?;
-        pairs.push((col_name, py_val));
+        pairs.push((col_name, extract_expr(&value)?));
     }
     Ok(pairs)
 }
 
+/// The SET clause of an UPDATE. ``UpdateData.data`` is a ``DataInput``, so the column values live one
+/// level down -- alongside the row's own metadata, which SQL generation does not look at.
 fn extract_update_assignments(ob: &Bound<PyAny>) -> PyResult<Vec<(String, Expr)>> {
-    let data_attr = ob.getattr(pyo3::intern!(ob.py(), "data"))?;
+    let data_input = ob.getattr(pyo3::intern!(ob.py(), "data"))?;
+    let data_attr = data_input.getattr(pyo3::intern!(ob.py(), "data"))?;
     let dict = data_attr.downcast::<PyDict>()?;
     let mut result = Vec::new();
     for (key, value) in dict.iter() {
@@ -1377,10 +1521,6 @@ fn extract_update_assignments(ob: &Bound<PyAny>) -> PyResult<Vec<(String, Expr)>
         result.push((col_name, expr));
     }
     Ok(result)
-}
-
-fn extract_conflict_action(ob: &Bound<PyAny>) -> PyResult<String> {
-    extract_enum_value(ob)
 }
 
 // ---------------------------------------------------------------------------
@@ -1493,11 +1633,25 @@ pub fn extract_schema_mutation(ob: &Bound<PyAny>) -> PyResult<Vec<SchemaMutation
             let property = extract_property(&ob.getattr(pyo3::intern!(ob.py(), "property"))?)?;
             let field_type = property_to_field_type(&property.field_type);
 
+            // PostgreSQL cannot auto-cast a column to a numeric target on
+            // ALTER COLUMN ... SET DATA TYPE, so emit an explicit
+            // USING "<col>"::<type> cast for numeric targets only. The cast
+            // target is spelled identically to the column TYPE. Non-numeric
+            // targets rely on PG's implicit assignment casts (no USING).
+            let using_expr = numeric_alter_cast_type(&field_type).map(|to_type| Expr::Cast {
+                expr: Box::new(Expr::Field(FieldRef {
+                    field: FieldDef::new(property.name.clone()),
+                    table_name: String::new(),
+                    namespace: None,
+                })),
+                to_type,
+            });
+
             let mut stmts = vec![SchemaMutationStmt::AlterColumnType {
                 schema_ref: schema_ref.clone(),
                 column_name: property.name.clone(),
                 new_type: field_type,
-                using_expr: None,
+                using_expr,
             }];
 
             stmts.push(SchemaMutationStmt::AlterColumnNullability {
@@ -1570,14 +1724,8 @@ pub fn extract_schema_mutation(ob: &Bound<PyAny>) -> PyResult<Vec<SchemaMutation
         "CreateExtension" => {
             let extension_name: String = ob.getattr(pyo3::intern!(ob.py(), "extension_name"))?.extract()?;
             let if_not_exists: bool = ob.getattr(pyo3::intern!(ob.py(), "if_not_exists"))?.extract()?;
-            let schema_name: Option<String> = ob
-                .getattr(pyo3::intern!(ob.py(), "schema_name"))
-                .ok()
-                .and_then(|v| if v.is_none() { None } else { v.extract().ok() });
-            let version: Option<String> = ob
-                .getattr(pyo3::intern!(ob.py(), "version"))
-                .ok()
-                .and_then(|v| if v.is_none() { None } else { v.extract().ok() });
+            let schema_name = extract_optional_string(ob, "schema_name")?;
+            let version = extract_optional_string(ob, "version")?;
             let cascade: bool = ob.getattr(pyo3::intern!(ob.py(), "cascade"))?.extract()?;
             Ok(vec![SchemaMutationStmt::CreateExtension {
                 name: extension_name,
@@ -1755,10 +1903,7 @@ fn extract_property(ob: &Bound<PyAny>) -> PyResult<PropertyInfo> {
     let required: bool = ob.getattr(pyo3::intern!(ob.py(), "required"))?.extract()?;
     let default = extract_optional(ob, "default", extract_expr)?;
     let generated = extract_optional(ob, "generated", extract_expr)?;
-    let collation: Option<String> = ob
-        .getattr(pyo3::intern!(ob.py(), "db_collation"))
-        .ok()
-        .and_then(|v| if v.is_none() { None } else { v.extract().ok() });
+    let collation = extract_optional_string(ob, "db_collation")?;
     let identity = extract_identity_info(ob)?;
     Ok(PropertyInfo {
         name,
@@ -1813,6 +1958,45 @@ fn extract_field_type_info(ob: &Bound<PyAny>) -> PyResult<FieldTypeInfo> {
         other => Err(pyo3::exceptions::PyValueError::new_err(format!(
             "Unsupported FieldType: {other}"
         ))),
+    }
+}
+
+/// If `field_type` is a numeric target, return the SQL type string spelled
+/// exactly as `render_column_type` would emit it; otherwise `None`.
+///
+/// Used to decide whether an `ALTER COLUMN ... SET DATA TYPE` needs an explicit
+/// `USING "<col>"::<type>` cast on PostgreSQL. PG only auto-casts when an
+/// assignment cast exists; numeric targets (widen/narrow, text↔numeric) do not
+/// have one and require the USING clause. Returning the same spelling used by
+/// the column TYPE keeps the two strings byte-identical.
+fn numeric_alter_cast_type(field_type: &FieldType) -> Option<String> {
+    match field_type {
+        FieldType::Decimal { precision, scale } => match (precision, scale) {
+            (None, None) => Some("NUMERIC".to_string()),
+            (Some(p), None) => Some(format!("NUMERIC({p})")),
+            (Some(p), Some(s)) => Some(format!("NUMERIC({p}, {s})")),
+            // Invalid (scale without precision); the TYPE render errors here too.
+            (None, Some(_)) => None,
+        },
+        FieldType::Scalar(name) => {
+            const NUMERIC_SCALARS: &[&str] = &[
+                "bigint",
+                "integer",
+                "int",
+                "smallint",
+                "double precision",
+                "real",
+                "numeric",
+                "decimal",
+                "float",
+            ];
+            if NUMERIC_SCALARS.contains(&name.to_ascii_lowercase().as_str()) {
+                Some(name.clone())
+            } else {
+                None
+            }
+        }
+        _ => None,
     }
 }
 

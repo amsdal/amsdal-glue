@@ -6,6 +6,7 @@ use qcraft::render::ctx::ParamStyle;
 
 use crate::sql::error::SqlGenError;
 use crate::sql::extract;
+use crate::sql::lower;
 use crate::sql::value_conv::qcraft_value_to_py;
 
 // ---------------------------------------------------------------------------
@@ -103,32 +104,33 @@ pub struct SqlGenerator {
     param_style_name: &'static str,
 }
 
+impl SqlGenerator {
+    /// SQLite renders the same JSON AST with different semantics, so it gets a lowering pass first.
+    /// See `crate::sql::lower`.
+    fn is_sqlite(&self) -> bool {
+        matches!(self.renderer, RendererKind::Sqlite(_))
+    }
+}
+
 #[pymethods]
 impl SqlGenerator {
     #[new]
-    #[pyo3(signature = (dialect, *, param_style=None, use_json_operators=false))]
-    fn new(dialect: &str, param_style: Option<&str>, use_json_operators: bool) -> PyResult<Self> {
-        let _ = use_json_operators; // kept for API compat, qcraft handles this per-renderer
-
+    #[pyo3(signature = (dialect, *, param_style=None))]
+    fn new(dialect: &str, param_style: Option<&str>) -> PyResult<Self> {
         let (renderer, default_style_name) = match dialect {
             "postgresql" | "postgres" => {
-                let qcraft_style = match param_style {
-                    Some("dollar") => ParamStyle::Dollar,
-                    Some("format") | Some("pyformat") => ParamStyle::Percent,
-                    Some("qmark") => ParamStyle::QMark,
+                let (qcraft_style, style_name) = match param_style {
+                    Some("dollar") => (ParamStyle::Dollar, "dollar"),
+                    Some("format") | Some("pyformat") => (ParamStyle::Percent, "format"),
+                    Some("qmark") => (ParamStyle::QMark, "qmark"),
                     Some(s) => {
                         return Err(SqlGenError::UnsupportedFeature(format!(
                             "Unknown param_style: '{s}'. Use 'dollar', 'format', or 'qmark'"
                         ))
                         .into())
                     }
-                    None => ParamStyle::Percent, // default for postgres: format (%s)
-                };
-                let style_name = match qcraft_style {
-                    ParamStyle::Dollar => "dollar",
-                    ParamStyle::Percent => "format",
-                    ParamStyle::QMark => "qmark",
-                    ParamStyle::QMarkNumbered => "qmark_numbered",
+                    // default for postgres: format (%s)
+                    None => (ParamStyle::Percent, "format"),
                 };
                 let r = qcraft::qcraft_postgres::PostgresRenderer::new().with_param_style(qcraft_style);
                 (RendererKind::Postgres(r), style_name)
@@ -164,7 +166,10 @@ impl SqlGenerator {
     }
 
     fn compile_query(&self, py: Python, query: &Bound<PyAny>) -> PyResult<(String, PyObject)> {
-        let stmt = extract::extract_query_stmt(query)?;
+        let mut stmt = extract::extract_query_stmt(query)?;
+        if self.is_sqlite() {
+            lower::lower_query(&mut stmt);
+        }
         let (sql, values) = self.renderer.render_query(&stmt)?;
         let params = values_to_py_list(py, values)?;
         Ok((sql, params))
@@ -175,7 +180,10 @@ impl SqlGenerator {
         py: Python,
         mutation: &Bound<PyAny>,
     ) -> PyResult<(String, PyObject)> {
-        let stmt = extract::extract_mutation(mutation)?;
+        let mut stmt = extract::extract_mutation(mutation)?;
+        if self.is_sqlite() {
+            lower::lower_mutation(&mut stmt);
+        }
         let (sql, values) = self.renderer.render_mutation(&stmt)?;
         let params = values_to_py_list(py, values)?;
         Ok((sql, params))
@@ -186,7 +194,12 @@ impl SqlGenerator {
         py: Python,
         mutation: &Bound<PyAny>,
     ) -> PyResult<PyObject> {
-        let stmts = extract::extract_schema_mutation(mutation)?;
+        let mut stmts = extract::extract_schema_mutation(mutation)?;
+        if self.is_sqlite() {
+            for stmt in &mut stmts {
+                lower::lower_schema(stmt);
+            }
+        }
         let mut result: Vec<(String, PyObject)> = Vec::new();
         for stmt in &stmts {
             let pairs = self.renderer.render_schema(stmt)?;

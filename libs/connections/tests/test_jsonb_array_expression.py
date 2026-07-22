@@ -1,18 +1,11 @@
 """JsonbArray SQL emission on sqlite + postgres.
 
-Re-baselined for Rust SqlGenerator.
-
 Model rename: ``JsonbArrayExpression`` → ``JsonbArray`` (a ``Func`` subclass).
 
-SUSPICIOUS — SQLite dialect differences vs old Python builder:
-- Old builder: ``jsonb_array(CASE WHEN json_valid(col) THEN jsonb(col) ELSE col END, ...)``.
-  The CASE WHEN was a func_transform rewrite to handle pre-parsed JSON columns.
-- Rust generator: ``json_array(col1, col2, ...)`` — no CASE WHEN, and uses
-  ``json_array`` (text-JSON) instead of ``jsonb_array`` (binary-JSON).
-  These are semantically different: if a column already contains a JSON string the
-  old builder preserved structure; the Rust generator does not.
-
-Postgres is unchanged: both old and new emit ``jsonb_build_array(...)``.
+On SQLite the JSON lowering rewrites the array constructor to
+``jsonb_array(CASE WHEN json_valid(col) = 1 THEN jsonb(col) ELSE col END, ...)`` --
+the same shape main's ``func_transform`` produced, which preserves the JSON structure
+of pre-parsed columns. Postgres emits ``jsonb_build_array(...)`` unchanged.
 """
 
 from amsdal_glue_connections._sql_core import SqlGenerator
@@ -46,8 +39,8 @@ def _q(gen: SqlGenerator, expr: JsonbArray) -> tuple[str, list]:
 
 
 def test_jsonb_array_expression_renders_function_call_sqlite() -> None:
-    # SUSPICIOUS: Rust emits json_array (text-JSON, no CASE WHEN) instead of
-    # the old jsonb_array(CASE WHEN json_valid(col) THEN jsonb(col) ELSE col END, ...).
+    # SQLite maps the array constructor to jsonb_array with the json_valid CASE WHEN
+    # wrapping per element -- main's func_transform shape (preserves pre-parsed JSON).
     expr = JsonbArray(
         items=[
             _field_expr('Parent', 'slug'),
@@ -57,7 +50,12 @@ def test_jsonb_array_expression_renders_function_call_sqlite() -> None:
 
     sql, values = _q(_lite, expr)
 
-    assert sql == 'SELECT json_array("Parent"."slug", "Parent"."realm") AS "arr" FROM "Parent"'
+    assert sql == (
+        'SELECT jsonb_array('
+        'CASE WHEN json_valid("Parent"."slug") = 1 THEN jsonb("Parent"."slug") ELSE "Parent"."slug" END, '
+        'CASE WHEN json_valid("Parent"."realm") = 1 THEN jsonb("Parent"."realm") ELSE "Parent"."realm" END'
+        ') AS "arr" FROM "Parent"'
+    )
     assert values == []
 
 
@@ -77,19 +75,21 @@ def test_jsonb_array_expression_renders_function_call_postgres() -> None:
 
 
 def test_jsonb_array_expression_single_item() -> None:
-    # SUSPICIOUS: Rust emits json_array (not jsonb_array CASE WHEN ...).
     expr = JsonbArray(items=[_field_expr('Parent', 'pk')])
 
     sql, _ = _q(_lite, expr)
 
-    assert sql == 'SELECT json_array("Parent"."pk") AS "arr" FROM "Parent"'
+    assert sql == (
+        'SELECT jsonb_array('
+        'CASE WHEN json_valid("Parent"."pk") = 1 THEN jsonb("Parent"."pk") ELSE "Parent"."pk" END'
+        ') AS "arr" FROM "Parent"'
+    )
 
 
 def test_jsonb_array_expression_empty_items() -> None:
-    """Edge case: sqlite emits `json_array()` (no args)."""
-    # SUSPICIOUS: old emitted jsonb_array(); Rust emits json_array().
+    """Edge case: sqlite emits `jsonb_array()` (no args)."""
     expr = JsonbArray(items=[])
 
     sql, _ = _q(_lite, expr)
 
-    assert sql == 'SELECT json_array() AS "arr" FROM "Parent"'
+    assert sql == 'SELECT jsonb_array() AS "arr" FROM "Parent"'

@@ -116,8 +116,7 @@ class LockCommand(Operation):
         parameter (LockParameter): The parameter for the lock.
         locked_objects (list[LockReference]): The list of lock references to be locked.
 
-    Note: inherits ``transaction_id``, ``lock_id``, ``root_transaction_id`` from
-    ``Operation`` (prod divergence from pure-source ``@dataclass``; see spec §3).
+    Note: inherits ``transaction_id``, ``lock_id`` and ``root_transaction_id`` from ``Operation``.
     """
 
     action: LockAction

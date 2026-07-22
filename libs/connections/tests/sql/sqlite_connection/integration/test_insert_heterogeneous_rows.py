@@ -5,7 +5,7 @@ dropping extra ones), while reordered-but-uniform rows still insert correctly.
 """
 
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
@@ -69,17 +69,15 @@ def test_insert_second_row_missing_column_raises(database_connection: SqliteConn
     _setup(database_connection)
 
     with pytest.raises(ValueError) as exc_info:
-        database_connection.run_mutations(
-            [
-                InsertData(
-                    schema=_ref(),
-                    data=[
-                        Data(data={'id': 1, 'a': 10, 'b': 20}),
-                        Data(data={'id': 2, 'a': 30}),  # missing 'b'
-                    ],
-                )
-            ]
-        )
+        database_connection.run_mutations([
+            InsertData(
+                schema=_ref(),
+                data=[
+                    DataInput(data={'id': 1, 'a': 10, 'b': 20}),
+                    DataInput(data={'id': 2, 'a': 30}),  # missing 'b'
+                ],
+            )
+        ])
 
     message = str(exc_info.value)
     assert 'row 1' in message
@@ -93,17 +91,15 @@ def test_insert_second_row_extra_column_raises(database_connection: SqliteConnec
     _setup(database_connection)
 
     with pytest.raises(ValueError) as exc_info:
-        database_connection.run_mutations(
-            [
-                InsertData(
-                    schema=_ref(),
-                    data=[
-                        Data(data={'id': 1, 'a': 10}),
-                        Data(data={'id': 2, 'a': 30, 'b': 99}),  # extra 'b'
-                    ],
-                )
-            ]
-        )
+        database_connection.run_mutations([
+            InsertData(
+                schema=_ref(),
+                data=[
+                    DataInput(data={'id': 1, 'a': 10}),
+                    DataInput(data={'id': 2, 'a': 30, 'b': 99}),  # extra 'b'
+                ],
+            )
+        ])
 
     message = str(exc_info.value)
     assert 'row 1' in message
@@ -113,17 +109,15 @@ def test_insert_uniform_rows_reordered_keys_ok(database_connection: SqliteConnec
     """Same column set in a different key order still inserts, values in the right columns."""
     _setup(database_connection)
 
-    database_connection.run_mutations(
-        [
-            InsertData(
-                schema=_ref(),
-                data=[
-                    Data(data={'id': 1, 'a': 10, 'b': 20}),
-                    Data(data={'b': 40, 'id': 2, 'a': 30}),  # same keys, different order
-                ],
-            )
-        ]
-    )
+    database_connection.run_mutations([
+        InsertData(
+            schema=_ref(),
+            data=[
+                DataInput(data={'id': 1, 'a': 10, 'b': 20}),
+                DataInput(data={'b': 40, 'id': 2, 'a': 30}),  # same keys, different order
+            ],
+        )
+    ])
 
     assert _read_all(database_connection) == [
         {'id': 1, 'a': 10, 'b': 20},

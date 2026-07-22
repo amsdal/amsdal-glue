@@ -9,10 +9,8 @@ from amsdal_glue_core.common.enums import Version
 from ._harness import lite
 from ._harness import pg
 
-# NOTE: SQLite identifiers are ANSI double-quoted (the old Python builder used single quotes).
-# DISTINCT / DISTINCT ON are now correctly emitted — the old builder silently dropped them
-# (Plan-1b divergence D1, RESOLVED by the Rust generator; the paired `*_correct_behaviour`
-# xfail tests are removed as their assertions are now the baseline below).
+# NOTE: SQLite identifiers are ANSI double-quoted.
+# DISTINCT / DISTINCT ON are correctly emitted.
 
 
 def _ref(name: str, table: str = 'users') -> FieldReference:

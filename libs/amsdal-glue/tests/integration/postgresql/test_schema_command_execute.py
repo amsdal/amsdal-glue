@@ -167,7 +167,9 @@ def test_create_schema() -> None:
         Schema(
             name='user',
             version=Version.LATEST,
-            namespace='public',
+            # PostgreSQL introspection normalizes the default ('public') schema to the
+            # canonical dialect-neutral None so it round-trips against registered schemas.
+            namespace=None,
             properties=[
                 PropertySchema(
                     name='id',

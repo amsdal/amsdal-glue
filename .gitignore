@@ -17,3 +17,5 @@ pyrightconfig.json
 *.egg-info
 .superpowers/
 /docs/superpowers
+.claude/
+CLAUDE.md

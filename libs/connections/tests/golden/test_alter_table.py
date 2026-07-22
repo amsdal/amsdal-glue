@@ -1,5 +1,5 @@
 # libs/connections/tests/golden/test_alter_table.py
-"""Golden-master tests for ALTER / DROP / RENAME DDL paths.
+"""Tests for ALTER / DROP / RENAME DDL paths.
 
 Covers: AddProperty, DeleteProperty, RenameProperty, UpdateProperty,
 AddConstraint, DeleteConstraint, AddIndex, DeleteIndex,
@@ -8,7 +8,7 @@ for both SQLite and Postgres dialects where feasible.
 
 Generator-vs-driver rule (SQLite unsupported mutations)
 --------------------------------------------------------
-The Rust SqlGenerator raises ``UnsupportedFeatureError`` directly for
+The SqlGenerator raises ``UnsupportedFeatureError`` directly for
 SQLite mutations it cannot compile without a live connection:
 - AddConstraint (all constraint types)
 - DeleteConstraint
@@ -33,6 +33,7 @@ from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
+from amsdal_glue_core.common.data_models.types import DecimalType
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
@@ -135,10 +136,10 @@ def test_rename_property_pg() -> None:
 
 
 def test_update_property_sqlite() -> None:
-    """SQLite UpdateProperty: Rust generator raises UnsupportedFeatureError.
+    """SQLite UpdateProperty: the generator raises UnsupportedFeatureError.
 
     The multi-statement column-type rebuild lives in the SQLite connection
-    driver (tested in sqlite integration), not in the Rust SQL generator.
+    driver (tested in sqlite integration), not in the SQL generator.
     """
     m = UpdateProperty(
         schema_ref=_ref(),
@@ -153,13 +154,63 @@ def test_update_property_pg() -> None:
         schema_ref=_ref(),
         property=PropertySchema(name='email', type=ScalarType.TEXT, required=False),
     )
-    # Rust generator emits three separate ALTER TABLE statements:
+    # The generator emits three separate ALTER TABLE statements:
     # SET DATA TYPE, DROP NOT NULL, DROP DEFAULT.
+    # text is a non-numeric target: no USING cast (PG has an assignment cast).
     assert pg_ddl(m) == [
         ('ALTER TABLE "Person" ALTER COLUMN "email" SET DATA TYPE text', []),
         ('ALTER TABLE "Person" ALTER COLUMN "email" DROP NOT NULL', []),
         ('ALTER TABLE "Person" ALTER COLUMN "email" DROP DEFAULT', []),
     ]
+
+
+def test_update_property_pg_double_target_has_using_cast() -> None:
+    # Number field -> double precision (post-remap FLOAT->DOUBLE) must add USING:
+    # PG cannot auto-cast text->double precision without an explicit USING clause.
+    m = UpdateProperty(
+        schema_ref=_ref(),
+        property=PropertySchema(name='amount', type=ScalarType.DOUBLE, required=False),
+    )
+    assert pg_ddl(m)[0] == (
+        'ALTER TABLE "Person" ALTER COLUMN "amount" SET DATA TYPE double precision '
+        'USING "amount"::double precision',
+        [],
+    )
+
+
+def test_update_property_pg_bigint_target_has_using_cast() -> None:
+    m = UpdateProperty(
+        schema_ref=_ref(),
+        property=PropertySchema(name='counter', type=ScalarType.BIGINT, required=False),
+    )
+    assert pg_ddl(m)[0] == (
+        'ALTER TABLE "Person" ALTER COLUMN "counter" SET DATA TYPE bigint '
+        'USING "counter"::bigint',
+        [],
+    )
+
+
+def test_update_property_pg_decimal_target_has_using_cast() -> None:
+    m = UpdateProperty(
+        schema_ref=_ref(),
+        property=PropertySchema(name='price', type=DecimalType(precision=10, scale=2), required=False),
+    )
+    assert pg_ddl(m)[0] == (
+        'ALTER TABLE "Person" ALTER COLUMN "price" SET DATA TYPE NUMERIC(10, 2) '
+        'USING "price"::NUMERIC(10, 2)',
+        [],
+    )
+
+
+def test_update_property_pg_non_numeric_target_has_no_using() -> None:
+    # text target: no USING clause is emitted.
+    m = UpdateProperty(
+        schema_ref=_ref(),
+        property=PropertySchema(name='email', type=ScalarType.TEXT, required=False),
+    )
+    first_sql = pg_ddl(m)[0][0]
+    assert first_sql == 'ALTER TABLE "Person" ALTER COLUMN "email" SET DATA TYPE text'
+    assert 'USING' not in first_sql
 
 
 # ===========================================================================
@@ -168,10 +219,10 @@ def test_update_property_pg() -> None:
 
 
 def test_add_constraint_sqlite() -> None:
-    """SQLite AddConstraint: Rust generator raises UnsupportedFeatureError.
+    """SQLite AddConstraint: the generator raises UnsupportedFeatureError.
 
     The table-rebuild path lives in the SQLite connection driver
-    (tested in sqlite integration), not in the Rust SQL generator.
+    (tested in sqlite integration), not in the SQL generator.
     """
     m = AddConstraint(
         schema_ref=_ref(),
@@ -192,7 +243,7 @@ def test_add_constraint_pg() -> None:
 
 
 def test_add_constraint_pg_unique_quoted_correct_behaviour() -> None:
-    # Rust generator now correctly quotes all constraint names — §3-D7 resolved.
+    # All constraint names are quoted.
     m = AddConstraint(
         schema_ref=_ref(),
         constraint=UniqueConstraint(name='uq_person_email', fields=['email']),
@@ -214,7 +265,7 @@ def test_add_constraint_pg_primary_key() -> None:
 
 
 def test_add_constraint_pg_primary_key_quoted_correct_behaviour() -> None:
-    # Rust generator now correctly quotes all constraint names — §3-D12 resolved.
+    # All constraint names are quoted.
     m = AddConstraint(
         schema_ref=_ref(),
         constraint=PrimaryKeyConstraint(name='pk_person', fields=['id']),
@@ -257,7 +308,7 @@ def test_add_constraint_pg_check() -> None:
 
 
 def test_add_constraint_pg_check_quoted_correct_behaviour() -> None:
-    # Rust generator now correctly quotes all constraint names — §3-D13 resolved.
+    # All constraint names are quoted.
     m = AddConstraint(
         schema_ref=_ref(),
         constraint=CheckConstraint(
@@ -277,10 +328,10 @@ def test_add_constraint_pg_check_quoted_correct_behaviour() -> None:
 
 
 def test_delete_constraint_sqlite() -> None:
-    """SQLite DeleteConstraint: Rust generator raises UnsupportedFeatureError.
+    """SQLite DeleteConstraint: the generator raises UnsupportedFeatureError.
 
     The table-rebuild path lives in the SQLite connection driver
-    (tested in sqlite integration), not in the Rust SQL generator.
+    (tested in sqlite integration), not in the SQL generator.
     """
     m = DeleteConstraint(schema_ref=_ref(), constraint_name='uq_person_email')
     with pytest.raises(UnsupportedFeatureError):

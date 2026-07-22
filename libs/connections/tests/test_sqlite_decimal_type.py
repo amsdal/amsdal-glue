@@ -1,11 +1,7 @@
-"""SQLite decimal/DECIMAL_TEXT handling — re-pointed to Rust SqlGenerator.
+"""SQLite decimal/DECIMAL_TEXT handling.
 
-Old tests used deleted internals: sqlite_value_transform, SqliteConnectionMixin.to_sql_type,
-and DecimalSchemaModel.  Each is re-pointed to the surviving equivalent:
-Value + compile_query for value rendering, compile_schema_mutation for DDL,
+Uses Value + compile_query for value rendering, compile_schema_mutation for DDL,
 and _sqlite_type_to_field_type for introspection (the real query_schema path).
-
-SUSPICIOUS items flagged inline.
 """
 
 from decimal import Decimal
@@ -29,9 +25,8 @@ _TABLE = SchemaReference(name='t', version=Version.LATEST)
 
 
 def test_sqlite_decimal_value_to_str() -> None:
-    #      (old builder coerced Decimal to string before binding).
-    # Re-pointed: Value(Decimal(...), output_type=ScalarType.NUMERIC) via compile_query.
-    # SUSPICIOUS: Rust/Value coerces to Decimal, not str.  The param is now
+    # Value(Decimal(...), output_type=ScalarType.NUMERIC) via compile_query.
+    # Rust/Value coerces to Decimal, not str.  The param is now
     # Decimal('12.50'), not the string '12.50'.  SQLite drivers receive a Decimal
     # object; behaviour depends on the driver (aiosqlite adapts it via str()).
     _, params = _gen.compile_query(
@@ -49,7 +44,7 @@ def test_sqlite_decimal_value_to_str() -> None:
 
 def test_sqlite_decimal_schema_to_text_affinity() -> None:
     #      returned 'DECIMAL_TEXT(10, 2)' (contains 'TEXT' affinity).
-    # Re-pointed: compile_schema_mutation emits DECIMAL_TEXT(10, 2) in the column type.
+    # compile_schema_mutation emits DECIMAL_TEXT(10, 2) in the column type.
     schema = Schema(
         name='t',
         version=Version.LATEST,

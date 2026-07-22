@@ -334,3 +334,42 @@ def test_nan_is_valid_float():
     import math
 
     assert math.isnan(Value(float('nan'), output_type=ScalarType.FLOAT).value)
+
+
+# ---------------------------------------------------------------------------
+# List/tuple under a scalar type → an IN (...) collection: coerce PER ELEMENT
+# ---------------------------------------------------------------------------
+#
+# `Value([...], output_type=<scalar>)` is how an ``IN`` lookup carries its candidates: a list where
+# each element is a value of that scalar type. Coercion must keep it a list (so the generator expands
+# it into ``IN (?, ?, ...)``), coercing each element -- NOT stringify the whole list into one bad
+# parameter. JSON/JSONB are the exception: there a list is a single JSON array value, compared whole.
+
+
+def test_text_in_collection_coerces_per_element_not_whole_list():
+    # The regression: str(['p-1','p-3']) → "['p-1', 'p-3']" would render as a single `IN ?`.
+    v = Value(['p-1', 'p-3'], output_type=ScalarType.TEXT)
+    assert v.value == ['p-1', 'p-3']
+    assert isinstance(v.value, list)
+
+
+def test_integer_in_collection_coerces_each_element():
+    v = Value(['5', '10', '15'], output_type=ScalarType.INTEGER)
+    assert v.value == [5, 10, 15]
+
+
+def test_tuple_in_collection_coerces_per_element():
+    v = Value(('a', 'b'), output_type=ScalarType.TEXT)
+    assert v.value == ['a', 'b']
+
+
+def test_jsonb_list_is_a_single_value_not_a_collection():
+    # A composite PK: the whole list is one JSON array value, passed through unchanged.
+    v = Value(['s1', 'r1'], output_type=ScalarType.JSONB)
+    assert v.value == ['s1', 'r1']
+
+
+def test_jsonb_list_of_lists_passes_through():
+    # An IN over composite PKs: each candidate is itself a list; the generator (not coercion) expands.
+    v = Value([['s1', 'r1'], ['s2', 'r2']], output_type=ScalarType.JSONB)
+    assert v.value == [['s1', 'r1'], ['s2', 'r2']]

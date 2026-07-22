@@ -13,7 +13,7 @@ at compile time with a clear ``ValueError`` that points the caller at ``query=No
 import pytest
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.query import QueryStatement
@@ -52,17 +52,15 @@ def _setup_table(connection: SqliteConnection) -> Schema:
             ],
         ),
     )[0]
-    connection.run_mutations(
-        [
-            InsertData(
-                schema=SchemaReference(name=schema.name, version=schema.version),
-                data=[
-                    Data(data={'field_a': 'value1', 'field_b': 1}),
-                    Data(data={'field_a': 'value2', 'field_b': 2}),
-                ],
-            ),
-        ]
-    )
+    connection.run_mutations([
+        InsertData(
+            schema=SchemaReference(name=schema.name, version=schema.version),
+            data=[
+                DataInput(data={'field_a': 'value1', 'field_b': 1}),
+                DataInput(data={'field_a': 'value2', 'field_b': 2}),
+            ],
+        ),
+    ])
     return schema
 
 
@@ -92,15 +90,13 @@ def test_update_empty_conditions_raises(database_connection: SqliteConnection) -
     schema = _setup_table(database_connection)
 
     with pytest.raises(ValueError) as exc_info:
-        database_connection.run_mutations(
-            [
-                UpdateData(
-                    schema=SchemaReference(name=schema.name, version=schema.version),
-                    data={'field_a': Value(value='mutated')},
-                    query=Conditions(),
-                ),
-            ]
-        )
+        database_connection.run_mutations([
+            UpdateData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                data=DataInput(data={'field_a': Value(value='mutated')}),
+                query=Conditions(),
+            ),
+        ])
 
     assert 'all rows' in str(exc_info.value)
     assert 'query=None' in str(exc_info.value)
@@ -115,15 +111,13 @@ def test_update_nested_empty_conditions_raises(database_connection: SqliteConnec
     schema = _setup_table(database_connection)
 
     with pytest.raises(ValueError) as exc_info:
-        database_connection.run_mutations(
-            [
-                UpdateData(
-                    schema=SchemaReference(name=schema.name, version=schema.version),
-                    data={'field_a': Value(value='mutated')},
-                    query=Conditions(Conditions()),
-                ),
-            ]
-        )
+        database_connection.run_mutations([
+            UpdateData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                data=DataInput(data={'field_a': Value(value='mutated')}),
+                query=Conditions(Conditions()),
+            ),
+        ])
 
     assert 'all rows' in str(exc_info.value)
     assert 'query=None' in str(exc_info.value)
@@ -142,14 +136,12 @@ def test_delete_empty_conditions_raises(database_connection: SqliteConnection) -
     schema = _setup_table(database_connection)
 
     with pytest.raises(ValueError) as exc_info:
-        database_connection.run_mutations(
-            [
-                DeleteData(
-                    schema=SchemaReference(name=schema.name, version=schema.version),
-                    query=Conditions(),
-                ),
-            ]
-        )
+        database_connection.run_mutations([
+            DeleteData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                query=Conditions(),
+            ),
+        ])
 
     assert 'all rows' in str(exc_info.value)
     assert 'query=None' in str(exc_info.value)
@@ -163,14 +155,12 @@ def test_delete_nested_empty_conditions_raises(database_connection: SqliteConnec
     schema = _setup_table(database_connection)
 
     with pytest.raises(ValueError) as exc_info:
-        database_connection.run_mutations(
-            [
-                DeleteData(
-                    schema=SchemaReference(name=schema.name, version=schema.version),
-                    query=Conditions(Conditions()),
-                ),
-            ]
-        )
+        database_connection.run_mutations([
+            DeleteData(
+                schema=SchemaReference(name=schema.name, version=schema.version),
+                query=Conditions(Conditions()),
+            ),
+        ])
 
     assert 'all rows' in str(exc_info.value)
     assert 'query=None' in str(exc_info.value)
@@ -188,15 +178,13 @@ def test_delete_nested_empty_conditions_raises(database_connection: SqliteConnec
 def test_update_query_none_affects_all_rows(database_connection: SqliteConnection) -> None:
     schema = _setup_table(database_connection)
 
-    database_connection.run_mutations(
-        [
-            UpdateData(
-                schema=SchemaReference(name=schema.name, version=schema.version),
-                data={'field_a': Value(value='all')},
-                query=None,
-            ),
-        ]
-    )
+    database_connection.run_mutations([
+        UpdateData(
+            schema=SchemaReference(name=schema.name, version=schema.version),
+            data=DataInput(data={'field_a': Value(value='all')}),
+            query=None,
+        ),
+    ])
 
     assert _read_rows(database_connection, schema) == [
         {'field_a': 'all', 'field_b': 1},
@@ -207,15 +195,13 @@ def test_update_query_none_affects_all_rows(database_connection: SqliteConnectio
 def test_update_real_condition_affects_matching_only(database_connection: SqliteConnection) -> None:
     schema = _setup_table(database_connection)
 
-    database_connection.run_mutations(
-        [
-            UpdateData(
-                schema=SchemaReference(name=schema.name, version=schema.version),
-                data={'field_a': Value(value='only1')},
-                query=Conditions(_b_equals_1(schema)),
-            ),
-        ]
-    )
+    database_connection.run_mutations([
+        UpdateData(
+            schema=SchemaReference(name=schema.name, version=schema.version),
+            data=DataInput(data={'field_a': Value(value='only1')}),
+            query=Conditions(_b_equals_1(schema)),
+        ),
+    ])
 
     assert _read_rows(database_connection, schema) == [
         {'field_a': 'only1', 'field_b': 1},
@@ -226,14 +212,12 @@ def test_update_real_condition_affects_matching_only(database_connection: Sqlite
 def test_delete_query_none_deletes_all_rows(database_connection: SqliteConnection) -> None:
     schema = _setup_table(database_connection)
 
-    database_connection.run_mutations(
-        [
-            DeleteData(
-                schema=SchemaReference(name=schema.name, version=schema.version),
-                query=None,
-            ),
-        ]
-    )
+    database_connection.run_mutations([
+        DeleteData(
+            schema=SchemaReference(name=schema.name, version=schema.version),
+            query=None,
+        ),
+    ])
 
     assert _read_rows(database_connection, schema) == []
 
@@ -241,14 +225,12 @@ def test_delete_query_none_deletes_all_rows(database_connection: SqliteConnectio
 def test_delete_real_condition_deletes_matching_only(database_connection: SqliteConnection) -> None:
     schema = _setup_table(database_connection)
 
-    database_connection.run_mutations(
-        [
-            DeleteData(
-                schema=SchemaReference(name=schema.name, version=schema.version),
-                query=Conditions(_b_equals_1(schema)),
-            ),
-        ]
-    )
+    database_connection.run_mutations([
+        DeleteData(
+            schema=SchemaReference(name=schema.name, version=schema.version),
+            query=Conditions(_b_equals_1(schema)),
+        ),
+    ])
 
     assert _read_rows(database_connection, schema) == [
         {'field_a': 'value2', 'field_b': 2},

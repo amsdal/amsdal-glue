@@ -2,7 +2,7 @@ from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.join import JoinQuery
@@ -126,7 +126,7 @@ def test_join_with_namespace_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT * FROM "public"."users"'
+        'SELECT "users".* FROM "public"."users"'
         ' INNER JOIN "sales"."orders"'
         ' ON "public"."users"."id" = "sales"."orders"."user_id"',
         [],
@@ -141,7 +141,7 @@ def test_join_with_namespace_pg() -> None:
 def test_insert_with_namespace_pg() -> None:
     m = InsertData(
         schema=SchemaReference(name='users', version=Version.LATEST, namespace='public'),
-        data=[Data(data={'name': 'Alice', 'age': 30})],
+        data=[DataInput(data={'name': 'Alice', 'age': 30})],
     )
     assert pg_cmd(m) == ('INSERT INTO "public"."users" ("name", "age") VALUES (%s, %s)', ['Alice', 30])
 
@@ -149,7 +149,7 @@ def test_insert_with_namespace_pg() -> None:
 def test_insert_with_namespace_sqlite() -> None:
     m = InsertData(
         schema=SchemaReference(name='users', version=Version.LATEST, namespace='mydb'),
-        data=[Data(data={'name': 'Alice', 'age': 30})],
+        data=[DataInput(data={'name': 'Alice', 'age': 30})],
     )
     assert lite_cmd(m) == ('INSERT INTO "mydb"."users" ("name", "age") VALUES (?, ?)', ['Alice', 30])
 
@@ -162,7 +162,7 @@ def test_insert_with_namespace_sqlite() -> None:
 def test_update_with_namespace_pg() -> None:
     m = UpdateData(
         schema=SchemaReference(name='users', version=Version.LATEST, namespace='public'),
-        data={'name': Value('Bob')},
+        data=DataInput(data={'name': Value('Bob')}),
         query=Conditions(
             Condition(
                 left=FieldReferenceExpression(

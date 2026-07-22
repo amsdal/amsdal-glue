@@ -1,22 +1,22 @@
 from __future__ import annotations
 
+from amsdal_glue_connections.sql.parsers.default.ast import Between
 from amsdal_glue_connections.sql.parsers.default.ast import BinaryOp
 from amsdal_glue_connections.sql.parsers.default.ast import BoolKeyword
 from amsdal_glue_connections.sql.parsers.default.ast import ColumnRef
 from amsdal_glue_connections.sql.parsers.default.ast import FuncCall
+from amsdal_glue_connections.sql.parsers.default.ast import InList
 from amsdal_glue_connections.sql.parsers.default.ast import Literal
 from amsdal_glue_connections.sql.parsers.default.ast import Node
 from amsdal_glue_connections.sql.parsers.default.ast import SqlKeyword
 from amsdal_glue_connections.sql.parsers.default.ast import TypeCast
 from amsdal_glue_connections.sql.parsers.default.ast import UnaryOp
 
-_SQL_KEYWORDS = frozenset(
-    {
-        'CURRENT_TIMESTAMP',
-        'CURRENT_DATE',
-        'CURRENT_TIME',
-    }
-)
+_SQL_KEYWORDS = frozenset({
+    'CURRENT_TIMESTAMP',
+    'CURRENT_DATE',
+    'CURRENT_TIME',
+})
 
 # Operator precedence (higher = tighter binding)
 _PRECEDENCE: dict[str, int] = {
@@ -37,7 +37,15 @@ _PRECEDENCE: dict[str, int] = {
     '%': 6,
 }
 
-_KEYWORD_OPERATORS = frozenset({'AND', 'OR'})
+_KEYWORD_OPERATORS = ('AND', 'OR')
+
+# Keyword comparison predicates (``IS [NOT] NULL``, ``IN``, ``NOT IN``, ``LIKE``/``ILIKE``,
+# ``NOT LIKE``/``NOT ILIKE``, ``BETWEEN``/``NOT BETWEEN``). They bind at the same level as the
+# symbolic comparison operators (``=``, ``<`` ...): tighter than ``AND``/``OR``, looser than
+# arithmetic.
+_PREDICATE_PRECEDENCE = 3
+_PREDICATE_START = frozenset({'IS', 'IN', 'LIKE', 'ILIKE', 'BETWEEN'})
+_NOT_PREDICATES = frozenset({'IN', 'LIKE', 'ILIKE', 'BETWEEN'})
 
 
 class DefaultParser:
@@ -84,6 +92,13 @@ class DefaultParser:
         # Binary operators with precedence climbing
         while True:
             self._skip_ws()
+
+            # Keyword comparison predicates (IS [NOT] NULL, IN, LIKE, BETWEEN, ...)
+            predicate = self._peek_predicate_keyword()
+            if predicate is not None and min_prec <= _PREDICATE_PRECEDENCE:
+                node = self._parse_predicate(node, predicate)
+                continue
+
             op = self._peek_operator()
             if op is None or _PRECEDENCE.get(op, 0) < min_prec:
                 break
@@ -94,12 +109,114 @@ class DefaultParser:
 
         return node
 
+    def _peek_predicate_keyword(self) -> str | None:
+        """Return the canonical keyword-predicate operator at the cursor, or ``None``.
+
+        Recognises ``IS``, ``IN``, ``LIKE``, ``ILIKE``, ``BETWEEN`` and their ``NOT``-prefixed
+        forms (``NOT IN``/``NOT LIKE``/``NOT ILIKE``/``NOT BETWEEN``). The cursor is not advanced.
+        """
+        word, after = self._read_word_at(self._pos)
+        if word is None:
+            return None
+        if word in _PREDICATE_START:
+            return word
+        if word == 'NOT':
+            word2, _ = self._read_word_at(after)
+            if word2 in _NOT_PREDICATES:
+                return f'NOT {word2}'
+        return None
+
+    def _parse_predicate(self, left: Node, predicate: str) -> Node:
+        negated = predicate.startswith('NOT ')
+        if negated:
+            self._consume_word()  # NOT
+            keyword = predicate[len('NOT ') :]
+        else:
+            keyword = predicate
+        self._consume_word()  # IS / IN / LIKE / ILIKE / BETWEEN
+
+        if keyword == 'IS':
+            return self._parse_is_predicate(left)
+        if keyword == 'IN':
+            return BinaryOp(left=left, operator='NOT IN' if negated else 'IN', right=self._parse_paren_list())
+        if keyword in ('LIKE', 'ILIKE'):
+            operator = f'NOT {keyword}' if negated else keyword
+            pattern = self._parse_expr(min_prec=_PRECEDENCE['='] + 1)
+            return BinaryOp(left=left, operator=operator, right=pattern)
+        # BETWEEN low AND high
+        low = self._parse_expr(min_prec=_PRECEDENCE['AND'] + 1)
+        and_word = self._consume_word()
+        if and_word != 'AND':
+            msg = f'Expected AND in BETWEEN at position {self._pos} in: {self._raw!r}'
+            raise ValueError(msg)
+        high = self._parse_expr(min_prec=_PRECEDENCE['AND'] + 1)
+        return Between(expr=left, low=low, high=high, negated=negated)
+
+    def _parse_is_predicate(self, left: Node) -> Node:
+        # ``IS`` has already been consumed; expect ``NULL`` or ``NOT NULL``.
+        word = self._consume_word()
+        if word == 'NOT':
+            null_word = self._consume_word()
+            if null_word != 'NULL':
+                msg = f'Expected NULL after IS NOT at position {self._pos} in: {self._raw!r}'
+                raise ValueError(msg)
+            return BinaryOp(left=left, operator='IS NOT', right=Literal(value=None))
+        if word != 'NULL':
+            msg = f'Expected NULL or NOT NULL after IS at position {self._pos} in: {self._raw!r}'
+            raise ValueError(msg)
+        return BinaryOp(left=left, operator='IS', right=Literal(value=None))
+
+    def _parse_paren_list(self) -> InList:
+        self._skip_ws()
+        if self._pos >= len(self._raw) or self._current() != '(':
+            msg = f'Expected "(" for IN list at position {self._pos} in: {self._raw!r}'
+            raise ValueError(msg)
+        self._pos += 1
+
+        items: list[Node] = []
+        self._skip_ws()
+        if self._pos < len(self._raw) and self._current() != ')':
+            items.append(self._parse_expr())
+            self._skip_ws()
+            while self._pos < len(self._raw) and self._current() == ',':
+                self._pos += 1
+                items.append(self._parse_expr())
+                self._skip_ws()
+
+        if self._pos >= len(self._raw) or self._current() != ')':
+            msg = f'Expected ")" closing IN list in: {self._raw!r}'
+            raise ValueError(msg)
+        self._pos += 1
+        return InList(items=items)
+
+    def _read_word_at(self, pos: int) -> tuple[str | None, int]:
+        """Read an identifier word (upper-cased) starting at ``pos`` (skipping leading spaces).
+
+        Returns ``(word, next_pos)`` without mutating the cursor; ``(None, pos)`` if there is no word.
+        """
+        while pos < len(self._raw) and self._raw[pos] == ' ':
+            pos += 1
+        start = pos
+        while pos < len(self._raw) and (self._raw[pos].isalnum() or self._raw[pos] == '_'):
+            pos += 1
+        if pos == start:
+            return None, pos
+        return self._raw[start:pos].upper(), pos
+
+    def _consume_word(self) -> str:
+        word, after = self._read_word_at(self._pos)
+        if word is None:
+            msg = f'Expected keyword at position {self._pos} in: {self._raw!r}'
+            raise ValueError(msg)
+        self._pos = after
+        return word
+
     def _peek_operator(self) -> str | None:
         if self._pos >= len(self._raw):
             return None
 
         # Keyword operators: AND, OR (must be followed by non-alnum to avoid matching column names)
-        for kw in ('AND', 'OR'):
+        for kw in _KEYWORD_OPERATORS:
             if self._raw[self._pos : self._pos + len(kw)].upper() == kw:
                 after = self._pos + len(kw)
                 if after >= len(self._raw) or not (self._raw[after].isalnum() or self._raw[after] == '_'):

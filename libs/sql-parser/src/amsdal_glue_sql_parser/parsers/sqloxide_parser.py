@@ -8,7 +8,7 @@ from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
@@ -414,7 +414,7 @@ class SqlOxideParser(SqlParserBase):
             mutations=[
                 UpdateData(
                     schema=schema,
-                    data=assignments,
+                    data=DataInput(data=assignments),
                     query=where,
                 )
             ]
@@ -439,7 +439,7 @@ class SqlOxideParser(SqlParserBase):
             mutations=[
                 InsertData(
                     schema=SchemaReference(name=table_name, version=Version.LATEST),
-                    data=[Data(data=row, metadata=None) for row in data_rows],
+                    data=[DataInput(data=row, metadata=None) for row in data_rows],
                 )
             ]
         )

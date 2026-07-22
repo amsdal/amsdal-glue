@@ -7,6 +7,8 @@ from datetime import date
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from collections.abc import Iterable
+from collections.abc import Sequence
 from typing import Any
 from typing import TYPE_CHECKING
 
@@ -16,9 +18,9 @@ from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -26,14 +28,9 @@ from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.data_models.types import CustomType
 from amsdal_glue_core.common.data_models.types import DecimalType
-from amsdal_glue_core.common.enums import BuiltinIndexType
-from amsdal_glue_core.common.enums import OrderDirection
-from amsdal_glue_core.common.enums import ReferentialAction
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
-from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
-from amsdal_glue_core.common.exceptions import UniqueViolationError
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.interfaces.connection import ConnectionBase
 from amsdal_glue_core.common.operations.commands import LockCommand
@@ -55,12 +52,16 @@ from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 
 from amsdal_glue_connections._sql_core import SqlGenerator
-from amsdal_glue_connections.sql.connections.sqlite_connection.base import _REGISTRY_VIEW_SQL
+from amsdal_glue_connections.sql.connections.base_view_introspection import SchemaAssemblyMixin
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
-from amsdal_glue_connections.sql.parsers.conditions import parse_conditions
+from amsdal_glue_connections.sql.parsers.conditions import try_parse_conditions
 from amsdal_glue_connections.sql.parsers.default import parse_sqlite_default
 from amsdal_glue_connections.sql.parsers.default import parser as _default_parser
 from amsdal_glue_connections.sql.parsers.default import sqlite_mapper as _sqlite_mapper
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
@@ -68,14 +69,6 @@ if TYPE_CHECKING:
     from amsdal_glue_core.common.expressions.expression import Expression
 
 logger = logging.getLogger(__name__)
-
-_REFERENTIAL_ACTION_MAP: dict[str, ReferentialAction] = {
-    'NO ACTION': ReferentialAction.NO_ACTION,
-    'RESTRICT': ReferentialAction.RESTRICT,
-    'CASCADE': ReferentialAction.CASCADE,
-    'SET NULL': ReferentialAction.SET_NULL,
-    'SET DEFAULT': ReferentialAction.SET_DEFAULT,
-}
 
 # ---------------------------------------------------------------------------
 # SQLite type mapping
@@ -104,6 +97,7 @@ _SQLITE_TYPE_MAP: dict[str, ScalarType] = {
     'date': ScalarType.DATE,
     'time': ScalarType.TIME,
     'timestamp': ScalarType.TIMESTAMP,
+    'timestamptz': ScalarType.TIMESTAMPTZ,
     'datetime': ScalarType.TIMESTAMP,
     'blob': ScalarType.BYTEA,
     'json': ScalarType.JSON,
@@ -211,8 +205,10 @@ def _get_check_constraints(table_ddl: str) -> list[CheckConstraint]:
         re.IGNORECASE,
     ):
         name = match.group(1)
-        condition = parse_conditions(match.group(2).strip())
-        constraints.append(CheckConstraint(name=name, condition=condition))
+        # An unparseable CHECK predicate degrades to ``condition=None`` rather than aborting the
+        # whole schema introspection.
+        condition = try_parse_conditions(match.group(2).strip())
+        constraints.append(CheckConstraint(name=name, condition=condition))  # type: ignore[arg-type]
     return constraints
 
 
@@ -265,7 +261,200 @@ def _get_unique_constraints(
     return constraints
 
 
-class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
+# Canonical registry column projections, in the fixed order the assembly path expects. They mirror
+# the columns exposed by the SQLite registry views (see ``_REGISTRY_VIEW_SQL`` in ``base.py``).
+_PROPERTY_COLUMNS = [
+    'table_name',
+    'name',
+    'type',
+    'is_nullable',
+    'column_default',
+    'ordinal_position',
+]
+_INDEX_COLUMNS = ['table_name', 'name', 'is_unique', 'column_name', 'ordinal_position', 'is_descending', 'index_type']
+_CONSTRAINT_COLUMNS = [
+    'table_name',
+    'name',
+    'type',
+    'column_name',
+    'ordinal_position',
+    'ref_table',
+    'ref_column',
+    'on_update',
+    'on_delete',
+]
+
+
+# `SQLITE_MAX_VARIABLE_NUMBER` defaults to 999 on older SQLite builds (newer builds raise it to
+# 32766, but we cannot rely on that at runtime). `_run_registry`'s IN-list binds one parameter per
+# name, so 400 stays comfortably under 999. `_batch_ddls` binds `names` twice (once for the table
+# match, once for the index match), so it chunks at the same 400 -- 2 * 400 = 800 < 999.
+_SQLITE_MAX_IN = 400
+
+
+def _parse_index_condition(index_ddl: str | None) -> 'Conditions | None':
+    """Extract a partial-index ``WHERE`` clause from an index's ``CREATE INDEX`` DDL, if any."""
+    if not index_ddl:
+        return None
+
+    match = re.search(r'\bWHERE\s+(.+)$', index_ddl, re.IGNORECASE)
+    if match is None:
+        return None
+
+    # A partial-index WHERE that the parser cannot represent degrades to ``None`` (the index is still
+    # reported, just without its predicate) rather than aborting the whole schema introspection.
+    return try_parse_conditions(match.group(1).strip())
+
+
+class SqliteSchemaAssemblyMixin(SchemaAssemblyMixin):
+    """SQLite row -> `Schema` reconstruction shared by the sync and async connections.
+
+    The pure (no-I/O) SQLite specialisation of `SchemaAssemblyMixin`: the type/default hooks and the
+    property/constraint/index assembly, including the DDL-text overlays (real constraint names,
+    AUTOINCREMENT identity, ``COLLATE``, generated expressions, partial-index ``WHERE``) that SQLite's
+    catalog cannot express. Both `SqliteConnection` and `AsyncSqliteConnection` mix it in, so this
+    logic is defined once. The DDL text itself is fetched by each connection's own `_batch_ddls`.
+    """
+
+    def _type_to_field_type(self, row: dict[str, Any]) -> ScalarType | CustomType | DecimalType:
+        """`SchemaAssemblyMixin` hook: map a SQLite property row's declared type to a `FieldType`."""
+        return _sqlite_type_to_field_type(row['type'])
+
+    def _parse_default_expression(self, raw: str | None, field_type: Any) -> 'Expression | None':
+        """`SchemaAssemblyMixin` hook: parse a raw SQLite DEFAULT/GENERATED literal to an `Expression`."""
+        return parse_sqlite_default(raw, field_type)
+
+    def _assemble_properties(self, rows: list[dict[str, Any]], table_ddl: str) -> list[PropertySchema]:
+        """Shared property core plus the SQLite DDL-only overlays SQLite exposes no catalog for.
+
+        `identity` (AUTOINCREMENT PK), `generated` (``GENERATED ALWAYS AS (...)``) and `db_collation`
+        (``COLLATE``) are unreadable from the registry views (they are ``NULL`` there), so they are
+        parsed out of the table DDL and layered on top of `_assemble_property_core`.
+        """
+        has_autoincrement = 'AUTOINCREMENT' in table_ddl.upper()
+        autoincrement_pk_col = _find_autoincrement_pk_col(table_ddl) if has_autoincrement else None
+        generated_exprs = _parse_generated_expressions(table_ddl)
+        collations = _parse_collations(table_ddl)
+
+        properties: list[PropertySchema] = []
+        for row in rows:
+            prop = self._assemble_property_core(row)
+            if row['name'] == autoincrement_pk_col:
+                prop.identity = True
+            if row['name'] in generated_exprs:
+                prop.generated = generated_exprs[row['name']]
+            if row['name'] in collations:
+                prop.db_collation = collations[row['name']]
+            properties.append(prop)
+        return properties
+
+    def _assemble_constraints(
+        self, table_name: str, table_ddl: str, constraint_rows: list[dict[str, Any]]
+    ) -> list[BaseConstraint]:
+        """Shared PK/FK core with SQLite DDL overlays for real names, plus UNIQUE + CHECK from DDL.
+
+        The registry views synthesise PK/FK/UNIQUE names (``pk_<t>`` / ``fk_<t>_<id>`` / index name);
+        the real declared names live only in the table DDL, so PK and FK names are swapped in from
+        there. The synthetic UNIQUE constraints are dropped in favour of the DDL-parsed UNIQUE
+        constraints (real names), and CHECK constraints -- which have no catalog at all -- are
+        appended straight from the DDL.
+        """
+        core = self._assemble_constraints_core(constraint_rows)
+
+        constraints: list[BaseConstraint] = []
+        for constraint in core:
+            if isinstance(constraint, PrimaryKeyConstraint):
+                constraints.append(
+                    PrimaryKeyConstraint(name=_parse_pk_name(table_ddl, table_name), fields=constraint.fields),
+                )
+            elif isinstance(constraint, ForeignKeyConstraint):
+                fk_name = _parse_fk_name(table_ddl, constraint.fields[0]) or constraint.name
+                constraints.append(
+                    ForeignKeyConstraint(
+                        name=fk_name,
+                        fields=constraint.fields,
+                        reference_schema=constraint.reference_schema,
+                        reference_fields=constraint.reference_fields,
+                        on_update=constraint.on_update,
+                        on_delete=constraint.on_delete,
+                    ),
+                )
+            elif isinstance(constraint, UniqueConstraint):
+                continue  # SQLite takes UNIQUE constraints from the DDL below (real names).
+
+        constraints.extend(_get_unique_constraints(table_name, table_ddl, constraints))
+        constraints.extend(_get_check_constraints(table_ddl))
+        return constraints
+
+    def _assemble_indexes_with_conditions(
+        self, rows: list[dict[str, Any]], index_ddls: dict[str, str]
+    ) -> list[IndexSchema]:
+        """Shared index assembly plus the SQLite partial-index ``WHERE`` overlay from the DDL."""
+        indexes = self._assemble_indexes(rows)
+        for index in indexes:
+            condition = _parse_index_condition(index_ddls.get(index.name))
+            if condition is not None:
+                index.condition = condition
+        return indexes
+
+    @staticmethod
+    def _batch_ddls_query(chunk: list[str]) -> str:
+        """Build the ``sqlite_master`` DDL-read statement for one chunk (bound twice: table + index)."""
+        placeholders = ', '.join('?' for _ in chunk)
+        return (
+            'SELECT type, name, tbl_name, sql FROM sqlite_master '  # noqa: S608
+            f"WHERE (type='table' AND name IN ({placeholders})) "
+            f"OR (type='index' AND tbl_name IN ({placeholders}))"
+        )
+
+    @staticmethod
+    def _collect_ddl_rows(
+        rows: Iterable[Sequence[Any]], table_ddls: dict[str, str], index_ddls: dict[str, str]
+    ) -> None:
+        """Split ``sqlite_master`` rows into the table- and index-DDL maps (shared by sync + async)."""
+        for row_type, name, _tbl_name, sql_text in rows:
+            target = table_ddls if row_type == 'table' else index_ddls
+            target[name] = sql_text or ''
+
+    def _build_schemas(
+        self,
+        table_names: list[str],
+        properties_by_table: dict[str, list[dict[str, Any]]],
+        constraints_by_table: dict[str, list[dict[str, Any]]],
+        indexes_by_table: dict[str, list[dict[str, Any]]],
+        table_ddls: dict[str, str],
+        index_ddls: dict[str, str],
+    ) -> list[Schema]:
+        """Pure (no-I/O) assembly of the grouped registry rows + DDL overlays into ``Schema`` objects.
+
+        Identical for the sync and async connections, so it lives here and each variant calls it
+        after its own (awaited or not) registry / DDL fetches.
+        """
+        schemas: list[Schema] = []
+        for table_name in table_names:
+            table_property_rows = sorted(properties_by_table.get(table_name, []), key=lambda r: r['ordinal_position'])
+            if not table_property_rows:
+                continue
+
+            table_ddl = table_ddls.get(table_name, '')
+            schemas.append(
+                Schema(
+                    name=table_name,
+                    version=Version.LATEST,
+                    properties=self._assemble_properties(table_property_rows, table_ddl),
+                    constraints=self._assemble_constraints(
+                        table_name, table_ddl, constraints_by_table.get(table_name, [])
+                    )
+                    or None,
+                    indexes=self._assemble_indexes_with_conditions(indexes_by_table.get(table_name, []), index_ddls)
+                    or None,
+                ),
+            )
+
+        return schemas
+
+
+class SqliteConnection(SqliteSchemaAssemblyMixin, SqliteConnectionMixin, ConnectionBase):
     """
     SqliteConnection is responsible for managing connections and executing queries and commands on a SQLite database.
 
@@ -291,6 +480,10 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         Most of the time, you will use the [ConnectionManager][amsdal_glue.ConnectionManager]
         to manage connections instead of creating a connection directly.
     """
+
+    # `SchemaAssemblyMixin._run_registry` hook: chunk IN-lists at `_SQLITE_MAX_IN` (see comment on
+    # that constant above) instead of issuing one unbounded `IN (...)` for every matched table.
+    _MAX_IN_PARAMS = _SQLITE_MAX_IN
 
     def __init__(self) -> None:
         self._connection: sqlite3.Connection | None = None
@@ -362,6 +555,10 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
         sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
+        # A TIMESTAMPTZ-declared column stores a datetime the same way TIMESTAMP does; register the
+        # converter under its declared-type name too so read-back re-hydrates a Python datetime
+        # (``fromisoformat`` restores the tzinfo offset) instead of leaving it a raw ISO string.
+        sqlite3.register_converter('TIMESTAMPTZ', lambda val: datetime.fromisoformat(val.decode()))
         # DECIMAL_TEXT is the TEXT-affinity SQLite rendering of DecimalType; re-hydrate the stored
         # decimal string back into an exact Decimal so glue returns a typed value, not a str.
         sqlite3.register_converter('DECIMAL_TEXT', lambda val: Decimal(val.decode()))
@@ -433,208 +630,64 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         ref_name = query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
 
         resolved = copy(query)
-        resolved.only = [FieldReference(field=Field(name='name'), table_name=ref_name)]
+        resolved.only = [FieldReference(field=Field(name='table_name'), table_name=ref_name)]
 
         sql, params = self._generator.compile_query(resolved)
         cursor = self.execute(sql, *params)
         rows = cursor.fetchall()
         cursor.close()
 
-        seen: set[str] = set()
-        table_names: list[str] = []
-        for (name,) in rows:
-            if name not in seen:
-                seen.add(name)
-                table_names.append(name)
+        table_names = self._dedupe_names(rows)
 
-        schemas: list[Schema] = []
-        for table_name in table_names:
-            table_ddl = self._get_table_ddl(table_name)
-            properties = self._introspect_columns(table_name, table_ddl)
-            if not properties:
-                continue
+        if not table_names:
+            return []
 
-            constraints = self._introspect_constraints(table_name, table_ddl)
-            indexes = self._introspect_indexes(table_name)
+        # One bound registry query per catalog aspect plus one batched DDL read -- a constant,
+        # small number of statements regardless of how many tables match (no per-table PRAGMA
+        # N+1). Beyond `_SQLITE_MAX_IN` tables, `_run_registry`/`_batch_ddls` transparently chunk
+        # the IN-list to stay under SQLite's bound-parameter ceiling, so the statement count grows
+        # with table count only past that threshold, never per table.
+        property_rows = self._run_registry(TABLE_PROPERTY_REGISTRY, _PROPERTY_COLUMNS, table_names)
+        index_rows = self._run_registry(TABLE_INDEX_REGISTRY, _INDEX_COLUMNS, table_names)
+        constraint_rows = self._run_registry(TABLE_CONSTRAINT_REGISTRY, _CONSTRAINT_COLUMNS, table_names)
+        table_ddls, index_ddls = self._batch_ddls(table_names)
 
-            schemas.append(
-                Schema(
-                    name=table_name,
-                    version=Version.LATEST,
-                    properties=properties,
-                    constraints=constraints or None,
-                    indexes=indexes or None,
-                ),
-            )
+        return self._build_schemas(
+            table_names,
+            self._group(property_rows),
+            self._group(constraint_rows),
+            self._group(index_rows),
+            table_ddls,
+            index_ddls,
+        )
 
-        return schemas
+    def _batch_ddls(self, names: list[str]) -> tuple[dict[str, str], dict[str, str]]:
+        """Read every table and index DDL for `names` from ``sqlite_master``.
+
+        Returns ``(table_ddl_by_name, index_ddl_by_name)`` -- the table DDL feeds the constraint /
+        property overlays (real constraint names, AUTOINCREMENT, COLLATE, generated expressions) and
+        the index DDL feeds the partial-index ``WHERE`` overlay.
+
+        `names` is bound twice per query (once for the table match, once for the index match), so
+        this chunks at `_SQLITE_MAX_IN` -- 2 * 400 = 800 bound params per statement, comfortably
+        under `SQLITE_MAX_VARIABLE_NUMBER`'s lowest observed default of 999 -- merging the per-chunk
+        dicts instead of issuing one unbounded query for every matched table.
+        """
+        table_ddls: dict[str, str] = {}
+        index_ddls: dict[str, str] = {}
+        for start in range(0, len(names), _SQLITE_MAX_IN):
+            chunk = names[start : start + _SQLITE_MAX_IN]
+            cursor = self.execute(self._batch_ddls_query(chunk), *chunk, *chunk)
+            self._collect_ddl_rows(cursor.fetchall(), table_ddls, index_ddls)
+            cursor.close()
+        return table_ddls, index_ddls
 
     def _ensure_schema_views(self) -> None:
         # The view DDL is idempotent (CREATE ... IF NOT EXISTS), so it is re-issued on every call
         # rather than gated by a per-object flag that would go stale across disconnect()/connect()
         # cycles (temporary views are per-connection, so a reconnect must recreate them).
-        for sql in _REGISTRY_VIEW_SQL.values():
+        for sql in self._REGISTRY_VIEW_SQL.values():
             self.execute(sql)
-
-    def _get_table_ddl(self, table_name: str) -> str:
-        cursor = self.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
-            table_name,
-        )
-        row = cursor.fetchone()
-        cursor.close()
-        return row[0] if row else ''
-
-    def _introspect_columns(self, table_name: str, table_ddl: str) -> list[PropertySchema]:
-        cursor = self.execute(f'PRAGMA table_xinfo("{table_name}")')
-        rows = cursor.fetchall()
-        cursor.close()
-
-        has_autoincrement = 'AUTOINCREMENT' in table_ddl.upper()
-        pk_col = _find_autoincrement_pk_col(table_ddl) if has_autoincrement else None
-        generated_exprs = _parse_generated_expressions(table_ddl)
-        collations = _parse_collations(table_ddl)
-
-        properties: list[PropertySchema] = []
-        for _cid, col_name, col_type, notnull, dflt, _pk, _hidden in rows:
-            field_type = _sqlite_type_to_field_type(col_type)
-            default = parse_sqlite_default(dflt, field_type)
-            identity: bool | None = True if col_name == pk_col else None
-
-            properties.append(
-                PropertySchema(
-                    name=col_name,
-                    type=field_type,
-                    required=bool(notnull),
-                    default=default,
-                    identity=identity,
-                    generated=generated_exprs.get(col_name),
-                    db_collation=collations.get(col_name),
-                ),
-            )
-
-        return properties
-
-    def _get_pk_fields(self, table_name: str) -> list[str]:
-        cursor = self.execute(f'PRAGMA table_info("{table_name}")')
-        rows = cursor.fetchall()
-        cursor.close()
-
-        pk_cols: list[tuple[int, str]] = []
-        for _cid, col_name, _col_type, _notnull, _dflt, pk_idx in rows:
-            if pk_idx > 0:
-                pk_cols.append((pk_idx, col_name))
-
-        pk_cols.sort()
-        return [name for _, name in pk_cols]
-
-    def _get_fk_constraints(self, table_name: str, table_sql: str) -> list[ForeignKeyConstraint]:
-        cursor = self.execute(f'PRAGMA foreign_key_list("{table_name}")')
-        rows = cursor.fetchall()
-        cursor.close()
-
-        if not rows:
-            return []
-
-        fk_groups: dict[int, dict[str, Any]] = {}
-        for fk_id, _seq, ref_table, from_col, to_col, on_update, on_delete, _match in rows:
-            if fk_id not in fk_groups:
-                fk_groups[fk_id] = {
-                    'ref_table': ref_table,
-                    'fields': [],
-                    'ref_fields': [],
-                    'on_update': on_update,
-                    'on_delete': on_delete,
-                }
-            fk_groups[fk_id]['fields'].append(from_col)
-            fk_groups[fk_id]['ref_fields'].append(to_col)
-
-        constraints: list[ForeignKeyConstraint] = []
-        for fk_id, group in fk_groups.items():
-            primary_field = group['fields'][0]
-            fk_name = _parse_fk_name(table_sql, primary_field)
-            if not fk_name:
-                fk_name = f'fk_{table_name}_{fk_id}'
-
-            constraints.append(
-                ForeignKeyConstraint(
-                    name=fk_name,
-                    fields=group['fields'],
-                    reference_schema=SchemaReference(name=group['ref_table'], version=Version.LATEST),
-                    reference_fields=group['ref_fields'],
-                    on_update=_REFERENTIAL_ACTION_MAP.get(group['on_update'], ReferentialAction.NO_ACTION),
-                    on_delete=_REFERENTIAL_ACTION_MAP.get(group['on_delete'], ReferentialAction.NO_ACTION),
-                ),
-            )
-
-        return constraints
-
-    def _introspect_constraints(self, table_name: str, table_ddl: str) -> list[BaseConstraint]:
-        constraints: list[BaseConstraint] = []
-
-        pk_fields = self._get_pk_fields(table_name)
-        if pk_fields:
-            constraints.append(PrimaryKeyConstraint(name=_parse_pk_name(table_ddl, table_name), fields=pk_fields))
-
-        constraints.extend(self._get_fk_constraints(table_name, table_ddl))
-        constraints.extend(_get_unique_constraints(table_name, table_ddl, constraints))
-        constraints.extend(_get_check_constraints(table_ddl))
-
-        return constraints
-
-    def _introspect_indexes(self, table_name: str) -> list[IndexSchema]:
-        cursor = self.execute(f'PRAGMA index_list("{table_name}")')
-        idx_rows = cursor.fetchall()
-        cursor.close()
-
-        indexes: list[IndexSchema] = []
-        for _seq, idx_name, is_unique, origin, _partial in idx_rows:
-            if origin in ('u', 'pk'):
-                continue
-
-            cursor = self.execute(f'PRAGMA index_xinfo("{idx_name}")')
-            info_rows = cursor.fetchall()
-            cursor.close()
-
-            idx_fields = [
-                IndexField(
-                    name=row[2],
-                    direction=OrderDirection.DESC if row[3] else OrderDirection.ASC,
-                )
-                for row in info_rows
-                if row[2] is not None  # skip internal rowid column
-            ]
-
-            condition = self._parse_index_condition(idx_name)
-
-            indexes.append(
-                IndexSchema(
-                    name=idx_name,
-                    fields=idx_fields,
-                    unique=bool(is_unique),
-                    index_type=BuiltinIndexType.BTREE,
-                    condition=condition,
-                ),
-            )
-
-        return indexes
-
-    def _parse_index_condition(self, idx_name: str) -> 'Conditions | None':
-        cursor = self.execute(
-            "SELECT sql FROM sqlite_master WHERE type='index' AND name=?",
-            idx_name,
-        )
-        row = cursor.fetchone()
-        cursor.close()
-        if row is None or row[0] is None:
-            return None
-
-        ddl = row[0]
-        match = re.search(r'\bWHERE\s+(.+)$', ddl, re.IGNORECASE)
-        if match is None:
-            return None
-
-        return parse_conditions(match.group(1).strip())
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -696,6 +749,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
             ConnectionError: If there is an error executing the query.
         """
         cursor = self.connection.cursor()
+        args = bind_params(args)
 
         try:
             if self.debug_queries:
@@ -704,10 +758,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
 
             cursor.execute(query, args)
         except sqlite3.IntegrityError as exc:
-            if 'UNIQUE constraint failed' in str(exc):
-                raise UniqueViolationError(str(exc)) from exc
-            if 'FOREIGN KEY constraint failed' in str(exc):
-                raise ForeignKeyViolationError(str(exc)) from exc
+            self._map_integrity_error(exc)
             msg = f'Error executing SQL: {query} with args: {args}. Exception: {exc}'
             raise ConnectionError(msg) from exc
         except sqlite3.Error as exc:
@@ -720,9 +771,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         """
         Acquires a lock on the SQLite database.
 
-        Deliberate divergence from the Rust ``compile_lock_command`` path: SQLite does not
-        support ``LOCK TABLE`` syntax.  We keep the existing ``BEGIN EXCLUSIVE`` hack instead.
-        TODO spec §3.5 — revisit whether SQLite should raise ``NotImplementedError`` (source parity).
+        SQLite has no ``LOCK TABLE`` syntax, so ``EXCLUSIVE`` mode uses ``BEGIN EXCLUSIVE`` instead.
 
         Args:
             lock (LockCommand): The lock command.
@@ -739,8 +788,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         """
         Releases a lock on the SQLite database.
 
-        Deliberate divergence from the Rust ``compile_lock_command`` path — mirrors ``acquire_lock``.
-        TODO spec §3.5.
+        Mirrors ``acquire_lock``: ``EXCLUSIVE`` mode commits the ``BEGIN EXCLUSIVE`` transaction.
 
         Args:
             lock (LockCommand): The lock command.
@@ -811,11 +859,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         Returns:
             Any: The result of the transaction revert.
         """
-        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            self.connection.execute(f"ROLLBACK TO SAVEPOINT '{transaction.parent_transaction_id}'")
-        else:
-            self.connection.execute('ROLLBACK')
-        return True
+        return self.rollback_transaction(transaction)
 
     def _run_schema_mutation(self, mutation: SchemaMutation) -> Schema | None:
         if isinstance(mutation, UpdateProperty):
@@ -858,14 +902,16 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         copy_stmt, copy_params = self._generator.compile_mutation(
             UpdateData(
                 schema=ref,
-                data={
-                    new_uuid: FieldReferenceExpression(
-                        field_reference=FieldReference(
-                            field=Field(name=mutation.property.name),
-                            table_name=ref.name,
+                data=DataInput(
+                    data={
+                        new_uuid: FieldReferenceExpression(
+                            field_reference=FieldReference(
+                                field=Field(name=mutation.property.name),
+                                table_name=ref.name,
+                            )
                         )
-                    )
-                },
+                    },
+                ),
             )
         )
         self.execute(copy_stmt, *copy_params)
@@ -897,9 +943,7 @@ class SqliteConnection(SqliteConnectionMixin, ConnectionBase):
         for schema in all_schemas:
             schema_namespace = schema.namespace
             if schema.name == table_name and (
-                (namespace is None and (schema_namespace is None or schema_namespace == ''))
-                or (namespace == '' and (schema_namespace is None or schema_namespace == ''))
-                or (namespace == schema_namespace)
+                (not namespace and not schema_namespace) or namespace == schema_namespace
             ):
                 current_schema = schema
                 break

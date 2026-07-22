@@ -7,8 +7,8 @@ from pytest_mock import MockerFixture
 
 from amsdal_glue import AsyncSqliteConnection
 from amsdal_glue import Container
-from amsdal_glue import Data
 from amsdal_glue import DataCommand
+from amsdal_glue import DataInput
 from amsdal_glue import DataQueryOperation
 from amsdal_glue import DefaultAsyncConnectionPool
 from amsdal_glue import Field
@@ -105,8 +105,8 @@ async def test_data_command(lakehouse_app: AsyncLakehouseApplication) -> None:
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'id': '1', 'name': 'Alice'}),
-                        Data(data={'id': '2', 'name': 'Bob'}),
+                        DataInput(data={'id': '1', 'name': 'Alice'}),
+                        DataInput(data={'id': '2', 'name': 'Bob'}),
                     ],
                 ),
             ],
@@ -139,8 +139,8 @@ async def test_data_query(lakehouse_app: AsyncLakehouseApplication, mocker: Mock
                 InsertData(
                     schema=SchemaReference(name='customers', version=Version.LATEST),
                     data=[
-                        Data(data={'id': '1', 'name': 'Alice'}),
-                        Data(data={'id': '2', 'name': 'Bob'}),
+                        DataInput(data={'id': '1', 'name': 'Alice'}),
+                        DataInput(data={'id': '2', 'name': 'Bob'}),
                     ],
                 ),
             ],

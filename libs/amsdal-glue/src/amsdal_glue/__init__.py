@@ -20,6 +20,7 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.cte import CommonTableExpression
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.distinct import DistinctClause
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
@@ -52,6 +53,7 @@ from amsdal_glue_core.common.enums import LockParameter
 from amsdal_glue_core.common.enums import LockScope
 from amsdal_glue_core.common.enums import LockStrength
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import SetOperationType
 from amsdal_glue_core.common.enums import TransactionAction
 from amsdal_glue_core.common.enums import Version
@@ -127,6 +129,7 @@ __all__ = [
     'Count',
     'CsvConnection',
     'Data',
+    'DataInput',
     'DataCommand',
     'DataQueryOperation',
     'DataQueryService',
@@ -175,6 +178,7 @@ __all__ = [
     'Min',
     'OrderByQuery',
     'OrderDirection',
+    'ScalarType',
     'PostgresConnection',
     'PrimaryKeyConstraint',
     'PropertySchema',

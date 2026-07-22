@@ -9,7 +9,7 @@ from amsdal_glue_core.common.operations.commands import LockCommand
 
 
 class LockCommandNodeExecutor:
-    """Executes a grouped lock command (Approach A — one task per connection group).
+    """Executes a grouped lock command (one task per connection group).
 
     Resolves the connection from the group's homogeneous references:
     - ``SchemaReference`` group → existing ``resolve_connection`` (schema routing).

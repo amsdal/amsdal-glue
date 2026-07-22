@@ -35,14 +35,11 @@ _FLOAT_FAMILY: frozenset[ScalarType] = frozenset({
     ScalarType.DOUBLE,
 })
 
-_TEXT_FAMILY: frozenset[ScalarType] = frozenset({
-    ScalarType.TEXT,
-})
-
 _DATETIME_FAMILY: frozenset[ScalarType] = frozenset({
     ScalarType.TIMESTAMP,
     ScalarType.TIMESTAMPTZ,
 })
+
 
 def coerce_to_field_type(value: Any, field_type: Any) -> Any:
     """Coerce *value* to the native Python type that corresponds to *field_type*.
@@ -62,11 +59,7 @@ def coerce_to_field_type(value: Any, field_type: Any) -> Any:
 
     # Inline imports to guarantee no circular-import cycle with value.py.
     from amsdal_glue_core.common.data_models.types import ArrayType
-    from amsdal_glue_core.common.data_models.types import CustomType
     from amsdal_glue_core.common.data_models.types import DecimalType
-    from amsdal_glue_core.common.data_models.types import DictType
-    from amsdal_glue_core.common.data_models.types import NestedType
-    from amsdal_glue_core.common.data_models.types import VectorType
 
     if isinstance(field_type, ScalarType):
         return _coerce_scalar(value, field_type)
@@ -77,12 +70,17 @@ def coerce_to_field_type(value: Any, field_type: Any) -> Any:
         raise ValueError(msg)
     if isinstance(field_type, DecimalType):
         return _coerce_decimal(value)
-    if isinstance(field_type, (CustomType, NestedType, DictType, VectorType)):
-        return value
+    # CustomType / NestedType / DictType / VectorType and anything else pass through unchanged.
     return value
 
 
 def _coerce_scalar(value: Any, scalar_type: ScalarType) -> Any:  # noqa: C901, PLR0911
+    # A list/tuple under a NON-JSON scalar type is an ``IN (...)`` collection: each element is a value
+    # of that scalar type. Coerce per element, keeping it a list so the generator expands it into
+    # ``IN (?, ?, ...)`` -- coercing the whole list would stringify it into one bad parameter. JSON/JSONB
+    # are excluded: there a list is a single JSON array value, compared as a whole.
+    if isinstance(value, (list, tuple)) and scalar_type not in (ScalarType.JSON, ScalarType.JSONB):
+        return [_coerce_scalar(item, scalar_type) for item in value]
     if scalar_type in _INTEGER_FAMILY:
         return _coerce_int(value)
     if scalar_type in _FLOAT_FAMILY:
@@ -91,7 +89,7 @@ def _coerce_scalar(value: Any, scalar_type: ScalarType) -> Any:  # noqa: C901, P
         return _coerce_decimal(value)
     if scalar_type == ScalarType.BOOLEAN:
         return _coerce_bool(value)
-    if scalar_type in _TEXT_FAMILY:
+    if scalar_type == ScalarType.TEXT:
         return str(value)
     if scalar_type == ScalarType.UUID:
         return _coerce_uuid(value)

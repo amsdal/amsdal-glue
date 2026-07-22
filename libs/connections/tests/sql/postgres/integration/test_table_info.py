@@ -50,7 +50,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
         Schema(
             name='orders',
             version=Version.LATEST,
-            namespace='public',
+            namespace=None,
             properties=[
                 PropertySchema(name='id', type=ScalarType.SERIAL, required=True, description=None, default=None),
                 PropertySchema(
@@ -83,7 +83,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
         Schema(
             name='customers',
             version=Version.LATEST,
-            namespace='public',
+            namespace=None,
             properties=[
                 PropertySchema(name='id', type=ScalarType.SERIAL, required=True, description=None, default=None),
                 PropertySchema(name='name', type=ScalarType.TEXT, required=False, description=None, default=None),
@@ -95,7 +95,7 @@ def test_simple_table_info(database_connection: PostgresConnection) -> None:
         Schema(
             name='orders',
             version=Version.LATEST,
-            namespace='public',
+            namespace=None,
             properties=[
                 PropertySchema(name='id', type=ScalarType.SERIAL, required=True, description=None, default=None),
                 PropertySchema(

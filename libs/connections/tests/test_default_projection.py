@@ -1,13 +1,10 @@
 """Default SELECT projection: bare `*` vs qualified `<table>.*` with joins.
 
-Re-baselined for Rust SqlGenerator.
-
-SUSPICIOUS: The old Python builder qualified `*` as `'Table'.*` when there were
-JOINs (to prevent column-name pollution from joined tables).  The Rust generator
-always emits bare `SELECT *` regardless of whether JOINs are present.  Tests that
-previously asserted `SELECT 'Company'.*` now assert `SELECT *`.
-This is a semantic change: `SELECT *` on a multi-table JOIN returns columns from
-ALL joined tables, not just the primary table.  Flag for review.
+A default projection (`only=None`) over a query WITH joins must qualify the star to the base
+table/subquery (`SELECT "Company".*`), not emit a bare `SELECT *`. A bare star expands to every
+joined table's columns, so tables sharing a column name (e.g. `partition_key`) yield a duplicated
+result column that the downstream executor rejects. With no joins, or when the base alias is empty,
+the bare `SELECT *` is kept. An explicit `only=` is never touched.
 """
 
 from amsdal_glue_connections._sql_core import SqlGenerator
@@ -52,8 +49,6 @@ def test_only_none_no_joins_keeps_plain_asterisk() -> None:
 
 
 def test_only_none_with_join_qualifies_to_base_table_name() -> None:
-    # SUSPICIOUS: old builder emitted SELECT 'Company'.* to restrict to the primary
-    # table; Rust emits SELECT * (all columns from all joined tables).
     query = QueryStatement(
         only=None,
         table=SchemaReference(name='Company'),
@@ -68,11 +63,10 @@ def test_only_none_with_join_qualifies_to_base_table_name() -> None:
 
     sql, _ = _lite.compile_query(query)
 
-    assert sql.startswith('SELECT * ')
+    assert sql.startswith('SELECT "Company".* ')
 
 
 def test_only_none_with_join_qualifies_to_base_table_alias_when_set() -> None:
-    # SUSPICIOUS: old builder emitted SELECT 'c'.*; Rust emits SELECT *.
     query = QueryStatement(
         only=None,
         table=SchemaReference(name='Company', alias='c'),
@@ -87,11 +81,10 @@ def test_only_none_with_join_qualifies_to_base_table_alias_when_set() -> None:
 
     sql, _ = _lite.compile_query(query)
 
-    assert sql.startswith('SELECT * ')
+    assert sql.startswith('SELECT "c".* ')
 
 
 def test_subquery_from_with_join_qualifies_to_subquery_alias() -> None:
-    # SUSPICIOUS: old builder emitted SELECT 'c'.*; Rust emits SELECT *.
     inner = QueryStatement(table=SchemaReference(name='Company'))
     query = QueryStatement(
         only=None,
@@ -107,12 +100,12 @@ def test_subquery_from_with_join_qualifies_to_subquery_alias() -> None:
 
     sql, _ = _lite.compile_query(query)
 
-    assert sql.startswith('SELECT * ')
+    assert sql.startswith('SELECT "c".* ')
 
 
 def test_explicit_only_unchanged_regression() -> None:
     """Explicit `only=` is not touched by the new default-projection logic."""
-    # Re-baselined: double-quoted identifiers.
+    # Double-quoted identifiers.
     query = QueryStatement(
         only=[FieldReference(field=Field(name='name'), table_name='Company')],
         table=SchemaReference(name='Company'),
@@ -154,7 +147,7 @@ def test_subquery_from_empty_alias_falls_back_to_plain_asterisk() -> None:
 
 def test_only_field_reference_aliased_unchanged() -> None:
     """Aliased projection survives unchanged."""
-    # Re-baselined: double-quoted identifiers.
+    # Double-quoted identifiers.
     query = QueryStatement(
         only=[FieldReferenceAliased(field=Field(name='name'), table_name='Company', alias='company_name')],
         table=SchemaReference(name='Company'),

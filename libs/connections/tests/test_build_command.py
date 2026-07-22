@@ -1,7 +1,7 @@
 from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -21,13 +21,13 @@ def test_build_data_command__insert() -> None:
         InsertData(
             schema=SchemaReference(name='users', version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={
                         'id': 1,
                         'name': 'Alice',
                     },
                 ),
-                Data(
+                DataInput(
                     data={
                         'id': 2,
                         'name': 'Bob',
@@ -37,7 +37,7 @@ def test_build_data_command__insert() -> None:
         ),
     )
 
-    # Re-baselined: SQLite identifiers use ANSI double-quotes (was single-quotes).
+    # SQLite identifiers use ANSI double-quotes.
     assert sql == 'INSERT INTO "users" ("id", "name") VALUES (?, ?), (?, ?)'
     assert values == [1, 'Alice', 2, 'Bob']
 
@@ -47,13 +47,13 @@ def test_build_data_command_with_namespace__insert() -> None:
         InsertData(
             schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={
                         'id': 1,
                         'name': 'Alice',
                     },
                 ),
-                Data(
+                DataInput(
                     data={
                         'id': 2,
                         'name': 'Bob',
@@ -63,17 +63,17 @@ def test_build_data_command_with_namespace__insert() -> None:
         ),
     )
 
-    # Re-baselined: double-quotes for identifiers.
+    # Double-quotes for identifiers.
     assert sql == 'INSERT INTO "ns1"."users" ("id", "name") VALUES (?, ?), (?, ?)'
     assert values == [1, 'Alice', 2, 'Bob']
 
 
 def test_build_data_command__update() -> None:
-    # UpdateData.data is now dict[str, Expression], not a Data object.
+    # UpdateData.data is a DataInput: a row of expressions on the way IN.
     sql, values = _gen.compile_mutation(
         UpdateData(
             schema=SchemaReference(name='users', version=Version.LATEST),
-            data={'role': Value('staff')},
+            data=DataInput(data={'role': Value('staff')}),
             query=Conditions(
                 Condition(
                     left=FieldReferenceExpression(
@@ -86,7 +86,7 @@ def test_build_data_command__update() -> None:
         ),
     )
 
-    # Re-baselined: double-quotes; EXACT now emits = (was IS) — known different-but-valid.
+    # Double-quoted identifiers; EXACT emits = (not IS).
     assert sql == 'UPDATE "users" SET "role" = ? WHERE "users"."is_active" = ?'
     assert values == ['staff', True]
 
@@ -95,7 +95,7 @@ def test_build_data_command_with_namespace__update() -> None:
     sql, values = _gen.compile_mutation(
         UpdateData(
             schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
-            data={'role': Value('staff')},
+            data=DataInput(data={'role': Value('staff')}),
             query=Conditions(
                 Condition(
                     left=FieldReferenceExpression(
@@ -116,7 +116,7 @@ def test_build_data_command_with_namespaces__update() -> None:
     sql, values = _gen.compile_mutation(
         UpdateData(
             schema=SchemaReference(name='users', namespace='ns1', version=Version.LATEST),
-            data={'role': Value('staff')},
+            data=DataInput(data={'role': Value('staff')}),
             query=Conditions(
                 Condition(
                     left=FieldReferenceExpression(

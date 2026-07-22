@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -64,8 +64,8 @@ def test_decimal_round_trips_exactly(database_connection: SqliteConnection) -> N
         InsertData(
             schema=schema_ref,
             data=[
-                Data(data={'id': 1, 'amount': Decimal('0.10')}),
-                Data(data={'id': 2, 'amount': Decimal('1234567.99')}),
+                DataInput(data={'id': 1, 'amount': Decimal('0.10')}),
+                DataInput(data={'id': 2, 'amount': Decimal('1234567.99')}),
             ],
         ),
     ])

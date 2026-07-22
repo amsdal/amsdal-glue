@@ -1,5 +1,6 @@
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -14,10 +15,10 @@ from ._harness import pg_cmd
 
 
 def test_update_with_where_sqlite() -> None:
-    # Construction: UpdateData.data is now dict[str, Expression] (was Data object)
+    # Construction: UpdateData.data is a DataInput (a row of expressions on the way IN)
     m = UpdateData(
         schema=SchemaReference(name='users', version=Version.LATEST),
-        data={'role': Value(value='staff')},
+        data=DataInput(data={'role': Value(value='staff')}),
         query=Conditions(
             Condition(
                 left=FieldReferenceExpression(
@@ -28,25 +29,25 @@ def test_update_with_where_sqlite() -> None:
             ),
         ),
     )
-    # Re-baselined: double-quoted identifiers; EXACT bool now uses = instead of IS — DIFFERENT-BUT-VALID
+    # Double-quoted identifiers; EXACT bool uses = instead of IS.
     assert lite_cmd(m) == ('UPDATE "users" SET "role" = ? WHERE "users"."is_active" = ?', ['staff', True])
 
 
 def test_update_without_where_sqlite() -> None:
-    # Construction: UpdateData.data is now dict[str, Expression] (was Data object)
+    # Construction: UpdateData.data is a DataInput (a row of expressions on the way IN)
     m = UpdateData(
         schema=SchemaReference(name='users', version=Version.LATEST),
-        data={'role': Value(value='staff')},
+        data=DataInput(data={'role': Value(value='staff')}),
     )
-    # Re-baselined: double-quoted identifiers — DIFFERENT-BUT-VALID
+    # Double-quoted identifiers.
     assert lite_cmd(m) == ('UPDATE "users" SET "role" = ?', ['staff'])
 
 
 def test_update_with_where_pg() -> None:
-    # Construction: UpdateData.data is now dict[str, Expression] (was Data object)
+    # Construction: UpdateData.data is a DataInput (a row of expressions on the way IN)
     m = UpdateData(
         schema=SchemaReference(name='users', version=Version.LATEST),
-        data={'role': Value(value='staff')},
+        data=DataInput(data={'role': Value(value='staff')}),
         query=Conditions(
             Condition(
                 left=FieldReferenceExpression(
@@ -57,14 +58,14 @@ def test_update_with_where_pg() -> None:
             ),
         ),
     )
-    # Re-baselined: EXACT bool now uses = instead of IS — DIFFERENT-BUT-VALID (Rust fix)
+    # EXACT bool uses = instead of IS.
     assert pg_cmd(m) == ('UPDATE "users" SET "role" = %s WHERE "users"."is_active" = %s', ['staff', True])
 
 
 def test_update_without_where_pg() -> None:
-    # Construction: UpdateData.data is now dict[str, Expression] (was Data object)
+    # Construction: UpdateData.data is a DataInput (a row of expressions on the way IN)
     m = UpdateData(
         schema=SchemaReference(name='users', version=Version.LATEST),
-        data={'role': Value(value='staff')},
+        data=DataInput(data={'role': Value(value='staff')}),
     )
     assert pg_cmd(m) == ('UPDATE "users" SET "role" = %s', ['staff'])

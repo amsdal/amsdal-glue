@@ -10,7 +10,7 @@ query a computed column). The ``executemany`` batching path
 from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
@@ -66,9 +66,9 @@ def _setup(connection: PostgresConnection) -> None:
             ]
         )
     )
-    connection.run_mutations(
-        [InsertData(schema=_nums_ref(), data=[Data(data={'id': i, 'a': a, 'b': b, 'r': 0}) for i, a, b in _ROWS])]
-    )
+    connection.run_mutations([
+        InsertData(schema=_nums_ref(), data=[DataInput(data={'id': i, 'a': a, 'b': b, 'r': 0}) for i, a, b in _ROWS])
+    ])
 
 
 def _query(expr, alias: str) -> QueryStatement:
@@ -110,7 +110,7 @@ def test_bitwise_xor_executemany_updates_live_rows(database_connection: Postgres
 
     mutation = UpdateManyData(
         schema=_nums_ref(),
-        items=[UpdateItem(data={'r': Value(a) ^ Value(b)}, query=_id_eq(i)) for i, a, b in _ROWS],
+        items=[UpdateItem(data=DataInput(data={'r': Value(a) ^ Value(b)}), query=_id_eq(i)) for i, a, b in _ROWS],
     )
     grouped = mutation.compile_grouped(_GEN)
     assert len(grouped) == 1

@@ -1,6 +1,7 @@
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -20,7 +21,7 @@ def simple_customer_insert(database_connection: CsvConnection, namespace: str | 
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
@@ -37,7 +38,7 @@ def insert_customers_and_orders(
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
@@ -45,7 +46,7 @@ def insert_customers_and_orders(
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace_1, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '2', 'name': 'customer', 'age': 25},
                 )
             ],
@@ -53,7 +54,7 @@ def insert_customers_and_orders(
         InsertData(
             schema=SchemaReference(name='orders', namespace=namespace_2, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'customer_id': '1', 'amount': 100},
                 )
             ],
@@ -66,14 +67,14 @@ def update_two_customers(database_connection: CsvConnection, namespace: str | No
         InsertData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
             data=[
-                Data(
+                DataInput(
                     data={'id': '1', 'name': 'customer'},
                 )
             ],
         ),
         UpdateData(
             schema=SchemaReference(name='customers', namespace=namespace, version=Version.LATEST),
-            data={'name': Value(value='new_customer')},
+            data=DataInput(data={'name': Value(value='new_customer')}),
         ),
     ])
 

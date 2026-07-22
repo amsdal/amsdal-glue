@@ -1,5 +1,6 @@
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.from_values import FromValues
@@ -17,11 +18,13 @@ from ._harness import pg_cmd
 def test_update_with_from_values_pg() -> None:
     mutation = UpdateData(
         schema=SchemaReference(name='orders', version=Version.LATEST),
-        data={
-            'user_id': FieldReferenceExpression(
-                field_reference=FieldReference(field=Field(name='id'), table_name='_cascade_parent'),
-            ),
-        },
+        data=DataInput(
+            data={
+                'user_id': FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='_cascade_parent'),
+                ),
+            },
+        ),
         query=Conditions(
             Condition(
                 left=FieldReferenceExpression(
@@ -60,11 +63,13 @@ def test_update_with_from_values_pg() -> None:
 def test_update_with_from_values_sqlite() -> None:
     mutation = UpdateData(
         schema=SchemaReference(name='orders', version=Version.LATEST),
-        data={
-            'user_id': FieldReferenceExpression(
-                field_reference=FieldReference(field=Field(name='id'), table_name='_cascade_parent'),
-            ),
-        },
+        data=DataInput(
+            data={
+                'user_id': FieldReferenceExpression(
+                    field_reference=FieldReference(field=Field(name='id'), table_name='_cascade_parent'),
+                ),
+            },
+        ),
         query=Conditions(
             Condition(
                 left=FieldReferenceExpression(

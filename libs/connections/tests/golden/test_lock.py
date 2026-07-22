@@ -1,14 +1,14 @@
 # libs/connections/tests/golden/test_lock.py
-"""Golden-master tests for the lock SQL path (post Rust migration — C-Lock).
+"""Tests for the lock SQL path.
 
-The connection ``acquire_lock``/``release_lock`` now take a ``LockCommand`` and render through the
-Rust ``compile_lock_command``:
+The connection ``acquire_lock``/``release_lock`` take a ``LockCommand`` and render through
+``compile_lock_command``:
 
 - **Postgres (sync + async)** — a table lock (``LockReference(reference=SchemaReference)``) renders
   ``LOCK TABLE "<name>" IN <EXCLUSIVE|SHARE> MODE``. Release of a TRANSACTION-scope lock is a no-op
-  (the lock auto-releases at COMMIT/ROLLBACK; the Rust generator raises ``UnsupportedFeatureError``
+  (the lock auto-releases at COMMIT/ROLLBACK; the generator raises ``UnsupportedFeatureError``
   for such a release, which the connection treats as a no-op).
-- **SQLite** — keeps the ``BEGIN EXCLUSIVE`` hack (deliberate divergence, spec §3.5). It calls the raw
+- **SQLite** — uses the ``BEGIN EXCLUSIVE`` hack. It calls the raw
   ``sqlite3.Connection`` directly, so the recording harness (no live DB) raises ``ConnectionError``
   for the EXCLUSIVE branch — kept as ``xfail(strict=True)``. SHARED is a no-op.
 
@@ -27,6 +27,7 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.commands import LockCommand
 from amsdal_glue_core.common.operations.commands import LockReference
 
+from ._harness import lite_async_record
 from ._harness import lite_record
 from ._harness import pg_async_record
 from ._harness import pg_record
@@ -79,7 +80,7 @@ def test_pg_release_lock_shared_raises() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SQLite sync — BEGIN EXCLUSIVE hack (spec §3.5)
+# SQLite sync — BEGIN EXCLUSIVE hack
 # ---------------------------------------------------------------------------
 
 
@@ -141,4 +142,34 @@ async def test_pg_async_release_lock_raises() -> None:
     conn = pg_async_record()
     with pytest.raises(UnsupportedFeatureError):
         await conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
+    assert conn.captured == []
+
+
+# ---------------------------------------------------------------------------
+# SQLite async — acquire_lock / release_lock are no-ops
+#
+# This documents a DELIBERATE sync-vs-async divergence: the sync SQLite connection issues
+# ``BEGIN EXCLUSIVE`` for an EXCLUSIVE acquire (see test_lite_acquire_lock_exclusive_xfail — it
+# touches the raw sqlite3 connection), whereas the async connection issues NOTHING and simply
+# returns True. ``BEGIN EXCLUSIVE`` is not attempted on the async path because it does not serialize
+# reliably when a single aiosqlite connection is shared across async contexts.
+#
+# Consequence (not asserted here, but see aio_sqlite/test_lock_execute.py::test_lock): concurrent
+# async writers are NOT serialized by acquire_lock the way the sync path serializes them. These
+# tests pin the CURRENT no-op behavior so any future change to async SQLite locking is deliberate.
+# ---------------------------------------------------------------------------
+
+
+async def test_lite_async_acquire_lock_exclusive_is_noop() -> None:
+    conn = lite_async_record()
+    result = await conn.acquire_lock(_lock(LockMode.EXCLUSIVE, LockAction.ACQUIRE))
+    assert result is True
+    # No BEGIN EXCLUSIVE (nor any other statement) is emitted — unlike the sync connection.
+    assert conn.captured == []
+
+
+async def test_lite_async_release_lock_exclusive_is_noop() -> None:
+    conn = lite_async_record()
+    result = await conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
+    assert result is True
     assert conn.captured == []

@@ -13,7 +13,7 @@ from amsdal_glue_core.commands.planner.data_command_planner import DataCommandPl
 from amsdal_glue_core.commands.planner.schema_command_planner import SchemaCommandPlanner
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
@@ -136,13 +136,13 @@ def _register_default_connection() -> Generator[None, None, None]:
                     InsertData(
                         schema=SchemaReference(name='vector_schema', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={'vector': '[1,2,3]', 'id': 1},
                             ),
-                            Data(
+                            DataInput(
                                 data={'vector': Vector(values=[4, 5, 6]), 'id': 2},
                             ),
-                            Data(
+                            DataInput(
                                 data={'vector': Vector(values=[7, 8, 9]), 'id': 3},
                             ),
                         ],
@@ -150,13 +150,13 @@ def _register_default_connection() -> Generator[None, None, None]:
                     InsertData(
                         schema=SchemaReference(name='binary_vector_schema', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={'vector': Vector(values=[1, 2]), 'id': 1},
                             ),
-                            Data(
+                            DataInput(
                                 data={'vector': Vector(values=[4, 5]), 'id': 2},
                             ),
-                            Data(
+                            DataInput(
                                 data={'vector': Vector(values=[7, 8]), 'id': 3},
                             ),
                         ],

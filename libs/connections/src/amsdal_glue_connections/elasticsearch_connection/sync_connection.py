@@ -235,12 +235,12 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=index_name,
                 body={'mappings': {'dynamic': True}},
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
 
         results = []
         for data in mutation.data:
-            doc_data = data.data.copy()  # Make a copy to avoid modifying original
+            doc_data = data.literals()
             # Transform vector data for Elasticsearch
             doc_data = self._transform_vector_data(doc_data)
             # Use 'id' field as document ID if present, otherwise let ES auto-generate
@@ -265,7 +265,7 @@ class ElasticsearchConnection(ConnectionBase):
         Executes an update mutation on Elasticsearch.
         """
         index_name = self._build_index(mutation.schema.name)
-        doc_data: dict[str, Any] = {k: (v.value if isinstance(v, Value) else v) for k, v in mutation.data.items()}
+        doc_data: dict[str, Any] = mutation.data.literals()
 
         # For updates, we need to specify which document to update
         # If 'id' is in the data, use it as the document ID
@@ -388,7 +388,7 @@ class ElasticsearchConnection(ConnectionBase):
             source_fields = [field_ref.field.name for field_ref in query.only]
             es_query['_source'] = source_fields
 
-        # Skip ES sorting for now, always use Python sorting to avoid fielddata issues
+        # Use Python sorting instead of ES sorting to avoid fielddata issues
         es_sort_applied = False
 
         # Set size limit
@@ -590,8 +590,7 @@ class ElasticsearchConnection(ConnectionBase):
 
     def _evaluate_conditions_on_data(self, data: dict, conditions: Conditions) -> bool:  # noqa: C901, PLR0912
         """Evaluate conditions against a data dictionary."""
-        # For now, implement basic condition evaluation
-        # This is a simplified version - in a full implementation you'd handle all condition types
+        # Simplified condition evaluation covering the common condition types
         result = True
         for child in conditions.children:
             # Handle nested Conditions recursively
@@ -733,7 +732,7 @@ class ElasticsearchConnection(ConnectionBase):
         # Build query for main table
         main_query: dict[str, Any] = {'query': {'match_all': {}}}
 
-        # For now, don't apply WHERE conditions to main table - we'll filter after joins
+        # WHERE conditions are applied after joins rather than to the main table query
         # TODO: Optimize by applying WHERE conditions that only involve main table columns
 
         main_query['size'] = 1000  # type: ignore[assignment]
@@ -1668,7 +1667,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=new_full,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
 
             # Reindex documents from old to new
@@ -1769,7 +1768,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=tmp_index,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
 
             # Reindex all docs from original to temp
@@ -1784,7 +1783,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=full,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
             self.connection.reindex(
                 body={'source': {'index': tmp_index}, 'dest': {'index': full}},
@@ -1843,7 +1842,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=tmp_index,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
 
             # Determine if a conversion script is needed
@@ -1897,7 +1896,7 @@ class ElasticsearchConnection(ConnectionBase):
             self.connection.indices.create(
                 index=full,
                 body=create_body,
-                wait_for_active_shards='all' if self.instant_refresh else None,
+                wait_for_active_shards=1,
             )
             self.connection.reindex(
                 body={'source': {'index': tmp_index}, 'dest': {'index': full}},

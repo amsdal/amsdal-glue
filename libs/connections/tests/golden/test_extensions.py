@@ -1,5 +1,5 @@
 # libs/connections/tests/golden/test_extensions.py
-"""Golden-master tests for CREATE/DROP EXTENSION and CREATE/DROP COLLATION DDL paths.
+"""Tests for CREATE/DROP EXTENSION and CREATE/DROP COLLATION DDL paths.
 
 Covers: CREATE EXTENSION with IF NOT EXISTS, schema, version, cascade;
 DROP EXTENSION with IF EXISTS and cascade; CREATE COLLATION with locale,

@@ -8,14 +8,9 @@ from amsdal_glue_core.common.data_models.constraints import BaseConstraint
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import ExclusionConstraint
 from amsdal_glue_core.common.data_models.constraints import ExclusionElement
-from amsdal_glue_core.common.data_models.constraints import ForeignKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
-from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
-from amsdal_glue_core.common.data_models.indexes import IndexField
-from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import IdentityConfig
 from amsdal_glue_core.common.data_models.schema import PropertySchema
@@ -25,9 +20,6 @@ from amsdal_glue_core.common.data_models.types import ArrayType
 from amsdal_glue_core.common.data_models.types import CustomType
 from amsdal_glue_core.common.data_models.types import DecimalType
 from amsdal_glue_core.common.data_models.types import VectorType
-from amsdal_glue_core.common.enums import BuiltinIndexType
-from amsdal_glue_core.common.enums import OrderDirection
-from amsdal_glue_core.common.enums import ReferentialAction
 from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.exceptions import AmsdalGlueError
@@ -42,34 +34,23 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 from amsdal_glue_core.common.operations.mutations.schema import SchemaMutation
 
 from amsdal_glue_connections._sql_core import SqlGenerator
-from amsdal_glue_connections.sql.connections.postgres_connection.base import build_registry_view_sql
+from amsdal_glue_connections.sql.connections.base_view_introspection import SchemaAssemblyMixin
+from amsdal_glue_connections.sql.connections.postgres_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
-from amsdal_glue_connections.sql.parsers.conditions import parse_conditions
+from amsdal_glue_connections.sql.parsers.conditions import try_parse_conditions
 from amsdal_glue_connections.sql.parsers.default import parse_pg_default
-from amsdal_glue_connections.sql.parsers.default import parser as _default_parser
-from amsdal_glue_connections.sql.parsers.default import pg_mapper as _pg_mapper
+from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
+from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
 if TYPE_CHECKING:
     from amsdal_glue_core.common.data_models.conditions import Conditions
+    from amsdal_glue_core.common.data_models.indexes import IndexSchema
+    from amsdal_glue_core.common.data_models.types import FieldType
+    from amsdal_glue_core.common.expressions.expression import Expression
 
 logger = logging.getLogger(__name__)
-
-_REFERENTIAL_ACTION_MAP: dict[str, ReferentialAction] = {
-    'a': ReferentialAction.NO_ACTION,
-    'r': ReferentialAction.RESTRICT,
-    'c': ReferentialAction.CASCADE,
-    'n': ReferentialAction.SET_NULL,
-    'd': ReferentialAction.SET_DEFAULT,
-}
-
-_INDEX_TYPE_MAP: dict[str, BuiltinIndexType] = {
-    'btree': BuiltinIndexType.BTREE,
-    'hash': BuiltinIndexType.HASH,
-    'gin': BuiltinIndexType.GIN,
-    'gist': BuiltinIndexType.GIST,
-    'brin': BuiltinIndexType.BRIN,
-}
 
 
 def _parse_exclusion_def(condef: str) -> tuple[list[ExclusionElement], str]:
@@ -115,7 +96,8 @@ def _parse_check_condition(condef: str) -> 'Conditions | None':
     if match is None:
         return None
 
-    return parse_conditions(match.group(1).strip())
+    # An unparseable CHECK predicate degrades to ``None`` rather than aborting schema introspection.
+    return try_parse_conditions(match.group(1).strip())
 
 
 _PG_TYPE_MAP: dict[str, ScalarType] = {
@@ -171,28 +153,58 @@ _SERIAL_TYPE_MAP: dict[str, ScalarType] = {
     'bigint': ScalarType.BIGSERIAL,
 }
 
-
-def _pg_type_to_field_type(
-    type_name: str,
-    numeric_precision: int | None = None,
-    numeric_scale: int | None = None,
-) -> ScalarType | CustomType | ArrayType | VectorType | DecimalType:
-    if type_name.startswith('_') or type_name.endswith('[]'):
-        base = type_name.lstrip('_').rstrip('[]')
-        item_type = _PG_TYPE_MAP.get(base, CustomType(name=base))
-        return ArrayType(item_type=item_type)
-
-    if type_name == 'vector':
-        return VectorType(dimensions=0)
-
-    if type_name in ('numeric', 'decimal') and numeric_precision is not None:
-        return DecimalType(precision=numeric_precision, scale=numeric_scale)
-
-    scalar = _PG_TYPE_MAP.get(type_name)
-    if scalar is not None:
-        return scalar
-
-    return CustomType(name=type_name)
+# Canonical registry column projections plus the Postgres-only extras needed to reconstruct a
+# `Schema` fully from the views: serial/identity sequence params (``seq_*``), the authoritative
+# ``format_type`` modifiers, index INCLUDE / operator-class, and the constraint definition text
+# (``def``). ``format_type`` carries every modifier ``information_schema`` drops (array element
+# precision/scale) or never exposes (pgvector dimensions), so no separate base-type/precision
+# columns are needed to resolve a column's ``FieldType``.
+_PROPERTY_COLUMNS = [
+    'table_name',
+    'name',
+    'type',
+    'is_nullable',
+    'column_default',
+    'ordinal_position',
+    'is_generated',
+    'collation',
+    'generation_expression',
+    'is_identity',
+    'identity_generation',
+    'is_generated_raw',
+    'is_identity_raw',
+    'format_type',
+    'seq_start',
+    'seq_increment',
+    'seq_min',
+    'seq_max',
+    'seq_cycle',
+    'seq_cache',
+]
+_INDEX_COLUMNS = [
+    'table_name',
+    'name',
+    'is_unique',
+    'column_name',
+    'ordinal_position',
+    'is_descending',
+    'index_type',
+    'is_included',
+    'op_class',
+    'index_predicate',
+]
+_CONSTRAINT_COLUMNS = [
+    'table_name',
+    'name',
+    'type',
+    'column_name',
+    'ordinal_position',
+    'ref_table',
+    'ref_column',
+    'on_update',
+    'on_delete',
+    'def',
+]
 
 
 def parse_pg_type(type_str: str) -> ScalarType | CustomType | ArrayType | VectorType | DecimalType:
@@ -260,7 +272,159 @@ def _resolve_identity(
     return None
 
 
-class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
+class PostgresSchemaAssemblyMixin(SchemaAssemblyMixin):
+    """Postgres row -> `Schema` reconstruction shared by the sync and async connections.
+
+    The pure (no-I/O) Postgres specialisation of `SchemaAssemblyMixin`: the type/default hooks and the
+    property/constraint assembly. Both `PostgresConnection` and `AsyncPostgresConnection` mix it in, so
+    this logic is defined once.
+    """
+
+    # Set by the concrete connection classes (``PostgresConnection`` / ``AsyncPostgresConnection``);
+    # declared here so this shared mixin can read the active search-path schema. Annotation only -- no
+    # runtime assignment, so instances are unaffected.
+    _schema: str
+
+    def _type_to_field_type(self, row: dict[str, Any]) -> 'FieldType':
+        """``SchemaAssemblyMixin`` hook: resolve a Postgres property row to a ``FieldType``.
+
+        ``format_type`` is the authoritative source -- it carries the real modifiers
+        ``information_schema`` drops (array element precision/scale) or never exposes (pgvector
+        dimensions), and the property view always populates it (an inner join on ``pg_attribute``),
+        so it resolves every column including ARRAY / USER-DEFINED. SERIAL columns are handled by the
+        caller (`_assemble_property`), which detects them before falling back to this hook.
+        """
+        return parse_pg_type(row['format_type'])
+
+    def _parse_default_expression(self, raw: str | None, field_type: 'FieldType | None') -> 'Expression | None':  # noqa: ARG002
+        """``SchemaAssemblyMixin`` hook: parse a raw Postgres DEFAULT / GENERATED expression.
+
+        ``nextval(...)`` serial defaults resolve to ``None`` (the identity is modelled by the SERIAL
+        type instead); everything else is mapped through the shared Postgres expression mapper.
+        """
+        return parse_pg_default(raw)
+
+    def _assemble_property(self, row: dict[str, Any]) -> PropertySchema:
+        """Postgres property assembly: field type, identity, default/generated and sequence params.
+
+        Kept Postgres-local rather than reusing ``_assemble_property_core`` because SERIAL detection
+        governs both the field type and whether the ``nextval(...)`` default is dropped, and because
+        identity columns are enriched with their sequence parameters from the view's ``seq_*`` columns
+        -- neither fits the dialect-neutral core without detecting SERIAL a second time.
+        """
+        serial_type = _detect_serial(row['type'], row['column_default'])
+        field_type = serial_type if serial_type is not None else self._type_to_field_type(row)
+        identity = (
+            _resolve_identity(row['is_identity_raw'], row['identity_generation']) if serial_type is None else None
+        )
+        default = self._parse_default_expression(row['column_default'], field_type) if serial_type is None else None
+        generated = (
+            self._parse_default_expression(row['generation_expression'], field_type)
+            if row['is_generated_raw'] == 'ALWAYS'
+            else None
+        )
+
+        prop = PropertySchema(
+            name=row['name'],
+            type=field_type,
+            identity=identity,
+            required=row['is_nullable'] == 'NO',
+            default=default,
+            generated=generated,
+            db_collation=row['collation'],
+        )
+
+        if isinstance(prop.identity, IdentityConfig) and row['seq_start'] is not None:
+            prop.identity.start = int(row['seq_start'])
+            prop.identity.increment = int(row['seq_increment']) if row['seq_increment'] is not None else None
+            prop.identity.min_value = int(row['seq_min']) if row['seq_min'] is not None else None
+            prop.identity.max_value = int(row['seq_max']) if row['seq_max'] is not None else None
+            prop.identity.cycle = bool(row['seq_cycle'])
+            prop.identity.cache = int(row['seq_cache']) if row['seq_cache'] is not None else None
+
+        return prop
+
+    def _assemble_constraints(self, constraint_rows: list[dict[str, Any]]) -> list[BaseConstraint]:
+        """Shared PK/FK/UNIQUE core plus Postgres CHECK (``type='c'``) and exclusion (``type='x'``).
+
+        CHECK and exclusion constraints are reconstructed from the ``pg_get_constraintdef`` text in the
+        registry view's ``def`` column (deduped by name), which the dialect-neutral core cannot express.
+        """
+        constraints: list[BaseConstraint] = self._assemble_constraints_core(constraint_rows)
+
+        seen: set[str] = set()
+        for row in constraint_rows:
+            if row['type'] not in ('c', 'x') or row['name'] in seen:
+                continue
+            seen.add(row['name'])
+            if row['type'] == 'c':
+                condition = _parse_check_condition(row['def'])
+                if condition is not None:
+                    constraints.append(CheckConstraint(name=row['name'], condition=condition))
+            else:
+                elements, index_method = _parse_exclusion_def(row['def'])
+                constraints.append(ExclusionConstraint(name=row['name'], elements=elements, index_method=index_method))
+
+        return constraints
+
+    def _assemble_indexes_with_conditions(self, rows: list[dict[str, Any]]) -> 'list[IndexSchema]':
+        """Shared index assembly plus the Postgres partial-index ``WHERE`` overlay from the catalog.
+
+        Mirrors SQLite's ``_assemble_indexes_with_conditions``: the ``index_predicate`` column carries
+        ``pg_get_expr(indpred, ...)`` (NULL for a non-partial index). A predicate the parser cannot
+        represent degrades to ``None`` (index reported without its condition) rather than aborting.
+        """
+        predicates: dict[str, str] = {}
+        for row in rows:
+            predicate = row.get('index_predicate')
+            if predicate:
+                predicates.setdefault(row['name'], predicate)
+
+        indexes = self._assemble_indexes(rows)
+        for index in indexes:
+            predicate = predicates.get(index.name)
+            if predicate is not None:
+                condition = try_parse_conditions(predicate)
+                if condition is not None:
+                    index.condition = condition
+        return indexes
+
+    def _build_schemas(
+        self,
+        table_names: list[str],
+        properties_by_table: dict[str, list[dict[str, Any]]],
+        constraints_by_table: dict[str, list[dict[str, Any]]],
+        indexes_by_table: dict[str, list[dict[str, Any]]],
+    ) -> list[Schema]:
+        """Pure (no-I/O) assembly of the grouped registry rows into ``Schema`` objects.
+
+        Identical for the sync and async connections, so it lives here and each variant calls it
+        after its own (awaited or not) registry fetches.
+        """
+        schemas: list[Schema] = []
+        for table_name in table_names:
+            table_property_rows = sorted(properties_by_table.get(table_name, []), key=lambda r: r['ordinal_position'])
+            if not table_property_rows:
+                continue
+
+            schemas.append(
+                Schema(
+                    name=table_name,
+                    version=Version.LATEST,
+                    # Introspection returns the canonical dialect-neutral ``None`` for the default schema
+                    # so it round-trips against registered schemas (which author ``None``); a genuinely
+                    # non-default schema (e.g. ``schema='foo'``) is preserved as-is.
+                    namespace=None if self._schema in (None, '', 'public') else self._schema,
+                    properties=[self._assemble_property(row) for row in table_property_rows],
+                    constraints=self._assemble_constraints(constraints_by_table.get(table_name, [])) or None,
+                    indexes=self._assemble_indexes_with_conditions(indexes_by_table.get(table_name, [])) or None,
+                ),
+            )
+
+        return schemas
+
+
+class PostgresConnection(PostgresSchemaAssemblyMixin, PostgresConnectionMixin, ConnectionBase):
     """
     PostgresConnection is responsible for managing connections and executing queries and commands on
     a PostgreSQL database.
@@ -455,269 +619,37 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         ref_name = query.table.alias or query.table.name if isinstance(query.table, SchemaReference) else TABLE_REGISTRY
 
         resolved = copy(query)
-        resolved.only = [FieldReference(field=Field(name='name'), table_name=ref_name)]
+        resolved.only = [FieldReference(field=Field(name='table_name'), table_name=ref_name)]
 
         sql, params = self._generator.compile_query(resolved)
         cursor = self.execute(sql, *params)
         rows = cursor.fetchall()
         cursor.close()
 
-        seen: set[str] = set()
-        table_names: list[str] = []
-        for (name,) in rows:
-            if name not in seen:
-                seen.add(name)
-                table_names.append(name)
+        table_names = self._dedupe_names(rows)
 
-        schemas: list[Schema] = []
-        for table_name in table_names:
-            properties = self._introspect_columns(table_name)
-            if not properties:
-                continue
+        if not table_names:
+            return []
 
-            constraints = self._introspect_constraints(table_name)
-            indexes = self._introspect_indexes(table_name)
+        # One bound registry query per catalog aspect -- a constant number of statements regardless
+        # of how many tables match. Every fact is reconstructed from the canonical views (no per-table
+        # ``information_schema`` / ``pg_get_serial_sequence`` reads), so there is no N+1 catalog storm.
+        property_rows = self._run_registry(TABLE_PROPERTY_REGISTRY, _PROPERTY_COLUMNS, table_names)
+        constraint_rows = self._run_registry(TABLE_CONSTRAINT_REGISTRY, _CONSTRAINT_COLUMNS, table_names)
+        index_rows = self._run_registry(TABLE_INDEX_REGISTRY, _INDEX_COLUMNS, table_names)
 
-            schemas.append(
-                Schema(
-                    name=table_name,
-                    version=Version.LATEST,
-                    namespace=self._schema,
-                    properties=properties,
-                    constraints=constraints or None,
-                    indexes=indexes or None,
-                ),
-            )
-
-        return schemas
+        return self._build_schemas(
+            table_names,
+            self._group(property_rows),
+            self._group(constraint_rows),
+            self._group(index_rows),
+        )
 
     def _ensure_schema_views(self) -> None:
         # The view DDL is idempotent (CREATE OR REPLACE), so it is re-issued on every call rather
         # than gated by a per-object flag that would go stale across disconnect()/connect() cycles.
-        for stmt in build_registry_view_sql(self._schema).values():
+        for stmt in self._build_registry_view_sql(self._schema).values():
             self.execute(stmt.as_string(self.connection))
-
-    def _introspect_columns(self, table_name: str) -> list[PropertySchema]:
-        sql = (
-            'SELECT c.column_name, c.data_type, c.udt_name, c.is_nullable, c.column_default, '
-            'c.is_identity, c.identity_generation, c.collation_name, c.generation_expression, c.is_generated, '
-            'c.numeric_precision, c.numeric_scale, '
-            '(SELECT format_type(a.atttypid, a.atttypmod) '
-            ' FROM pg_attribute a '
-            ' JOIN pg_class cl ON cl.oid = a.attrelid '
-            ' JOIN pg_namespace n ON n.oid = cl.relnamespace '
-            ' WHERE n.nspname = %s AND cl.relname = c.table_name '
-            '   AND a.attname = c.column_name AND a.attnum > 0 AND NOT a.attisdropped) AS format_type '
-            'FROM information_schema.columns c '
-            'WHERE c.table_name = %s AND c.table_schema = %s '
-            'ORDER BY c.ordinal_position'
-        )
-        cursor = self.execute(sql, self._schema, table_name, self._schema)
-        rows = cursor.fetchall()
-        cursor.close()
-
-        properties: list[PropertySchema] = []
-        for (
-            column_name,
-            data_type,
-            udt_name,
-            is_nullable,
-            column_default,
-            is_identity_col,
-            identity_generation,
-            collation_name,
-            generation_expression,
-            is_generated,
-            numeric_precision,
-            numeric_scale,
-            format_type_str,
-        ) in rows:
-            serial_type = _detect_serial(data_type, column_default)
-            identity = _resolve_identity(is_identity_col, identity_generation) if serial_type is None else None
-
-            if serial_type is not None:
-                field_type: ScalarType | CustomType | ArrayType | VectorType | DecimalType = serial_type
-            elif format_type_str is not None:
-                # format_type carries the real modifiers (vector dims, numeric precision/scale,
-                # array element modifiers), so it is the authoritative source for the type.
-                field_type = parse_pg_type(format_type_str)
-            elif data_type in ('ARRAY', 'USER-DEFINED'):
-                field_type = _pg_type_to_field_type(udt_name)
-            else:
-                field_type = _pg_type_to_field_type(data_type, numeric_precision, numeric_scale)
-
-            default = parse_pg_default(column_default) if serial_type is None else None
-            if is_generated == 'ALWAYS':
-                generated = _pg_mapper.map_node(_default_parser.parse(generation_expression))
-            else:
-                generated = None
-
-            properties.append(
-                PropertySchema(
-                    name=column_name,
-                    type=field_type,
-                    identity=identity,
-                    required=is_nullable == 'NO',
-                    default=default,
-                    generated=generated,
-                    db_collation=collation_name,
-                ),
-            )
-
-        self._enrich_identity_params(table_name, properties)
-        return properties
-
-    def _enrich_identity_params(self, table_name: str, properties: list[PropertySchema]) -> None:
-        identity_cols = [p for p in properties if p.identity is not None]
-        if not identity_cols:
-            return
-
-        for prop in identity_cols:
-            seq_name_sql = 'SELECT pg_get_serial_sequence(%s, %s)'
-            cursor = self.execute(seq_name_sql, table_name, prop.name)
-            row = cursor.fetchone()
-            cursor.close()
-            if row is None or row[0] is None:
-                continue
-
-            seq_qualified = row[0]
-            sql = (
-                'SELECT start_value, increment_by, min_value, max_value, cycle, cache_size '
-                'FROM pg_sequences '
-                "WHERE schemaname || '.' || sequencename = %s"
-            )
-            cursor = self.execute(sql, seq_qualified)
-            row = cursor.fetchone()
-            cursor.close()
-            if row is None:
-                continue
-
-            start, increment, min_value, max_value, cycle, cache = row
-            if not isinstance(prop.identity, IdentityConfig):  # pragma: no cover
-                continue
-            prop.identity.start = int(start) if start is not None else None
-            prop.identity.increment = int(increment) if increment is not None else None
-            prop.identity.min_value = int(min_value) if min_value is not None else None
-            prop.identity.max_value = int(max_value) if max_value is not None else None
-            prop.identity.cycle = bool(cycle)
-            prop.identity.cache = int(cache) if cache is not None else None
-
-    def _introspect_constraints(self, table_name: str) -> list[BaseConstraint]:
-        sql = (
-            'SELECT '
-            '  con.conname, con.contype, '
-            '  array_agg(att.attname ORDER BY u.pos) AS fields, '
-            '  con.confrelid::regclass::text AS ref_table, '
-            '  array_agg(ref_att.attname ORDER BY u.pos) FILTER (WHERE ref_att.attname IS NOT NULL) AS ref_fields, '
-            '  con.confupdtype, con.confdeltype, '
-            '  pg_get_constraintdef(con.oid) AS def, '
-            '  con.conexclop '
-            'FROM pg_constraint con '
-            'JOIN pg_class cls ON cls.oid = con.conrelid '
-            'JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace AND nsp.nspname = %s '
-            'CROSS JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS u(attnum, pos) '
-            'JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = u.attnum '
-            'LEFT JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS fk(attnum, pos) '
-            '  ON fk.pos = u.pos '
-            'LEFT JOIN pg_attribute ref_att '
-            '  ON ref_att.attrelid = con.confrelid AND ref_att.attnum = fk.attnum '
-            'WHERE cls.relname = %s '
-            'GROUP BY con.oid, con.conname, con.contype, con.confrelid, con.confupdtype, con.confdeltype, con.conexclop'
-        )
-        cursor = self.execute(sql, self._schema, table_name)
-        rows = cursor.fetchall()
-        cursor.close()
-
-        constraints: list[BaseConstraint] = []
-        for conname, contype, fields, ref_table, ref_fields, confupdtype, confdeltype, condef, _conexclop in rows:
-            if contype == 'p':
-                constraints.append(PrimaryKeyConstraint(name=conname, fields=list(fields)))
-            elif contype == 'u':
-                constraints.append(UniqueConstraint(name=conname, fields=list(fields)))
-            elif contype == 'f':
-                constraints.append(
-                    ForeignKeyConstraint(
-                        name=conname,
-                        fields=list(fields),
-                        reference_schema=SchemaReference(name=ref_table, version=Version.LATEST),
-                        reference_fields=list(ref_fields) if ref_fields else [],
-                        on_update=_REFERENTIAL_ACTION_MAP.get(confupdtype or 'a', ReferentialAction.NO_ACTION),
-                        on_delete=_REFERENTIAL_ACTION_MAP.get(confdeltype or 'a', ReferentialAction.NO_ACTION),
-                    ),
-                )
-            elif contype == 'c':
-                check_condition = _parse_check_condition(condef)
-                if check_condition is not None:
-                    constraints.append(CheckConstraint(name=conname, condition=check_condition))
-            elif contype == 'x':
-                elements, index_method = _parse_exclusion_def(condef)
-                constraints.append(ExclusionConstraint(name=conname, elements=elements, index_method=index_method))
-
-        return constraints
-
-    def _introspect_indexes(self, table_name: str) -> list[IndexSchema]:
-        sql = (
-            'SELECT '
-            '  ic.relname AS index_name, '
-            '  ix.indisunique, '
-            '  am.amname AS index_type, '
-            '  ix.indnkeyatts, '
-            '  array_agg(att.attname ORDER BY k.pos) AS fields, '
-            '  array_agg(CASE WHEN ix.indoption[k.pos - 1] & 1 = 1 THEN %s ELSE %s END ORDER BY k.pos) AS directions, '
-            '  array_agg(opc.opcname ORDER BY k.pos) AS opclasses, '
-            '  array_agg(COALESCE(opc.opcdefault, true) ORDER BY k.pos) AS opclass_defaults '
-            'FROM pg_index ix '
-            'JOIN pg_class tc ON tc.oid = ix.indrelid '
-            'JOIN pg_class ic ON ic.oid = ix.indexrelid '
-            'JOIN pg_am am ON am.oid = ic.relam '
-            'JOIN pg_namespace nsp ON nsp.oid = tc.relnamespace AND nsp.nspname = %s '
-            'CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, pos) '
-            'JOIN pg_attribute att ON att.attrelid = tc.oid AND att.attnum = k.attnum '
-            'LEFT JOIN pg_opclass opc ON opc.oid = ix.indclass[k.pos - 1] '
-            'WHERE tc.relname = %s '
-            '  AND NOT ix.indisprimary '
-            '  AND NOT EXISTS ('
-            '    SELECT 1 FROM pg_constraint con '
-            '    WHERE con.conindid = ix.indexrelid AND con.contype = %s'
-            '  ) '
-            'GROUP BY ic.relname, ix.indisunique, am.amname, ix.indnkeyatts'
-        )
-        cursor = self.execute(sql, 'DESC', 'ASC', self._schema, table_name, 'u')
-        rows = cursor.fetchall()
-        cursor.close()
-
-        indexes: list[IndexSchema] = []
-        for index_name, is_unique, index_type_name, n_key_atts, fields, directions, opclasses, opclass_defaults in rows:
-            idx_type = _INDEX_TYPE_MAP.get(index_type_name, BuiltinIndexType.BTREE)
-
-            key_fields = fields[:n_key_atts]
-            key_dirs = directions[:n_key_atts]
-            key_opclasses = opclasses[:n_key_atts]
-            key_opclass_defaults = opclass_defaults[:n_key_atts]
-            include_fields = fields[n_key_atts:]
-
-            idx_fields = [
-                IndexField(
-                    name=f,
-                    direction=OrderDirection.DESC if d == 'DESC' else OrderDirection.ASC,
-                    op_class=opc if not opc_default else None,
-                )
-                for f, d, opc, opc_default in zip(
-                    key_fields, key_dirs, key_opclasses, key_opclass_defaults, strict=True
-                )
-            ]
-
-            indexes.append(
-                IndexSchema(
-                    name=index_name,
-                    fields=idx_fields,
-                    unique=bool(is_unique),
-                    index_type=idx_type,
-                    include=list(include_fields) or None,
-                ),
-            )
-
-        return indexes
 
     def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
@@ -777,6 +709,8 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
             ConnectionError: If there is an error executing the query.
         """
         import psycopg
+
+        args = bind_params(args)
 
         try:
             if self.debug_queries:
@@ -888,12 +822,7 @@ class PostgresConnection(PostgresConnectionMixin, ConnectionBase):
         Returns:
             Any: The result of the transaction revert.
         """
-        if isinstance(transaction, TransactionCommand) and transaction.parent_transaction_id:
-            self.execute(f'ROLLBACK TO SAVEPOINT "{transaction.transaction_id}"')
-            return True
-
-        self.execute('ROLLBACK')
-        return True
+        return self.rollback_transaction(transaction)
 
     def _run_schema_mutation(self, migration: SchemaMutation) -> Schema | None:
         sql_params_list = self._generator.compile_schema_mutation(migration)

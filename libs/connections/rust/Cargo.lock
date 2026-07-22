@@ -25,10 +25,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "equivalent"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
+name = "hashbrown"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+
+[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
+name = "indexmap"
+version = "2.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
+dependencies = [
+ "equivalent",
+ "hashbrown",
+]
 
 [[package]]
 name = "indoc"
@@ -152,9 +174,9 @@ dependencies = [
 
 [[package]]
 name = "qcraft"
-version = "3.1.0"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7285ad1df4b810dd948c9d813ef40b6fb733255a21e5d1d12d03bc4edb728268"
+checksum = "326eaa15d6cd98d000d6b6672d0161d707c0f6fdc81ec768c54d71d645ad910f"
 dependencies = [
  "qcraft-core",
  "qcraft-postgres",
@@ -163,27 +185,27 @@ dependencies = [
 
 [[package]]
 name = "qcraft-core"
-version = "3.1.0"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7bd3d3339dea3d3871a8d0358ee59917e261f5764c0f3e850066865d1260075"
+checksum = "605b79add0050c086a95d440544553e97a68aa45f80aa68c81ae3d3e34e6b790"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "qcraft-postgres"
-version = "3.1.0"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbe205db59aca9b1993abe107029401c458c011cae3e56ca4dc54aca85265574"
+checksum = "1aeaea0c1f87a94633aff12d5137fb0a9dc2c1692d6970bc1bd6ba6810fbdda1"
 dependencies = [
  "qcraft-core",
 ]
 
 [[package]]
 name = "qcraft-sqlite"
-version = "3.1.0"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1871aa8dbaa39a8b0c85e6d2a1cfff33dbdc411fd87b99b7a38c5aa5b4c1549"
+checksum = "babad7ac857b8cdc6c55785138e45bff756106c45a8fd28b13b66ebb39986ae5"
 dependencies = [
  "qcraft-core",
 ]
@@ -238,6 +260,7 @@ version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
 dependencies = [
+ "indexmap",
  "itoa",
  "memchr",
  "serde",

@@ -1,5 +1,5 @@
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.operations.mutations.data import InsertData
@@ -58,15 +58,15 @@ async def test_delete(fixture_connection: AsyncPostgresConnection) -> None:
     await fixture_connection.run_mutations([
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': '1', 'name': 'customer'})],
+            data=[DataInput(data={'id': '1', 'name': 'customer'})],
         ),
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': '2', 'name': 'customer', 'age': 25})],
+            data=[DataInput(data={'id': '2', 'name': 'customer', 'age': 25})],
         ),
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
-            data=[Data(data={'id': '3', 'name': 'customer', 'age': 30})],
+            data=[DataInput(data={'id': '3', 'name': 'customer', 'age': 30})],
         ),
     ])
     assert await (await fixture_connection.execute('SELECT id, name, age FROM customers')).fetchall() == [

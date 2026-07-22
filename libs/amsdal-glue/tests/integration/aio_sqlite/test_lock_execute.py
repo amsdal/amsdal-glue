@@ -7,7 +7,7 @@ import pytest
 from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqliteConnection
 from amsdal_glue_core.commands.planner.data_command_planner import AsyncDataCommandPlanner
 from amsdal_glue_core.commands.planner.lock_command_planner import AsyncLockCommandPlanner
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import LockAction
 from amsdal_glue_core.common.enums import LockMode
@@ -80,7 +80,7 @@ async def test_lock(register_default_connection: None) -> None:  # noqa: ARG001
                     InsertData(
                         schema=SchemaReference(name='shippings', version=Version.LATEST),
                         data=[
-                            Data(
+                            DataInput(
                                 data={'id': '111', 'customer_id': '1', 'status': 'shipped'},
                             )
                         ],

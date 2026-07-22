@@ -214,7 +214,7 @@ def test_create_schema() -> None:
     # Verify index exists
     assert len(result_schema.indexes) > 0
     assert result_schema.indexes[0].name == 'idx_user_email'
-    assert result_schema.indexes[0].fields == ['first_name', 'last_name']
+    assert result_schema.indexes[0].fields == [IndexField(name='first_name'), IndexField(name='last_name')]
 
 
 def test_create_schema_complex_types() -> None:

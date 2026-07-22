@@ -1,7 +1,7 @@
 from collections.abc import Generator
 
 import pytest
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import SchemaReference
 from amsdal_glue_core.common.enums import JoinType
 from amsdal_glue_core.common.enums import Version
@@ -30,17 +30,17 @@ def fixture_connection(database_connection: ElasticsearchConnection) -> Generato
         InsertData(
             schema=SchemaReference(name='customers', version=Version.LATEST),
             data=[
-                Data(data={'id': '1', 'name': 'Alice', 'age': 25}),
-                Data(data={'id': '2', 'name': 'Bob', 'age': 25}),
-                Data(data={'id': '3', 'name': 'Charlie', 'age': 35}),
+                DataInput(data={'id': '1', 'name': 'Alice', 'age': 25}),
+                DataInput(data={'id': '2', 'name': 'Bob', 'age': 25}),
+                DataInput(data={'id': '3', 'name': 'Charlie', 'age': 35}),
             ],
         ),
         InsertData(
             schema=SchemaReference(name='orders', version=Version.LATEST),
             data=[
-                Data(data={'id': '1', 'customer_id': '1', 'amount': 100}),
-                Data(data={'id': '2', 'customer_id': '1', 'amount': 200}),
-                Data(data={'id': '3', 'customer_id': '2', 'amount': 400}),
+                DataInput(data={'id': '1', 'customer_id': '1', 'amount': 100}),
+                DataInput(data={'id': '2', 'customer_id': '1', 'amount': 200}),
+                DataInput(data={'id': '3', 'customer_id': '2', 'amount': 400}),
             ],
         ),
     ])

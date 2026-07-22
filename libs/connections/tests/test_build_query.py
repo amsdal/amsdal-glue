@@ -116,7 +116,7 @@ def test_build_sql_query_simple_with_namespace__only() -> None:
 
 def test_build_sql_query_simple__annotations() -> None:
     # §6: old annotations=[AnnotationQuery(...)] → only=[], expressions=[SelectExpression(...)].
-    # Re-baselined: LIMIT is parameterized (LIMIT %s, value in params).
+    # LIMIT is parameterized (LIMIT %s, value in params).
     sql, value = _gen.compile_query(
         query=QueryStatement(
             table=SchemaReference(name='users', version=Version.LATEST, alias='u'),
@@ -154,7 +154,7 @@ def test_build_sql_query_simple__annotations() -> None:
         '%s AS "custom_greeting" '
         'FROM "users" AS "u"'
     )
-    # Re-baselined: LIMIT 1 is now a param.
+    # LIMIT 1 is a param.
     assert value == [1, 100, 'hello']
 
 
@@ -299,9 +299,8 @@ def test_build_sql_query_simple__where() -> None:
         ),
     )
 
-    # Re-baselined:
-    #  - CONTAINS param uses % wildcards (was * in old builder).
-    #  - ISTARTSWITH uses native ILIKE (was LOWER(...) LIKE in old builder).
+    #  - CONTAINS param uses % wildcards.
+    #  - ISTARTSWITH uses native ILIKE.
     assert sql == (
         'SELECT * FROM "users" AS "u" WHERE ("u"."age" >= %s AND "u"."name" LIKE %s) OR '
         '("u"."age" >= %s AND "u"."email" ILIKE %s)'
@@ -334,9 +333,10 @@ def test_build_sql_query_simple__joins(join_type) -> None:
         ),
     )
 
-    # Re-baselined: only=None → SELECT * (was SELECT "u".* for join queries).
+    # A default projection over a join qualifies the star to the base alias to avoid column pollution.
     assert (
-        sql == f'SELECT * FROM "users" AS "u" {join_type.value} JOIN "user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'  # noqa: S608
+        sql
+        == f'SELECT "u".* FROM "users" AS "u" {join_type.value} JOIN "user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'  # noqa: S608
     )
     assert value == []
 
@@ -367,7 +367,7 @@ def test_build_sql_query_simple_with_namespace__joins(join_type) -> None:
     )
 
     assert sql == (
-        f'SELECT * FROM "ns1"."users" AS "u" {join_type.value} JOIN '  # noqa: S608
+        f'SELECT "u".* FROM "ns1"."users" AS "u" {join_type.value} JOIN '  # noqa: S608
         '"ns2"."user_roles" AS "ur" ON "ur"."user_id" = "u"."id"'
     )
     assert value == []
@@ -412,7 +412,7 @@ def test_build_sql_query_simple__limit() -> None:
         ),
     )
 
-    # Re-baselined: LIMIT/OFFSET are now parameterized (was inline literals).
+    # LIMIT/OFFSET are parameterized.
     assert sql == 'SELECT * FROM "users" AS "u" LIMIT %s OFFSET %s'
     assert value == [10, 20]
 
@@ -522,11 +522,10 @@ def test_build_sql_query_complex_joins() -> None:
         ),
     )
 
-    # Re-baselined:
-    #  - SELECT * (was SELECT "sub".*).
-    #  - STARTSWITH 'staff_' param is 'staff\_%' (underscore escaped — correct SQL).
+    # The outer join qualifies its star to the subquery alias "sub"; the inner subqueries have no
+    # joins and keep their own projection. STARTSWITH 'staff_' escapes the underscore ('staff\_%').
     assert sql == (
-        'SELECT * FROM '
+        'SELECT "sub".* FROM '
         '(SELECT * FROM "users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
         'LEFT JOIN (SELECT "ur"."role" FROM "user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
@@ -595,7 +594,7 @@ def test_build_sql_query_complex_joins_with_namespace() -> None:
     )
 
     assert sql == (
-        'SELECT * FROM '
+        'SELECT "sub".* FROM '
         '(SELECT * FROM "ns1"."users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
         'LEFT JOIN (SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
@@ -665,7 +664,7 @@ def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
     )
 
     assert sql == (
-        'SELECT * FROM '
+        'SELECT "sub".* FROM '
         '(SELECT * FROM "ns1"."users" WHERE "ns1"."users"."age" >= %s) AS "sub" '
         'LEFT JOIN ('
         'SELECT "ns2"."user_roles"."role" FROM "ns2"."user_roles" WHERE "ns2"."user_roles"."role" LIKE %s) AS "ur" '

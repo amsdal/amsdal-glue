@@ -49,4 +49,21 @@ class BinaryOp:
     right: Node
 
 
-Node = Literal | BoolKeyword | SqlKeyword | FuncCall | TypeCast | UnaryOp | ColumnRef | BinaryOp
+@dataclass
+class InList:
+    """The parenthesised right-hand side of an ``IN`` / ``NOT IN`` predicate."""
+
+    items: list[Node]
+
+
+@dataclass
+class Between:
+    """A ``BETWEEN low AND high`` (or ``NOT BETWEEN``) predicate."""
+
+    expr: Node
+    low: Node
+    high: Node
+    negated: bool = False
+
+
+Node = Literal | BoolKeyword | SqlKeyword | FuncCall | TypeCast | UnaryOp | ColumnRef | BinaryOp | InList | Between

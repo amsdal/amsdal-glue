@@ -1,5 +1,5 @@
 # libs/connections/tests/golden/test_fts.py
-"""Golden-master tests for PostgreSQL full-text search SQL paths.
+"""Tests for PostgreSQL full-text search SQL paths.
 
 Covers: tsvector/tsquery column types, SearchQuery search_type variants,
 and FTS_MATCH WHERE clauses using phrase and websearch queries.

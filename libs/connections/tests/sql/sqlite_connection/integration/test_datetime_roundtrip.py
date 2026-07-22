@@ -1,7 +1,7 @@
 from datetime import date
 from datetime import datetime
 
-from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -46,7 +46,7 @@ def test_datetime_and_date_round_trip_as_python_objects(database_connection: Sql
     database_connection.run_mutations([
         InsertData(
             schema=schema_ref,
-            data=[Data(data={'id': 1, 'created_at': created_at, 'event_day': event_day})],
+            data=[DataInput(data={'id': 1, 'created_at': created_at, 'event_day': event_day})],
         ),
     ])
 

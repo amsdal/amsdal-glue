@@ -31,7 +31,7 @@ def _q(where: Conditions) -> QueryStatement:
 
 
 def test_and_pg() -> None:
-    # Rust emits = %s for EXACT (standard equality); old builder used IS %s — valid; re-baselined.
+    # EXACT uses = %s (standard equality).
     where = Conditions(_cond('age', FieldLookup.GT, 18), _cond('active', FieldLookup.EXACT, True))  # noqa: FBT003
     assert pg(_q(where)) == (
         'SELECT * FROM "users" WHERE "users"."age" > %s AND "users"."active" = %s',
@@ -52,7 +52,7 @@ def test_or_pg() -> None:
 
 
 def test_nested_and_or_pg() -> None:
-    # Rust emits = %s for EXACT — valid; re-baselined.
+    # EXACT uses = %s (standard equality).
     inner = Conditions(
         _cond('age', FieldLookup.GT, 18),
         _cond('active', FieldLookup.EXACT, True),  # noqa: FBT003
@@ -73,7 +73,7 @@ def test_negated_condition_pg() -> None:
 
 
 def test_negated_conditions_group_pg() -> None:
-    # Rust emits = %s for EXACT — valid; re-baselined.
+    # EXACT uses = %s (standard equality).
     where = Conditions(
         _cond('age', FieldLookup.GT, 18),
         _cond('active', FieldLookup.EXACT, True),  # noqa: FBT003
@@ -98,7 +98,7 @@ def test_double_negation_pg() -> None:
 
 
 # ---------------------------------------------------------------------------
-# SQLite variants — ANSI double-quote identifiers + = ? for EXACT; re-baselined.
+# SQLite variants — ANSI double-quote identifiers + = ? for EXACT.
 # ---------------------------------------------------------------------------
 
 
