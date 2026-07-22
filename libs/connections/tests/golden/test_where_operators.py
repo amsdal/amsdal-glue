@@ -174,14 +174,6 @@ def test_isnotnull_sqlite() -> None:
     assert lite(q) == ('SELECT * FROM "users" WHERE "users"."deleted_at" IS NOT NULL', [])
 
 
-@pytest.mark.xfail(strict=True, reason='Rust no longer emits = ANY(%s); test documents superseded expectation')
-def test_where_in_pg_params_correct_behaviour() -> None:
-    # The generator emits IN (%s,%s,%s) with [1,2,3], so the = ANY(%s) form never appears.
-    # Kept as xfail: the assertion below cannot pass.
-    sql, params = pg(_where(FieldLookup.IN, [1, 2, 3]))
-    assert (sql, params) == ('SELECT * FROM "users" WHERE "users"."age" = ANY(%s)', [[1, 2, 3]])
-
-
 def test_where_contains_pg_wildcard_correct_behaviour() -> None:
     # PG CONTAINS uses '%' LIKE wildcards.
     sql, params = pg(_where(FieldLookup.CONTAINS, 'oo'))

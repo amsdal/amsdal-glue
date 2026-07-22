@@ -84,38 +84,12 @@ def test_pg_release_lock_shared_raises() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        'SQLite acquire_lock (EXCLUSIVE) calls self.connection.execute() on the raw '
-        'sqlite3.Connection — not through the overridable execute() hook — so '
-        'ConnectionError is raised by the recording harness (no live DB).'
-    ),
-)
-def test_lite_acquire_lock_exclusive_xfail() -> None:
-    conn = lite_record()
-    conn.acquire_lock(_lock(LockMode.EXCLUSIVE, LockAction.ACQUIRE))
-
-
 def test_lite_acquire_lock_shared_is_noop() -> None:
     """SQLite SHARED acquire_lock is a no-op — the EXCLUSIVE (BEGIN EXCLUSIVE) branch is never entered."""
     conn = lite_record()
     result = conn.acquire_lock(_lock(LockMode.SHARED, LockAction.ACQUIRE))
     assert result is True
     assert conn.captured == []
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        'SQLite release_lock (EXCLUSIVE) calls self.connection.execute() on the raw '
-        'sqlite3.Connection — not through the overridable execute() hook — so '
-        'ConnectionError is raised by the recording harness (no live DB).'
-    ),
-)
-def test_lite_release_lock_exclusive_xfail() -> None:
-    conn = lite_record()
-    conn.release_lock(_lock(LockMode.EXCLUSIVE, LockAction.RELEASE))
 
 
 def test_lite_release_lock_shared_is_noop() -> None:
