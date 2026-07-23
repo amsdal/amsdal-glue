@@ -26,7 +26,7 @@ jobs:
             target: aarch64
             manylinux: 'auto'
           - name: macos-x86_64
-            runner: macos-13
+            runner: macos-14
             target: x86_64
             manylinux: 'auto'
           - name: windows-x64
