@@ -839,11 +839,41 @@ fn extract_condition(ob: &Bound<PyAny>) -> PyResult<Comparison> {
     };
     let negate: bool = ob.getattr(pyo3::intern!(ob.py(), "negate"))?.extract()?;
     Ok(Comparison {
-        left,
+        left: text_match_left(left, &lookup),
         op: lookup,
         right,
         negate,
     })
+}
+
+/// Cast the left side of a LIKE-family comparison to text when it is a raw field reference.
+///
+/// A JSON column (and a `->` extraction out of one) is `jsonb` on Postgres, which has no
+/// `LIKE`/`ILIKE` operator -- `payload LIKE $1` dies with `operator does not exist: jsonb ~~
+/// unknown`. The cast makes the comparison run over the serialized JSON text; on a text column it
+/// is a no-op. `Expr::JsonPathText` (`->>`) is already text and typed extractions carry their own
+/// cast, so only the bare `Expr::Field` shape needs wrapping. SQLite is unaffected in behaviour:
+/// its columns are dynamically typed and JSON is stored as text, so `CAST(x AS text)` changes
+/// nothing there.
+fn text_match_left(left: Expr, lookup: &CompareOp) -> Expr {
+    let is_text_match = matches!(
+        lookup,
+        CompareOp::Contains
+            | CompareOp::IContains
+            | CompareOp::StartsWith
+            | CompareOp::IStartsWith
+            | CompareOp::EndsWith
+            | CompareOp::IEndsWith
+    );
+
+    if is_text_match && matches!(left, Expr::Field(_)) {
+        return Expr::Cast {
+            expr: Box::new(left),
+            to_type: "text".to_string(),
+        };
+    }
+
+    left
 }
 
 /// The right-hand side of an ``IN``: a ``Value`` holding a list is a list of candidates, not one

@@ -62,13 +62,13 @@ EXPECTED_PG: dict[str, tuple[str, list]] = {
     # IN (%s, %s, %s) with flat params [1,2,3].
     'IN': ('SELECT * FROM "users" WHERE "users"."age" IN (%s, %s, %s)', [1, 2, 3]),
     # CONTAINS uses '%' wildcards (LIKE).
-    'CONTAINS': ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['%oo%']),
+    'CONTAINS': ('SELECT * FROM "users" WHERE "users"."age"::text LIKE %s', ['%oo%']),
     # Uses native PostgreSQL ILIKE instead of LOWER(...) LIKE.
-    'ICONTAINS': ('SELECT * FROM "users" WHERE "users"."age" ILIKE %s', ['%oo%']),
-    'STARTSWITH': ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['fo%']),
-    'ISTARTSWITH': ('SELECT * FROM "users" WHERE "users"."age" ILIKE %s', ['fo%']),
-    'ENDSWITH': ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['%oo']),
-    'IENDSWITH': ('SELECT * FROM "users" WHERE "users"."age" ILIKE %s', ['%oo']),
+    'ICONTAINS': ('SELECT * FROM "users" WHERE "users"."age"::text ILIKE %s', ['%oo%']),
+    'STARTSWITH': ('SELECT * FROM "users" WHERE "users"."age"::text LIKE %s', ['fo%']),
+    'ISTARTSWITH': ('SELECT * FROM "users" WHERE "users"."age"::text ILIKE %s', ['fo%']),
+    'ENDSWITH': ('SELECT * FROM "users" WHERE "users"."age"::text LIKE %s', ['%oo']),
+    'IENDSWITH': ('SELECT * FROM "users" WHERE "users"."age"::text ILIKE %s', ['%oo']),
     'REGEX': ('SELECT * FROM "users" WHERE "users"."age" ~ %s', ['^foo']),
     'IREGEX': ('SELECT * FROM "users" WHERE "users"."age" ~* %s', ['^foo']),
 }
@@ -86,13 +86,22 @@ EXPECTED_LITE: dict[str, tuple[str, list]] = {
     'IN': ('SELECT * FROM "users" WHERE "users"."age" IN (?, ?, ?)', [1, 2, 3]),
     # Case-sensitive text match lowers to the case-sensitive glob(...) form (SQLite LIKE is
     # case-insensitive); GLOB is case-sensitive. See test_text_match_glob_lowering.py.
-    'CONTAINS': ('SELECT * FROM "users" WHERE glob(?, "users"."age") = 1', ['*oo*']),
+    'CONTAINS': ('SELECT * FROM "users" WHERE glob(?, CAST("users"."age" AS text)) = 1', ['*oo*']),
     # Uses LIKE LOWER + ESCAPE with ANSI quotes.
-    'ICONTAINS': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE LOWER(?) ESCAPE \'\\\'', ['%oo%']),
-    'STARTSWITH': ('SELECT * FROM "users" WHERE glob(?, "users"."age") = 1', ['fo*']),
-    'ISTARTSWITH': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE LOWER(?) ESCAPE \'\\\'', ['fo%']),
-    'ENDSWITH': ('SELECT * FROM "users" WHERE glob(?, "users"."age") = 1', ['*oo']),
-    'IENDSWITH': ('SELECT * FROM "users" WHERE LOWER("users"."age") LIKE LOWER(?) ESCAPE \'\\\'', ['%oo']),
+    'ICONTAINS': (
+        'SELECT * FROM "users" WHERE LOWER(CAST("users"."age" AS text)) LIKE LOWER(?) ESCAPE \'\\\'',
+        ['%oo%'],
+    ),
+    'STARTSWITH': ('SELECT * FROM "users" WHERE glob(?, CAST("users"."age" AS text)) = 1', ['fo*']),
+    'ISTARTSWITH': (
+        'SELECT * FROM "users" WHERE LOWER(CAST("users"."age" AS text)) LIKE LOWER(?) ESCAPE \'\\\'',
+        ['fo%'],
+    ),
+    'ENDSWITH': ('SELECT * FROM "users" WHERE glob(?, CAST("users"."age" AS text)) = 1', ['*oo']),
+    'IENDSWITH': (
+        'SELECT * FROM "users" WHERE LOWER(CAST("users"."age" AS text)) LIKE LOWER(?) ESCAPE \'\\\'',
+        ['%oo'],
+    ),
     'REGEX': ('SELECT * FROM "users" WHERE "users"."age" REGEXP ?', ['^foo']),
     # Uses REGEXP '(?i)' || ? (POSIX inline flag) instead of LOWER(...) REGEXP.
     'IREGEX': ('SELECT * FROM "users" WHERE "users"."age" REGEXP \'(?i)\' || ?', ['^foo']),
@@ -177,4 +186,4 @@ def test_isnotnull_sqlite() -> None:
 def test_where_contains_pg_wildcard_correct_behaviour() -> None:
     # PG CONTAINS uses '%' LIKE wildcards.
     sql, params = pg(_where(FieldLookup.CONTAINS, 'oo'))
-    assert (sql, params) == ('SELECT * FROM "users" WHERE "users"."age" LIKE %s', ['%oo%'])
+    assert (sql, params) == ('SELECT * FROM "users" WHERE "users"."age"::text LIKE %s', ['%oo%'])

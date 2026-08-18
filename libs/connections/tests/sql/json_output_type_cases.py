@@ -227,6 +227,16 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
         query(cond(ref('payload'), FieldLookup.EQ, Value(ROWS[2]['payload'], output_type=J))),
         {3},
     ),
+    # --- whole JSON column text match -------------------------------------------------------------
+    # The substring-over-serialized-JSON filters that amsdal_server emits for array/dict columns.
+    # Postgres stores these columns as `jsonb`, which has no LIKE operator, so the left side must
+    # carry a text cast or the query errors with `operator does not exist: jsonb ~~ unknown`.
+    # Search terms stay inside one JSON token: the engines serialize whitespace differently, so a
+    # pattern spanning a `,`/`:` separator is out of contract.
+    ('whole_column_contains_emil', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('Emil'))), {3}),
+    ('whole_column_contains_wrong_case', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('emil'))), set()),
+    ('whole_column_icontains_emil', query(cond(ref('payload'), FieldLookup.ICONTAINS, Value('emil'))), {3}),
+    ('whole_column_contains_tag_x', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('x'))), {1, 2}),
 ]
 
 # The case from the original report: a jsonb column holding a bare SCALAR.

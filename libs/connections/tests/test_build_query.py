@@ -302,8 +302,8 @@ def test_build_sql_query_simple__where() -> None:
     #  - CONTAINS param uses % wildcards.
     #  - ISTARTSWITH uses native ILIKE.
     assert sql == (
-        'SELECT * FROM "users" AS "u" WHERE ("u"."age" >= %s AND "u"."name" LIKE %s) OR '
-        '("u"."age" >= %s AND "u"."email" ILIKE %s)'
+        'SELECT * FROM "users" AS "u" WHERE ("u"."age" >= %s AND "u"."name"::text LIKE %s) OR '
+        '("u"."age" >= %s AND "u"."email"::text ILIKE %s)'
     )
     assert value == [18, '%John%', 18, 'john%']
 
@@ -527,7 +527,7 @@ def test_build_sql_query_complex_joins() -> None:
     assert sql == (
         'SELECT "sub".* FROM '
         '(SELECT * FROM "users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
-        'LEFT JOIN (SELECT "ur"."role" FROM "user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
+        'LEFT JOIN (SELECT "ur"."role" FROM "user_roles" AS "ur" WHERE "ur"."role"::text LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
     )
     assert value == [18, 'staff\\_%']
@@ -596,7 +596,7 @@ def test_build_sql_query_complex_joins_with_namespace() -> None:
     assert sql == (
         'SELECT "sub".* FROM '
         '(SELECT * FROM "ns1"."users" AS "u" WHERE "u"."age" >= %s) AS "sub" '
-        'LEFT JOIN (SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" WHERE "ur"."role" LIKE %s) AS "ur" '
+        'LEFT JOIN (SELECT "ur"."role" FROM "ns2"."user_roles" AS "ur" WHERE "ur"."role"::text LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
     )
     assert value == [18, 'staff\\_%']
@@ -667,7 +667,8 @@ def test_build_sql_query_complex_with_namespaces_without_aliases() -> None:
         'SELECT "sub".* FROM '
         '(SELECT * FROM "ns1"."users" WHERE "ns1"."users"."age" >= %s) AS "sub" '
         'LEFT JOIN ('
-        'SELECT "ns2"."user_roles"."role" FROM "ns2"."user_roles" WHERE "ns2"."user_roles"."role" LIKE %s) AS "ur" '
+        'SELECT "ns2"."user_roles"."role" FROM "ns2"."user_roles" '
+        'WHERE "ns2"."user_roles"."role"::text LIKE %s) AS "ur" '
         'ON "ur"."user_id" = "sub"."id"'
     )
     assert value == [18, 'staff\\_%']
