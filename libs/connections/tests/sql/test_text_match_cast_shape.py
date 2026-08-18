@@ -52,3 +52,25 @@ def test_sqlite_contains_still_uses_glob() -> None:
     sql = _compile('sqlite', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('Emil'))))
 
     assert 'glob(' in sql, sql
+
+
+@pytest.mark.parametrize('lookup', [FieldLookup.REGEX, FieldLookup.IREGEX], ids=['REGEX', 'IREGEX'])
+def test_postgres_regex_casts_column_to_text(lookup) -> None:
+    """`~`/`~*` have no jsonb operator either -- same failure mode as LIKE."""
+    sql = _compile('postgres', query(cond(ref('payload'), lookup, Value('^Emil'))))
+
+    assert '::text' in sql, sql
+    assert '~' in sql, sql
+
+
+@pytest.mark.parametrize('lookup', TEXT_MATCH_LOOKUPS, ids=[lookup.value for lookup in TEXT_MATCH_LOOKUPS])
+def test_postgres_nested_text_match_uses_text_extraction(lookup) -> None:
+    """A nested field must switch to `->>` (unquoted text), NOT `(col->'k')::text`.
+
+    `(payload->'name')::text` is the QUOTED JSON serialization (`"Emil"`), so STARTSWITH/ENDSWITH
+    would silently miss every row on Postgres while matching on SQLite's unquoted `->>`.
+    """
+    sql = _compile('postgres', query(cond(ref('payload', 'name'), lookup, Value('Emil'))))
+
+    assert "->>'name'" in sql, sql
+    assert "->'name')::text" not in sql, sql

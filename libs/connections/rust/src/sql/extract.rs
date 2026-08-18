@@ -846,15 +846,22 @@ fn extract_condition(ob: &Bound<PyAny>) -> PyResult<Comparison> {
     })
 }
 
-/// Cast the left side of a LIKE-family comparison to text when it is a raw field reference.
+/// Force a text left side for the text-match lookups (LIKE family and regex) on a field reference.
 ///
 /// A JSON column (and a `->` extraction out of one) is `jsonb` on Postgres, which has no
-/// `LIKE`/`ILIKE` operator -- `payload LIKE $1` dies with `operator does not exist: jsonb ~~
-/// unknown`. The cast makes the comparison run over the serialized JSON text; on a text column it
-/// is a no-op. `Expr::JsonPathText` (`->>`) is already text and typed extractions carry their own
-/// cast, so only the bare `Expr::Field` shape needs wrapping. SQLite is unaffected in behaviour:
-/// its columns are dynamically typed and JSON is stored as text, so `CAST(x AS text)` changes
-/// nothing there.
+/// `LIKE`/`ILIKE`/`~`/`~*` operator -- `payload LIKE $1` dies with `operator does not exist:
+/// jsonb ~~ unknown`. Two shapes need repair:
+///
+/// * a bare column is cast (`payload::text`) -- the match runs over the serialized JSON text, and
+///   on a text column the cast is a no-op;
+/// * a nested reference switches its last hop to the `->>` text extraction. Casting the `->` chain
+///   instead would compare the QUOTED serialization (`"Emil"`), so `STARTSWITH`/`ENDSWITH` could
+///   never match the first or last character on Postgres while SQLite's unquoted native
+///   extraction matches -- a silent cross-engine divergence.
+///
+/// `Expr::JsonPathText` (`->>`) is already text and typed extractions carry their own cast, so
+/// they pass through. SQLite is unaffected on bare columns (JSON is stored as text, `CAST(x AS
+/// text)` changes nothing) and lowers `JsonPathText` to its Postgres-text-compat form.
 fn text_match_left(left: Expr, lookup: &CompareOp) -> Expr {
     let is_text_match = matches!(
         lookup,
@@ -864,16 +871,37 @@ fn text_match_left(left: Expr, lookup: &CompareOp) -> Expr {
             | CompareOp::IStartsWith
             | CompareOp::EndsWith
             | CompareOp::IEndsWith
+            | CompareOp::Regex
+            | CompareOp::IRegex
     );
 
-    if is_text_match && matches!(left, Expr::Field(_)) {
-        return Expr::Cast {
-            expr: Box::new(left),
-            to_type: "text".to_string(),
-        };
+    if !is_text_match {
+        return left;
     }
 
-    left
+    match left {
+        Expr::Field(field_ref) if field_ref.field.child.is_none() => Expr::Cast {
+            expr: Box::new(Expr::Field(field_ref)),
+            to_type: "text".to_string(),
+        },
+        Expr::Field(field_ref) => {
+            let FieldRef {
+                mut field,
+                table_name,
+                namespace,
+            } = field_ref;
+            let last_key = strip_last_child(&mut field);
+            Expr::JsonPathText {
+                expr: Box::new(Expr::Field(FieldRef {
+                    field,
+                    table_name,
+                    namespace,
+                })),
+                path: last_key,
+            }
+        }
+        other => other,
+    }
 }
 
 /// The right-hand side of an ``IN``: a ``Value`` holding a list is a list of candidates, not one

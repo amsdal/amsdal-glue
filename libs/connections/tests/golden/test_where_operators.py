@@ -69,8 +69,8 @@ EXPECTED_PG: dict[str, tuple[str, list]] = {
     'ISTARTSWITH': ('SELECT * FROM "users" WHERE "users"."age"::text ILIKE %s', ['fo%']),
     'ENDSWITH': ('SELECT * FROM "users" WHERE "users"."age"::text LIKE %s', ['%oo']),
     'IENDSWITH': ('SELECT * FROM "users" WHERE "users"."age"::text ILIKE %s', ['%oo']),
-    'REGEX': ('SELECT * FROM "users" WHERE "users"."age" ~ %s', ['^foo']),
-    'IREGEX': ('SELECT * FROM "users" WHERE "users"."age" ~* %s', ['^foo']),
+    'REGEX': ('SELECT * FROM "users" WHERE "users"."age"::text ~ %s', ['^foo']),
+    'IREGEX': ('SELECT * FROM "users" WHERE "users"."age"::text ~* %s', ['^foo']),
 }
 
 # All SQLite entries use ANSI double-quote identifiers.
@@ -102,9 +102,9 @@ EXPECTED_LITE: dict[str, tuple[str, list]] = {
         'SELECT * FROM "users" WHERE LOWER(CAST("users"."age" AS text)) LIKE LOWER(?) ESCAPE \'\\\'',
         ['%oo'],
     ),
-    'REGEX': ('SELECT * FROM "users" WHERE "users"."age" REGEXP ?', ['^foo']),
+    'REGEX': ('SELECT * FROM "users" WHERE CAST("users"."age" AS text) REGEXP ?', ['^foo']),
     # Uses REGEXP '(?i)' || ? (POSIX inline flag) instead of LOWER(...) REGEXP.
-    'IREGEX': ('SELECT * FROM "users" WHERE "users"."age" REGEXP \'(?i)\' || ?', ['^foo']),
+    'IREGEX': ('SELECT * FROM "users" WHERE CAST("users"."age" AS text) REGEXP \'(?i)\' || ?', ['^foo']),
 }
 
 

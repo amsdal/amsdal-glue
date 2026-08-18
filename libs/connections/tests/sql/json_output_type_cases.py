@@ -237,6 +237,26 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
     ('whole_column_contains_wrong_case', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('emil'))), set()),
     ('whole_column_icontains_emil', query(cond(ref('payload'), FieldLookup.ICONTAINS, Value('emil'))), {3}),
     ('whole_column_contains_tag_x', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('x'))), {1, 2}),
+    # --- nested field text match ------------------------------------------------------------------
+    # A nested reference in a text match is the UNQUOTED `->>` text, not the quoted JSON
+    # serialization -- otherwise STARTSWITH/ENDSWITH can never match the first/last character on
+    # Postgres (`(payload->'name')::text` is `"Emil"`, quotes included) while SQLite's native
+    # extraction matches, and the engines silently disagree. Row 6 has no `name` -> SQL NULL,
+    # excluded everywhere.
+    ('nested_name_startswith_E', query(cond(ref('payload', 'name'), FieldLookup.STARTSWITH, Value('E'))), {3}),
+    ('nested_name_endswith_ob', query(cond(ref('payload', 'name'), FieldLookup.ENDSWITH, Value('ob'))), {2}),
+    ('nested_name_contains_mi', query(cond(ref('payload', 'name'), FieldLookup.CONTAINS, Value('mi'))), {3}),
+    ('nested_name_icontains_mi', query(cond(ref('payload', 'name'), FieldLookup.ICONTAINS, Value('mi'))), {3, 5}),
+    ('nested_name_istartswith_z', query(cond(ref('payload', 'name'), FieldLookup.ISTARTSWITH, Value('z'))), {4}),
+]
+
+# Regex lookups executable on Postgres only: the SQLite connection registers no REGEXP function.
+# Same jsonb-vs-text failure mode as LIKE: without a text cast (whole column) or a `->>` extraction
+# (nested field), Postgres errors with `operator does not exist: jsonb ~ unknown`.
+PG_REGEX_CASES: list[tuple[str, QueryStatement, set[int]]] = [
+    ('regex_whole_column_emil', query(cond(ref('payload'), FieldLookup.REGEX, Value('Emil'))), {3}),
+    ('regex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.REGEX, Value('^Emil$'))), {3}),
+    ('iregex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.IREGEX, Value('^emil$'))), {3}),
 ]
 
 # The case from the original report: a jsonb column holding a bare SCALAR.
