@@ -30,6 +30,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
 TABLE = 'JsonOutputType'
 SCALAR_TABLE = 'JsonScalarColumn'
+NON_ASCII_TABLE = 'JsonNonAsciiTextMatch'
 
 # Row 6 carries a JSON ``null`` for ``age``; row 7 omits the ``age`` key entirely. Those two are
 # different things in Postgres and must stay different in SQLite.
@@ -83,12 +84,14 @@ def register_and_seed(database_connection: Any, name: str, rows: list[dict[str, 
             ],
         ),
     )
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name=name, version=Version.LATEST),
-            data=[DataInput(data=dict(row)) for row in rows],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name=name, version=Version.LATEST),
+                data=[DataInput(data=dict(row)) for row in rows],
+            ),
+        ]
+    )
 
 
 def ref(
@@ -226,6 +229,89 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
         'whole_column_eq_object',
         query(cond(ref('payload'), FieldLookup.EQ, Value(ROWS[2]['payload'], output_type=J))),
         {3},
+    ),
+    # --- whole JSON column text match -------------------------------------------------------------
+    # The substring-over-serialized-JSON filters that amsdal_server emits for array/dict columns.
+    # Postgres stores these columns as `jsonb`, which has no LIKE operator, so the left side must
+    # carry a text cast or the query errors with `operator does not exist: jsonb ~~ unknown`.
+    # Search terms stay inside one JSON token: the engines serialize whitespace differently, so a
+    # pattern spanning a `,`/`:` separator is out of contract.
+    ('whole_column_contains_emil', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('Emil'))), {3}),
+    ('whole_column_contains_wrong_case', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('emil'))), set()),
+    ('whole_column_icontains_emil', query(cond(ref('payload'), FieldLookup.ICONTAINS, Value('emil'))), {3}),
+    ('whole_column_contains_tag_x', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('x'))), {1, 2}),
+    # --- nested field text match ------------------------------------------------------------------
+    # A nested reference in a text match is the UNQUOTED `->>` text, not the quoted JSON
+    # serialization -- otherwise STARTSWITH/ENDSWITH can never match the first/last character on
+    # Postgres (`(payload->'name')::text` is `"Emil"`, quotes included) while SQLite's native
+    # extraction matches, and the engines silently disagree. Row 6 has no `name` -> SQL NULL,
+    # excluded everywhere.
+    ('nested_name_startswith_E', query(cond(ref('payload', 'name'), FieldLookup.STARTSWITH, Value('E'))), {3}),
+    ('nested_name_endswith_ob', query(cond(ref('payload', 'name'), FieldLookup.ENDSWITH, Value('ob'))), {2}),
+    ('nested_name_contains_mi', query(cond(ref('payload', 'name'), FieldLookup.CONTAINS, Value('mi'))), {3}),
+    ('nested_name_icontains_mi', query(cond(ref('payload', 'name'), FieldLookup.ICONTAINS, Value('mi'))), {3, 5}),
+    ('nested_name_istartswith_z', query(cond(ref('payload', 'name'), FieldLookup.ISTARTSWITH, Value('z'))), {4}),
+]
+
+# Regex lookups executable on Postgres only: the SQLite connection registers no REGEXP function.
+# Same jsonb-vs-text failure mode as LIKE: without a text cast (whole column) or a `->>` extraction
+# (nested field), Postgres errors with `operator does not exist: jsonb ~ unknown`.
+PG_REGEX_CASES: list[tuple[str, QueryStatement, set[int]]] = [
+    ('regex_whole_column_emil', query(cond(ref('payload'), FieldLookup.REGEX, Value('Emil'))), {3}),
+    ('regex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.REGEX, Value('^Emil$'))), {3}),
+    ('iregex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.IREGEX, Value('^emil$'))), {3}),
+]
+
+# Non-ASCII payloads, where the two engines are NOT interchangeable for a whole-column text match.
+#
+# The SQLite driver serialises JSON with the stdlib default ``ensure_ascii=True``, so `'бета'` is
+# STORED as the ASCII text `["alpha","\u0431\u0435\u0442\u0430"]`; Postgres stores `jsonb`
+# and `::text` renders real UTF-8. A whole-column CONTAINS compares against that raw text, so a
+# non-ASCII term matches on Postgres and finds nothing on SQLite. Flipping the adapter to
+# ``ensure_ascii=False`` would NOT be a safe fix: unlike whitespace, `jsonb()`/`json()` do not
+# normalise `\uXXXX` escapes -- the escaped form does NOT compare equal to the literal UTF-8 one --
+# so every existing
+# row would stop matching EQ against a newly-bound parameter.
+#
+# Extraction is unaffected -- `->>` and `json_extract` both unescape -- so a NESTED text match keeps
+# full parity. The divergence is pinned here rather than hidden: change these expectations only
+# together with the storage format.
+NON_ASCII_ROWS: list[dict[str, Any]] = [
+    {'id': 1, 'payload': {'name': 'Emil', 'tags': ['alpha', 'бета']}},
+    {'id': 2, 'payload': {'name': 'Данило', 'tags': ['alpha']}},
+]
+
+# (case_id, QueryStatement, expected ids on Postgres, expected ids on SQLite)
+NON_ASCII_TEXT_MATCH_CASES: list[tuple[str, QueryStatement, set[int], set[int]]] = [
+    (
+        'non_ascii_nested_name_contains',
+        query(
+            cond(ref('payload', 'name', table=NON_ASCII_TABLE), FieldLookup.CONTAINS, Value('анил')),
+            table=NON_ASCII_TABLE,
+        ),
+        {2},
+        {2},
+    ),
+    (
+        'non_ascii_nested_name_startswith',
+        query(
+            cond(ref('payload', 'name', table=NON_ASCII_TABLE), FieldLookup.STARTSWITH, Value('Дан')),
+            table=NON_ASCII_TABLE,
+        ),
+        {2},
+        {2},
+    ),
+    (
+        'ascii_whole_column_contains',
+        query(cond(ref('payload', table=NON_ASCII_TABLE), FieldLookup.CONTAINS, Value('alpha')), table=NON_ASCII_TABLE),
+        {1, 2},
+        {1, 2},
+    ),
+    (
+        'non_ascii_whole_column_contains_diverges',
+        query(cond(ref('payload', table=NON_ASCII_TABLE), FieldLookup.CONTAINS, Value('бета')), table=NON_ASCII_TABLE),
+        {1},
+        set(),
     ),
 ]
 
