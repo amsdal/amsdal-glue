@@ -36,6 +36,16 @@ sqlite3.register_adapter(_dt.datetime, _dt.datetime.isoformat)
 # ``jsonb()``/``json()`` (see ``lower.rs``), which normalises whitespace, so spaced and minified rows
 # compare equal and no migration is needed. (Postgres stays SPACED: psycopg's ``Json``/``Jsonb`` dump
 # with spaces.)
+#
+# ``ensure_ascii`` stays at the stdlib default (TRUE): a non-ASCII string is stored escaped, e.g.
+# `['alpha', 'бета']` becomes `["alpha","\u0431\u0435\u0442\u0430"]`. This is deliberate and NOT
+# free to change -- `jsonb()`/`json()` normalise whitespace but NOT `\uXXXX` escapes (the escaped
+# form does NOT compare equal to the literal UTF-8 one), so flipping the flag would make every
+# existing non-ASCII row stop matching EQ against a newly-bound parameter. The cost of keeping it:
+# a text match over the WHOLE column (`payload__contains='бета'`, which compares against this raw
+# stored text) finds nothing on SQLite while Postgres, storing real UTF-8 in `jsonb`, matches.
+# Extraction is unaffected -- `->>`/``json_extract`` unescape -- so nested text matches keep parity.
+# See ``NON_ASCII_TEXT_MATCH_CASES`` in ``tests/sql/json_output_type_cases.py``.
 _JSON_SEPARATORS = (',', ':')
 
 

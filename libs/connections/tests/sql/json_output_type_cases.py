@@ -30,6 +30,7 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 
 TABLE = 'JsonOutputType'
 SCALAR_TABLE = 'JsonScalarColumn'
+NON_ASCII_TABLE = 'JsonNonAsciiTextMatch'
 
 # Row 6 carries a JSON ``null`` for ``age``; row 7 omits the ``age`` key entirely. Those two are
 # different things in Postgres and must stay different in SQLite.
@@ -83,12 +84,14 @@ def register_and_seed(database_connection: Any, name: str, rows: list[dict[str, 
             ],
         ),
     )
-    database_connection.run_mutations([
-        InsertData(
-            schema=SchemaReference(name=name, version=Version.LATEST),
-            data=[DataInput(data=dict(row)) for row in rows],
-        ),
-    ])
+    database_connection.run_mutations(
+        [
+            InsertData(
+                schema=SchemaReference(name=name, version=Version.LATEST),
+                data=[DataInput(data=dict(row)) for row in rows],
+            ),
+        ]
+    )
 
 
 def ref(
@@ -257,6 +260,59 @@ PG_REGEX_CASES: list[tuple[str, QueryStatement, set[int]]] = [
     ('regex_whole_column_emil', query(cond(ref('payload'), FieldLookup.REGEX, Value('Emil'))), {3}),
     ('regex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.REGEX, Value('^Emil$'))), {3}),
     ('iregex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.IREGEX, Value('^emil$'))), {3}),
+]
+
+# Non-ASCII payloads, where the two engines are NOT interchangeable for a whole-column text match.
+#
+# The SQLite driver serialises JSON with the stdlib default ``ensure_ascii=True``, so `'бета'` is
+# STORED as the ASCII text `["alpha","\u0431\u0435\u0442\u0430"]`; Postgres stores `jsonb`
+# and `::text` renders real UTF-8. A whole-column CONTAINS compares against that raw text, so a
+# non-ASCII term matches on Postgres and finds nothing on SQLite. Flipping the adapter to
+# ``ensure_ascii=False`` would NOT be a safe fix: unlike whitespace, `jsonb()`/`json()` do not
+# normalise `\uXXXX` escapes -- the escaped form does NOT compare equal to the literal UTF-8 one --
+# so every existing
+# row would stop matching EQ against a newly-bound parameter.
+#
+# Extraction is unaffected -- `->>` and `json_extract` both unescape -- so a NESTED text match keeps
+# full parity. The divergence is pinned here rather than hidden: change these expectations only
+# together with the storage format.
+NON_ASCII_ROWS: list[dict[str, Any]] = [
+    {'id': 1, 'payload': {'name': 'Emil', 'tags': ['alpha', 'бета']}},
+    {'id': 2, 'payload': {'name': 'Данило', 'tags': ['alpha']}},
+]
+
+# (case_id, QueryStatement, expected ids on Postgres, expected ids on SQLite)
+NON_ASCII_TEXT_MATCH_CASES: list[tuple[str, QueryStatement, set[int], set[int]]] = [
+    (
+        'non_ascii_nested_name_contains',
+        query(
+            cond(ref('payload', 'name', table=NON_ASCII_TABLE), FieldLookup.CONTAINS, Value('анил')),
+            table=NON_ASCII_TABLE,
+        ),
+        {2},
+        {2},
+    ),
+    (
+        'non_ascii_nested_name_startswith',
+        query(
+            cond(ref('payload', 'name', table=NON_ASCII_TABLE), FieldLookup.STARTSWITH, Value('Дан')),
+            table=NON_ASCII_TABLE,
+        ),
+        {2},
+        {2},
+    ),
+    (
+        'ascii_whole_column_contains',
+        query(cond(ref('payload', table=NON_ASCII_TABLE), FieldLookup.CONTAINS, Value('alpha')), table=NON_ASCII_TABLE),
+        {1, 2},
+        {1, 2},
+    ),
+    (
+        'non_ascii_whole_column_contains_diverges',
+        query(cond(ref('payload', table=NON_ASCII_TABLE), FieldLookup.CONTAINS, Value('бета')), table=NON_ASCII_TABLE),
+        {1},
+        set(),
+    ),
 ]
 
 # The case from the original report: a jsonb column holding a bare SCALAR.
