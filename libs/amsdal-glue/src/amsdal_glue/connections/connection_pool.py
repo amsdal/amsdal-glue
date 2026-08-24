@@ -54,12 +54,19 @@ class DefaultConnectionPool(ConnectionPoolBase):
     """
 
     @property
+    def _all_connections(self) -> list[ConnectionBase]:
+        """Every connection the pool owns: handed out plus idle and waiting for reuse."""
+        return [connection for connection, _ in self.connections.values()] + [
+            connection for connection, _ in self._idle_connections
+        ]
+
+    @property
     def is_connected(self) -> bool:
-        return all(connection.is_connected for connection, _ in self.connections.values())
+        return all(connection.is_connected for connection in self._all_connections)
 
     @property
     def is_alive(self) -> bool:
-        return all(connection.is_alive for connection, _ in self.connections.values())
+        return all(connection.is_alive for connection in self._all_connections)
 
     def __init__(
         self,
@@ -67,6 +74,7 @@ class DefaultConnectionPool(ConnectionPoolBase):
         *args: Any,
         max_connections: int = 10,
         expiration_time: int = 60,
+        reuse_connections: bool = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -75,14 +83,19 @@ class DefaultConnectionPool(ConnectionPoolBase):
         Args:
             connection_class (type[ConnectionBase]): The class of the connection to be used.
             max_connections (int): The maximum number of connections allowed.
-            expiration_time (int): The time in seconds after which a connection is considered expired.
+            expiration_time (int): The time in seconds after which an IDLE connection is closed
+                instead of being handed out again.
+            reuse_connections (bool): Whether a released connection is kept open for the next
+                caller. Disable it when a release must close the underlying handle.
             *args (Any): Additional positional arguments for the connection class.
             **kwargs (Any): Additional keyword arguments for the connection class.
         """
         super().__init__(connection_class, *args, **kwargs)
         self.connections: dict[str | None, tuple[ConnectionBase, datetime]] = {}
+        self._idle_connections: list[tuple[ConnectionBase, datetime]] = []
         self._max_connections = max_connections
         self._expiration_time = expiration_time
+        self._reuse_connections = reuse_connections
 
     @staticmethod
     def _now() -> datetime:
@@ -104,19 +117,22 @@ class DefaultConnectionPool(ConnectionPoolBase):
         Raises:
             RuntimeError: If the maximum number of connections is reached.
         """
-        for transaction_id, (connection, last_used) in list(self.connections.items()):
-            if self._now() - last_used > timedelta(seconds=self._expiration_time):
+        # Idle connections are released by `disconnect_connection` at the end of a transaction,
+        # so they carry no open transaction and can be handed straight back out. Reusing one
+        # skips a physical connect and whatever per-connection setup the driver does on top of
+        # it - on the historical connections that includes a full schema introspection.
+        while self._idle_connections:
+            connection, released_at = self._idle_connections.pop()
+
+            if self._now() - released_at > timedelta(seconds=self._expiration_time):
                 with contextlib.suppress(Exception):
-                    connection.rollback_transaction(transaction_id)
+                    connection.disconnect()
 
-                try:
-                    self.connections.pop(transaction_id)
-                except KeyError:  # noqa: S112
-                    continue
+                continue
 
-                return connection
+            return connection
 
-        if len(self.connections) >= self._max_connections:
+        if len(self.connections) + len(self._idle_connections) >= self._max_connections:
             msg = 'Max connections reached'
             raise RuntimeError(msg)
 
@@ -150,39 +166,58 @@ class DefaultConnectionPool(ConnectionPoolBase):
 
     def disconnect_connection(self, transaction_id: str | None = None) -> None:
         """
-        Disconnects the connection for the given transaction ID.
+        Releases the connection for the given transaction ID.
+
+        The connection is kept open and parked for the next caller unless the pool was built
+        with ``reuse_connections=False``. Either way it is closed by ``disconnect()``, and an
+        idle connection that goes stale is closed rather than handed out again.
 
         Args:
             transaction_id (str | None): The ID of the transaction.
         """
-        if transaction_id in self.connections:
-            connection, _ = self.connections.pop(transaction_id)
+        if transaction_id not in self.connections:
+            return
 
-            if connection.is_connected:
-                connection.disconnect()
+        connection, _ = self.connections.pop(transaction_id)
+
+        if not connection.is_connected:
+            return
+
+        if self._reuse_connections:
+            self._idle_connections.append((connection, self._now()))
+        else:
+            connection.disconnect()
 
     def disconnect(self) -> None:
         """
-        Disconnects all connections in the pool.
+        Disconnects all connections in the pool, idle ones included.
         """
-        for connection, _ in self.connections.values():
+        for connection in self._all_connections:
             if connection.is_connected:
                 connection.disconnect()
 
         self.connections.clear()
+        self._idle_connections.clear()
 
 
 class DefaultAsyncConnectionPool(AsyncConnectionPoolBase):
     @property
+    def _all_connections(self) -> list[AsyncConnectionBase]:
+        """Every connection the pool owns: handed out plus idle and waiting for reuse."""
+        return [connection for connection, _ in self.connections.values()] + [
+            connection for connection, _ in self._idle_connections
+        ]
+
+    @property
     async def is_connected(self) -> bool:
-        for connection, _ in self.connections.values():
+        for connection in self._all_connections:
             if not await connection.is_connected:
                 return False
         return True
 
     @property
     async def is_alive(self) -> bool:
-        for connection, _ in self.connections.values():
+        for connection in self._all_connections:
             if not await connection.is_alive:
                 return False
         return True
@@ -193,6 +228,7 @@ class DefaultAsyncConnectionPool(AsyncConnectionPoolBase):
         *args: Any,
         max_connections: int = 10,
         expiration_time: int = 60,
+        reuse_connections: bool = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -201,14 +237,19 @@ class DefaultAsyncConnectionPool(AsyncConnectionPoolBase):
         Args:
             connection_class (type[AsyncConnectionBase]): The class of the connection to be used.
             max_connections (int): The maximum number of connections allowed.
-            expiration_time (int): The time in seconds after which a connection is considered expired.
+            expiration_time (int): The time in seconds after which an IDLE connection is closed
+                instead of being handed out again.
+            reuse_connections (bool): Whether a released connection is kept open for the next
+                caller. Disable it when a release must close the underlying handle.
             *args (Any): Additional positional arguments for the connection class.
             **kwargs (Any): Additional keyword arguments for the connection class.
         """
         super().__init__(connection_class, *args, **kwargs)
         self.connections: dict[str | None, tuple[AsyncConnectionBase, datetime]] = {}
+        self._idle_connections: list[tuple[AsyncConnectionBase, datetime]] = []
         self._max_connections = max_connections
         self._expiration_time = expiration_time
+        self._reuse_connections = reuse_connections
 
     @staticmethod
     def _now() -> datetime:
@@ -230,19 +271,19 @@ class DefaultAsyncConnectionPool(AsyncConnectionPoolBase):
         Raises:
             RuntimeError: If the maximum number of connections is reached.
         """
-        for transaction_id, (connection, last_used) in list(self.connections.items()):
-            if self._now() - last_used > timedelta(seconds=self._expiration_time):
+        # See the sync pool for why a released connection is safe to hand straight back out.
+        while self._idle_connections:
+            connection, released_at = self._idle_connections.pop()
+
+            if self._now() - released_at > timedelta(seconds=self._expiration_time):
                 with contextlib.suppress(Exception):
-                    await connection.rollback_transaction(transaction_id)
+                    await connection.disconnect()
 
-                try:
-                    self.connections.pop(transaction_id)
-                except KeyError:  # noqa: S112
-                    continue
+                continue
 
-                return connection
+            return connection
 
-        if len(self.connections) >= self._max_connections:
+        if len(self.connections) + len(self._idle_connections) >= self._max_connections:
             msg = 'Max connections reached'
             raise RuntimeError(msg)
 
@@ -281,18 +322,26 @@ class DefaultAsyncConnectionPool(AsyncConnectionPoolBase):
         Args:
             transaction_id (str | None): The ID of the transaction.
         """
-        if transaction_id in self.connections:
-            connection, _ = self.connections.pop(transaction_id)
+        if transaction_id not in self.connections:
+            return
 
-            if await connection.is_connected:
-                await connection.disconnect()
+        connection, _ = self.connections.pop(transaction_id)
+
+        if not await connection.is_connected:
+            return
+
+        if self._reuse_connections:
+            self._idle_connections.append((connection, self._now()))
+        else:
+            await connection.disconnect()
 
     async def disconnect(self) -> None:
         """
-        Disconnects all connections in the pool.
+        Disconnects all connections in the pool, idle ones included.
         """
-        for connection, _ in self.connections.values():
+        for connection in self._all_connections:
             if await connection.is_connected:
                 await connection.disconnect()
 
         self.connections.clear()
+        self._idle_connections.clear()

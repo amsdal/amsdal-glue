@@ -65,9 +65,13 @@ class AsyncSqliteConnection(
     # that constant in the sync connection) instead of issuing one unbounded `IN (...)` per table.
     _MAX_IN_PARAMS = _SQLITE_MAX_IN
 
+    _schema_views_ready: bool = False
+    """Whether this connection has already created its registry views (see ``_ensure_schema_views``)."""
+
     def __init__(self) -> None:
         self._connection: aiosqlite.Connection | None = None
         self._generator = SqlGenerator('sqlite', param_style='qmark')
+        self._schema_views_ready = False
         super().__init__()
 
     @property
@@ -171,6 +175,8 @@ class AsyncSqliteConnection(
         self._db_path = Path(db_path)
         self._connection = await aiosqlite.connect(db_path, check_same_thread=check_same_thread, **kwargs)
         self._connection.isolation_level = None  # disable implicit transaction opening
+        # The registry views are TEMPORARY, so they belong to the connection just opened.
+        self._schema_views_ready = False
 
     async def disconnect(self) -> None:
         """
@@ -178,6 +184,7 @@ class AsyncSqliteConnection(
         """
         await self.connection.close()
         self._connection = None
+        self._schema_views_ready = False
 
     async def query(self, query: QueryStatement) -> list[Data]:
         """
@@ -276,11 +283,18 @@ class AsyncSqliteConnection(
         return table_ddls, index_ddls
 
     async def _ensure_schema_views(self) -> None:
-        # The view DDL is idempotent (CREATE ... IF NOT EXISTS), so it is re-issued on every call
-        # rather than gated by a per-object flag that would go stale across disconnect()/connect()
-        # cycles (temporary views are per-connection, so a reconnect must recreate them).
+        # The views are TEMPORARY, so they live and die with the underlying aiosqlite connection.
+        # The flag is therefore cleared in both `connect` and `disconnect`, which is what makes it
+        # safe to skip the DDL here: it can only be set while the very connection that owns those
+        # views is still open. Re-issuing the (idempotent) DDL on every call instead cost several
+        # round trips per introspection, and `query_schema` is on the hot path of every query.
+        if self._schema_views_ready:
+            return
+
         for sql in self._REGISTRY_VIEW_SQL.values():
             await self.execute(sql)
+
+        self._schema_views_ready = True
 
     async def run_mutations(self, mutations: list[DataMutation]) -> list[list[Data] | None]:
         """
