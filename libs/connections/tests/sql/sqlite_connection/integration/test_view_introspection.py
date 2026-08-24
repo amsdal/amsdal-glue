@@ -214,10 +214,15 @@ def test_sqlite_query_schema_statement_count_is_o1(database_connection):
     batched ``sqlite_master`` DDL read (see `query_schema`), never a per-table loop -- so the
     number of SQL statements issued for 2 tables must equal the number issued for 21 tables. A
     per-table introspection loop would make this test fail (statement count scaling with N).
+
+    Both counts are taken from a warmed connection: the registry views are created once per
+    connection, so counting the very first introspection would compare that one-off DDL against
+    a later call that skips it, which says nothing about scaling with table count.
     """
     database_connection.debug_mode = True
 
     _create_plain_tables(database_connection, 2)
+    _statement_count_for_query_schema(database_connection)  # warm-up: create the registry views
     count_n2 = _statement_count_for_query_schema(database_connection)
 
     _create_plain_tables(database_connection, 19, start=2)  # 2 + 19 = 21 tables total
