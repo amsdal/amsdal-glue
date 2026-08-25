@@ -25,7 +25,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue-connections>=0.2.0rc1",
+    "amsdal-glue-connections>=0.2.0",
     "polars>=1.20"
 ]
 
