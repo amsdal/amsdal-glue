@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from unittest import mock
 
 import pytest
 
@@ -172,3 +173,39 @@ async def test_async_transaction_command_executor(mock_async_connection_manager:
     mock_async_connection_manager.connection_pool.connection.revert_transaction.assert_called_once_with(
         revert_transaction_node.command
     )
+
+
+def test_transaction_command_executor_releases_the_connection_when_commit_fails(
+    mock_connection_manager: MockConnectionManager,
+) -> None:
+    pool = mock_connection_manager.connection_pool
+    pool.connection.commit_transaction.side_effect = ConnectionError('server closed the connection')
+    commit_node = ExecutionTransactionCommandNode(
+        command=TransactionCommand(action=TransactionAction.COMMIT, schema=SchemaReference(name=DEFAULT_SCHEMA_NAME))
+    )
+
+    with (
+        mock.patch.object(pool, 'disconnect_connection') as disconnect_connection,
+        pytest.raises(ConnectionError),
+    ):
+        TransactionNodeExecutor().execute(commit_node, transaction_id='tx-1', lock_id=None)
+
+    disconnect_connection.assert_called_once_with(transaction_id='tx-1')
+
+
+async def test_async_transaction_command_executor_releases_the_connection_when_commit_fails(
+    mock_async_connection_manager: MockAsyncConnectionManager,
+) -> None:
+    pool = mock_async_connection_manager.connection_pool
+    pool.connection.commit_transaction.side_effect = ConnectionError('server closed the connection')
+    commit_node = ExecutionTransactionCommandNode(
+        command=TransactionCommand(action=TransactionAction.COMMIT, schema=SchemaReference(name=DEFAULT_SCHEMA_NAME))
+    )
+
+    with (
+        mock.patch.object(pool, 'disconnect_connection', new=mock.AsyncMock()) as disconnect_connection,
+        pytest.raises(ConnectionError),
+    ):
+        await AsyncTransactionNodeExecutor().execute(commit_node, transaction_id='tx-1', lock_id=None)
+
+    disconnect_connection.assert_awaited_once_with(transaction_id='tx-1')
