@@ -43,24 +43,28 @@ class TransactionNodeExecutor:
             raise TypeError(msg)
 
         _connection = connection_pool.get_connection(transaction_id=transaction_id)
-
-        if command_node.command.action == TransactionAction.COMMIT:
-            command_node.result = _connection.commit_transaction(command_node.command)
-
-        elif command_node.command.action == TransactionAction.ROLLBACK:
-            command_node.result = _connection.rollback_transaction(command_node.command)
-
-        elif command_node.command.action == TransactionAction.BEGIN:
-            command_node.result = _connection.begin_transaction(command_node.command)
-
-        elif command_node.command.action == TransactionAction.REVERT:
-            command_node.result = _connection.revert_transaction(command_node.command)
-
-        if (
+        # The connection is bound to the transaction until it ends, so it must be released even when
+        # the command itself blows up - otherwise the slot stays taken until the pool reclaims it.
+        _is_final = (
             command_node.command.action
             in [TransactionAction.COMMIT, TransactionAction.ROLLBACK, TransactionAction.REVERT]
-        ) and command_node.command.parent_transaction_id is None:
-            connection_pool.disconnect_connection(transaction_id=transaction_id)
+        ) and command_node.command.parent_transaction_id is None
+
+        try:
+            if command_node.command.action == TransactionAction.COMMIT:
+                command_node.result = _connection.commit_transaction(command_node.command)
+
+            elif command_node.command.action == TransactionAction.ROLLBACK:
+                command_node.result = _connection.rollback_transaction(command_node.command)
+
+            elif command_node.command.action == TransactionAction.BEGIN:
+                command_node.result = _connection.begin_transaction(command_node.command)
+
+            elif command_node.command.action == TransactionAction.REVERT:
+                command_node.result = _connection.revert_transaction(command_node.command)
+        finally:
+            if _is_final:
+                connection_pool.disconnect_connection(transaction_id=transaction_id)
 
 
 class AsyncTransactionNodeExecutor:
@@ -97,21 +101,25 @@ class AsyncTransactionNodeExecutor:
             raise TypeError(msg)
 
         _connection = await connection_pool.get_connection(transaction_id=transaction_id)
-
-        if command_node.command.action == TransactionAction.COMMIT:
-            command_node.result = await _connection.commit_transaction(command_node.command)
-
-        elif command_node.command.action == TransactionAction.ROLLBACK:
-            command_node.result = await _connection.rollback_transaction(command_node.command)
-
-        elif command_node.command.action == TransactionAction.BEGIN:
-            command_node.result = await _connection.begin_transaction(command_node.command)
-
-        elif command_node.command.action == TransactionAction.REVERT:
-            command_node.result = await _connection.revert_transaction(command_node.command)
-
-        if (
+        # The connection is bound to the transaction until it ends, so it must be released even when
+        # the command itself blows up - otherwise the slot stays taken until the pool reclaims it.
+        _is_final = (
             command_node.command.action
             in [TransactionAction.COMMIT, TransactionAction.ROLLBACK, TransactionAction.REVERT]
-        ) and command_node.command.parent_transaction_id is None:
-            await connection_pool.disconnect_connection(transaction_id=transaction_id)
+        ) and command_node.command.parent_transaction_id is None
+
+        try:
+            if command_node.command.action == TransactionAction.COMMIT:
+                command_node.result = await _connection.commit_transaction(command_node.command)
+
+            elif command_node.command.action == TransactionAction.ROLLBACK:
+                command_node.result = await _connection.rollback_transaction(command_node.command)
+
+            elif command_node.command.action == TransactionAction.BEGIN:
+                command_node.result = await _connection.begin_transaction(command_node.command)
+
+            elif command_node.command.action == TransactionAction.REVERT:
+                command_node.result = await _connection.revert_transaction(command_node.command)
+        finally:
+            if _is_final:
+                await connection_pool.disconnect_connection(transaction_id=transaction_id)
