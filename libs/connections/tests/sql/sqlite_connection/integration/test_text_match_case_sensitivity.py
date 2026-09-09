@@ -45,14 +45,12 @@ def _setup(connection: SqliteConnection) -> SchemaReference:
         ),
     )
     ref = SchemaReference(name=_NAME, version=Version.LATEST)
-    connection.run_mutations(
-        [
-            InsertData(
-                schema=ref,
-                data=[DataInput(data={'name': 'Test2'}), DataInput(data={'name': 'test2'})],
-            ),
-        ]
-    )
+    connection.run_mutations([
+        InsertData(
+            schema=ref,
+            data=[DataInput(data={'name': 'Test2'}), DataInput(data={'name': 'test2'})],
+        ),
+    ])
     return ref
 
 

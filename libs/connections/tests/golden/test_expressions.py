@@ -550,8 +550,10 @@ def test_case_multiple_whens() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT *, CASE WHEN "orders"."amount" > %s THEN %s'
-        ' WHEN "orders"."amount" > %s THEN %s ELSE %s END AS "tier" FROM "orders"',
+        (
+            'SELECT *, CASE WHEN "orders"."amount" > %s THEN %s'
+            ' WHEN "orders"."amount" > %s THEN %s ELSE %s END AS "tier" FROM "orders"'
+        ),
         [1000, 'high', 100, 'medium', 'low'],
     )
 
@@ -640,9 +642,11 @@ def test_exists_in_where() -> None:
         ),
     )
     assert pg(q) == (
-        'SELECT * FROM "users"'
-        ' WHERE EXISTS(SELECT "orders"."id" FROM "orders"'
-        ' WHERE "orders"."user_id" = "users"."id")',
+        (
+            'SELECT * FROM "users"'
+            ' WHERE EXISTS(SELECT "orders"."id" FROM "orders"'
+            ' WHERE "orders"."user_id" = "users"."id")'
+        ),
         [],
     )
 
@@ -694,9 +698,11 @@ def test_window_partition_by_single_field_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT *, COUNT(*) OVER'
-        ' (PARTITION BY "sales"."department" ORDER BY "sales"."amount" DESC)'
-        ' AS "row_num" FROM "sales"',
+        (
+            'SELECT *, COUNT(*) OVER'
+            ' (PARTITION BY "sales"."department" ORDER BY "sales"."amount" DESC)'
+            ' AS "row_num" FROM "sales"'
+        ),
         [],
     )
 
@@ -718,9 +724,11 @@ def test_window_partition_by_multiple_fields_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT *, SUM("sales"."amount") OVER'
-        ' (PARTITION BY "sales"."department", "sales"."year")'
-        ' AS "dept_year_total" FROM "sales"',
+        (
+            'SELECT *, SUM("sales"."amount") OVER'
+            ' (PARTITION BY "sales"."department", "sales"."year")'
+            ' AS "dept_year_total" FROM "sales"'
+        ),
         [],
     )
 
@@ -747,9 +755,11 @@ def test_window_partition_by_single_field_sqlite() -> None:
         ],
     )
     assert lite(q) == (
-        'SELECT *, COUNT(*) OVER'
-        ' (PARTITION BY "sales"."department" ORDER BY "sales"."amount" DESC)'
-        ' AS "row_num" FROM "sales"',
+        (
+            'SELECT *, COUNT(*) OVER'
+            ' (PARTITION BY "sales"."department" ORDER BY "sales"."amount" DESC)'
+            ' AS "row_num" FROM "sales"'
+        ),
         [],
     )
 
@@ -781,10 +791,12 @@ def test_window_rows_frame_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT *, SUM("sales"."amount") OVER'
-        ' (PARTITION BY "sales"."department" ORDER BY "sales"."amount" ASC'
-        ' ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'
-        ' AS "running_total" FROM "sales"',
+        (
+            'SELECT *, SUM("sales"."amount") OVER'
+            ' (PARTITION BY "sales"."department" ORDER BY "sales"."amount" ASC'
+            ' ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'
+            ' AS "running_total" FROM "sales"'
+        ),
         [],
     )
 
@@ -808,10 +820,12 @@ def test_window_groups_frame_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT *, SUM("sales"."amount") OVER'
-        ' (PARTITION BY "sales"."department"'
-        ' GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'
-        ' AS "group_total" FROM "sales"',
+        (
+            'SELECT *, SUM("sales"."amount") OVER'
+            ' (PARTITION BY "sales"."department"'
+            ' GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'
+            ' AS "group_total" FROM "sales"'
+        ),
         [],
     )
 
@@ -842,10 +856,12 @@ def test_window_range_frame_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT *, SUM("sales"."amount") OVER'
-        ' (ORDER BY "sales"."amount" ASC'
-        ' RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'
-        ' AS "range_total" FROM "sales"',
+        (
+            'SELECT *, SUM("sales"."amount") OVER'
+            ' (ORDER BY "sales"."amount" ASC'
+            ' RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)'
+            ' AS "range_total" FROM "sales"'
+        ),
         [],
     )
 
@@ -876,10 +892,12 @@ def test_window_n_preceding_and_following() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT *, SUM("sales"."amount") OVER'
-        ' (ORDER BY "sales"."amount" ASC'
-        ' ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING)'
-        ' AS "sliding_sum" FROM "sales"',
+        (
+            'SELECT *, SUM("sales"."amount") OVER'
+            ' (ORDER BY "sales"."amount" ASC'
+            ' ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING)'
+            ' AS "sliding_sum" FROM "sales"'
+        ),
         [],
     )
 
@@ -1007,10 +1025,12 @@ def test_jsonb_build_array_sqlite_mapped() -> None:
         ],
     )
     assert lite(q) == (
-        'SELECT *, jsonb_array('
-        'CASE WHEN json_valid(?) = 1 THEN jsonb(?) ELSE ? END, '
-        'CASE WHEN json_valid(?) = 1 THEN jsonb(?) ELSE ? END'
-        ') AS "arr" FROM "data"',
+        (
+            'SELECT *, jsonb_array('
+            'CASE WHEN json_valid(?) = 1 THEN jsonb(?) ELSE ? END, '
+            'CASE WHEN json_valid(?) = 1 THEN jsonb(?) ELSE ? END'
+            ') AS "arr" FROM "data"'
+        ),
         [1, 1, 1, 2, 2, 2],
     )
 

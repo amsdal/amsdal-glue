@@ -119,8 +119,10 @@ def test_multiple_joins_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT "users".* FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"'
-        ' INNER JOIN "payments" ON "orders"."id" = "payments"."order_id"',
+        (
+            'SELECT "users".* FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"'
+            ' INNER JOIN "payments" ON "orders"."id" = "payments"."order_id"'
+        ),
         [],
     )
 
@@ -148,8 +150,10 @@ def test_multiple_joins_lite() -> None:
         ],
     )
     assert lite(q) == (
-        'SELECT "users".* FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"'
-        ' INNER JOIN "payments" ON "orders"."id" = "payments"."order_id"',
+        (
+            'SELECT "users".* FROM "users" LEFT JOIN "orders" ON "users"."id" = "orders"."user_id"'
+            ' INNER JOIN "payments" ON "orders"."id" = "payments"."order_id"'
+        ),
         [],
     )
 

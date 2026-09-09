@@ -84,14 +84,12 @@ def register_and_seed(database_connection: Any, name: str, rows: list[dict[str, 
             ],
         ),
     )
-    database_connection.run_mutations(
-        [
-            InsertData(
-                schema=SchemaReference(name=name, version=Version.LATEST),
-                data=[DataInput(data=dict(row)) for row in rows],
-            ),
-        ]
-    )
+    database_connection.run_mutations([
+        InsertData(
+            schema=SchemaReference(name=name, version=Version.LATEST),
+            data=[DataInput(data=dict(row)) for row in rows],
+        ),
+    ])
 
 
 def ref(

@@ -172,8 +172,7 @@ def test_update_property_pg_double_target_has_using_cast() -> None:
         property=PropertySchema(name='amount', type=ScalarType.DOUBLE, required=False),
     )
     assert pg_ddl(m)[0] == (
-        'ALTER TABLE "Person" ALTER COLUMN "amount" SET DATA TYPE double precision '
-        'USING "amount"::double precision',
+        ('ALTER TABLE "Person" ALTER COLUMN "amount" SET DATA TYPE double precision USING "amount"::double precision'),
         [],
     )
 
@@ -184,8 +183,7 @@ def test_update_property_pg_bigint_target_has_using_cast() -> None:
         property=PropertySchema(name='counter', type=ScalarType.BIGINT, required=False),
     )
     assert pg_ddl(m)[0] == (
-        'ALTER TABLE "Person" ALTER COLUMN "counter" SET DATA TYPE bigint '
-        'USING "counter"::bigint',
+        ('ALTER TABLE "Person" ALTER COLUMN "counter" SET DATA TYPE bigint USING "counter"::bigint'),
         [],
     )
 
@@ -196,8 +194,7 @@ def test_update_property_pg_decimal_target_has_using_cast() -> None:
         property=PropertySchema(name='price', type=DecimalType(precision=10, scale=2), required=False),
     )
     assert pg_ddl(m)[0] == (
-        'ALTER TABLE "Person" ALTER COLUMN "price" SET DATA TYPE NUMERIC(10, 2) '
-        'USING "price"::NUMERIC(10, 2)',
+        ('ALTER TABLE "Person" ALTER COLUMN "price" SET DATA TYPE NUMERIC(10, 2) USING "price"::NUMERIC(10, 2)'),
         [],
     )
 

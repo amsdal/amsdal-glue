@@ -74,11 +74,9 @@ def test_stored_json_preserves_insertion_order(database_connection: SqliteConnec
     """A dict inserted through the generator (Rust serde_json) stores keys in insertion order."""
     schema_ref = _register(database_connection)
 
-    database_connection.run_mutations(
-        [
-            InsertData(schema=schema_ref, data=[DataInput(data={'id': 1, 'payload': _UNSORTED})]),
-        ]
-    )
+    database_connection.run_mutations([
+        InsertData(schema=schema_ref, data=[DataInput(data={'id': 1, 'payload': _UNSORTED})]),
+    ])
 
     # Insertion order b,a,m -- NOT sorted a,b,m -- byte-identical to json.dumps of the same dict.
     assert _stored_json(database_connection, 1) == json.dumps(_UNSORTED, separators=(',', ':'))
@@ -89,11 +87,9 @@ def test_nested_object_preserves_insertion_order(database_connection: SqliteConn
     """The Reference shape's nested object also emits in insertion order."""
     schema_ref = _register(database_connection)
 
-    database_connection.run_mutations(
-        [
-            InsertData(schema=schema_ref, data=[DataInput(data={'id': 1, 'payload': _NESTED})]),
-        ]
-    )
+    database_connection.run_mutations([
+        InsertData(schema=schema_ref, data=[DataInput(data={'id': 1, 'payload': _NESTED})]),
+    ])
 
     assert _stored_json(database_connection, 1) == json.dumps(_NESTED, separators=(',', ':'))
 

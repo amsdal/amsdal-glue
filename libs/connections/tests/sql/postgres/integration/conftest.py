@@ -131,25 +131,31 @@ def _postgres_server_run() -> Generator[None, None, None]:
             db_user,
             db_password,
         ) = get_postgres_credentials()
-        container = client.containers.run(
-            image='postgres:latest',
-            auto_remove=True,
-            environment={'POSTGRES_USER': db_user, 'POSTGRES_PASSWORD': db_password},
-            name='test_postgres',
-            ports={'5432/tcp': ('127.0.0.1', db_port)},
-            detach=True,
-            remove=True,
-        )
+        try:
+            container = client.containers.run(
+                image='pgvector/pgvector:pg17',
+                auto_remove=True,
+                environment={'POSTGRES_USER': db_user, 'POSTGRES_PASSWORD': db_password},
+                name='test_postgres',
+                ports={'5432/tcp': ('127.0.0.1', db_port)},
+                detach=True,
+                remove=True,
+            )
+        except docker.errors.APIError as exc:
+            # Under pytest-xdist every worker runs this session fixture. Only the first one
+            # gets to create the container; the others see a 409 and wait for it below.
+            if exc.status_code != 409:
+                raise
+
         is_connected = False
 
-        while retry_count := 5:
+        for _ in range(12):
             try:
                 with get_postgres_connection_info():
                     is_connected = True
                     break
             except psycopg.OperationalError:
                 sleep(5)
-                retry_count -= 1
 
         if not is_connected:
             msg = 'Failed to start postgres server'

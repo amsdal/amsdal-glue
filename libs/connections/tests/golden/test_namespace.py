@@ -126,9 +126,11 @@ def test_join_with_namespace_pg() -> None:
         ],
     )
     assert pg(q) == (
-        'SELECT "users".* FROM "public"."users"'
-        ' INNER JOIN "sales"."orders"'
-        ' ON "public"."users"."id" = "sales"."orders"."user_id"',
+        (
+            'SELECT "users".* FROM "public"."users"'
+            ' INNER JOIN "sales"."orders"'
+            ' ON "public"."users"."id" = "sales"."orders"."user_id"'
+        ),
         [],
     )
 
