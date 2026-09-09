@@ -52,10 +52,12 @@ def test_update_with_from_values_pg() -> None:
         returning=[FieldReference(field=Field(name='*'), table_name='')],
     )
     assert pg_cmd(mutation) == (
-        'UPDATE "orders" SET "user_id" = "_cascade_parent"."id"'
-        ' FROM (VALUES (%s, %s), (%s, %s)) AS "_cascade_parent" ("$__planner__old_id", "id")'
-        ' WHERE "orders"."user_id" = "_cascade_parent"."$__planner__old_id"'
-        ' RETURNING *',
+        (
+            'UPDATE "orders" SET "user_id" = "_cascade_parent"."id"'
+            ' FROM (VALUES (%s, %s), (%s, %s)) AS "_cascade_parent" ("$__planner__old_id", "id")'
+            ' WHERE "orders"."user_id" = "_cascade_parent"."$__planner__old_id"'
+            ' RETURNING *'
+        ),
         [1, 101, 2, 102],
     )
 
@@ -98,10 +100,12 @@ def test_update_with_from_values_sqlite() -> None:
     # SQLite does not support (VALUES ...) AS t(cols) directly; the generator
     # rewrites it as SELECT col1 AS name1, col2 AS name2 FROM (VALUES (...)).
     assert lite_cmd(mutation) == (
-        'UPDATE "orders" SET "user_id" = "_cascade_parent"."id"'
-        ' FROM (SELECT column1 AS "$__planner__old_id", column2 AS "id"'
-        ' FROM (VALUES (?, ?))) AS "_cascade_parent"'
-        ' WHERE "orders"."user_id" = "_cascade_parent"."$__planner__old_id"'
-        ' RETURNING *',
+        (
+            'UPDATE "orders" SET "user_id" = "_cascade_parent"."id"'
+            ' FROM (SELECT column1 AS "$__planner__old_id", column2 AS "id"'
+            ' FROM (VALUES (?, ?))) AS "_cascade_parent"'
+            ' WHERE "orders"."user_id" = "_cascade_parent"."$__planner__old_id"'
+            ' RETURNING *'
+        ),
         [1, 101],
     )

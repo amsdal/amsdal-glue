@@ -59,14 +59,12 @@ def test_rust_param_path_writes_t_separator(database_connection: SqliteConnectio
     """A datetime routed through the generator (run_mutations -> Rust extract) stores the ``T`` form."""
     schema_ref = _register_event(database_connection)
 
-    database_connection.run_mutations(
-        [
-            InsertData(
-                schema=schema_ref,
-                data=[DataInput(data={'id': 1, 'created_at': datetime(2021, 1, 2, 3, 4, 5)})],  # noqa: DTZ001
-            ),
-        ]
-    )
+    database_connection.run_mutations([
+        InsertData(
+            schema=schema_ref,
+            data=[DataInput(data={'id': 1, 'created_at': datetime(2021, 1, 2, 3, 4, 5)})],  # noqa: DTZ001
+        ),
+    ])
 
     # quote() shows the raw stored TEXT; offset-10 byte must be 'T', not a space.
     assert _quoted(database_connection, 1) == "'2021-01-02T03:04:05'"
@@ -77,11 +75,9 @@ def test_rust_param_path_writes_t_with_microseconds_and_tz(database_connection: 
     schema_ref = _register_event(database_connection)
 
     value = datetime(2021, 1, 2, 13, 14, 18, 99106, tzinfo=timezone.utc)
-    database_connection.run_mutations(
-        [
-            InsertData(schema=schema_ref, data=[DataInput(data={'id': 1, 'created_at': value})]),
-        ]
-    )
+    database_connection.run_mutations([
+        InsertData(schema=schema_ref, data=[DataInput(data={'id': 1, 'created_at': value})]),
+    ])
 
     assert _quoted(database_connection, 1) == "'2021-01-02T13:14:18.099106+00:00'"
 
@@ -108,17 +104,15 @@ def test_mixed_format_column_orders_and_ranges_chronologically(database_connecti
     # Simulate a legacy row: raw INSERT of the 'T' TEXT form at real 09:00.
     database_connection.execute('INSERT INTO "event" ("id", "created_at") VALUES (?, ?)', 1, '2021-01-02T09:00:00')
     # Rows via the generator (also 'T'): 11:00 and 08:00.
-    database_connection.run_mutations(
-        [
-            InsertData(
-                schema=schema_ref,
-                data=[
-                    DataInput(data={'id': 2, 'created_at': datetime(2021, 1, 2, 11, 0, 0)}),  # noqa: DTZ001
-                    DataInput(data={'id': 3, 'created_at': datetime(2021, 1, 2, 8, 0, 0)}),  # noqa: DTZ001
-                ],
-            ),
-        ]
-    )
+    database_connection.run_mutations([
+        InsertData(
+            schema=schema_ref,
+            data=[
+                DataInput(data={'id': 2, 'created_at': datetime(2021, 1, 2, 11, 0, 0)}),  # noqa: DTZ001
+                DataInput(data={'id': 3, 'created_at': datetime(2021, 1, 2, 8, 0, 0)}),  # noqa: DTZ001
+            ],
+        ),
+    ])
 
     cur = database_connection.execute('SELECT "id" FROM "event" ORDER BY "created_at" ASC')
     order = [row[0] for row in cur.fetchall()]

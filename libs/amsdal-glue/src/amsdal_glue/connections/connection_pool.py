@@ -201,7 +201,7 @@ class DefaultConnectionPool(ConnectionPoolBase):
 
         try:
             connection.rollback_transaction(transaction_id)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.warning('Discarding a connection that failed to roll back on reclaim.', exc_info=True)
             self._discard(connection)
 
@@ -492,7 +492,7 @@ class DefaultAsyncConnectionPool(AsyncConnectionPoolBase):
 
         try:
             await connection.rollback_transaction(transaction_id)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.warning('Discarding a connection that failed to roll back on reclaim.', exc_info=True)
             await self._discard(connection)
 

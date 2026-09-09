@@ -76,12 +76,14 @@ def test_register_schema_sqlite() -> None:
     )
     assert stmts == [
         (
-            'CREATE TABLE "Person" ('
-            '"id" integer NOT NULL, '
-            '"name" text NOT NULL, '
-            '"age" integer DEFAULT (18), '
-            'CONSTRAINT "pk_person" PRIMARY KEY ("id")'
-            ')',
+            (
+                'CREATE TABLE "Person" ('
+                '"id" integer NOT NULL, '
+                '"name" text NOT NULL, '
+                '"age" integer DEFAULT (18), '
+                'CONSTRAINT "pk_person" PRIMARY KEY ("id")'
+                ')'
+            ),
             [],
         ),
         ('CREATE INDEX "idx_person_name" ON "Person" ("name" ASC)', []),
@@ -107,12 +109,14 @@ def test_register_schema_pg() -> None:
     )
     assert stmts == [
         (
-            'CREATE TABLE "Person" ('
-            '"id" integer NOT NULL, '
-            '"name" text NOT NULL, '
-            '"age" integer DEFAULT 18, '
-            'CONSTRAINT "pk_person" PRIMARY KEY ("id")'
-            ')',
+            (
+                'CREATE TABLE "Person" ('
+                '"id" integer NOT NULL, '
+                '"name" text NOT NULL, '
+                '"age" integer DEFAULT 18, '
+                'CONSTRAINT "pk_person" PRIMARY KEY ("id")'
+                ')'
+            ),
             [],
         ),
         ('CREATE INDEX "idx_person_name" ON "Person" USING btree ("name" ASC)', []),
@@ -165,11 +169,13 @@ def test_unique_constraint_sqlite() -> None:
     )
     assert stmts == [
         (
-            'CREATE TABLE "Person" ('
-            '"id" integer NOT NULL, '
-            '"email" text NOT NULL, '
-            'CONSTRAINT "uq_person_email" UNIQUE ("email")'
-            ')',
+            (
+                'CREATE TABLE "Person" ('
+                '"id" integer NOT NULL, '
+                '"email" text NOT NULL, '
+                'CONSTRAINT "uq_person_email" UNIQUE ("email")'
+                ')'
+            ),
             [],
         ),
     ]
@@ -192,11 +198,13 @@ def test_unique_constraint_pg() -> None:
     )
     assert stmts == [
         (
-            'CREATE TABLE "Person" ('
-            '"id" integer NOT NULL, '
-            '"email" text NOT NULL, '
-            'CONSTRAINT "uq_person_email" UNIQUE ("email")'
-            ')',
+            (
+                'CREATE TABLE "Person" ('
+                '"id" integer NOT NULL, '
+                '"email" text NOT NULL, '
+                'CONSTRAINT "uq_person_email" UNIQUE ("email")'
+                ')'
+            ),
             [],
         ),
     ]
@@ -252,11 +260,13 @@ def test_foreign_key_constraint_sqlite() -> None:
     )
     assert stmts == [
         (
-            'CREATE TABLE "Order" ('
-            '"id" integer NOT NULL, '
-            '"person_id" integer NOT NULL, '
-            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'  # noqa: E501
-            ')',
+            (
+                'CREATE TABLE "Order" ('
+                '"id" integer NOT NULL, '
+                '"person_id" integer NOT NULL, '
+                'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'  # noqa: E501
+                ')'
+            ),
             [],
         ),
     ]
@@ -315,11 +325,13 @@ def test_foreign_key_constraint_pg() -> None:
     )
     assert stmts == [
         (
-            'CREATE TABLE "Order" ('
-            '"id" integer NOT NULL, '
-            '"person_id" integer NOT NULL, '
-            'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'  # noqa: E501
-            ')',
+            (
+                'CREATE TABLE "Order" ('
+                '"id" integer NOT NULL, '
+                '"person_id" integer NOT NULL, '
+                'CONSTRAINT "fk_order_person" FOREIGN KEY ("person_id") REFERENCES "Person" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION'  # noqa: E501
+                ')'
+            ),
             [],
         ),
     ]
@@ -352,11 +364,13 @@ def test_check_constraint_sqlite() -> None:
     )
     assert stmts == [
         (
-            'CREATE TABLE "Person" ('
-            '"id" integer NOT NULL, '
-            '"age" integer NOT NULL, '
-            'CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)'
-            ')',
+            (
+                'CREATE TABLE "Person" ('
+                '"id" integer NOT NULL, '
+                '"age" integer NOT NULL, '
+                'CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)'
+                ')'
+            ),
             [],
         ),
     ]
@@ -384,11 +398,13 @@ def test_check_constraint_pg() -> None:
     )
     assert stmts == [
         (
-            'CREATE TABLE "Person" ('
-            '"id" integer NOT NULL, '
-            '"age" integer NOT NULL, '
-            'CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)'
-            ')',
+            (
+                'CREATE TABLE "Person" ('
+                '"id" integer NOT NULL, '
+                '"age" integer NOT NULL, '
+                'CONSTRAINT "chk_age_positive" CHECK ("Person"."age" > 0)'
+                ')'
+            ),
             [],
         ),
     ]

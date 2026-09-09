@@ -39,14 +39,12 @@ def test_vector_binds_as_vector_not_jsonb(vector_connection: PostgresConnection)
     implicit ``jsonb -> vector`` cast). The ``Vector`` extractor emits a ``'[1,2,3]'`` string param,
     which Postgres casts straight to ``vector`` — so the dumper never sees a ``list`` here.
     """
-    vector_connection.run_mutations(
-        [
-            InsertData(
-                schema=SchemaReference(name='items', version=Version.LATEST),
-                data=[DataInput(data={'id': '1', 'embedding': Vector(values=[1.0, 2.0, 3.0])})],
-            ),
-        ]
-    )
+    vector_connection.run_mutations([
+        InsertData(
+            schema=SchemaReference(name='items', version=Version.LATEST),
+            data=[DataInput(data={'id': '1', 'embedding': Vector(values=[1.0, 2.0, 3.0])})],
+        ),
+    ])
 
     # The column really is a vector (not jsonb), and the stored value is the vector we inserted.
     col_type = vector_connection.execute(
@@ -63,14 +61,12 @@ def test_vector_distance_query_uses_stored_vector(vector_connection: PostgresCon
 
     ``jsonb`` has no ``<->`` operator, so this only works if the value was bound as a genuine vector.
     """
-    vector_connection.run_mutations(
-        [
-            InsertData(
-                schema=SchemaReference(name='items', version=Version.LATEST),
-                data=[DataInput(data={'id': '1', 'embedding': Vector(values=[1.0, 2.0, 3.0])})],
-            ),
-        ]
-    )
+    vector_connection.run_mutations([
+        InsertData(
+            schema=SchemaReference(name='items', version=Version.LATEST),
+            data=[DataInput(data={'id': '1', 'embedding': Vector(values=[1.0, 2.0, 3.0])})],
+        ),
+    ])
 
     distance = vector_connection.execute("SELECT embedding <-> '[1,2,3]'::vector FROM items WHERE id = 1").fetchall()
     assert distance == [(0.0,)]

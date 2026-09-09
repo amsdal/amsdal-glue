@@ -56,11 +56,9 @@ async def test_bytea_value_round_trips_as_bytes(database_connection: AsyncSqlite
     schema_ref = await _register_account(database_connection)
 
     secret = b'\x00\x01hashed\xff'
-    await database_connection.run_mutations(
-        [
-            InsertData(schema=schema_ref, data=[DataInput(data={'id': 1, 'secret': secret})]),
-        ]
-    )
+    await database_connection.run_mutations([
+        InsertData(schema=schema_ref, data=[DataInput(data={'id': 1, 'secret': secret})]),
+    ])
 
     result = await database_connection.query(QueryStatement(table=schema_ref))
     stored = [row.data['secret'] for row in result]
