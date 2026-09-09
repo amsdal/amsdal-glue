@@ -91,6 +91,15 @@ VALUE_TYPE_MAPPING = {
 }
 
 
+def _name_part_value(part: dict[str, Any]) -> str:
+    """Unwrap a single `ObjectName`/`ObjectNamePart` entry down to its identifier value.
+
+    sqlparser-rs represents object name segments (table/schema/index names) as
+    `{"Identifier": {"value": ..., ...}}`.
+    """
+    return part.get('Identifier', part)['value']
+
+
 class SqlOxideParser(SqlParserBase):
     def parse_sql(self, sql: str, dialect: str | None = None) -> list[Operation]:
         dialect = dialect or 'ansi'
@@ -169,7 +178,9 @@ class SqlOxideParser(SqlParserBase):
             return SchemaCommand(
                 mutations=[
                     DeleteSchema(
-                        schema_ref=SchemaReference(name=parsed_sql['names'][0][0]['value'], version=Version.LATEST)
+                        schema_ref=SchemaReference(
+                            name=_name_part_value(parsed_sql['names'][0][0]), version=Version.LATEST
+                        )
                     )
                 ]
             )
@@ -183,7 +194,7 @@ class SqlOxideParser(SqlParserBase):
         return ''
 
     def _alter_table(self, parsed_sql: dict[str, Any]) -> SchemaCommand:
-        table_name = parsed_sql['name'][0]['value']
+        table_name = _name_part_value(parsed_sql['name'][0])
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
         operations: list[SchemaCommand] = []
@@ -198,7 +209,7 @@ class SqlOxideParser(SqlParserBase):
 
                 operations.append(SchemaCommand(mutations=[AddProperty(schema_ref=schema, property=_property)]))
             elif 'DropColumn' in operation:
-                column_name = operation['DropColumn']['column_name']['value']
+                column_name = operation['DropColumn']['column_names'][0]['value']
                 operations.append(
                     SchemaCommand(mutations=[DeleteProperty(schema_ref=schema, property_name=column_name)])
                 )
@@ -213,13 +224,16 @@ class SqlOxideParser(SqlParserBase):
                     )
                 )
             elif 'RenameTable' in operation:
-                new_table_name = operation['RenameTable']['table_name'][0]['value']
+                new_table_name = _name_part_value(operation['RenameTable']['table_name']['To'][0])
                 operations.append(SchemaCommand(mutations=[RenameSchema(schema_ref=schema, new_name=new_table_name)]))
 
             elif 'AddConstraint' in operation:
-                constraint = operation['AddConstraint']
+                constraint = operation['AddConstraint']['constraint']
                 if 'PrimaryKey' in constraint:
-                    fields = [column['value'] for column in constraint['PrimaryKey']['columns']]
+                    fields = [
+                        column['column']['expr']['Identifier']['value']
+                        for column in constraint['PrimaryKey']['columns']
+                    ]
                     operations.append(
                         SchemaCommand(
                             mutations=[
@@ -252,10 +266,10 @@ class SqlOxideParser(SqlParserBase):
         return operations[0]
 
     def _create_index(self, parsed_sql: dict[str, Any]) -> SchemaCommand:
-        table_name = parsed_sql['table_name'][0]['value']
+        table_name = _name_part_value(parsed_sql['table_name'][0])
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
-        field_names = [column['expr']['Identifier']['value'] for column in parsed_sql['columns']]
+        field_names = [column['column']['expr']['Identifier']['value'] for column in parsed_sql['columns']]
         condition = None
         if parsed_sql['predicate']:
             condition = Conditions(self._process_selection(parsed_sql['predicate'], table_name))
@@ -265,7 +279,7 @@ class SqlOxideParser(SqlParserBase):
                 AddIndex(
                     schema_ref=schema,
                     index=IndexSchema(
-                        name=parsed_sql['name'][0]['value'],
+                        name=_name_part_value(parsed_sql['name'][0]),
                         fields=[IndexField(name=fn) for fn in field_names],
                         condition=condition,
                     ),
@@ -296,7 +310,7 @@ class SqlOxideParser(SqlParserBase):
         raise ValueError(msg)
 
     def _create_table_sql_operation(self, parsed_sql: dict[str, Any]) -> SchemaCommand:
-        table_name = parsed_sql['name'][0]['value']
+        table_name = _name_part_value(parsed_sql['name'][0])
         schema = Schema(name=table_name, version=Version.LATEST, properties=[])
         schema_ref = SchemaReference(name=table_name, version=Version.LATEST)
 
@@ -310,12 +324,12 @@ class SqlOxideParser(SqlParserBase):
             )
 
             for option in column['options']:
-                if 'Unique' in option['option']:
-                    if option['option']['Unique']['is_primary']:
-                        constraints.append(PrimaryKeyConstraint(name=column_name, fields=[column_name]))
-                        _property.required = True
-                    else:
-                        constraints.append(UniqueConstraint(name=column_name, fields=[column_name]))
+                if 'PrimaryKey' in option['option']:
+                    constraints.append(PrimaryKeyConstraint(name=column_name, fields=[column_name]))
+                    _property.required = True
+
+                elif 'Unique' in option['option']:
+                    constraints.append(UniqueConstraint(name=column_name, fields=[column_name]))
 
                 elif option['option'] == 'NotNull':
                     _property.required = True
@@ -338,14 +352,16 @@ class SqlOxideParser(SqlParserBase):
         constraints_list: list[BaseConstraint] = []
         for constraint in constraints:
             if 'PrimaryKey' in constraint:
-                fields = [field['value'] for field in constraint['PrimaryKey']['columns']]
+                fields = [
+                    field['column']['expr']['Identifier']['value'] for field in constraint['PrimaryKey']['columns']
+                ]
 
                 constraints_list.append(
                     PrimaryKeyConstraint(name=self._constraint_name(constraint['PrimaryKey']), fields=fields)
                 )
 
             elif 'Unique' in constraint:
-                fields = [field['value'] for field in constraint['Unique']['columns']]
+                fields = [field['column']['expr']['Identifier']['value'] for field in constraint['Unique']['columns']]
 
                 constraints_list.append(
                     UniqueConstraint(name=self._constraint_name(constraint['Unique']), fields=fields)
@@ -361,7 +377,7 @@ class SqlOxideParser(SqlParserBase):
             elif 'ForeignKey' in constraint:
                 fields = [field['value'] for field in constraint['ForeignKey']['columns']]
                 reference_schema = SchemaReference(
-                    name=constraint['ForeignKey']['foreign_table'][0]['value'], version=Version.LATEST
+                    name=_name_part_value(constraint['ForeignKey']['foreign_table'][0]), version=Version.LATEST
                 )
                 reference_fields = [field['value'] for field in constraint['ForeignKey']['referred_columns']]
 
@@ -381,7 +397,9 @@ class SqlOxideParser(SqlParserBase):
         return constraints_list
 
     def _parse_delete_sql_operation(self, parsed_sql: dict[str, Any]) -> DataCommand:
-        table_name = parsed_sql['from']['WithFromKeyword'][0]['relation']['Table']['name'][0]['value']
+        table_name = _name_part_value(
+            parsed_sql['from']['WithFromKeyword'][0]['relation']['Table']['name'][0],
+        )
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
         where = self._process_selection(parsed_sql['selection'], table_name)
@@ -392,12 +410,12 @@ class SqlOxideParser(SqlParserBase):
         return DataCommand(mutations=[DeleteData(schema=schema, query=where)])
 
     def _parse_update_sql_operation(self, parsed_sql: dict[str, Any]) -> DataCommand:
-        table_name = parsed_sql['table']['relation']['Table']['name'][0]['value']
+        table_name = _name_part_value(parsed_sql['table']['relation']['Table']['name'][0])
         schema = SchemaReference(name=table_name, version=Version.LATEST)
 
         assignments: dict[str, Expression] = {}
         for assignment in parsed_sql['assignments']:
-            field = assignment['id'][0]['value']
+            field = _name_part_value(assignment['target']['ColumnName'][0])
             value = assignment['value']
             _value = self._identifier_to_field(value, table_name)
             if isinstance(_value, Value):
@@ -422,7 +440,7 @@ class SqlOxideParser(SqlParserBase):
 
     def _parse_insert_sql_operation(self, parsed_sql: dict[str, Any]) -> DataCommand:
         columns = [column['value'] for column in parsed_sql['columns']]
-        table_name = parsed_sql['table_name'][0]['value']
+        table_name = _name_part_value(parsed_sql['table']['TableName'][0])
 
         data_rows = []
 
@@ -458,16 +476,16 @@ class SqlOxideParser(SqlParserBase):
             )
 
         if 'Value' in identifier:
-            _value = identifier['Value']
+            _value = identifier['Value']['value']
 
             if 'SingleQuotedString' in _value:
-                return Value(identifier['Value']['SingleQuotedString'])
+                return Value(_value['SingleQuotedString'])
 
             if 'Number' in _value:
-                return Value(identifier['Value']['Number'][0])
+                return Value(_value['Number'][0])
 
             if 'Boolean' in _value:
-                return Value(identifier['Value']['Boolean'])
+                return Value(_value['Boolean'])
 
             msg = f'Unsupported identifier: {identifier}'
             raise ValueError(msg)
@@ -534,7 +552,7 @@ class SqlOxideParser(SqlParserBase):
                 fields.append(
                     FieldReference(
                         field=Field(name='*'),
-                        table_name=projection['QualifiedWildcard'][0][0]['value'],
+                        table_name=_name_part_value(projection['QualifiedWildcard'][0]['ObjectName'][0]),
                     )
                 )
             elif 'ExprWithAlias' in projection:
@@ -628,7 +646,7 @@ class SqlOxideParser(SqlParserBase):
                 )
             elif 'Table' in _relation:
                 join_table_description = _relation['Table']
-                join_table_name = join_table_description['name'][0]['value']
+                join_table_name = _name_part_value(join_table_description['name'][0])
                 join_schema = SchemaReference(name=join_table_name, version=Version.LATEST)
 
                 if join_table_description['alias']:
@@ -637,33 +655,31 @@ class SqlOxideParser(SqlParserBase):
                 msg = f'Unsupported join relation: {join["relation"]}'
                 raise ValueError(msg)
 
-            if 'Inner' in join['join_operator']:
-                join_query = JoinQuery(
-                    table=join_schema,
-                    on=Conditions(self._process_selection(join['join_operator']['Inner']['On'], table_name)),
-                    join_type=JoinType.INNER,
-                )
-            elif 'LeftOuter' in join['join_operator']:
-                join_query = JoinQuery(
-                    table=join_schema,
-                    on=Conditions(self._process_selection(join['join_operator']['LeftOuter']['On'], table_name)),
-                    join_type=JoinType.LEFT,
-                )
-            elif 'RightOuter' in join['join_operator']:
-                join_query = JoinQuery(
-                    table=join_schema,
-                    on=Conditions(self._process_selection(join['join_operator']['RightOuter']['On'], table_name)),
-                    join_type=JoinType.RIGHT,
-                )
-            elif 'FullOuter' in join['join_operator']:
-                join_query = JoinQuery(
-                    table=join_schema,
-                    on=Conditions(self._process_selection(join['join_operator']['FullOuter']['On'], table_name)),
-                    join_type=JoinType.FULL,
-                )
-            else:
+            join_operator = join['join_operator']
+            join_operator_key, join_type = next(
+                (
+                    (key, join_type)
+                    for keys, join_type in (
+                        (('Join', 'Inner'), JoinType.INNER),
+                        (('Left', 'LeftOuter'), JoinType.LEFT),
+                        (('Right', 'RightOuter'), JoinType.RIGHT),
+                        (('Full', 'FullOuter'), JoinType.FULL),
+                    )
+                    for key in keys
+                    if key in join_operator
+                ),
+                (None, None),
+            )
+
+            if join_operator_key is None or join_type is None:
                 msg = 'Unsupported join type'
                 raise ValueError(msg)
+
+            join_query = JoinQuery(
+                table=join_schema,
+                on=Conditions(self._process_selection(join_operator[join_operator_key]['On'], table_name)),
+                join_type=join_type,
+            )
             join_queries.append(join_query)
 
         return join_queries
@@ -679,14 +695,14 @@ class SqlOxideParser(SqlParserBase):
 
         return group_by_queries
 
-    def _process_order_by(self, order_by: list[dict[str, Any]], table_name: str) -> list[OrderByQuery] | None:
+    def _process_order_by(self, order_by: dict[str, Any] | None, table_name: str) -> list[OrderByQuery] | None:
         if not order_by:
             return None
 
         order_by_queries = []
-        for order in order_by:
+        for order in order_by['kind']['Expressions']:
             field = self._identifier_to_field_reference(order['expr'], table_name)
-            direction = OrderDirection.ASC if order['asc'] else OrderDirection.DESC
+            direction = OrderDirection.DESC if order['options']['asc'] is False else OrderDirection.ASC
             order_by_queries.append(
                 OrderByQuery(
                     expression=FieldReferenceExpression(field_reference=field),
@@ -696,13 +712,20 @@ class SqlOxideParser(SqlParserBase):
 
         return order_by_queries
 
-    def _process_limit_offset(self, limit: dict[str, Any], offset: dict[str, Any]) -> LimitQuery | None:
-        if not limit:
+    def _process_limit_offset(self, limit_clause: dict[str, Any] | None) -> LimitQuery | None:
+        if not limit_clause:
             return None
 
+        limit_offset = limit_clause.get('LimitOffset')
+
+        if not limit_offset or not limit_offset.get('limit'):
+            return None
+
+        offset = limit_offset.get('offset')
+
         return LimitQuery(
-            limit=int(limit['Value']['Number'][0]),
-            offset=int(offset['value']['Value']['Number'][0]) if offset else 0,
+            limit=int(limit_offset['limit']['Value']['value']['Number'][0]),
+            offset=int(offset['value']['Value']['value']['Number'][0]) if offset else 0,
         )
 
     def _unwrap_nested_expression(
@@ -744,7 +767,7 @@ class SqlOxideParser(SqlParserBase):
                     msg = f'Unsupported function: {inner}'
                     raise ValueError(msg)
 
-                name = function_expression['name'][0]['value']
+                name = _name_part_value(function_expression['name'][0])
                 agg_function = AGGREGATION_FUNCTIONS.get(name)
 
                 if agg_function:
@@ -784,7 +807,7 @@ class SqlOxideParser(SqlParserBase):
                     )
 
             elif 'Value' in inner:
-                _value_expr = inner['Value']
+                _value_expr = inner['Value']['value']
                 _expr_type = next(iter(_value_expr))
                 _expr_value = _value_expr[_expr_type]
                 _value_type = VALUE_TYPE_MAPPING[_expr_type]
@@ -864,7 +887,7 @@ class SqlOxideParser(SqlParserBase):
             )
 
         if 'Value' in binary_operation:
-            _value_expr = binary_operation['Value']
+            _value_expr = binary_operation['Value']['value']
             _expr_type = next(iter(_value_expr))
             _expr_value = _value_expr[_expr_type]
             _value_type = VALUE_TYPE_MAPPING[_expr_type]
@@ -889,7 +912,7 @@ class SqlOxideParser(SqlParserBase):
             table_obj = SubQueryStatement(query=subquery, alias=_alias)
         elif 'Table' in _relation:
             table_description = parsed_sql['body']['Select']['from'][0]['relation']['Table']
-            table_name = table_description['name'][0]['value']
+            table_name = _name_part_value(table_description['name'][0])
             table_obj = SchemaReference(name=table_name, version=Version.LATEST)
 
             if table_description['alias']:
@@ -930,13 +953,10 @@ class SqlOxideParser(SqlParserBase):
             table_name,
         )
 
-        query.limit = self._process_limit_offset(
-            parsed_sql['limit'],
-            parsed_sql['offset'],
-        )
+        query.limit = self._process_limit_offset(parsed_sql['limit_clause'])
 
         query.group_by = self._process_group_by(
-            parsed_sql['body']['Select']['group_by']['Expressions'],
+            parsed_sql['body']['Select']['group_by']['Expressions'][0],
             table_name,
         )
 

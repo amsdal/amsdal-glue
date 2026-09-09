@@ -8,7 +8,7 @@ name = "_sql_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "0.24", features = ["extension-module", "abi3-py310"] }
 qcraft = { version = "3.2.0", features = ["postgres", "sqlite"] }
 serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision"] }
 thiserror = "2"
