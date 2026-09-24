@@ -21,6 +21,7 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import CustomIndexType
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
@@ -60,6 +61,16 @@ _INDEX_TYPE_MAP: dict[str, BuiltinIndexType] = {
     'gist': BuiltinIndexType.GIST,
     'brin': BuiltinIndexType.BRIN,
 }
+
+
+def _resolve_index_type(am_name: str) -> BuiltinIndexType | CustomIndexType:
+    """Map a catalog access-method name (e.g. `pg_am.amname`) to a glue index type.
+
+    Unrecognized methods (pgvector's `hnsw` / `ivfflat`, ...) become a `CustomIndexType` instead of
+    collapsing into `BTREE`.
+    """
+    builtin = _INDEX_TYPE_MAP.get(am_name)
+    return builtin if builtin is not None else CustomIndexType(name=am_name)
 
 
 def _registry_field(view: str, name: str) -> FieldReference:
@@ -210,7 +221,7 @@ class SchemaAssemblyMixin:
                     name=name,
                     fields=fields,
                     unique=bool(key_rows[0]['is_unique']),
-                    index_type=_INDEX_TYPE_MAP.get(key_rows[0]['index_type'], BuiltinIndexType.BTREE),
+                    index_type=_resolve_index_type(key_rows[0]['index_type']),
                     include=[row['column_name'] for row in included_rows] or None,
                 ),
             )

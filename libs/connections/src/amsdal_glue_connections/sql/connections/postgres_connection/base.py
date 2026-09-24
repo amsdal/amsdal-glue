@@ -113,6 +113,9 @@ def build_registry_view_sql(schema: str) -> 'dict[str, Composable]':
             'LEFT JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS fk(attnum, pos) ON fk.pos = u.pos '
             'LEFT JOIN pg_attribute ref_att ON ref_att.attrelid = con.confrelid AND ref_att.attnum = fk.attnum'
         ).format(view=sql.Identifier(TABLE_CONSTRAINT_REGISTRY), schema=schema_literal),
+        # `am.amname` is the real access method (`btree`, `gin`, ..., or a custom one like pgvector's
+        # `hnsw` / `ivfflat`). `op_class` is nulled when it's the opclass Postgres would pick by
+        # default (`opc.opcdefault`), so a declared op_class matching that default reads back as `None`.
         TABLE_INDEX_REGISTRY: sql.SQL(
             'CREATE OR REPLACE TEMPORARY VIEW {view} AS '
             'SELECT tc.relname AS table_name, ic.relname AS name, '
