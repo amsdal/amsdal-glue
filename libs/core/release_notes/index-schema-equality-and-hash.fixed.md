@@ -1,0 +1,1 @@
+Fixed `IndexSchema.__eq__` ignoring the `include` (covering) columns, `IndexField`'s default equality comparing `direction` even for access methods that don't support ordering (e.g. pgvector's `hnsw` / `ivfflat`, which always report `ASC` regardless of how the index was declared), and `IndexSchema.__hash__` raising `TypeError: unhashable type: 'IndexField'`.

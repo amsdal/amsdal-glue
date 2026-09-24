@@ -1608,7 +1608,9 @@ pub fn extract_schema_mutation(ob: &Bound<PyAny>) -> PyResult<Vec<SchemaMutation
                 strict: false,
             }];
 
-            // Emit indexes as separate CREATE INDEX statements
+            // Emit indexes as separate CREATE INDEX statements. `concurrently` is always `false`
+            // here since the table is being created in the same batch; use a standalone `AddIndex`
+            // mutation (`concurrent=True`) to build an index concurrently on an existing table.
             if let Some(ref indexes) = schema.indexes {
                 let schema_ref = SchemaRef {
                     name: schema.name.clone(),
@@ -2213,6 +2215,12 @@ fn extract_referential_action(ob: &Bound<PyAny>) -> PyResult<ReferentialAction> 
     }
 }
 
+/// Extract a glue `IndexSchema` into the `qcraft` `IndexDef` the renderer consumes.
+///
+/// `index_type` / `parameters` pass straight through as opaque strings with no validation of what
+/// the access method allows (e.g. pgvector rejects `hnsw`/`ivfflat` on a `vector` column wider than
+/// 2000 dimensions, and `ivfflat`'s `lists` must be sized to the table's row count) -- unsupported
+/// values surface as a Postgres error at execution time, not at schema-build time.
 fn extract_index_def(ob: &Bound<PyAny>) -> PyResult<IndexDef> {
     let name: String = ob.getattr(pyo3::intern!(ob.py(), "name"))?.extract()?;
     let fields_attr = ob.getattr(pyo3::intern!(ob.py(), "fields"))?;
@@ -2265,6 +2273,9 @@ fn extract_index_column(ob: &Bound<PyAny>) -> PyResult<IndexColumnDef> {
     })
 }
 
+/// `BuiltinIndexType` yields its fixed enum value (`"btree"`, `"gin"`, ...); `CustomIndexType`
+/// yields its free-form `name` (e.g. `"hnsw"`, `"ivfflat"`) unvalidated, rendered verbatim as the
+/// `USING <name>` identifier -- a misspelled name surfaces as Postgres' own error, not glue's.
 fn extract_index_type_str(ob: &Bound<PyAny>) -> PyResult<Option<String>> {
     let type_name: String = ob.get_type().qualname()?.extract()?;
     match type_name.as_str() {

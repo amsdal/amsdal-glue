@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 @dataclass(kw_only=True)
 class CustomIndexType:
+    """An access method not covered by :class:`BuiltinIndexType`, e.g. pgvector's ``hnsw`` / ``ivfflat``."""
+
     name: str
     params: dict[str, Any] | None = None
 
@@ -29,6 +31,11 @@ class IndexField:
     op_class: str | None = None
 
 
+def _index_type_supports_ordering(index_type: IndexType) -> bool:
+    """Only ``btree`` honours per-column ``ASC``/``DESC``; every other access method always reports ascending."""
+    return index_type == BuiltinIndexType.BTREE
+
+
 @dataclass(kw_only=True)
 class IndexSchema:
     name: str
@@ -37,6 +44,9 @@ class IndexSchema:
     index_type: IndexType = BuiltinIndexType.BTREE
     include: list[str] | None = None
     condition: Conditions | None = None
+    # Per-access-method tuning options, rendered as `WITH (...)`, e.g. pgvector's `m` /
+    # `ef_construction` (hnsw) or `lists` (ivfflat). Not enforced by glue; see pgvector's docs for
+    # limits (e.g. hnsw's 2000-dimension cap, ivfflat's `lists` needing to scale with row count).
     parameters: dict[str, str] | None = None
 
     def __ne__(self, other):
@@ -48,11 +58,26 @@ class IndexSchema:
 
         return (
             self.name == other.name
-            and self.fields == other.fields
             and self.unique == other.unique
             and self.index_type == other.index_type
+            and self.include == other.include
             and self.condition == other.condition
             and self.parameters == other.parameters
+            and self._fields_equal(other.fields)
+        )
+
+    def _fields_equal(self, other_fields: list[IndexField]) -> bool:
+        """Compare fields, ignoring `direction` when this index's access method doesn't support ordering."""
+        if len(self.fields) != len(other_fields):
+            return False
+
+        ordering_matters = _index_type_supports_ordering(self.index_type)
+
+        return all(
+            own.name == other.name
+            and own.op_class == other.op_class
+            and (not ordering_matters or own.direction == other.direction)
+            for own, other in zip(self.fields, other_fields, strict=True)
         )
 
     def __repr__(self):
@@ -70,4 +95,11 @@ class IndexSchema:
         )
 
     def __hash__(self) -> int:
-        return hash((self.name, tuple(self.fields) if self.fields else None, self.condition))
+        # Must hash the same fields `_fields_equal` treats as significant, so equal schemas hash equal.
+        ordering_matters = _index_type_supports_ordering(self.index_type)
+        fields_key = tuple(
+            (field.name, field.direction, field.op_class) if ordering_matters else (field.name, field.op_class)
+            for field in self.fields
+        )
+        include_key = tuple(self.include) if self.include else None
+        return hash((self.name, fields_key, include_key, self.condition))
