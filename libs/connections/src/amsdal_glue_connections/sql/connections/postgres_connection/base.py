@@ -115,7 +115,11 @@ def build_registry_view_sql(schema: str) -> 'dict[str, Composable]':
         ).format(view=sql.Identifier(TABLE_CONSTRAINT_REGISTRY), schema=schema_literal),
         # `am.amname` is the real access method (`btree`, `gin`, ..., or a custom one like pgvector's
         # `hnsw` / `ivfflat`). `op_class` is nulled when it's the opclass Postgres would pick by
-        # default (`opc.opcdefault`), so a declared op_class matching that default reads back as `None`.
+        # default (`opc.opcdefault`), so a declared op_class matching that default reads back as
+        # `None`; `default_op_class` (unconditional -- never nulled) carries what that default
+        # actually is, so assembly can resolve the two back to equal. `ic.reloptions` is the index's
+        # own storage parameters (e.g. pgvector's `m` / `ef_construction` / `lists`, from
+        # `WITH (...)`), parsed into ``IndexSchema.parameters`` during assembly.
         TABLE_INDEX_REGISTRY: sql.SQL(
             'CREATE OR REPLACE TEMPORARY VIEW {view} AS '
             'SELECT tc.relname AS table_name, ic.relname AS name, '
@@ -125,6 +129,8 @@ def build_registry_view_sql(schema: str) -> 'dict[str, Composable]':
             'am.amname AS index_type, '
             'CASE WHEN k.pos > ix.indnkeyatts THEN 1 ELSE 0 END AS is_included, '
             'CASE WHEN opc.opcdefault THEN NULL ELSE opc.opcname END AS op_class, '
+            'opc.opcname AS default_op_class, '
+            'ic.reloptions, '
             # Partial-index WHERE predicate (NULL for a non-partial index); overlaid as the index
             # ``condition`` during assembly, mirroring the SQLite partial-index WHERE capture.
             'pg_get_expr(ix.indpred, ix.indrelid) AS index_predicate '

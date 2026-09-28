@@ -197,7 +197,7 @@ impl SqlGenerator {
         let mut stmts = extract::extract_schema_mutation(mutation)?;
         if self.is_sqlite() {
             for stmt in &mut stmts {
-                lower::lower_schema(stmt);
+                lower::lower_schema(stmt)?;
             }
         }
         let mut result: Vec<(String, PyObject)> = Vec::new();

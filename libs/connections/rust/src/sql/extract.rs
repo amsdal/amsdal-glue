@@ -2217,10 +2217,15 @@ fn extract_referential_action(ob: &Bound<PyAny>) -> PyResult<ReferentialAction> 
 
 /// Extract a glue `IndexSchema` into the `qcraft` `IndexDef` the renderer consumes.
 ///
-/// `index_type` / `parameters` pass straight through as opaque strings with no validation of what
-/// the access method allows (e.g. pgvector rejects `hnsw`/`ivfflat` on a `vector` column wider than
-/// 2000 dimensions, and `ivfflat`'s `lists` must be sized to the table's row count) -- unsupported
-/// values surface as a Postgres error at execution time, not at schema-build time.
+/// `parameters` keys/values, `index_type` (via `extract_index_type_str`) and each column's
+/// `op_class` (via `extract_index_column`) are validated against a bare-identifier / safe-literal
+/// allow-list before reaching the renderer -- see those functions -- because the sync Postgres
+/// connection sends the rendered statement without bind params, so an unvalidated value would run
+/// as a second statement rather than surfacing as Postgres' own error. `index_type` / `parameters`
+/// otherwise pass straight through with no validation of what the access method itself allows
+/// (e.g. pgvector rejects `hnsw`/`ivfflat` on a `vector` column wider than 2000 dimensions, and
+/// `ivfflat`'s `lists` must be sized to the table's row count) -- those surface as a Postgres error
+/// at execution time, not at schema-build time.
 fn extract_index_def(ob: &Bound<PyAny>) -> PyResult<IndexDef> {
     let name: String = ob.getattr(pyo3::intern!(ob.py(), "name"))?.extract()?;
     let fields_attr = ob.getattr(pyo3::intern!(ob.py(), "fields"))?;
@@ -2243,6 +2248,8 @@ fn extract_index_def(ob: &Bound<PyAny>) -> PyResult<IndexDef> {
         for (k, v) in dict.iter() {
             let key: String = k.extract()?;
             let val: String = v.extract()?;
+            validate_identifier(&key, "index parameter key")?;
+            validate_parameter_value(&val)?;
             pairs.push((key, val));
         }
         Some(pairs)
@@ -2264,6 +2271,9 @@ fn extract_index_column(ob: &Bound<PyAny>) -> PyResult<IndexColumnDef> {
     let name: String = ob.getattr(pyo3::intern!(ob.py(), "name"))?.extract()?;
     let direction = extract_order_direction(&ob.getattr(pyo3::intern!(ob.py(), "direction"))?)?;
     let op_class = extract_optional_string(ob, "op_class")?;
+    if let Some(ref opclass) = op_class {
+        validate_identifier(opclass, "op_class")?;
+    }
     Ok(IndexColumnDef {
         expr: IndexExpr::Column(name),
         direction: Some(direction),
@@ -2274,8 +2284,10 @@ fn extract_index_column(ob: &Bound<PyAny>) -> PyResult<IndexColumnDef> {
 }
 
 /// `BuiltinIndexType` yields its fixed enum value (`"btree"`, `"gin"`, ...); `CustomIndexType`
-/// yields its free-form `name` (e.g. `"hnsw"`, `"ivfflat"`) unvalidated, rendered verbatim as the
-/// `USING <name>` identifier -- a misspelled name surfaces as Postgres' own error, not glue's.
+/// yields its free-form `name` (e.g. `"hnsw"`, `"ivfflat"`), validated as a bare identifier below,
+/// rendered verbatim as the `USING <name>` identifier. The sync Postgres connection sends the
+/// rendered statement without bind params, so without that validation a crafted name would run as
+/// a second statement (e.g. `hnsw"); DROP TABLE t; --`) rather than surfacing as Postgres' own error.
 fn extract_index_type_str(ob: &Bound<PyAny>) -> PyResult<Option<String>> {
     let type_name: String = ob.get_type().qualname()?.extract()?;
     match type_name.as_str() {
@@ -2285,6 +2297,7 @@ fn extract_index_type_str(ob: &Bound<PyAny>) -> PyResult<Option<String>> {
         }
         "CustomIndexType" => {
             let name: String = ob.getattr(pyo3::intern!(ob.py(), "name"))?.extract()?;
+            validate_identifier(&name, "custom index type name")?;
             Ok(Some(name))
         }
         "NoneType" => Ok(None),
@@ -2292,6 +2305,51 @@ fn extract_index_type_str(ob: &Bound<PyAny>) -> PyResult<Option<String>> {
             "Unknown index type: '{other}'"
         ))),
     }
+}
+
+/// A bare SQL identifier: starts with a letter or underscore, then only letters/digits/underscores.
+/// `name` / `op_class` / index-parameter keys are all spliced verbatim into DDL (see
+/// `extract_index_def`'s doc comment), so this is the allow-list that keeps them from being able to
+/// break out of their position (e.g. a name of `hnsw"); DROP TABLE t; --`).
+fn is_bare_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+fn validate_identifier(value: &str, what: &str) -> PyResult<()> {
+    if !is_bare_identifier(value) {
+        return Err(crate::sql::error::SqlGenError::InvalidValue(format!(
+            "Invalid {what}: '{value}' (expected a bare identifier matching ^[A-Za-z_][A-Za-z0-9_]*$)"
+        ))
+        .into());
+    }
+    Ok(())
+}
+
+/// Index storage-parameter values (e.g. pgvector's `m = 16`, `ef_construction = 64`) are rendered
+/// verbatim too (`ctx.write(key).write(" = ").write(value)` in qcraft's `pg_create_index`), with no
+/// quoting and no bind params. Real values are numeric or bare words, so this allow-list is looser
+/// than `is_bare_identifier` (letters, digits, `_`, `.`, `-`) but still rejects anything that could
+/// splice a second statement (quotes, `;`, whitespace, comment markers).
+fn is_safe_parameter_value(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+}
+
+fn validate_parameter_value(value: &str) -> PyResult<()> {
+    if !is_safe_parameter_value(value) {
+        return Err(crate::sql::error::SqlGenError::InvalidValue(format!(
+            "Invalid index parameter value: '{value}' (expected letters, digits, '_', '.', or '-' only)"
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 fn validate_exclusion_operator(op: &str) -> PyResult<()> {

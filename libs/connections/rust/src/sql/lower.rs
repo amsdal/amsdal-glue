@@ -23,6 +23,7 @@
 //! | `= JSON null`             | `col->'a' = 'null'::jsonb`  | `json_type(col->'a') = 'null'`          |
 //! | `IS NULL` (key absent)    | `col->'a' IS NULL`          | `col->'a' IS NULL`   (`->`, not `->>`)  |
 
+use pyo3::PyResult;
 use qcraft::ast::common::*;
 use qcraft::ast::conditions::*;
 use qcraft::ast::ddl::*;
@@ -133,7 +134,10 @@ pub fn lower_mutation(stmt: &mut MutationStmt) {
 /// which are rendered verbatim; SQLite needs its own spelling. Currently only `bytea` -> `BLOB`:
 /// SQLite's native binary type (BLOB affinity), so a binary column is created correctly and a
 /// `BLOB`->BYTEA introspection round-trip leaves migrations untouched.
-pub fn lower_schema(stmt: &mut SchemaMutationStmt) {
+///
+/// Also rejects DDL that SQLite cannot faithfully render rather than let it through to silent data
+/// loss -- see `reject_unsupported_sqlite_index`.
+pub fn lower_schema(stmt: &mut SchemaMutationStmt) -> PyResult<()> {
     match stmt {
         SchemaMutationStmt::CreateTable { schema, .. } => {
             for column in &mut schema.columns {
@@ -142,8 +146,27 @@ pub fn lower_schema(stmt: &mut SchemaMutationStmt) {
         }
         SchemaMutationStmt::AddColumn { column, .. } => lower_field_type(&mut column.field_type),
         SchemaMutationStmt::AlterColumnType { new_type, .. } => lower_field_type(new_type),
+        SchemaMutationStmt::CreateIndex { index, .. } => reject_unsupported_sqlite_index(index)?,
         _ => {}
     }
+    Ok(())
+}
+
+/// `qcraft_sqlite`'s renderer has no `INCLUDE (...)` support -- it silently ignores `IndexDef.include`
+/// (see its `CreateIndex` match arm) and emits a plain index instead. SQLite's catalog then has no
+/// `is_included` row to read back either, so a declared `include` would compare unequal to its own
+/// introspection forever. Raising here turns that permanent, silent data loss into an immediate,
+/// explicit error at DDL-build time.
+fn reject_unsupported_sqlite_index(index: &IndexDef) -> PyResult<()> {
+    if index.include.as_ref().is_some_and(|cols| !cols.is_empty()) {
+        return Err(crate::sql::error::SqlGenError::UnsupportedFeature(format!(
+            "SQLite has no INCLUDE (covering index) support; index '{}' declares include={:?}, \
+             which would be silently dropped instead of rendered",
+            index.name, index.include
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 fn lower_field_type(field_type: &mut FieldType) {
