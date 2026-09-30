@@ -6,14 +6,20 @@
   rather than aborting the whole ``query_schema`` (previously a hard ``ValueError``).
 - A ``WITHOUT ROWID`` table's secondary index must report only its real key columns, not the
   auxiliary PK columns the ``pragma_index_xinfo`` view also exposes.
+- An ``IndexSchema.include`` declared for SQLite must be rejected at DDL-build time rather than
+  silently dropped by the renderer (which has no ``INCLUDE`` support) -- see
+  ``reject_unsupported_sqlite_index`` in the Rust lowering pass.
 """
 
+import pytest
+from amsdal_glue_connections._sql_core import UnsupportedFeatureError
 from amsdal_glue_core.common.data_models.conditions import Condition
 from amsdal_glue_core.common.data_models.conditions import Conditions
 from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
 from amsdal_glue_core.common.data_models.indexes import IndexField
+from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -23,6 +29,8 @@ from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.func import Func
 from amsdal_glue_core.common.expressions.value import Value
+from amsdal_glue_core.common.operations.commands import SchemaCommand
+from amsdal_glue_core.common.operations.mutations.schema import AddIndex
 
 from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConnection
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
@@ -119,3 +127,20 @@ def test_generated_not_expression_reconstructed(database_connection: SqliteConne
     inactive = next(p for p in schema.properties if p.name == 'inactive')
 
     assert inactive.generated == Func(name='NOT', args=[_field_ref('active')])
+
+
+def test_include_rejected_for_sqlite(database_connection: SqliteConnection) -> None:
+    """SQLite's renderer has no ``INCLUDE`` support and its catalog has no ``is_included`` row, so a
+    declared ``include`` would compare unequal to its own introspection forever if it were allowed
+    to render silently (see ``qcraft_sqlite``'s ``CreateIndex`` match arm, which ignores it). Building
+    such DDL for SQLite must raise instead.
+    """
+    database_connection.execute('CREATE TABLE "docs" ("id" INTEGER PRIMARY KEY, "status" TEXT, "amount" INTEGER)')
+
+    mutation = AddIndex(
+        schema_ref=SchemaReference(name='docs', version=Version.LATEST),
+        index=IndexSchema(name='idx_covering', fields=[IndexField(name='status')], include=['amount']),
+    )
+
+    with pytest.raises(UnsupportedFeatureError, match='INCLUDE'):
+        database_connection.run_schema_command(SchemaCommand(mutations=[mutation]))

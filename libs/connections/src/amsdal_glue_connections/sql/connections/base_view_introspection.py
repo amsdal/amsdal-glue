@@ -21,6 +21,7 @@ from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.indexes import CustomIndexType
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.query import QueryStatement
@@ -62,8 +63,35 @@ _INDEX_TYPE_MAP: dict[str, BuiltinIndexType] = {
 }
 
 
+def _resolve_index_type(am_name: str) -> BuiltinIndexType | CustomIndexType:
+    """Map a catalog access-method name (e.g. `pg_am.amname`) to a glue index type.
+
+    Unrecognized methods (pgvector's `hnsw` / `ivfflat`, ...) become a `CustomIndexType` instead of
+    collapsing into `BTREE`. `pg_am.amname` always comes back lowercase; casefolding here (in
+    addition to `CustomIndexType.__post_init__`) keeps a declared `CustomIndexType(name='HNSW')`
+    equal to its introspection regardless of which side happens to matter for a given comparison.
+    """
+    builtin = _INDEX_TYPE_MAP.get(am_name)
+    return builtin if builtin is not None else CustomIndexType(name=am_name.lower())
+
+
 def _registry_field(view: str, name: str) -> FieldReference:
     return FieldReference(field=Field(name=name), table_name=view)
+
+
+def _parse_reloptions(reloptions: list[str] | None) -> dict[str, str] | None:
+    """Parse Postgres `pg_class.reloptions` (`key=value` strings) into an `IndexSchema.parameters` dict.
+
+    Absent (`NULL` -- no `WITH (...)` clause, or a SQLite row that never selects this column at all)
+    resolves to `None`, mirroring `IndexSchema.parameters`'s own "no tuning options" default.
+    """
+    if not reloptions:
+        return None
+    parsed: dict[str, str] = {}
+    for option in reloptions:
+        key, _, value = option.partition('=')
+        parsed[key] = value
+    return parsed
 
 
 class SchemaAssemblyMixin:
@@ -176,9 +204,10 @@ class SchemaAssemblyMixin:
     def _assemble_indexes(self, rows: list[dict[str, Any]]) -> list[IndexSchema]:
         """Canonical index rows -> `IndexSchema`, grouped by index name in first-seen order.
 
-        `is_included` / `op_class` are optional Postgres-only extras read via `.get(...)` so this
-        single code path stays dialect-neutral -- SQLite rows simply omit them, which reads back
-        as "not an INCLUDE column" / "default operator class".
+        `is_included` / `op_class` / `default_op_class` / `reloptions` are optional Postgres-only
+        extras read via `.get(...)` so this single code path stays dialect-neutral -- SQLite rows
+        simply omit them, which reads back as "not an INCLUDE column" / "default operator class" /
+        "no storage parameters".
         """
         rows_by_name: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in rows:
@@ -201,6 +230,7 @@ class SchemaAssemblyMixin:
                     name=row['column_name'],
                     direction=OrderDirection.DESC if row['is_descending'] else OrderDirection.ASC,
                     op_class=row.get('op_class'),
+                    default_op_class=row.get('default_op_class'),
                 )
                 for row in key_rows
             ]
@@ -210,8 +240,9 @@ class SchemaAssemblyMixin:
                     name=name,
                     fields=fields,
                     unique=bool(key_rows[0]['is_unique']),
-                    index_type=_INDEX_TYPE_MAP.get(key_rows[0]['index_type'], BuiltinIndexType.BTREE),
+                    index_type=_resolve_index_type(key_rows[0]['index_type']),
                     include=[row['column_name'] for row in included_rows] or None,
+                    parameters=_parse_reloptions(key_rows[0].get('reloptions')),
                 ),
             )
         return indexes
