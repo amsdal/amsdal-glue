@@ -1,5 +1,7 @@
-## [v0.2.2](https://pypi.org/project/amsdal-glue-core/0.2.2/) - 2026-09-09
+## [v0.2.3](https://pypi.org/project/amsdal-glue-core/0.2.3/) - 2026-09-30
 
-### Added
+### Fixed
 
-- Added Python 3.13 and 3.14 to the supported/tested versions (pure Python, no code changes required).
+- Fixed `IndexSchema.__eq__` ignoring the `include` (covering) columns, `IndexField`'s default equality comparing `direction` even for access methods that don't support ordering (e.g. pgvector's `hnsw` / `ivfflat`, which always report `ASC` regardless of how the index was declared), and `IndexSchema.__hash__` raising `TypeError: unhashable type: 'IndexField'`.
+
+  Also fixed, from review of the above: `fields=None` is tolerated again in `__eq__`/`__hash__` (a stricter `zip(..., strict=True)` had started raising on it, even though the length check ahead of it already made that branch unreachable -- the redundant `strict=True` is dropped); `CustomIndexType.params` -- never read by the extractor -- is excluded from equality/hash/repr (`field(compare=False, repr=False)`) so it can no longer make a declaration compare unequal to its own introspection, and its docstring now says tuning options belong on `IndexSchema.parameters`; `CustomIndexType.name` is casefolded on construction, since `pg_am.amname` always comes back lowercase; and `IndexField` gained an introspection-only `default_op_class` (also excluded from equality/hash/repr) that `IndexSchema._fields_equal` uses to resolve the case where a declared `op_class` names the access method's default and reads back as `None`. Added `libs/core/tests/test_indexes.py` covering all of the above plus eq/hash agreement for equal schemas.
