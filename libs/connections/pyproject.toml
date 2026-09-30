@@ -30,7 +30,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "amsdal-glue-core>=0.2.0",
+    "amsdal-glue-core>=0.2.3",
 ]
 
 [project.optional-dependencies]
