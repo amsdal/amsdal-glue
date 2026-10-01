@@ -1,5 +1,6 @@
 from datetime import date
 from datetime import datetime
+from datetime import timezone
 
 import pytest
 from amsdal_glue_core.common.data_models.data import DataInput
@@ -42,7 +43,7 @@ async def _register_event(database_connection: AsyncSqliteConnection) -> SchemaR
 async def test_datetime_and_date_round_trip_as_python_objects(database_connection: AsyncSqliteConnection) -> None:
     schema_ref = await _register_event(database_connection)
 
-    created_at = datetime(2020, 1, 2, 3, 4, 5)  # noqa: DTZ001
+    created_at = datetime(2020, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     event_day = date(2020, 1, 2)
 
     await database_connection.run_mutations([
