@@ -55,8 +55,6 @@ def test_datetime_and_date_round_trip_as_python_objects(database_connection: Sql
     assert len(result) == 1
     row = result[0].data
 
-    # The read-back converters must re-hydrate DATE/TIMESTAMP into Python objects,
-    # not leave them as ISO strings.
     assert isinstance(row['created_at'], datetime)
     assert row['created_at'] == created_at
     assert isinstance(row['event_day'], date)

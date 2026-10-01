@@ -1,10 +1,3 @@
-"""Shared assertions for the UTC datetime storage contract.
-
-The ISO strings of these three instants sort differently from instant order
-(``22:00+04`` is the earliest instant and the middle string). A backend that
-stores the original offset text fails ``ORDER BY`` and a ``>=`` bound.
-"""
-
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -34,11 +27,10 @@ from amsdal_glue_core.common.operations.mutations.schema import RegisterSchema
 _PLUS_4 = timezone(timedelta(hours=4))
 _PLUS_3 = timezone(timedelta(hours=3))
 
-# Instant order is 1, 2, 3. Lexicographic order of the original ISO strings is 3, 1, 2.
 _ROWS = (
-    (1, datetime(2026, 9, 22, 22, 0, tzinfo=_PLUS_4)),  # 18:00 UTC
-    (2, datetime(2026, 9, 22, 23, 0, tzinfo=_PLUS_3)),  # 20:00 UTC
-    (3, datetime(2026, 9, 22, 21, 0, tzinfo=timezone.utc)),  # 21:00 UTC
+    (1, datetime(2026, 9, 22, 22, 0, tzinfo=_PLUS_4)),
+    (2, datetime(2026, 9, 22, 23, 0, tzinfo=_PLUS_3)),
+    (3, datetime(2026, 9, 22, 21, 0, tzinfo=timezone.utc)),
 )
 _UTC = (
     datetime(2026, 9, 22, 18, 0, tzinfo=timezone.utc),
@@ -100,7 +92,6 @@ def assert_offset_datetimes_order_by_instant(connection: Any) -> None:
         assert moment.tzinfo is not None
         assert moment == expected
 
-    # 23:00+03 is 20:00 UTC. The original ISO string sorts after 21:00+00.
     lower = datetime(2026, 9, 22, 23, 0, tzinfo=_PLUS_3)
     gte = QueryStatement(
         table=schema_ref,
@@ -111,7 +102,6 @@ def assert_offset_datetimes_order_by_instant(connection: Any) -> None:
     )
     assert _ids(connection, gte) == [2, 3]
 
-    # The same bound as a query-string (``Z``), coerced with the field type.
     gte_text = QueryStatement(
         table=schema_ref,
         where=Conditions(

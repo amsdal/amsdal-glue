@@ -241,25 +241,18 @@ _NAIVE_DATETIME_MSG = 'a datetime field requires an offset (or a Z suffix); naiv
 
 
 def _aware_utc(value: datetime.datetime) -> datetime.datetime:
-    """Convert an aware datetime to UTC. Naive values are rejected, not assumed to be UTC."""
     if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
         raise ValueError(_NAIVE_DATETIME_MSG)
     return value.astimezone(datetime.timezone.utc)
 
 
 def canonical_utc_datetime_text(value: datetime.datetime) -> str:
-    """Fixed-width UTC text ``YYYY-MM-DDTHH:%M:%S.%f+00:00`` for datetime storage and binding.
-
-    Always 6-digit microseconds and a ``+00:00`` suffix, never ``Z`` and never a space separator,
-    so lexicographic order matches instant order. Naive datetimes raise ``ValueError``.
-    """
     return _aware_utc(value).strftime('%Y-%m-%dT%H:%M:%S.%f+00:00')
 
 
 def _coerce_datetime(value: Any) -> datetime.datetime:
     if isinstance(value, datetime.datetime):
         return _aware_utc(value)
-    # ``datetime`` is a ``date`` subclass; a bare date is a calendar day, not an instant.
     if isinstance(value, datetime.date):
         raise ValueError(_NAIVE_DATETIME_MSG)  # noqa: TRY004
     if isinstance(value, str):
