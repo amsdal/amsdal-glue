@@ -14,6 +14,7 @@ is intentionally left untouched -- only the VALUE text format changes.
 from datetime import datetime
 from datetime import timezone
 
+import pytest
 from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.schema import PropertySchema
 from amsdal_glue_core.common.data_models.schema import Schema
@@ -55,19 +56,18 @@ def _quoted(database_connection: SqliteConnection, id_: int) -> str:
     return value
 
 
-def test_rust_param_path_writes_t_separator(database_connection: SqliteConnection) -> None:
-    """A datetime routed through the generator (run_mutations -> Rust extract) stores the ``T`` form."""
+def test_rust_param_path_writes_canonical_utc(database_connection: SqliteConnection) -> None:
+    """A datetime routed through the generator stores fixed-width UTC text."""
     schema_ref = _register_event(database_connection)
 
     database_connection.run_mutations([
         InsertData(
             schema=schema_ref,
-            data=[DataInput(data={'id': 1, 'created_at': datetime(2021, 1, 2, 3, 4, 5)})],  # noqa: DTZ001
+            data=[DataInput(data={'id': 1, 'created_at': datetime(2021, 1, 2, 3, 4, 5, tzinfo=timezone.utc)})],
         ),
     ])
 
-    # quote() shows the raw stored TEXT; offset-10 byte must be 'T', not a space.
-    assert _quoted(database_connection, 1) == "'2021-01-02T03:04:05'"
+    assert _quoted(database_connection, 1) == "'2021-01-02T03:04:05.000000+00:00'"
 
 
 def test_rust_param_path_writes_t_with_microseconds_and_tz(database_connection: SqliteConnection) -> None:
@@ -82,19 +82,29 @@ def test_rust_param_path_writes_t_with_microseconds_and_tz(database_connection: 
     assert _quoted(database_connection, 1) == "'2021-01-02T13:14:18.099106+00:00'"
 
 
-def test_sqlite3_adapter_path_writes_t_separator(database_connection: SqliteConnection) -> None:
-    """A raw ``datetime`` bound through ``execute`` (module-level adapter path) stores the ``T`` form."""
+def test_sqlite3_adapter_path_writes_canonical_utc(database_connection: SqliteConnection) -> None:
+    """A raw ``datetime`` bound through ``execute`` (module-level adapter path) stores canonical UTC text."""
     database_connection.execute('CREATE TABLE "raw_evt" ("id" integer, "created_at" timestamp)')
     database_connection.execute(
         'INSERT INTO "raw_evt" ("id", "created_at") VALUES (?, ?)',
         1,
-        datetime(2021, 1, 2, 3, 4, 5),  # noqa: DTZ001
+        datetime(2021, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
     )
 
     cur = database_connection.execute('SELECT quote("created_at") FROM "raw_evt" WHERE "id" = ?', 1)
     (value,) = cur.fetchone()
     cur.close()
-    assert value == "'2021-01-02T03:04:05'"
+    assert value == "'2021-01-02T03:04:05.000000+00:00'"
+
+
+def test_sqlite3_adapter_rejects_naive_datetime(database_connection: SqliteConnection) -> None:
+    database_connection.execute('CREATE TABLE "raw_evt" ("id" integer, "created_at" timestamp)')
+    with pytest.raises(ValueError, match='naive values are not treated as UTC'):
+        database_connection.execute(
+            'INSERT INTO "raw_evt" ("id", "created_at") VALUES (?, ?)',
+            1,
+            datetime(2021, 1, 2, 3, 4, 5),  # noqa: DTZ001
+        )
 
 
 def test_mixed_format_column_orders_and_ranges_chronologically(database_connection: SqliteConnection) -> None:
@@ -108,8 +118,8 @@ def test_mixed_format_column_orders_and_ranges_chronologically(database_connecti
         InsertData(
             schema=schema_ref,
             data=[
-                DataInput(data={'id': 2, 'created_at': datetime(2021, 1, 2, 11, 0, 0)}),  # noqa: DTZ001
-                DataInput(data={'id': 3, 'created_at': datetime(2021, 1, 2, 8, 0, 0)}),  # noqa: DTZ001
+                DataInput(data={'id': 2, 'created_at': datetime(2021, 1, 2, 11, 0, tzinfo=timezone.utc)}),
+                DataInput(data={'id': 3, 'created_at': datetime(2021, 1, 2, 8, 0, tzinfo=timezone.utc)}),
             ],
         ),
     ])
@@ -143,5 +153,6 @@ def test_readback_parses_both_separators(database_connection: SqliteConnection) 
     cur = database_connection.execute('SELECT "id", "created_at" FROM "evt2" ORDER BY "id"')
     rows = cur.fetchall()
     cur.close()
-    assert rows[0][1] == datetime(2021, 1, 2, 3, 4, 5)  # noqa: DTZ001
-    assert rows[1][1] == datetime(2021, 1, 2, 3, 4, 5)  # noqa: DTZ001
+    expected = datetime(2021, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    assert rows[0][1] == expected
+    assert rows[1][1] == expected

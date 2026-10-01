@@ -77,7 +77,7 @@ def test_value_datetime_output_type_none_emits_plain_placeholder_sqlite() -> Non
     sql, vals = _q_lite(Value(value=dt, output_type=None))
 
     assert sql == 'SELECT ? AS "v" FROM "t"'
-    assert vals == ['2026-01-01T12:00:00+00:00']
+    assert vals == ['2026-01-01T12:00:00.000000+00:00']
 
 
 def test_value_datetime_output_type_str_emits_plain_placeholder_sqlite() -> None:

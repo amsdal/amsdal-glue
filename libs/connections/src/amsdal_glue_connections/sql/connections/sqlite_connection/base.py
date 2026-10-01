@@ -10,6 +10,7 @@ from uuid import UUID
 from amsdal_glue_core.common.data_models.json_value import JsonValue
 from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
+from amsdal_glue_core.common.expressions._coerce import canonical_utc_datetime_text
 
 from amsdal_glue_connections.sql.connections.base_connection import SqlConnectionMixinBase
 from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
@@ -26,9 +27,29 @@ logger = logging.getLogger(__name__)
 sqlite3.register_adapter(Decimal, str)
 sqlite3.register_adapter(UUID, str)
 sqlite3.register_adapter(_dt.date, _dt.date.isoformat)
-# Use the default ISO 'T' separator so every datetime row shares one homogeneous format; a space
-# separator (0x20 < 'T' 0x54) would corrupt ORDER BY/range/equality against 'T'-formatted rows.
-sqlite3.register_adapter(_dt.datetime, _dt.datetime.isoformat)
+
+
+def adapt_sqlite_datetime(value: _dt.datetime) -> str:
+    """Bind a datetime as canonical UTC text. Naive values are rejected, not stored as wall time."""
+    return canonical_utc_datetime_text(value)
+
+
+def convert_sqlite_datetime(val: bytes) -> _dt.datetime:
+    """Read ``TIMESTAMP`` / ``TIMESTAMPTZ`` text back as an aware UTC datetime.
+
+    Offset-aware stored text is converted with ``astimezone``. Offset-less legacy text is labeled
+    UTC on read; the original zone cannot be recovered, and those rows can still sort wrong.
+    """
+    parsed = _dt.datetime.fromisoformat(val.decode())
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return parsed.replace(tzinfo=_dt.timezone.utc)
+    return parsed.astimezone(_dt.timezone.utc)
+
+
+# Canonical fixed-width UTC text so lexicographic ORDER BY and range compares match instant order.
+# Module-level so it covers sync sqlite3 and async aiosqlite. The SQL generator calls the same
+# formatter, so a value that skips this adapter still cannot be written naive.
+sqlite3.register_adapter(_dt.datetime, adapt_sqlite_datetime)
 # A Python ``list`` reaches the driver as a native list (the generator maps it to a SQL array), which
 # sqlite3 cannot bind, so serialise it to JSON text. A ``dict`` needs no adapter: it is JSON by
 # construction, so it arrives as a ``JsonValue`` marker and is bound by :func:`bind_params`. Minified
