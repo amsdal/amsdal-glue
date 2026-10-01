@@ -559,8 +559,6 @@ class SqliteConnection(SqliteSchemaAssemblyMixin, SqliteConnectionMixin, Connect
         # date/datetime adapters are registered once, module-level, in base.py (single source of
         # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
-        # Both declared types re-hydrate as an aware UTC datetime. Legacy offset-less text is labeled
-        # UTC; its original zone is not recoverable.
         sqlite3.register_converter('TIMESTAMP', convert_sqlite_datetime)
         sqlite3.register_converter('TIMESTAMPTZ', convert_sqlite_datetime)
         # DECIMAL_TEXT is the TEXT-affinity SQLite rendering of DecimalType; re-hydrate the stored
