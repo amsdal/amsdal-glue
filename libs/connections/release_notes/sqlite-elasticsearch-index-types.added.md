@@ -1,0 +1,1 @@
+SQLite (sync and async) and Elasticsearch refuse `hnsw`, `ivfflat`, and the non-btree builtins (`hash`, `gin`, `gist`, `brin`) at the start of a schema command. The index is not degraded to btree and no statement from that command runs. Native Elasticsearch `knn_vector` mappings are unchanged.

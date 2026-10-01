@@ -1,0 +1,1 @@
+SQLite and Elasticsearch schema commands now refuse an index type other than btree before any DDL runs. `UnsupportedIndexTypeError` names the index, the field, the type, and the backend, and says to declare the index on PostgreSQL or omit the type to use btree.
