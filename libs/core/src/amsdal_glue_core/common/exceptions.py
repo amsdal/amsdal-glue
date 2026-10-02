@@ -12,6 +12,10 @@ class UniqueViolationError(AmsdalGlueError):
     """
 
 
+class UnsupportedIndexTypeError(AmsdalGlueError):
+    pass
+
+
 class ForeignKeyViolationError(AmsdalGlueError):
     """Raised when a write violates a FOREIGN KEY constraint at the database level.
 
