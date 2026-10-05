@@ -13,6 +13,7 @@ from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.field_reference import Field
 from amsdal_glue_core.common.data_models.field_reference import FieldReference
+from amsdal_glue_core.common.data_models.index_support import refuse_unsupported_index_types
 from amsdal_glue_core.common.data_models.query import QueryStatement
 from amsdal_glue_core.common.data_models.schema import Schema
 from amsdal_glue_core.common.data_models.schema import SchemaReference
@@ -332,6 +333,8 @@ class AsyncSqliteConnection(
         Returns:
             list[Schema | None]: The result of each schema mutation.
         """
+
+        refuse_unsupported_index_types(command.mutations, backend='SQLite')
 
         result: list[Schema | None] = []
 

@@ -11,6 +11,7 @@ from amsdal_glue_core.common.data_models.constraints import CheckConstraint
 from amsdal_glue_core.common.data_models.constraints import PrimaryKeyConstraint
 from amsdal_glue_core.common.data_models.constraints import UniqueConstraint
 from amsdal_glue_core.common.data_models.data import Data
+from amsdal_glue_core.common.data_models.index_support import refuse_unsupported_index_types
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.data_models.order_by import OrderByQuery
@@ -1564,6 +1565,8 @@ class ElasticsearchConnection(ConnectionBase):
         """
         Runs a schema command (e.g., create index) on Elasticsearch.
         """
+        refuse_unsupported_index_types(command.mutations, backend='Elasticsearch')
+
         results = []
 
         for mutation in command.mutations:
