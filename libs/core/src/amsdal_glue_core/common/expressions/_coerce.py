@@ -256,8 +256,10 @@ def _coerce_datetime(value: Any) -> datetime.datetime:
     if isinstance(value, datetime.date):
         raise ValueError(_NAIVE_DATETIME_MSG)  # noqa: TRY004
     if isinstance(value, str):
+        # Python 3.10's fromisoformat does not accept a trailing Z.
+        text = f'{value[:-1]}+00:00' if value.endswith(('Z', 'z')) else value
         try:
-            parsed = datetime.datetime.fromisoformat(value)
+            parsed = datetime.datetime.fromisoformat(text)
         except ValueError as exc:
             msg = f'expected a datetime but got {value!r}'
             raise ValueError(msg) from exc

@@ -34,7 +34,11 @@ def adapt_sqlite_datetime(value: _dt.datetime) -> str:
 
 
 def convert_sqlite_datetime(val: bytes) -> _dt.datetime:
-    parsed = _dt.datetime.fromisoformat(val.decode())
+    text = val.decode()
+    # Python 3.10's fromisoformat does not accept a trailing Z.
+    if text.endswith(('Z', 'z')):
+        text = f'{text[:-1]}+00:00'
+    parsed = _dt.datetime.fromisoformat(text)
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return parsed.replace(tzinfo=_dt.timezone.utc)
     return parsed.astimezone(_dt.timezone.utc)

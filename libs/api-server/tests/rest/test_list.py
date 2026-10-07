@@ -188,8 +188,8 @@ def test_filtering_contains(test_client: TestClient) -> None:
     # On SQLite, CONTAINS is case-sensitive: 'Lo' only matches the capitalised 'Lo'
     # in 'Lorem ipsum ...'. ICONTAINS is case-insensitive, so it also matches the
     # lowercase 'lo' inside 'dolore' in 'ut labore et dolore magna aliqua'.
-    lorem_row = {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'}
-    labore_row = {'created_at': '2021-01-04T00:00:00', 'message': 'ut labore et dolore magna aliqua'}
+    lorem_row = {'created_at': '2021-01-01T00:00:00Z', 'message': 'Lorem ipsum dolor sit amet'}
+    labore_row = {'created_at': '2021-01-04T00:00:00Z', 'message': 'ut labore et dolore magna aliqua'}
 
     response = test_client.get('/api/v1/schemas/logs/?message=contains.Lo')
     assert response.status_code == 200
@@ -205,14 +205,14 @@ def test_filtering_startswith(test_client: TestClient) -> None:
     assert response.status_code == 200
     response_json = response.json()
     assert response_json == [
-        {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'},
+        {'created_at': '2021-01-01T00:00:00Z', 'message': 'Lorem ipsum dolor sit amet'},
     ]
 
     response = test_client.get('/api/v1/schemas/logs/?message=istartswith.lorem')
     assert response.status_code == 200
     response_json = response.json()
     assert response_json == [
-        {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'},
+        {'created_at': '2021-01-01T00:00:00Z', 'message': 'Lorem ipsum dolor sit amet'},
     ]
 
 
@@ -221,14 +221,14 @@ def test_filtering_endswith(test_client: TestClient) -> None:
     assert response.status_code == 200
     response_json = response.json()
     assert response_json == [
-        {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'},
+        {'created_at': '2021-01-01T00:00:00Z', 'message': 'Lorem ipsum dolor sit amet'},
     ]
 
     response = test_client.get('/api/v1/schemas/logs/?message=iendswith.AMET')
     assert response.status_code == 200
     response_json = response.json()
     assert response_json == [
-        {'created_at': '2021-01-01T00:00:00', 'message': 'Lorem ipsum dolor sit amet'},
+        {'created_at': '2021-01-01T00:00:00Z', 'message': 'Lorem ipsum dolor sit amet'},
     ]
 
 
