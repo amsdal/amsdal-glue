@@ -9,11 +9,14 @@ Rules:
 - ``ScalarType`` families dispatch to the appropriate Python native type.
 - ``ArrayType`` recurses over element items.
 - ``CustomType / NestedType / DictType / VectorType`` pass through unchanged.
+- ``TIMESTAMP`` / ``TIMESTAMPTZ`` are offset-aware instants normalized to UTC. A naive
+  datetime, a bare ``date``, or a string without an offset (or ``Z``) is rejected.
 """
 
 from __future__ import annotations
 
 import contextlib
+import datetime
 import uuid
 from decimal import Decimal
 from decimal import InvalidOperation
@@ -234,19 +237,33 @@ def _coerce_time(value: Any) -> Any:
     raise ValueError(msg)
 
 
-def _coerce_datetime(value: Any) -> Any:
-    import datetime
+_NAIVE_DATETIME_MSG = 'a datetime field requires an offset (or a Z suffix); naive values are not treated as UTC'
 
+
+def _aware_utc(value: datetime.datetime) -> datetime.datetime:
+    if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+        raise ValueError(_NAIVE_DATETIME_MSG)
+    return value.astimezone(datetime.timezone.utc)
+
+
+def canonical_utc_datetime_text(value: datetime.datetime) -> str:
+    return _aware_utc(value).strftime('%Y-%m-%dT%H:%M:%S.%f+00:00')
+
+
+def _coerce_datetime(value: Any) -> datetime.datetime:
     if isinstance(value, datetime.datetime):
-        return value
+        return _aware_utc(value)
     if isinstance(value, datetime.date):
-        return datetime.datetime(value.year, value.month, value.day)  # noqa: DTZ001
+        raise ValueError(_NAIVE_DATETIME_MSG)  # noqa: TRY004
     if isinstance(value, str):
+        # Python 3.10's fromisoformat does not accept a trailing Z.
+        text = f'{value[:-1]}+00:00' if value.endswith(('Z', 'z')) else value
         try:
-            return datetime.datetime.fromisoformat(value)
+            parsed = datetime.datetime.fromisoformat(text)
         except ValueError as exc:
             msg = f'expected a datetime but got {value!r}'
             raise ValueError(msg) from exc
+        return _aware_utc(parsed)
     msg = f'expected a datetime but got {value!r}'
     raise ValueError(msg)
 

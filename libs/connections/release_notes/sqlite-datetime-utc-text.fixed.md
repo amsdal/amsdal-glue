@@ -1,0 +1,1 @@
+SQLite datetime values are stored as fixed-width UTC text (`YYYY-MM-DDTHH:%M:%S.%f+00:00`) so ordering and range filters follow instant order. Naive datetimes are rejected on write, including values that skip coercion. `TIMESTAMP` and `TIMESTAMPTZ` read back as aware UTC datetimes.

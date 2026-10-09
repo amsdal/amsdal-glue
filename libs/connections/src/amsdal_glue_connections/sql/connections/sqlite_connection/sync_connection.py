@@ -6,7 +6,6 @@ from collections.abc import Iterable
 from collections.abc import Sequence
 from copy import copy
 from datetime import date
-from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -55,6 +54,7 @@ from amsdal_glue_core.common.operations.mutations.schema import UpdateProperty
 from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.base_view_introspection import SchemaAssemblyMixin
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import bind_params
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import convert_sqlite_datetime
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
 from amsdal_glue_connections.sql.parsers.conditions import try_parse_conditions
 from amsdal_glue_connections.sql.parsers.default import parse_sqlite_default
@@ -559,11 +559,8 @@ class SqliteConnection(SqliteSchemaAssemblyMixin, SqliteConnectionMixin, Connect
         # date/datetime adapters are registered once, module-level, in base.py (single source of
         # truth, matching the Rust value serialisation). Only the read-back converters are per-connection.
         sqlite3.register_converter('DATE', lambda val: date.fromisoformat(val.decode()))
-        sqlite3.register_converter('TIMESTAMP', lambda val: datetime.fromisoformat(val.decode()))
-        # A TIMESTAMPTZ-declared column stores a datetime the same way TIMESTAMP does; register the
-        # converter under its declared-type name too so read-back re-hydrates a Python datetime
-        # (``fromisoformat`` restores the tzinfo offset) instead of leaving it a raw ISO string.
-        sqlite3.register_converter('TIMESTAMPTZ', lambda val: datetime.fromisoformat(val.decode()))
+        sqlite3.register_converter('TIMESTAMP', convert_sqlite_datetime)
+        sqlite3.register_converter('TIMESTAMPTZ', convert_sqlite_datetime)
         # DECIMAL_TEXT is the TEXT-affinity SQLite rendering of DecimalType; re-hydrate the stored
         # decimal string back into an exact Decimal so glue returns a typed value, not a str.
         sqlite3.register_converter('DECIMAL_TEXT', lambda val: Decimal(val.decode()))

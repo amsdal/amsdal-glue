@@ -200,15 +200,37 @@ def test_date_identity():
     assert v.value == d
 
 
-def test_str_to_timestamp_coercion():
-    v = Value('2023-06-15T12:30:00', output_type=ScalarType.TIMESTAMP)
-    assert v.value == datetime.datetime(2023, 6, 15, 12, 30, 0)  # noqa: DTZ001
+@pytest.mark.parametrize('scalar_type', [ScalarType.TIMESTAMP, ScalarType.TIMESTAMPTZ])
+def test_aware_datetime_is_stored_as_utc(scalar_type: ScalarType):
+    offset = datetime.timezone(datetime.timedelta(hours=3))
+    aware = datetime.datetime(2023, 6, 15, 15, 30, tzinfo=offset)
+    v = Value(aware, output_type=scalar_type)
+    assert v.value == datetime.datetime(2023, 6, 15, 12, 30, tzinfo=datetime.timezone.utc)
 
 
-def test_datetime_identity_with_timestamp_type():
-    dt = datetime.datetime(2023, 6, 15, 12, 30, 0)  # noqa: DTZ001
-    v = Value(dt, output_type=ScalarType.TIMESTAMP)
-    assert v.value == dt
+@pytest.mark.parametrize('scalar_type', [ScalarType.TIMESTAMP, ScalarType.TIMESTAMPTZ])
+def test_z_suffix_datetime_string_is_stored_as_utc(scalar_type: ScalarType):
+    v = Value('2023-06-15T12:30:00Z', output_type=scalar_type)
+    assert v.value == datetime.datetime(2023, 6, 15, 12, 30, tzinfo=datetime.timezone.utc)
+
+
+@pytest.mark.parametrize('scalar_type', [ScalarType.TIMESTAMP, ScalarType.TIMESTAMPTZ])
+@pytest.mark.parametrize(
+    'value',
+    [
+        datetime.datetime(2023, 6, 15, 12, 30, 0),  # noqa: DTZ001
+        '2023-06-15T12:30:00',
+    ],
+)
+def test_naive_datetime_is_rejected(scalar_type: ScalarType, value: object):
+    with pytest.raises(ValueError, match='requires an offset'):
+        Value(value, output_type=scalar_type)
+
+
+@pytest.mark.parametrize('scalar_type', [ScalarType.TIMESTAMP, ScalarType.TIMESTAMPTZ])
+def test_date_is_not_a_datetime_instant(scalar_type: ScalarType):
+    with pytest.raises(ValueError, match='naive values are not treated as UTC'):
+        Value(datetime.date(2023, 6, 15), output_type=scalar_type)
 
 
 # ---------------------------------------------------------------------------

@@ -720,9 +720,17 @@ pub fn extract_py_value(ob: &Bound<PyAny>) -> PyResult<PyValue> {
 
     let type_name: String = ob.get_type().qualname()?.extract()?;
     match type_name.as_str() {
-        // isoformat() uses the default 'T' separator, so datetime columns sort/range/compare as one
-        // homogeneous format. str(datetime) would emit a space instead, breaking ordering.
-        "datetime" => Ok(PyValue::DateTime(ob.call_method0("isoformat")?.extract()?)),
+        // Fixed-width UTC text, shared with the SQLite adapter. isoformat() drops zero microseconds
+        // and keeps the original offset, so text ORDER BY / range filters disagree with instant order.
+        // Naive datetimes raise ValueError here even when the caller skipped Python coercion.
+        "datetime" => {
+            let formatted = ob
+                .py()
+                .import("amsdal_glue_core.common.expressions._coerce")?
+                .getattr("canonical_utc_datetime_text")?
+                .call1((ob,))?;
+            Ok(PyValue::DateTime(formatted.extract()?))
+        }
         "date" => Ok(PyValue::Date(ob.str()?.extract()?)),
         "time" => Ok(PyValue::Time(ob.str()?.extract()?)),
         "Decimal" => Ok(PyValue::Decimal(ob.str()?.extract()?)),

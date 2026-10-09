@@ -1,5 +1,6 @@
 from datetime import date
 from datetime import datetime
+from datetime import timezone
 
 from amsdal_glue_core.common.data_models.data import DataInput
 from amsdal_glue_core.common.data_models.query import QueryStatement
@@ -40,7 +41,7 @@ def _register_event(database_connection: SqliteConnection) -> SchemaReference:
 def test_datetime_and_date_round_trip_as_python_objects(database_connection: SqliteConnection) -> None:
     schema_ref = _register_event(database_connection)
 
-    created_at = datetime(2020, 1, 2, 3, 4, 5)  # noqa: DTZ001
+    created_at = datetime(2020, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     event_day = date(2020, 1, 2)
 
     database_connection.run_mutations([
@@ -54,8 +55,6 @@ def test_datetime_and_date_round_trip_as_python_objects(database_connection: Sql
     assert len(result) == 1
     row = result[0].data
 
-    # The read-back converters must re-hydrate DATE/TIMESTAMP into Python objects,
-    # not leave them as ISO strings.
     assert isinstance(row['created_at'], datetime)
     assert row['created_at'] == created_at
     assert isinstance(row['event_day'], date)
