@@ -1,1 +1,0 @@
-Datetime coercion for `TIMESTAMP` and `TIMESTAMPTZ` now requires an offset or a `Z` suffix, converts aware values to UTC, and rejects naive datetimes and bare dates. Naive values are not treated as UTC.
