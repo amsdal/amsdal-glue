@@ -12,6 +12,16 @@ from amsdal_glue_connections.sql.schema_registry import TABLE_INDEX_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_PROPERTY_REGISTRY
 from amsdal_glue_connections.sql.schema_registry import TABLE_REGISTRY
 
+# Postgres type OIDs of the string types: `text`, `varchar`, `char` (bpchar), `name`. A value of such a column is text,
+# never a JSON document to decode (`build_data`).
+TEXT_TYPE_OIDS = frozenset({25, 1043, 1042, 19})
+
+
+def text_columns(description: Any) -> frozenset[str]:
+    """The result columns declared with a string type, from a DB-API `cursor.description` (name, type_code, ...)."""
+    return frozenset(column[0] for column in description or [] if len(column) > 1 and column[1] in TEXT_TYPE_OIDS)
+
+
 if TYPE_CHECKING:
     from psycopg.sql import Composable
 

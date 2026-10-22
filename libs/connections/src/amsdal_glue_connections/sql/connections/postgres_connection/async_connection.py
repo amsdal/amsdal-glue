@@ -24,6 +24,7 @@ from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.base_view_introspection import AsyncSchemaAssemblyMixin
 from amsdal_glue_connections.sql.connections.postgres_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
+from amsdal_glue_connections.sql.connections.postgres_connection.base import text_columns
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _CONSTRAINT_COLUMNS
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _INDEX_COLUMNS
 from amsdal_glue_connections.sql.connections.postgres_connection.sync_connection import _PROPERTY_COLUMNS
@@ -214,7 +215,8 @@ class AsyncPostgresConnection(
                 raise ValueError(msg)
             fields.append(column[0])
 
-        result = [self.build_data(dict(zip(fields, row, strict=True))) for row in await cursor.fetchall()]
+        strings = text_columns(cursor.description)
+        result = [self.build_data(dict(zip(fields, row, strict=True)), strings) for row in await cursor.fetchall()]
         await cursor.close()
 
         return result

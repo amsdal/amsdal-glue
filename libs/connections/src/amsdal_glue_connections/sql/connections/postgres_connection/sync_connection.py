@@ -37,6 +37,7 @@ from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.base_view_introspection import SchemaAssemblyMixin
 from amsdal_glue_connections.sql.connections.postgres_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.postgres_connection.base import PostgresConnectionMixin
+from amsdal_glue_connections.sql.connections.postgres_connection.base import text_columns
 from amsdal_glue_connections.sql.parsers.conditions import try_parse_conditions
 from amsdal_glue_connections.sql.parsers.default import parse_pg_default
 from amsdal_glue_connections.sql.schema_registry import TABLE_CONSTRAINT_REGISTRY
@@ -598,7 +599,8 @@ class PostgresConnection(PostgresSchemaAssemblyMixin, PostgresConnectionMixin, C
                 raise ValueError(msg)
             fields.append(column[0])
 
-        result = [self.build_data(dict(zip(fields, row, strict=True))) for row in cursor.fetchall()]
+        strings = text_columns(cursor.description)
+        result = [self.build_data(dict(zip(fields, row, strict=True)), strings) for row in cursor.fetchall()]
         cursor.close()
 
         return result
