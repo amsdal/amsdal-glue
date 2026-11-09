@@ -5,6 +5,7 @@ from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
 from amsdal_glue_core.common.enums import BuiltinIndexType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 
 
 def test_hash_does_not_raise() -> None:
@@ -186,3 +187,49 @@ def test_copy_preserves_equality() -> None:
         parameters={'m': '16'},
     )
     assert copy(schema) == schema
+
+
+def _json_path_field(**kwargs) -> IndexField:
+    return IndexField(name='evidence', json_path=['ref', 'object_id'], output_type=ScalarType.TEXT, **kwargs)
+
+
+def test_json_path_defaults_to_a_plain_column() -> None:
+    field = IndexField(name='evidence')
+
+    assert field.json_path is None
+    assert field.output_type is None
+
+
+def test_json_path_and_output_type_are_part_of_equality_and_hash() -> None:
+    declared = IndexSchema(name='idx', fields=[_json_path_field()])
+
+    assert declared == IndexSchema(name='idx', fields=[_json_path_field()])
+    assert hash(declared) == hash(IndexSchema(name='idx', fields=[_json_path_field()]))
+
+    other_output_type = IndexSchema(
+        name='idx',
+        fields=[IndexField(name='evidence', json_path=['ref', 'object_id'], output_type=ScalarType.JSONB)],
+    )
+    other_path = IndexSchema(
+        name='idx',
+        fields=[IndexField(name='evidence', json_path=['ref', 'object_version'], output_type=ScalarType.TEXT)],
+    )
+    plain_column = IndexSchema(name='idx', fields=[IndexField(name='evidence')])
+
+    assert declared != other_output_type
+    assert declared != other_path
+    assert declared != plain_column
+
+
+def test_json_path_is_compared_in_field_order() -> None:
+    declared = IndexSchema(name='idx', fields=[_json_path_field(), IndexField(name='label')])
+
+    assert declared == IndexSchema(name='idx', fields=[_json_path_field(), IndexField(name='label')])
+    assert declared != IndexSchema(name='idx', fields=[IndexField(name='label'), _json_path_field()])
+
+
+def test_json_path_direction_is_compared_for_btree() -> None:
+    ascending = IndexSchema(name='idx', fields=[_json_path_field()])
+    descending = IndexSchema(name='idx', fields=[_json_path_field(direction=OrderDirection.DESC)])
+
+    assert ascending != descending

@@ -9,6 +9,7 @@ from typing import TypeAlias
 
 from amsdal_glue_core.common.enums import BuiltinIndexType
 from amsdal_glue_core.common.enums import OrderDirection
+from amsdal_glue_core.common.enums import ScalarType
 
 if TYPE_CHECKING:
     from amsdal_glue_core.common.data_models.conditions import Conditions
@@ -45,6 +46,16 @@ class IndexField:
     # (see `TABLE_INDEX_REGISTRY`), so this is what lets `IndexSchema._fields_equal` resolve that
     # flap. Excluded from equality/hash/repr so it never affects raw `IndexField` comparisons.
     default_op_class: str | None = field(default=None, compare=False, repr=False)
+    # Expression index over a path inside a JSON column. `name` stays the column name; `json_path`
+    # lists the nested keys below it (e.g. `['ref', 'object_id']`), and `output_type` is the type
+    # the value is read as (it selects `->>` vs `->` on PostgreSQL). The rendered expression is the
+    # same one a condition on that path renders, so the planner can use the index for such filters.
+    json_path: list[str] | None = None
+    output_type: ScalarType | None = None
+
+
+def _json_path_key(field: IndexField) -> tuple[tuple[str, ...] | None, ScalarType | None]:
+    return (tuple(field.json_path) if field.json_path is not None else None, field.output_type)
 
 
 def _index_type_supports_ordering(index_type: IndexType) -> bool:
@@ -119,6 +130,8 @@ class IndexSchema:
         return all(
             own.name == other.name
             and _op_class_equal(own, other)
+            and own.json_path == other.json_path
+            and own.output_type == other.output_type
             and (not ordering_matters or own.direction == other.direction)
             for own, other in zip(own_fields, other_fields, strict=False)
         )
@@ -143,7 +156,9 @@ class IndexSchema:
         ordering_matters = _index_type_supports_ordering(self.index_type)
         fields_key = (
             tuple(
-                (own.name, own.direction, own.op_class) if ordering_matters else (own.name, own.op_class)
+                (own.name, own.direction, own.op_class, _json_path_key(own))
+                if ordering_matters
+                else (own.name, own.op_class, _json_path_key(own))
                 for own in self.fields
             )
             if self.fields

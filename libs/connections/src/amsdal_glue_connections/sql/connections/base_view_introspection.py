@@ -9,6 +9,7 @@ identity, Postgres CHECK / exclusion constraints) live in the connection classes
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from typing import Any
 from typing import TYPE_CHECKING
@@ -31,6 +32,7 @@ from amsdal_glue_core.common.enums import BuiltinIndexType
 from amsdal_glue_core.common.enums import FieldLookup
 from amsdal_glue_core.common.enums import OrderDirection
 from amsdal_glue_core.common.enums import ReferentialAction
+from amsdal_glue_core.common.enums import ScalarType
 from amsdal_glue_core.common.enums import Version
 from amsdal_glue_core.common.expressions.field_reference import FieldReferenceExpression
 from amsdal_glue_core.common.expressions.value import Value
@@ -94,6 +96,194 @@ def _parse_reloptions(reloptions: list[str] | None) -> dict[str, str] | None:
     return parsed
 
 
+# ---------------------------------------------------------------------------------------------------
+# Expression index columns
+#
+# An index field over a path inside a JSON column (`IndexField.json_path`) is created as an expression
+# index, and the catalog hands the expression back as text. Only the forms the generator renders are
+# recognised -- see `parse_json_path_index_expression`. Anything else is not representable as an
+# `IndexField` and is left out of the assembled index, as expression columns always have been.
+# ---------------------------------------------------------------------------------------------------
+
+_TOKEN_RE = re.compile(
+    r"""\s*(?:
+        (?P<op>->>|->)
+        |(?P<paren>[()])
+        |(?P<cast>::\s*text\b)
+        |(?P<string>'(?:[^']|'')*')
+        |(?P<ident>"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_]*)
+    )""",
+    re.VERBOSE,
+)
+
+_SQLITE_TEXT_FORM_RE = re.compile(
+    r"^CASE WHEN json_type\((?P<json>.+?)\) = 'null' THEN NULL "
+    r"WHEN json_type\((?P=json)\) = 'text' THEN (?P<text>.+?) ELSE (?P=json) END$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _strip_outer_parentheses(text: str) -> str:
+    """Remove parentheses that wrap the whole text -- ``((a))`` -> ``a``, but not ``(a) -> (b)``."""
+    while text.startswith('(') and text.endswith(')'):
+        depth = 0
+        quote: str | None = None
+        closing_at_end = False
+        for index, char in enumerate(text):
+            if quote is not None:
+                if char == quote:
+                    quote = None
+            elif char in {'"', "'"}:
+                quote = char
+            elif char == '(':
+                depth += 1
+            elif char == ')':
+                depth -= 1
+                if depth == 0:
+                    closing_at_end = index == len(text) - 1
+                    break
+        if not closing_at_end:
+            break
+        text = text[1:-1].strip()
+    return text
+
+
+def _tokenize_expression(text: str) -> list[tuple[str, str]] | None:
+    tokens: list[tuple[str, str]] = []
+    position = 0
+    text = text.rstrip()
+    while position < len(text):
+        match = _TOKEN_RE.match(text, position)
+        if match is None or match.end() == position:
+            return None
+        kind = match.lastgroup or ''
+        tokens.append((kind, match.group(kind)))
+        position = match.end()
+    return tokens
+
+
+def _unquote(token: tuple[str, str]) -> str:
+    kind, value = token
+    if kind == 'ident' and value.startswith('"'):
+        return value[1:-1].replace('""', '"')
+    if kind == 'string':
+        return value[1:-1].replace("''", "'")
+    return value
+
+
+def _parse_json_chain(tokens: list[tuple[str, str]], position: int) -> tuple[str, list[tuple[str, str]], int] | None:
+    """Parse ``column (-> | ->>) 'key' ...`` (left-associative, with optional parentheses).
+
+    Returns the column, the ``(operator, key)`` steps and the position after the chain.
+    """
+    if position >= len(tokens):
+        return None
+
+    kind, _ = tokens[position]
+    if kind == 'paren' and tokens[position][1] == '(':
+        inner = _parse_json_chain(tokens, position + 1)
+        if inner is None:
+            return None
+        column, steps, position = inner
+        if position >= len(tokens) or tokens[position] != ('paren', ')'):
+            return None
+        position += 1
+    elif kind == 'ident':
+        column, steps, position = _unquote(tokens[position]), [], position + 1
+    else:
+        return None
+
+    while position < len(tokens) and tokens[position][0] == 'op':
+        operator = tokens[position][1]
+        if position + 1 >= len(tokens) or tokens[position + 1][0] != 'string':
+            return None
+        key = _unquote(tokens[position + 1])
+        position += 2
+        if position < len(tokens) and tokens[position][0] == 'cast':
+            position += 1
+        steps.append((operator, key))
+
+    return column, steps, position
+
+
+def _parse_chain_text(text: str) -> tuple[str, list[tuple[str, str]]] | None:
+    tokens = _tokenize_expression(text)
+    if not tokens:
+        return None
+    parsed = _parse_json_chain(tokens, 0)
+    if parsed is None or parsed[2] != len(tokens) or not parsed[1]:
+        return None
+    column, steps, _ = parsed
+    if any(operator != '->' for operator, _key in steps[:-1]):
+        return None
+    return column, steps
+
+
+def _parse_sqlite_text_form(text: str) -> tuple[str, list[str], ScalarType] | None:
+    """The ``CASE`` form SQLite's lowering gives a ``TEXT`` extraction; it is accepted only if consistent.
+
+    The ``->`` chain, the ``->>`` branch and the fallback must all name the same column and path.
+    """
+    match = _SQLITE_TEXT_FORM_RE.match(text)
+    if match is None:
+        return None
+
+    as_json = _parse_chain_text(match.group('json'))
+    as_text = _parse_chain_text(match.group('text'))
+    if as_json is None or as_text is None:
+        return None
+
+    (column, json_steps), (text_column, text_steps) = as_json, as_text
+    keys = [key for _operator, key in json_steps]
+    if (
+        column != text_column
+        or any(operator != '->' for operator, _key in json_steps)
+        or text_steps[-1][0] != '->>'
+        or keys != [key for _operator, key in text_steps]
+    ):
+        return None
+    return column, keys, ScalarType.TEXT
+
+
+def parse_json_path_index_expression(expression: str | None, dialect: str) -> tuple[str, list[str], ScalarType] | None:
+    """Parse an index expression read from the catalog into ``(column, json_path, output_type)``.
+
+    Recognised forms, for ``json_path=['ref', 'object_id']``:
+
+    ========== ====================================================== ===========
+    dialect    text                                                   output_type
+    ========== ====================================================== ===========
+    postgresql ``((c -> 'ref'::text) ->> 'object_id'::text)``         ``TEXT``
+    postgresql ``((c -> 'ref'::text) -> 'object_id'::text)``          ``JSONB``
+    sqlite     ``CASE WHEN json_type(...) = 'null' THEN NULL ... END`` ``TEXT``
+    sqlite     ``(c->'ref')->>'object_id'``                           ``JSONB``
+    ========== ====================================================== ===========
+
+    The last operator ``->>`` is ``TEXT`` on PostgreSQL but ``JSONB`` on SQLite, where it is the
+    native extraction. Returns ``None`` for any other expression.
+    """
+    if not expression:
+        return None
+
+    text = _strip_outer_parentheses(' '.join(expression.split()))
+    if dialect == 'sqlite' and _SQLITE_TEXT_FORM_RE.match(text):
+        return _parse_sqlite_text_form(text)
+
+    parsed = _parse_chain_text(text)
+    if parsed is None:
+        return None
+
+    column, steps = parsed
+    last_operator = steps[-1][0]
+    if dialect == 'sqlite':
+        if last_operator != '->>':
+            return None
+        output_type = ScalarType.JSONB
+    else:
+        output_type = ScalarType.TEXT if last_operator == '->>' else ScalarType.JSONB
+    return column, [key for _op, key in steps], output_type
+
+
 class SchemaAssemblyMixin:
     """Cross-dialect assembly of `Schema` pieces from canonical registry rows.
 
@@ -112,6 +302,10 @@ class SchemaAssemblyMixin:
     # SQLite overrides this (see `SqliteConnection._MAX_IN_PARAMS`) because
     # `SQLITE_MAX_VARIABLE_NUMBER` can be as low as 999 on some builds.
     _MAX_IN_PARAMS: int | None = None
+
+    # The dialect whose catalog text `_assemble_indexes` parses expression index columns from
+    # (see `parse_json_path_index_expression`).
+    _INDEX_EXPRESSION_DIALECT: str = 'postgresql'
 
     if TYPE_CHECKING:
         # Declared for type checking only -- never defined at runtime, so it does not shadow the
@@ -201,6 +395,36 @@ class SchemaAssemblyMixin:
 
     # -------------------------------------------------------------- indexes
 
+    def _assemble_index_field(self, row: dict[str, Any]) -> IndexField | None:
+        """One key-column row -> `IndexField`, or ``None`` for an expression that cannot be represented.
+
+        A row without a ``column_name`` is an expression column; the ones that read back are those
+        `parse_json_path_index_expression` recognises (an index over a path inside a JSON column).
+        """
+        direction = OrderDirection.DESC if row['is_descending'] else OrderDirection.ASC
+        column_name = row['column_name']
+        if column_name is not None:
+            return IndexField(
+                name=column_name,
+                direction=direction,
+                op_class=row.get('op_class'),
+                default_op_class=row.get('default_op_class'),
+            )
+
+        parsed = parse_json_path_index_expression(row.get('expression'), self._INDEX_EXPRESSION_DIALECT)
+        if parsed is None:
+            return None
+
+        name, json_path, output_type = parsed
+        return IndexField(
+            name=name,
+            direction=direction,
+            op_class=row.get('op_class'),
+            default_op_class=row.get('default_op_class'),
+            json_path=json_path,
+            output_type=output_type,
+        )
+
     def _assemble_indexes(self, rows: list[dict[str, Any]]) -> list[IndexSchema]:
         """Canonical index rows -> `IndexSchema`, grouped by index name in first-seen order.
 
@@ -219,21 +443,17 @@ class SchemaAssemblyMixin:
             key_rows = [r for r in index_rows if not r.get('is_included')]
             included_rows = [r for r in index_rows if r.get('is_included')]
 
-            # An index whose only key columns are expressions (e.g. ``(lower(a)) INCLUDE (b)``) yields
-            # no key rows -- the expression columns produce no ``pg_attribute`` match. Such an index is
-            # not representable from column rows alone, so skip it rather than crashing on ``key_rows[0]``.
-            if not key_rows:
-                continue
+            fields: list[IndexField] = []
+            for row in key_rows:
+                field = self._assemble_index_field(row)
+                if field is not None:
+                    fields.append(field)
 
-            fields = [
-                IndexField(
-                    name=row['column_name'],
-                    direction=OrderDirection.DESC if row['is_descending'] else OrderDirection.ASC,
-                    op_class=row.get('op_class'),
-                    default_op_class=row.get('default_op_class'),
-                )
-                for row in key_rows
-            ]
+            # An index whose only key columns are expressions this feature does not render (e.g.
+            # ``(lower(a)) INCLUDE (b)``) yields no fields. Such an index is not representable from the
+            # rows alone, so skip it rather than reporting an index over nothing.
+            if not fields:
+                continue
 
             indexes.append(
                 IndexSchema(

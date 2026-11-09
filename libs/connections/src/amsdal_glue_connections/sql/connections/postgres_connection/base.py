@@ -141,6 +141,10 @@ def build_registry_view_sql(schema: str) -> 'dict[str, Composable]':
             'CASE WHEN opc.opcdefault THEN NULL ELSE opc.opcname END AS op_class, '
             'opc.opcname AS default_op_class, '
             'ic.reloptions, '
+            # An expression key column has ``attnum = 0`` and so no ``pg_attribute`` row (hence the
+            # LEFT JOIN below); its definition comes from ``pg_get_indexdef`` instead, which is what
+            # assembly parses back into an ``IndexField`` with a ``json_path``.
+            'CASE WHEN k.attnum = 0 THEN pg_get_indexdef(ix.indexrelid, k.pos::int, true) END AS expression, '
             # Partial-index WHERE predicate (NULL for a non-partial index); overlaid as the index
             # ``condition`` during assembly, mirroring the SQLite partial-index WHERE capture.
             'pg_get_expr(ix.indpred, ix.indrelid) AS index_predicate '
@@ -150,7 +154,7 @@ def build_registry_view_sql(schema: str) -> 'dict[str, Composable]':
             'JOIN pg_am am ON am.oid = ic.relam '
             'JOIN pg_namespace nsp ON nsp.oid = tc.relnamespace AND nsp.nspname = {schema} '
             'CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, pos) '
-            'JOIN pg_attribute att ON att.attrelid = tc.oid AND att.attnum = k.attnum '
+            'LEFT JOIN pg_attribute att ON att.attrelid = tc.oid AND att.attnum = k.attnum '
             'LEFT JOIN pg_opclass opc ON opc.oid = ix.indclass[k.pos - 1] '
             'WHERE NOT ix.indisprimary '
             'AND NOT EXISTS (SELECT 1 FROM pg_constraint con '

@@ -293,6 +293,60 @@ _CONSTRAINT_COLUMNS = [
 _SQLITE_MAX_IN = 400
 
 
+def _index_column_elements(index_ddl: str | None) -> list[str]:
+    """The key-column elements of a ``CREATE INDEX`` DDL, in order, without a trailing ``ASC`` / ``DESC``.
+
+    ``CREATE INDEX "i" ON "t" ((expr) DESC, "x" ASC) WHERE ...`` -> ``['(expr)', '"x"']``.
+    """
+    if not index_ddl:
+        return []
+
+    start = _index_column_list_start(index_ddl)
+    if start is None:
+        return []
+
+    return [_strip_sort_direction(element) for element in _split_column_list(index_ddl[start + 1 :])]
+
+
+def _split_column_list(text: str) -> list[str]:
+    """Split the text after a column list's ``(`` at its top-level commas, up to the closing ``)``.
+
+    Respects nested parentheses and quoted identifiers / string literals.
+    """
+    elements: list[str] = []
+    depth = 0
+    quote: str | None = None
+    current: list[str] = []
+    for char in text:
+        if quote is not None:
+            quote = None if char == quote else quote
+        elif char in {'"', "'"}:
+            quote = char
+        elif char == '(':
+            depth += 1
+        elif char == ')':
+            if depth == 0:
+                break
+            depth -= 1
+        elif char == ',' and depth == 0:
+            elements.append(''.join(current))
+            current = []
+            continue
+        current.append(char)
+    elements.append(''.join(current))
+    return elements
+
+
+def _index_column_list_start(index_ddl: str) -> int | None:
+    """Position of the ``(`` that opens the column list: the first one after ``ON <table>``."""
+    match = re.search(r'\bON\s+(?:"(?:[^"]|"")*"|\S+?)\s*\(', index_ddl, re.IGNORECASE)
+    return match.end() - 1 if match else None
+
+
+def _strip_sort_direction(element: str) -> str:
+    return re.sub(r'\s+(?:ASC|DESC)\s*$', '', element.strip(), flags=re.IGNORECASE)
+
+
 def _parse_index_condition(index_ddl: str | None) -> 'Conditions | None':
     """Extract a partial-index ``WHERE`` clause from an index's ``CREATE INDEX`` DDL, if any."""
     if not index_ddl:
@@ -316,6 +370,8 @@ class SqliteSchemaAssemblyMixin(SchemaAssemblyMixin):
     catalog cannot express. Both `SqliteConnection` and `AsyncSqliteConnection` mix it in, so this
     logic is defined once. The DDL text itself is fetched by each connection's own `_batch_ddls`.
     """
+
+    _INDEX_EXPRESSION_DIALECT = 'sqlite'
 
     def _type_to_field_type(self, row: dict[str, Any]) -> ScalarType | CustomType | DecimalType:
         """`SchemaAssemblyMixin` hook: map a SQLite property row's declared type to a `FieldType`."""
@@ -391,12 +447,34 @@ class SqliteSchemaAssemblyMixin(SchemaAssemblyMixin):
         self, rows: list[dict[str, Any]], index_ddls: dict[str, str]
     ) -> list[IndexSchema]:
         """Shared index assembly plus the SQLite partial-index ``WHERE`` overlay from the DDL."""
-        indexes = self._assemble_indexes(rows)
+        indexes = self._assemble_indexes(self._with_index_expressions(rows, index_ddls))
         for index in indexes:
             condition = _parse_index_condition(index_ddls.get(index.name))
             if condition is not None:
                 index.condition = condition
         return indexes
+
+    @staticmethod
+    def _with_index_expressions(rows: list[dict[str, Any]], index_ddls: dict[str, str]) -> list[dict[str, Any]]:
+        """Attach the expression text to the key-column rows that are expressions (``column_name`` is NULL).
+
+        SQLite's catalog does not expose it, so it is read from the ``CREATE INDEX`` DDL: the key
+        columns of the index appear there in the same order as ``ordinal_position`` (``seqno``).
+        """
+        elements_by_index: dict[str, list[str]] = {}
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            if row.get('column_name') is not None:
+                result.append(row)
+                continue
+
+            if row['name'] not in elements_by_index:
+                elements_by_index[row['name']] = _index_column_elements(index_ddls.get(row['name']))
+            elements = elements_by_index[row['name']]
+            position = row['ordinal_position']
+            expression = elements[position] if 0 <= position < len(elements) else None
+            result.append({**row, 'expression': expression})
+        return result
 
     @staticmethod
     def _batch_ddls_query(chunk: list[str]) -> str:
