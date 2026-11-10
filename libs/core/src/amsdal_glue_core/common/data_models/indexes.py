@@ -53,6 +53,20 @@ class IndexField:
     json_path: list[str] | None = None
     output_type: ScalarType | None = None
 
+    def __post_init__(self) -> None:
+        # An empty path is a plain column. Anything else that would not read back equal from the
+        # database is rejected here, so a migration never sees a difference on every run.
+        if not self.json_path:
+            self.json_path = None
+
+        if self.json_path is None:
+            if self.output_type is not None:
+                msg = 'IndexField.output_type requires json_path'
+                raise ValueError(msg)
+        elif self.output_type not in (ScalarType.TEXT, ScalarType.JSONB):
+            msg = f'IndexField.output_type must be TEXT or JSONB when json_path is set, got {self.output_type!r}'
+            raise ValueError(msg)
+
 
 def _json_path_key(field: IndexField) -> tuple[tuple[str, ...] | None, ScalarType | None]:
     return (tuple(field.json_path) if field.json_path is not None else None, field.output_type)

@@ -1,5 +1,7 @@
 from copy import copy
 
+import pytest
+
 from amsdal_glue_core.common.data_models.indexes import CustomIndexType
 from amsdal_glue_core.common.data_models.indexes import IndexField
 from amsdal_glue_core.common.data_models.indexes import IndexSchema
@@ -233,3 +235,18 @@ def test_json_path_direction_is_compared_for_btree() -> None:
     descending = IndexSchema(name='idx', fields=[_json_path_field(direction=OrderDirection.DESC)])
 
     assert ascending != descending
+
+
+def test_empty_json_path_is_a_plain_column() -> None:
+    assert IndexField(name='evidence', json_path=[]).json_path is None
+
+
+@pytest.mark.parametrize('output_type', [None, ScalarType.INTEGER])
+def test_json_path_requires_text_or_jsonb_output_type(output_type: ScalarType | None) -> None:
+    with pytest.raises(ValueError, match='output_type'):
+        IndexField(name='evidence', json_path=['ref', 'object_id'], output_type=output_type)
+
+
+def test_output_type_requires_json_path() -> None:
+    with pytest.raises(ValueError, match='json_path'):
+        IndexField(name='evidence', output_type=ScalarType.TEXT)

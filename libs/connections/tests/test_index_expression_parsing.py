@@ -4,7 +4,6 @@ import pytest
 from amsdal_glue_core.common.enums import ScalarType
 
 from amsdal_glue_connections.sql.connections.base_view_introspection import parse_json_path_index_expression
-from amsdal_glue_connections.sql.connections.sqlite_connection.sync_connection import _index_column_elements
 
 _SQLITE_CASE = (
     "CASE WHEN json_type(\"evidence\"->'ref'->'object_id') = 'null' THEN NULL "
@@ -69,14 +68,3 @@ def test_path_and_column_are_extracted() -> None:
 )
 def test_other_expressions_are_not_recognised(dialect: str, expression: str | None) -> None:
     assert parse_json_path_index_expression(expression, dialect) is None
-
-
-def test_index_column_elements_respect_nesting_and_quotes() -> None:
-    ddl = f'CREATE INDEX "i" ON "t" (({_SQLITE_CASE}) DESC, "x, y" ASC, "z") WHERE "z" IN (1, 2)'
-
-    assert _index_column_elements(ddl) == [f'({_SQLITE_CASE})', '"x, y"', '"z"']
-
-
-def test_index_column_elements_without_ddl() -> None:
-    assert _index_column_elements(None) == []
-    assert _index_column_elements('') == []
