@@ -103,8 +103,10 @@ def _balanced_outer(expression: str) -> bool:
 def test_pg_text_form() -> None:
     assert pg_ddl(_add_index(_json_field(ScalarType.TEXT))) == [
         (
-            'CREATE INDEX "idx_passage_evidence" ON "passage" '
-            "USING btree (((\"evidence\"->'ref')->>'object_id') ASC)",
+            (
+                'CREATE INDEX "idx_passage_evidence" ON "passage" '
+                "USING btree (((\"evidence\"->'ref')->>'object_id') ASC)"
+            ),
             [],
         ),
     ]
@@ -122,10 +124,12 @@ def test_pg_jsonb_form() -> None:
 def test_sqlite_text_form() -> None:
     assert lite_ddl(_add_index(_json_field(ScalarType.TEXT))) == [
         (
-            'CREATE INDEX "idx_passage_evidence" ON "passage" '
-            "((CASE WHEN json_type(\"evidence\"->'ref'->'object_id') "
-            "= 'null' THEN NULL WHEN json_type(\"evidence\"->'ref'->'object_id') = 'text' "
-            "THEN (\"evidence\"->'ref')->>'object_id' ELSE \"evidence\"->'ref'->'object_id' END) ASC)",
+            (
+                'CREATE INDEX "idx_passage_evidence" ON "passage" '
+                "((CASE WHEN json_type(\"evidence\"->'ref'->'object_id') "
+                "= 'null' THEN NULL WHEN json_type(\"evidence\"->'ref'->'object_id') = 'text' "
+                "THEN (\"evidence\"->'ref')->>'object_id' ELSE \"evidence\"->'ref'->'object_id' END) ASC)"
+            ),
             [],
         ),
     ]
