@@ -1,1 +1,0 @@
-`IndexField` has two new optional attributes, `json_path` and `output_type`. Together they declare an expression index over a path inside a JSON column, for example `IndexField(name="evidence", json_path=["ref", "object_id"], output_type=ScalarType.TEXT)`. `output_type` selects `->>` (`TEXT`) or `->` (`JSONB`) for the last step. Both are compared by `IndexSchema` equality.
