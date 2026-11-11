@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794406191184,
+  "lastUpdate": 1794409224213,
   "repoUrl": "https://github.com/amsdal/amsdal-glue",
   "entries": {
     "Connections Benchmark": [
@@ -14736,6 +14736,205 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0007132832216147713",
             "extra": "mean: 19.151391180246634 usec\nrounds: 9272"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "arsen.pidhoretskyi@litslink.com",
+            "name": "arsen-ll",
+            "username": "arsen-ll"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b7e8f5da08bf4d49662e4a3efc7e730052db6899",
+          "message": "Merge pull request #134 from amsdal/release/core-0.2.5-connections-0.2.5\n\nBump versions: core 0.2.5, connections 0.2.5",
+          "timestamp": "2026-11-11T16:58:19+02:00",
+          "tree_id": "69c8e5d2d8698465a4000bcd53486460ed742373",
+          "url": "https://github.com/amsdal/amsdal-glue/commit/b7e8f5da08bf4d49662e4a3efc7e730052db6899"
+        },
+        "date": 1794409222853,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/sql/postgres/unit/test_data_mutations.py::test_insert_benchmark",
+            "value": 35544.78581817858,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007216855834620131",
+            "extra": "mean: 28.13352161172885 usec\nrounds: 3919"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_mutations.py::test_insert_benchmark_100",
+            "value": 10014.15707645279,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025875669795375222",
+            "extra": "mean: 99.8586293749468 usec\nrounds: 4136"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_mutations.py::test_insert_benchmark_1000",
+            "value": 1028.4789121098083,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00031239313898967866",
+            "extra": "mean: 972.3096781329361 usec\nrounds: 587"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_mutations.py::test_insert_benchmark_10000",
+            "value": 115.18762237497451,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0015668996247106843",
+            "extra": "mean: 8.681488335132599 msec\nrounds: 100"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_mutations.py::test_insert_multiple_benchmark",
+            "value": 13060.671605025567,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012665949189765771",
+            "extra": "mean: 76.56574104621187 usec\nrounds: 5769"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_mutations.py::test_update_benchmark",
+            "value": 17856.156609639864,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0013493094706612475",
+            "extra": "mean: 56.00309304299772 usec\nrounds: 5639"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_mutations.py::test_delete_benchmark",
+            "value": 31657.466636504818,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001034826520797126",
+            "extra": "mean: 31.588124579965008 usec\nrounds: 5107"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_query.py::test_simple_query_benchmark",
+            "value": 34934.06885946637,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007979820078730115",
+            "extra": "mean: 28.62535148776469 usec\nrounds: 7220"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_query.py::test_join_query_benchmark",
+            "value": 24136.65846218938,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008089521420724373",
+            "extra": "mean: 41.430755693316975 usec\nrounds: 6974"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_query.py::test_query_distinct_benchmark",
+            "value": 43519.95889118656,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005747834031773262",
+            "extra": "mean: 22.977962881360046 usec\nrounds: 14288"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_query.py::test_filter_conditions_benchmark",
+            "value": 24104.832439528396,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0010292677007222944",
+            "extra": "mean: 41.485457428865864 usec\nrounds: 9518"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_query.py::test_filter_conditions_join_benchmark",
+            "value": 22525.97829106616,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008369291409714394",
+            "extra": "mean: 44.39318848125685 usec\nrounds: 7923"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_query.py::test_annotation_benchmark",
+            "value": 24061.208681975513,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008512265315516334",
+            "extra": "mean: 41.56067191874321 usec\nrounds: 7186"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_query.py::test_aggregation_benchmark",
+            "value": 32225.12779190563,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007405187147830879",
+            "extra": "mean: 31.031684543115507 usec\nrounds: 9110"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_data_query.py::test_aggregation_join_benchmark",
+            "value": 24016.710834169786,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007517746779321976",
+            "extra": "mean: 41.63767498825233 usec\nrounds: 7640"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_create_schema_benchmark",
+            "value": 12829.667086846728,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0013876313973375577",
+            "extra": "mean: 77.94434518298789 usec\nrounds: 3831"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_rename_schema_benchmark",
+            "value": 50491.73329148811,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007715486361840803",
+            "extra": "mean: 19.805222257414165 usec\nrounds: 8899"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_delete_schema_benchmark",
+            "value": 51844.67539161625,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007393687034702518",
+            "extra": "mean: 19.288383859024204 usec\nrounds: 9940"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_add_property_benchmark",
+            "value": 47724.5466355273,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007602228844106427",
+            "extra": "mean: 20.95357778119941 usec\nrounds: 9069"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_delete_property_benchmark",
+            "value": 39111.623173372216,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009643994239200014",
+            "extra": "mean: 25.567847071118617 usec\nrounds: 4806"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_update_property_benchmark",
+            "value": 17633.507784018122,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001294653038262996",
+            "extra": "mean: 56.71021399986767 usec\nrounds: 5629"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_add_constraint_benchmark",
+            "value": 33004.39047519334,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0011272183462011842",
+            "extra": "mean: 30.298999181688174 usec\nrounds: 7821"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_drop_constraint_benchmark",
+            "value": 51348.66143719439,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007149311746540279",
+            "extra": "mean: 19.474704344983184 usec\nrounds: 8499"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_add_index_benchmark",
+            "value": 41155.27134512941,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008274496687491243",
+            "extra": "mean: 24.298223953232338 usec\nrounds: 7769"
+          },
+          {
+            "name": "tests/sql/postgres/unit/test_schema_mutation.py::test_delete_index_benchmark",
+            "value": 85381.8080979319,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008300565813471038",
+            "extra": "mean: 11.712096783579613 usec\nrounds: 4900"
           }
         ]
       }
