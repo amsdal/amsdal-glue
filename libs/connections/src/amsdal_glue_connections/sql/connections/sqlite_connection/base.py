@@ -114,11 +114,12 @@ _REGISTRY_VIEW_SQL: dict[str, str] = {
         'ix.name AS column_name, ix.seqno AS ordinal_position, ix."desc" AS is_descending, '
         "'btree' AS index_type "
         'FROM sqlite_master m JOIN pragma_index_list(m.name) il JOIN pragma_index_xinfo(il.name) ix '
-        # ``ix.name IS NOT NULL`` drops expression columns; ``ix.key = 1`` drops auxiliary (non-key)
-        # columns -- notably a WITHOUT ROWID table's PK columns, which have real names and would
-        # otherwise be over-reported as extra index columns.
+        # ``ix.key = 1`` drops auxiliary (non-key) columns -- notably a WITHOUT ROWID table's PK
+        # columns, which have real names and would otherwise be over-reported as extra index columns.
+        # Expression key columns are kept (``column_name`` is NULL for them): their text is not in
+        # any pragma, so assembly reads it from the index DDL by position.
         "WHERE m.type='table' AND m.name NOT LIKE 'sqlite_%' AND il.origin='c' "
-        'AND ix.name IS NOT NULL AND ix.key = 1'
+        'AND ix.key = 1'
     ),
     TABLE_CONSTRAINT_REGISTRY: (
         # SQLite has no constraint catalog, so approximate one from pragmas. `type` reuses the same

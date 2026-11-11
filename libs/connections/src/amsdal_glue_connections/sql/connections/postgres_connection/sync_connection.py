@@ -194,6 +194,7 @@ _INDEX_COLUMNS = [
     'op_class',
     'default_op_class',
     'reloptions',
+    'expression',
     'index_predicate',
 ]
 _CONSTRAINT_COLUMNS = [

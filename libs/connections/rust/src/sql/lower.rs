@@ -146,7 +146,17 @@ pub fn lower_schema(stmt: &mut SchemaMutationStmt) -> PyResult<()> {
         }
         SchemaMutationStmt::AddColumn { column, .. } => lower_field_type(&mut column.field_type),
         SchemaMutationStmt::AlterColumnType { new_type, .. } => lower_field_type(new_type),
-        SchemaMutationStmt::CreateIndex { index, .. } => reject_unsupported_sqlite_index(index)?,
+        SchemaMutationStmt::CreateIndex { index, .. } => {
+            reject_unsupported_sqlite_index(index)?;
+            // An expression index over a JSON path is built in its Postgres form; lowering it gives
+            // the same SQLite expression a condition on that path renders (see `lower_expr`), which
+            // is what lets SQLite's planner use the index.
+            for column in &mut index.columns {
+                if let IndexExpr::Expression(expr) = &mut column.expr {
+                    lower_expr(expr);
+                }
+            }
+        }
         _ => {}
     }
     Ok(())

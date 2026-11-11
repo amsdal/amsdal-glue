@@ -2282,13 +2282,66 @@ fn extract_index_column(ob: &Bound<PyAny>) -> PyResult<IndexColumnDef> {
     if let Some(ref opclass) = op_class {
         validate_identifier(opclass, "op_class")?;
     }
+    let expr = match extract_index_json_path(ob)? {
+        Some(json_path) => IndexExpr::Expression(index_json_path_expr(
+            &name,
+            &json_path,
+            extract_output_type(ob)?,
+        )?),
+        None => IndexExpr::Column(name),
+    };
     Ok(IndexColumnDef {
-        expr: IndexExpr::Column(name),
+        expr,
         direction: Some(direction),
         nulls: None,
         opclass: op_class,
         collation: None,
     })
+}
+
+/// `IndexField.json_path`, or `None` when the field is a plain column (unset or empty).
+fn extract_index_json_path(ob: &Bound<PyAny>) -> PyResult<Option<Vec<String>>> {
+    let attr = ob.getattr(pyo3::intern!(ob.py(), "json_path"))?;
+    if attr.is_none() {
+        return Ok(None);
+    }
+    let path: Vec<String> = attr.extract()?;
+    Ok((!path.is_empty()).then_some(path))
+}
+
+/// The expression for an index over a path inside a JSON column.
+///
+/// It is built exactly like the operand of a condition on that path -- `build_field_expr` with the
+/// same ``output_type`` -- so the rendered text matches what the planner sees in the filter and
+/// the index is usable. The table name is empty: an index expression takes no table qualifier.
+///
+/// The column name and each path element are spliced into DDL, hence `validate_identifier`.
+fn index_json_path_expr(
+    column: &str,
+    json_path: &[String],
+    output_type: Option<String>,
+) -> PyResult<Expr> {
+    validate_identifier(column, "index column name")?;
+    for key in json_path {
+        validate_identifier(key, "index json_path element")?;
+    }
+
+    let mut child: Option<Box<FieldDef>> = None;
+    for key in json_path.iter().rev() {
+        child = Some(Box::new(FieldDef {
+            name: key.clone(),
+            child,
+        }));
+    }
+    let field_ref = FieldRef {
+        field: FieldDef {
+            name: column.to_string(),
+            child,
+        },
+        table_name: String::new(),
+        namespace: None,
+    };
+    Ok(build_field_expr(field_ref, output_type))
 }
 
 /// `BuiltinIndexType` yields its fixed enum value (`"btree"`, `"gin"`, ...); `CustomIndexType`
