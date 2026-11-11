@@ -22,11 +22,11 @@ jobs:
             target: aarch64
             manylinux: '2_28'
           - name: macos-arm64
-            runner: macos-14
+            runner: macos-15
             target: aarch64
             manylinux: 'auto'
           - name: macos-x86_64
-            runner: macos-14
+            runner: macos-15
             target: x86_64
             manylinux: 'auto'
           - name: windows-x64
