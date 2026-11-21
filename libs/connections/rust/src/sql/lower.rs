@@ -20,6 +20,8 @@
 //! | JSON param, scalar        | `Jsonb(18)`                 | raw `18`                                |
 //! | JSON param, container     | `Jsonb({...})`              | `jsonb(?)`                              |
 //! | whole JSON column         | `col = $1`                  | `jsonb(col) = jsonb(?)`                 |
+//! | whole JSON column, scalar | `col = $1`  (`Jsonb('x')`)  | `col = ?`             (raw `'x'`)       |
+//! | INSERT/UPDATE, scalar     | `Jsonb('x')`                | raw `'x'`             (stored as is)    |
 //! | `= JSON null`             | `col->'a' = 'null'::jsonb`  | `json_type(col->'a') = 'null'`          |
 //! | `IS NULL` (key absent)    | `col->'a' IS NULL`          | `col->'a' IS NULL`   (`->`, not `->>`)  |
 
@@ -115,9 +117,22 @@ fn lower_group_by_item(item: &mut GroupByItem) {
 
 pub fn lower_mutation(stmt: &mut MutationStmt) {
     match stmt {
-        // INSERT values are the STORAGE form -- a JSON column holds JSON text, so they are left alone.
-        MutationStmt::Insert(_) | MutationStmt::Custom(_) => {}
+        // INSERT values are the STORAGE form: a JSON column holds JSON text for an object, an array or
+        // a JSON null. A JSON-typed plain scalar (string, number, boolean) is stored as the native
+        // value, exactly like a bare one, so the rows match the ones written before JSON typing and
+        // compare with the raw `col = ?` form below (AMS-337).
+        MutationStmt::Insert(insert) => {
+            if let InsertSource::Values(rows) = &mut insert.source {
+                for value in rows.iter_mut().flatten() {
+                    native_json_scalar(value);
+                }
+            }
+        }
+        MutationStmt::Custom(_) => {}
         MutationStmt::Update(update) => {
+            for (_, value) in update.assignments.iter_mut() {
+                native_json_scalar(value);
+            }
             if let Some(where_clause) = update.where_clause.as_mut() {
                 lower_conditions(where_clause);
             }
@@ -438,9 +453,50 @@ fn lower_whole_column_comparison(cmp: &mut Comparison) -> bool {
     let left_is_column = is_plain_field(&cmp.left);
     let right_is_column = is_plain_field(&cmp.right);
 
+    // `col IN (...)` with JSON-typed plain scalars: compare the native values, as stored (see
+    // `lower_mutation`). A list holding any object or array is left to the generic handling.
+    let list_side = if left_is_column {
+        Some(&mut cmp.right)
+    } else if right_is_column {
+        Some(&mut cmp.left)
+    } else {
+        None
+    };
+    if let Some(Expr::Value(Value::Array(items))) = list_side {
+        if !items.is_empty()
+            && items
+                .iter()
+                .all(|item| matches!(item, Value::Json(_) | Value::Jsonb(_)))
+        {
+            let natives: Option<Vec<Value>> = items
+                .iter()
+                .map(|item| match native_or_normalised(item) {
+                    Some(Expr::Value(native)) => Some(native),
+                    _ => None,
+                })
+                .collect();
+            if let Some(natives) = natives {
+                *items = natives;
+                return true;
+            }
+        }
+    }
+
     let matched = (left_is_column && is_json_value(&cmp.right)) || (right_is_column && is_json_value(&cmp.left));
     if !matched {
         return false;
+    }
+
+    // A plain scalar is stored as the native value (see `lower_mutation`), so it is compared raw:
+    // `col = ?`. Wrapping the column in `jsonb()` would also fail the whole query on any row holding
+    // text that is not JSON.
+    let scalar_side = if left_is_column {
+        &mut cmp.right
+    } else {
+        &mut cmp.left
+    };
+    if native_json_scalar(scalar_side) {
+        return true;
     }
 
     cmp.left = jsonb_normalised(&cmp.left);
@@ -481,6 +537,22 @@ fn adapt_json_param(expr: &mut Expr) {
 
     if let Some(replacement) = native_or_normalised(value) {
         *expr = replacement;
+    }
+}
+
+/// Replace a JSON-typed parameter holding a plain scalar (string, number, boolean) by the native SQL
+/// value. Objects, arrays, JSON `null` and anything that is not a JSON parameter are left unchanged.
+/// Returns whether the expression was replaced.
+fn native_json_scalar(expr: &mut Expr) -> bool {
+    let Expr::Value(value @ (Value::Json(_) | Value::Jsonb(_))) = expr else {
+        return false;
+    };
+    match native_or_normalised(value) {
+        Some(native @ Expr::Value(_)) => {
+            *expr = native;
+            true
+        }
+        _ => false,
     }
 }
 
