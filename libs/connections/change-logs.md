@@ -1,3 +1,8 @@
+## [v0.2.6](https://pypi.org/project/amsdal-glue-connections/0.2.6/) - 2026-11-22
+
+### Fixed
+
+- On SQLite, a JSON-typed plain value (`Value(x, output_type=JSONB)` where `x` is a string, number or boolean) is now stored and compared exactly like the bare value: inserts and updates store the native value, and whole-column `=` / `!=` / `IN` filters compare it raw instead of through `jsonb()`, which failed the whole query on any row whose text is not JSON. Objects, arrays and JSON `null` keep their JSON handling. PostgreSQL is unchanged: such values are bound as `jsonb`. (ams-337)
 ## [v0.2.5](https://pypi.org/project/amsdal-glue-connections/0.2.5/) - 2026-11-11
 
 ### Added
