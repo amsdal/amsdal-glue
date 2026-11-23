@@ -1,12 +1,15 @@
 import datetime as _dt
 import json
 import logging
+import re
 import sqlite3
+from collections.abc import Container
 from decimal import Decimal
 from typing import Any
 from typing import ClassVar
 from uuid import UUID
 
+from amsdal_glue_core.common.data_models.data import Data
 from amsdal_glue_core.common.data_models.json_value import JsonValue
 from amsdal_glue_core.common.exceptions import ForeignKeyViolationError
 from amsdal_glue_core.common.exceptions import UniqueViolationError
@@ -87,6 +90,33 @@ def bind_params(args: tuple[Any, ...]) -> tuple[Any, ...]:
     return tuple(_dumps_minified(arg.value) if isinstance(arg, JsonValue) else arg for arg in args)
 
 
+# A text SQLite's NUMERIC affinity stores as a number: an integer or real literal, optionally signed,
+# with surrounding whitespace. Mirrors `sqlite_reads_as_number` in ``lower.rs``.
+_SQLITE_NUMBER = re.compile(r'[ \t\n\x0b\x0c\r]*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[ \t\n\x0b\x0c\r]*')
+
+
+def decode_json_text_string(value: Any) -> Any:
+    """The string a JSON column stores as its JSON text, decoded; any other value unchanged.
+
+    SQLite would not give some strings back as written: a JSON column has NUMERIC affinity, so the text
+    `'123'` is stored as the integer 123. So glue stores such a string -- one that reads as a number or
+    starts with `"` -- as its JSON text (`'"123"'`, see `stored_or_normalised` in ``lower.rs``) (AMS-364).
+    Only that exact form is decoded: a JSON string literal whose content is such a string. Nothing glue
+    stores bare has that form, since a string starting with `"` is itself stored as JSON text.
+    """
+    if not (isinstance(value, str) and len(value) > 1 and value[0] == value[-1] == '"'):
+        return value
+
+    try:
+        decoded = json.loads(value)
+    except json.JSONDecodeError:
+        return value
+
+    if isinstance(decoded, str) and (decoded.startswith('"') or _SQLITE_NUMBER.fullmatch(decoded)):
+        return decoded
+    return value
+
+
 _NORM_ACTION = (
     "CASE {c} WHEN 'CASCADE' THEN 'CASCADE' WHEN 'SET NULL' THEN 'SET_NULL' "
     "WHEN 'SET DEFAULT' THEN 'SET_DEFAULT' WHEN 'RESTRICT' THEN 'RESTRICT' ELSE 'NO_ACTION' END"
@@ -151,6 +181,13 @@ class SqliteConnectionMixin(SqlConnectionMixinBase):
     # so a subclass (e.g. a versioned / lakehouse connection) can redefine one or more views -- it is
     # read via ``self`` so the override takes effect.
     _REGISTRY_VIEW_SQL: ClassVar[dict[str, str]] = _REGISTRY_VIEW_SQL
+
+    @staticmethod
+    def build_data(data: dict[str, Any], text_columns: Container[str] = ()) -> Data:
+        """Build a row, first decoding the strings a JSON column stores as JSON text (`decode_json_text_string`)."""
+        return SqlConnectionMixinBase.build_data(
+            {key: decode_json_text_string(value) for key, value in data.items()}, text_columns
+        )
 
     @staticmethod
     def _map_integrity_error(exc: Exception) -> None:
