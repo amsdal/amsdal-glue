@@ -22,6 +22,7 @@
 //! | whole JSON column         | `col = $1`                  | `jsonb(col) = jsonb(?)`                 |
 //! | whole JSON column, scalar | `col = $1`  (`Jsonb('x')`)  | `col = ?`             (raw `'x'`)       |
 //! | INSERT/UPDATE, scalar     | `Jsonb('x')`                | raw `'x'`             (stored as is)    |
+//! | ... a string SQLite would change (`'123'`, `'"x"'`) | `Jsonb('123')` | JSON text `'"123"'` (see `stored_json_scalar`) |
 //! | `= JSON null`             | `col->'a' = 'null'::jsonb`  | `json_type(col->'a') = 'null'`          |
 //! | `IS NULL` (key absent)    | `col->'a' IS NULL`          | `col->'a' IS NULL`   (`->`, not `->>`)  |
 
@@ -120,18 +121,19 @@ pub fn lower_mutation(stmt: &mut MutationStmt) {
         // INSERT values are the STORAGE form: a JSON column holds JSON text for an object, an array or
         // a JSON null. A JSON-typed plain scalar (string, number, boolean) is stored as the native
         // value, exactly like a bare one, so the rows match the ones written before JSON typing and
-        // compare with the raw `col = ?` form below (AMS-337).
+        // compare with the raw `col = ?` form below (AMS-337) -- unless it is a string SQLite would
+        // not give back as written (AMS-364, see `stored_json_scalar`).
         MutationStmt::Insert(insert) => {
             if let InsertSource::Values(rows) = &mut insert.source {
                 for value in rows.iter_mut().flatten() {
-                    native_json_scalar(value);
+                    stored_json_scalar(value);
                 }
             }
         }
         MutationStmt::Custom(_) => {}
         MutationStmt::Update(update) => {
             for (_, value) in update.assignments.iter_mut() {
-                native_json_scalar(value);
+                stored_json_scalar(value);
             }
             if let Some(where_clause) = update.where_clause.as_mut() {
                 lower_conditions(where_clause);
@@ -470,7 +472,7 @@ fn lower_whole_column_comparison(cmp: &mut Comparison) -> bool {
         {
             let natives: Option<Vec<Value>> = items
                 .iter()
-                .map(|item| match native_or_normalised(item) {
+                .map(|item| match stored_or_normalised(item) {
                     Some(Expr::Value(native)) => Some(native),
                     _ => None,
                 })
@@ -488,14 +490,14 @@ fn lower_whole_column_comparison(cmp: &mut Comparison) -> bool {
     }
 
     // A plain scalar is stored as the native value (see `lower_mutation`), so it is compared raw:
-    // `col = ?`. Wrapping the column in `jsonb()` would also fail the whole query on any row holding
-    // text that is not JSON.
+    // `col = ?`, in the same form it is stored in. Wrapping the column in `jsonb()` would also fail
+    // the whole query on any row holding text that is not JSON.
     let scalar_side = if left_is_column {
         &mut cmp.right
     } else {
         &mut cmp.left
     };
-    if native_json_scalar(scalar_side) {
+    if stored_json_scalar(scalar_side) {
         return true;
     }
 
@@ -540,20 +542,86 @@ fn adapt_json_param(expr: &mut Expr) {
     }
 }
 
-/// Replace a JSON-typed parameter holding a plain scalar (string, number, boolean) by the native SQL
-/// value. Objects, arrays, JSON `null` and anything that is not a JSON parameter are left unchanged.
-/// Returns whether the expression was replaced.
-fn native_json_scalar(expr: &mut Expr) -> bool {
+/// Replace a JSON-typed parameter holding a plain scalar by the value a whole JSON column stores for it
+/// (see `stored_or_normalised`). Objects, arrays, JSON `null` and anything that is not a JSON parameter are
+/// left unchanged. Returns whether the expression was replaced.
+fn stored_json_scalar(expr: &mut Expr) -> bool {
     let Expr::Value(value @ (Value::Json(_) | Value::Jsonb(_))) = expr else {
         return false;
     };
-    match native_or_normalised(value) {
-        Some(native @ Expr::Value(_)) => {
-            *expr = native;
+    match stored_or_normalised(value) {
+        Some(stored @ Expr::Value(_)) => {
+            *expr = stored;
             true
         }
         _ => false,
     }
+}
+
+/// What a whole JSON column stores for a JSON value: the native value of a plain scalar, as
+/// `native_or_normalised` gives it, except for a string SQLite would not give back as written. That one
+/// is stored as its JSON text (`'"123"'`), which the SQLite connection decodes on read
+/// (`decode_json_text_string`) (AMS-364).
+///
+/// A JSON column has NUMERIC affinity, so SQLite stores a text that reads as a number (`'123'`, `' 7 '`,
+/// `'1e5'`) as that number. A string that starts with `"` is stored as JSON text too, so that the
+/// connection never decodes a string that was stored bare.
+fn stored_or_normalised(value: &Value) -> Option<Expr> {
+    if let Value::Json(text) | Value::Jsonb(text) = value {
+        let parsed = serde_json::from_str::<serde_json::Value>(text);
+        if let Ok(serde_json::Value::String(string)) = parsed {
+            if sqlite_would_change(&string) {
+                let json_text = serde_json::to_string(&string).ok()?;
+                return Some(Expr::Value(Value::Str(json_text)));
+            }
+        }
+    }
+    native_or_normalised(value)
+}
+
+fn sqlite_would_change(string: &str) -> bool {
+    string.starts_with('"') || sqlite_reads_as_number(string)
+}
+
+/// Whether NUMERIC affinity turns this text into a number: an integer or real literal, optionally signed,
+/// with surrounding whitespace (`'+5'`, `'.5'`, `'5.'`, `'1E+5'`, `' 7 '`). Hex, `inf` and `1_000` stay
+/// text. Mirrored by `_SQLITE_NUMBER` in the SQLite connection's ``base.py``, which must agree: a string
+/// stored as JSON text is decoded on read only when it is one of these.
+fn sqlite_reads_as_number(string: &str) -> bool {
+    let bytes = string
+        .trim_matches(|c: char| matches!(c, ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r'))
+        .as_bytes();
+    let digits_from = |mut i: usize| {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        i
+    };
+
+    let mut i = usize::from(matches!(bytes.first(), Some(b'+' | b'-')));
+    let integer_end = digits_from(i);
+    let mut digits = integer_end - i;
+    i = integer_end;
+    if bytes.get(i) == Some(&b'.') {
+        let fraction_end = digits_from(i + 1);
+        digits += fraction_end - (i + 1);
+        i = fraction_end;
+    }
+    if digits == 0 {
+        return false;
+    }
+    if matches!(bytes.get(i), Some(b'e' | b'E')) {
+        i += 1;
+        if matches!(bytes.get(i), Some(b'+' | b'-')) {
+            i += 1;
+        }
+        let exponent_end = digits_from(i);
+        if exponent_end == i {
+            return false;
+        }
+        i = exponent_end;
+    }
+    i == bytes.len()
 }
 
 /// A JSON scalar becomes the native SQL value; a JSON container stays JSON but is normalised by
