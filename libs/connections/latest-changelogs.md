@@ -1,5 +1,5 @@
-## [v0.2.6](https://pypi.org/project/amsdal-glue-connections/0.2.6/) - 2026-11-22
+## [v0.2.7](https://pypi.org/project/amsdal-glue-connections/0.2.7/) - 2026-11-23
 
 ### Fixed
 
-- On SQLite, a JSON-typed plain value (`Value(x, output_type=JSONB)` where `x` is a string, number or boolean) is now stored and compared exactly like the bare value: inserts and updates store the native value, and whole-column `=` / `!=` / `IN` filters compare it raw instead of through `jsonb()`, which failed the whole query on any row whose text is not JSON. Objects, arrays and JSON `null` keep their JSON handling. PostgreSQL is unchanged: such values are bound as `jsonb`. (ams-337)
+- On SQLite, a string stored in a `JSON`/`JSONB` column as a typed JSON value (`Value(x, output_type=JSONB)`) reads back as the same string. Before, a numeric-looking string such as `'123'` read back as the number `123`. Such a string, or one starting with `"`, is now stored as its JSON text (`'"123"'`), and filters compare it in that form. Rows saved earlier keep their stored number, and a filter by the string no longer matches them. Reading decodes that form in any column, so a text stored as exactly a quoted number, such as `"42"` with the quotes, now reads back as `42`. (ams-364)
