@@ -34,8 +34,8 @@ SCHEMA_REF = SchemaReference(name=TABLE, version=Version.LATEST)
 NBSP = '\u00a0'
 
 ROWS: list[dict[str, Any]] = [
-    {'id': 1, 'text': 'Emil'},
-    {'id': 2, 'text': 'emil smith'},
+    {'id': 1, 'text': 'John'},
+    {'id': 2, 'text': 'john smith'},
     {'id': 3, 'text': 'loan receipt'},
     {'id': 4, 'text': f'loan{NBSP}receipt'},
     {'id': 5, 'text': 'a\nb'},
@@ -83,13 +83,13 @@ RX = FieldLookup.REGEX
 IRX = FieldLookup.IREGEX
 
 PORTABLE_CASES: list[tuple[str, QueryStatement, set[int], set[int]]] = [
-    ('regex_is_case_sensitive', match(RX, r'^emil'), {2}, {2}),
-    ('iregex_ignores_case', match(IRX, r'^EMIL'), {1, 2}, {1, 2}),
-    ('regex_leading_inline_ignorecase', match(RX, r'(?i)^emil$'), {1}, {1}),
-    ('iregex_with_leading_inline_ignorecase', match(IRX, r'(?i)^EMIL$'), {1}, {1}),
+    ('regex_is_case_sensitive', match(RX, r'^john'), {2}, {2}),
+    ('iregex_ignores_case', match(IRX, r'^JOHN'), {1, 2}, {1, 2}),
+    ('regex_leading_inline_ignorecase', match(RX, r'(?i)^john$'), {1}, {1}),
+    ('iregex_with_leading_inline_ignorecase', match(IRX, r'(?i)^JOHN$'), {1}, {1}),
     ('escaped_metacharacters_are_literal', match(RX, r'C\.S\.A'), {12}, {12}),
     ('quote_in_pattern', match(RX, "it's"), {12}, {12}),
-    ('word_boundary_as_lookaround', match(IRX, r'(?<!\w)emil(?!\w)'), {1, 2}, {1, 2}),
+    ('word_boundary_as_lookaround', match(IRX, r'(?<!\w)john(?!\w)'), {1, 2}, {1, 2}),
     ('whitespace_class_with_nbsp', match(RX, r'^loan[\s\u00a0\u2007\u202f]+receipt$'), {3, 4}, {3, 4}),
     ('any_but_newline_as_class', match(RX, r'^a[^\n]b$'), {15}, {15}),
     ('very_end_of_string', match(RX, r'^abc\Z'), {16}, {16}),
@@ -102,7 +102,7 @@ DIFFERENCE_CASES: list[tuple[str, QueryStatement, set[int], set[int]]] = [
     ('digit_shorthand_and_non_ascii_digit', match(RX, r'^\d$'), set(), {7}),
     ('dot_and_newline', match(RX, r'^a.b$'), {5, 15}, {15}),
     ('dollar_before_final_newline', match(RX, r'^abc$'), {16}, {6, 16}),
-    ('backslash_b_is_backspace_on_postgres', match(IRX, r'\bemil\b'), set(), {1, 2}),
+    ('backslash_b_is_backspace_on_postgres', match(IRX, r'\bjohn\b'), set(), {1, 2}),
     ('final_sigma_case_mapping', match(IRX, r'^οδοσ$'), set(), {8}),
     ('backreference_inside_repetition', match(RX, r'^(?:(a)|b)*\1$'), {11}, {9, 11}),
     ('brace_without_lower_bound', match(RX, r'^a{,3}$'), set(), {11}),

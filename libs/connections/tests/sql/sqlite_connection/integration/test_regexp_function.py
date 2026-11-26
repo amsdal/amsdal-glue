@@ -17,14 +17,14 @@ def _regexp(connection: SqliteConnection, value_sql: str, pattern: str | None) -
 @pytest.mark.parametrize(
     ('value_sql', 'pattern', 'expected'),
     [
-        ("'Emil'", '^Em', 1),
-        ("'Emil'", '^em', 0),
-        ("'Emil'", '(?i)^em', 1),
+        ("'John'", '^Jo', 1),
+        ("'John'", '^jo', 0),
+        ("'John'", '(?i)^jo', 1),
         ('5', '^5$', 1),
         ('1.5', r'^1\.5$', 1),
         ("x'61'", "^b'a'$", 1),
         ('NULL', '^', None),
-        ("'Emil'", None, None),
+        ("'John'", None, None),
     ],
     ids=['match', 'no-match', 'inline-ignorecase', 'integer', 'real', 'blob', 'null-value', 'null-pattern'],
 )

@@ -47,6 +47,6 @@ async def test_regexp_is_registered_again_after_a_reconnect(tmp_path: Path) -> N
 
     await connection.connect(db_path=db_path)
     try:
-        assert await _ids(connection, match(FieldLookup.REGEX, r'^emil')) == {2}
+        assert await _ids(connection, match(FieldLookup.REGEX, r'^john')) == {2}
     finally:
         await connection.disconnect()

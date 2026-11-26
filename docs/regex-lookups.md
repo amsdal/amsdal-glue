@@ -49,7 +49,7 @@ Checked on PostgreSQL 17 with a UTF-8 locale against Python 3.13 `re`. Every row
 | `\d` | any Unicode decimal digit (`٣`, `３`) | `0-9` only | `[0-9]` |
 | `.` | does not match a newline | matches a newline | `[^\n]`, or `[\s\S]` for any character |
 | `$` | the end, or before a final newline | the end only | `\Z` (the very end on both) |
-| `\b`, `\B` | word boundary | `\b` is a backspace character: no error, just no match | `(?<!\w)emil(?!\w)` instead of `\bemil\b` |
+| `\b`, `\B` | word boundary | `\b` is a backspace character: no error, just no match | `(?<!\w)john(?!\w)` instead of `\bjohn\b` |
 | `\w` | Unicode word characters | differs on rare characters (`²`, `½`, combining marks) | accepted difference |
 | case-insensitive | Python's case mapping | differs on rare letters (Greek final sigma, `ß`, Turkish `İ`) | accepted difference |
 | backreference to a group inside a repetition, e.g. `^(?:(a)\|b)*\1$` on `aba` | keeps the capture of an earlier iteration: match | resets it: no match | avoid |

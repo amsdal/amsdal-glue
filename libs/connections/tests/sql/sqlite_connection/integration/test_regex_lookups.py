@@ -42,7 +42,7 @@ def test_negated_lookup_excludes_matches_and_null(database_connection: SqliteCon
     _seed(database_connection)
     non_null = {row['id'] for row in ROWS if row['text'] is not None}
 
-    assert _ids(database_connection, match(FieldLookup.IREGEX, r'^EMIL', negated=True)) == non_null - {1, 2}
+    assert _ids(database_connection, match(FieldLookup.IREGEX, r'^JOHN', negated=True)) == non_null - {1, 2}
 
 
 def test_null_pattern_matches_nothing(database_connection: SqliteConnection) -> None:
@@ -69,6 +69,6 @@ def test_regexp_is_registered_again_after_a_reconnect(tmp_path: Path) -> None:
 
     connection.connect(db_path=db_path)
     try:
-        assert _ids(connection, match(FieldLookup.REGEX, r'^emil')) == {2}
+        assert _ids(connection, match(FieldLookup.REGEX, r'^john')) == {2}
     finally:
         connection.disconnect()
