@@ -44,7 +44,7 @@ ROWS: list[dict[str, Any]] = [
         'id': 2,
         'payload': {'age': 9, 'name': 'Bob', 'active': True, 'score': 10.0, 'tags': ['x', 'y'], 'meta': {'k': 2}},
     },
-    {'id': 3, 'payload': {'age': 18, 'name': 'Emil', 'active': True, 'score': 2.25, 'tags': [], 'meta': {'k': 3}}},
+    {'id': 3, 'payload': {'age': 18, 'name': 'John', 'active': True, 'score': 2.25, 'tags': [], 'meta': {'k': 3}}},
     {'id': 4, 'payload': {'age': 36, 'name': 'Zoe', 'active': False, 'score': 99.0, 'tags': ['z'], 'meta': {'k': 4}}},
     {'id': 5, 'payload': {'age': 100, 'name': 'Mia', 'active': True, 'score': 0.5, 'tags': ['y'], 'meta': {'k': 5}}},
     {'id': 6, 'payload': {'age': None, 'active': True, 'score': 0.0, 'tags': [], 'meta': {'k': 6}}},
@@ -153,7 +153,7 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
         query(cond(ref('payload', 'score'), FieldLookup.GTE, Value(2.25, output_type=J))),
         {2, 3, 4},
     ),
-    ('jsonb_name_eq_emil', query(cond(ref('payload', 'name'), FieldLookup.EQ, Value('Emil', output_type=J))), {3}),
+    ('jsonb_name_eq_john', query(cond(ref('payload', 'name'), FieldLookup.EQ, Value('John', output_type=J))), {3}),
     (
         'jsonb_active_eq_true',
         query(cond(ref('payload', 'active'), FieldLookup.EQ, Value(value=True, output_type=J))),
@@ -186,8 +186,8 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
         {5},
     ),
     (
-        'text_name_eq_emil',
-        query(cond(ref('payload', 'name', output_type=ScalarType.TEXT), FieldLookup.EQ, Value('Emil'))),
+        'text_name_eq_john',
+        query(cond(ref('payload', 'name', output_type=ScalarType.TEXT), FieldLookup.EQ, Value('John'))),
         {3},
     ),
     (
@@ -234,20 +234,20 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
     # carry a text cast or the query errors with `operator does not exist: jsonb ~~ unknown`.
     # Search terms stay inside one JSON token: the engines serialize whitespace differently, so a
     # pattern spanning a `,`/`:` separator is out of contract.
-    ('whole_column_contains_emil', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('Emil'))), {3}),
-    ('whole_column_contains_wrong_case', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('emil'))), set()),
-    ('whole_column_icontains_emil', query(cond(ref('payload'), FieldLookup.ICONTAINS, Value('emil'))), {3}),
+    ('whole_column_contains_john', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('John'))), {3}),
+    ('whole_column_contains_wrong_case', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('john'))), set()),
+    ('whole_column_icontains_john', query(cond(ref('payload'), FieldLookup.ICONTAINS, Value('john'))), {3}),
     ('whole_column_contains_tag_x', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('x'))), {1, 2}),
     # --- nested field text match ------------------------------------------------------------------
     # A nested reference in a text match is the UNQUOTED `->>` text, not the quoted JSON
     # serialization -- otherwise STARTSWITH/ENDSWITH can never match the first/last character on
-    # Postgres (`(payload->'name')::text` is `"Emil"`, quotes included) while SQLite's native
+    # Postgres (`(payload->'name')::text` is `"John"`, quotes included) while SQLite's native
     # extraction matches, and the engines silently disagree. Row 6 has no `name` -> SQL NULL,
     # excluded everywhere.
-    ('nested_name_startswith_E', query(cond(ref('payload', 'name'), FieldLookup.STARTSWITH, Value('E'))), {3}),
+    ('nested_name_startswith_J', query(cond(ref('payload', 'name'), FieldLookup.STARTSWITH, Value('J'))), {3}),
     ('nested_name_endswith_ob', query(cond(ref('payload', 'name'), FieldLookup.ENDSWITH, Value('ob'))), {2}),
-    ('nested_name_contains_mi', query(cond(ref('payload', 'name'), FieldLookup.CONTAINS, Value('mi'))), {3}),
-    ('nested_name_icontains_mi', query(cond(ref('payload', 'name'), FieldLookup.ICONTAINS, Value('mi'))), {3, 5}),
+    ('nested_name_contains_oh', query(cond(ref('payload', 'name'), FieldLookup.CONTAINS, Value('oh'))), {3}),
+    ('nested_name_icontains_n', query(cond(ref('payload', 'name'), FieldLookup.ICONTAINS, Value('n'))), {1, 3, 7}),
     ('nested_name_istartswith_z', query(cond(ref('payload', 'name'), FieldLookup.ISTARTSWITH, Value('z'))), {4}),
 ]
 
@@ -255,9 +255,9 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
 # connection registers). Same jsonb-vs-text failure mode as LIKE: without a text cast (whole column) or a `->>`
 # extraction (nested field), Postgres errors with `operator does not exist: jsonb ~ unknown`.
 REGEX_CASES: list[tuple[str, QueryStatement, set[int]]] = [
-    ('regex_whole_column_emil', query(cond(ref('payload'), FieldLookup.REGEX, Value('Emil'))), {3}),
-    ('regex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.REGEX, Value('^Emil$'))), {3}),
-    ('iregex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.IREGEX, Value('^emil$'))), {3}),
+    ('regex_whole_column_john', query(cond(ref('payload'), FieldLookup.REGEX, Value('John'))), {3}),
+    ('regex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.REGEX, Value('^John$'))), {3}),
+    ('iregex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.IREGEX, Value('^john$'))), {3}),
 ]
 
 # Non-ASCII payloads, where the two engines are NOT interchangeable for a whole-column text match.
@@ -275,7 +275,7 @@ REGEX_CASES: list[tuple[str, QueryStatement, set[int]]] = [
 # full parity. The divergence is pinned here rather than hidden: change these expectations only
 # together with the storage format.
 NON_ASCII_ROWS: list[dict[str, Any]] = [
-    {'id': 1, 'payload': {'name': 'Emil', 'tags': ['alpha', 'бета']}},
+    {'id': 1, 'payload': {'name': 'John', 'tags': ['alpha', 'бета']}},
     {'id': 2, 'payload': {'name': 'Данило', 'tags': ['alpha']}},
 ]
 
