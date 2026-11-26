@@ -1,6 +1,6 @@
 """`regex` / `iregex` on SQLite, through the `REGEXP` function the connection registers (Python `re`).
 
-The shared cases in ``tests.sql.regex_cases`` pin the SQLite half of every case; the tests below cover what
+Runs the shared cases in ``tests.sql.regex_cases`` and one in Python `re` syntax; the tests below cover what
 only the SQLite function decides: NULL handling, negation, an invalid pattern, a reconnect.
 """
 
@@ -14,6 +14,7 @@ from amsdal_glue_connections.sql.connections.sqlite_connection import SqliteConn
 from tests.sql.regex_cases import CASES
 from tests.sql.regex_cases import INSERT_ROWS
 from tests.sql.regex_cases import match
+from tests.sql.regex_cases import PYTHON_RE_SYNTAX_CASE
 from tests.sql.regex_cases import ROWS
 from tests.sql.regex_cases import SCHEMA_COMMAND
 
@@ -29,8 +30,8 @@ def _ids(connection: SqliteConnection, statement: QueryStatement) -> set[int]:
 
 @pytest.mark.parametrize(
     ('statement', 'expected'),
-    [(statement, sqlite) for _, statement, _, sqlite in CASES],
-    ids=[case_id for case_id, *_ in CASES],
+    [(statement, expected) for _, statement, expected in [*CASES, PYTHON_RE_SYNTAX_CASE]],
+    ids=[case_id for case_id, *_ in [*CASES, PYTHON_RE_SYNTAX_CASE]],
 )
 def test_regex_lookup(database_connection: SqliteConnection, statement: QueryStatement, expected: set[int]) -> None:
     _seed(database_connection)
@@ -42,7 +43,7 @@ def test_negated_lookup_excludes_matches_and_null(database_connection: SqliteCon
     _seed(database_connection)
     non_null = {row['id'] for row in ROWS if row['text'] is not None}
 
-    assert _ids(database_connection, match(FieldLookup.IREGEX, r'^JOHN', negated=True)) == non_null - {1, 2}
+    assert _ids(database_connection, match(FieldLookup.IREGEX, r'^JOHN', negated=True)) == non_null - {1, 2, 3}
 
 
 def test_null_pattern_matches_nothing(database_connection: SqliteConnection) -> None:
@@ -69,6 +70,6 @@ def test_regexp_is_registered_again_after_a_reconnect(tmp_path: Path) -> None:
 
     connection.connect(db_path=db_path)
     try:
-        assert _ids(connection, match(FieldLookup.REGEX, r'^john')) == {2}
+        assert _ids(connection, match(FieldLookup.REGEX, r'^john')) == {2, 3}
     finally:
         connection.disconnect()

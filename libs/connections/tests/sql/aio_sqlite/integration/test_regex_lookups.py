@@ -14,6 +14,7 @@ from amsdal_glue_connections.sql.connections.sqlite_connection import AsyncSqlit
 from tests.sql.regex_cases import CASES
 from tests.sql.regex_cases import INSERT_ROWS
 from tests.sql.regex_cases import match
+from tests.sql.regex_cases import PYTHON_RE_SYNTAX_CASE
 from tests.sql.regex_cases import SCHEMA_COMMAND
 
 
@@ -23,8 +24,8 @@ async def _ids(connection: AsyncSqliteConnection, statement: QueryStatement) -> 
 
 @pytest.mark.parametrize(
     ('statement', 'expected'),
-    [(statement, sqlite) for _, statement, _, sqlite in CASES],
-    ids=[case_id for case_id, *_ in CASES],
+    [(statement, expected) for _, statement, expected in [*CASES, PYTHON_RE_SYNTAX_CASE]],
+    ids=[case_id for case_id, *_ in [*CASES, PYTHON_RE_SYNTAX_CASE]],
 )
 async def test_regex_lookup(
     database_connection: AsyncSqliteConnection,
@@ -47,6 +48,6 @@ async def test_regexp_is_registered_again_after_a_reconnect(tmp_path: Path) -> N
 
     await connection.connect(db_path=db_path)
     try:
-        assert await _ids(connection, match(FieldLookup.REGEX, r'^john')) == {2}
+        assert await _ids(connection, match(FieldLookup.REGEX, r'^john')) == {2, 3}
     finally:
         await connection.disconnect()

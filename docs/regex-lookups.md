@@ -40,14 +40,13 @@ local development and of tests.
 
 ## Known differences
 
-Checked on PostgreSQL 17 with a UTF-8 locale against Python 3.13 `re`. Every row is pinned by a test case in
-`libs/connections/tests/sql/regex_cases.py`.
+Checked on PostgreSQL 17 with a UTF-8 locale against Python 3.13 `re`.
 
 | Construct | Python `re` (SQLite) | PostgreSQL | Portable form |
 | -- | -- | -- | -- |
 | `\s` | includes non-breaking spaces (U+00A0, U+2007, U+202F), U+0085 and U+001C–U+001F | does not | `[\s\u00a0\u2007\u202f]` |
 | `\d` | any Unicode decimal digit (`٣`, `３`) | `0-9` only | `[0-9]` |
-| `.` | does not match a newline | matches a newline | `[^\n]`, or `[\s\S]` for any character |
+| `.` | does not match a newline | matches a newline | `[^\n]` |
 | `$` | the end, or before a final newline | the end only | `\Z` (the very end on both) |
 | `\b`, `\B` | word boundary | `\b` is a backspace character: no error, just no match | `(?<!\w)john(?!\w)` instead of `\bjohn\b` |
 | `\w` | Unicode word characters | differs on rare characters (`²`, `½`, combining marks) | accepted difference |
@@ -57,7 +56,7 @@ Checked on PostgreSQL 17 with a UTF-8 locale against Python 3.13 `re`. Every row
 | `a{,3}` | 0 to 3 | the literal text `a{,3}` | `a{0,3}` |
 | `\x41B` | `\x41` then `B` | `\x` takes every following hex digit | `\u0041B` |
 | `{m,n}` above 255 | accepted | error | 255 or below |
-| named groups `(?P<n>…)`, scoped flags `(?i:…)`, inline flags other than a leading `(?i)`, atomic groups, possessive quantifiers, `\N{…}` | accepted | error | plain groups, one leading `(?i)` |
+| named groups `(?P<n>…)`, scoped flags `(?i:…)`, inline flags other than a leading `(?i)`, `\N{…}` | accepted | error | plain groups, one leading `(?i)` |
 | `[[:alpha:]]`, `\y`, `\m`, `\M` | not `re` syntax: `\y` is an error, `[[:alpha:]]` silently means another set | accepted | PostgreSQL only |
 
 The locale is a deployment requirement: PostgreSQL must run with a UTF-8 locale and collation (not `C`).

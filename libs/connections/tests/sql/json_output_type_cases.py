@@ -246,7 +246,7 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
     # excluded everywhere.
     ('nested_name_startswith_J', query(cond(ref('payload', 'name'), FieldLookup.STARTSWITH, Value('J'))), {3}),
     ('nested_name_endswith_ob', query(cond(ref('payload', 'name'), FieldLookup.ENDSWITH, Value('ob'))), {2}),
-    ('nested_name_contains_oh', query(cond(ref('payload', 'name'), FieldLookup.CONTAINS, Value('oh'))), {3}),
+    ('nested_name_contains_n', query(cond(ref('payload', 'name'), FieldLookup.CONTAINS, Value('n'))), {1, 3}),
     ('nested_name_icontains_n', query(cond(ref('payload', 'name'), FieldLookup.ICONTAINS, Value('n'))), {1, 3, 7}),
     ('nested_name_istartswith_z', query(cond(ref('payload', 'name'), FieldLookup.ISTARTSWITH, Value('z'))), {4}),
 ]
