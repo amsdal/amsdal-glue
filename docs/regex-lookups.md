@@ -48,7 +48,8 @@ Checked on PostgreSQL 17 with a UTF-8 locale against Python 3.13 `re`.
 | `\d` | any Unicode decimal digit (`٣`, `３`) | `0-9` only | `[0-9]` |
 | `.` | does not match a newline | matches a newline | `[^\n]` |
 | `$` | the end, or before a final newline | the end only | `\Z` (the very end on both) |
-| `\b`, `\B` | word boundary | `\b` is a backspace character: no error, just no match | `(?<!\w)john(?!\w)` instead of `\bjohn\b` |
+| `\b` | word boundary | a backspace character: no error, just no match | `(?<!\w)john(?!\w)` instead of `\bjohn\b` |
+| `\B` | not a word boundary | a backslash: `jo\Bhn` matches the text `jo\hn` | `(?:(?<=\w)(?=\w)\|(?<!\w)(?!\w))` |
 | `\w` | Unicode word characters | differs on rare characters (`²`, `½`, combining marks) | accepted difference |
 | case-insensitive | Python's case mapping | differs on rare letters (Greek final sigma, `ß`, Turkish `İ`) | accepted difference |
 | backreference to a group inside a repetition, e.g. `^(?:(a)\|b)*\1$` on `aba` | keeps the capture of an earlier iteration: match | resets it: no match | avoid |
@@ -56,7 +57,7 @@ Checked on PostgreSQL 17 with a UTF-8 locale against Python 3.13 `re`.
 | `a{,3}` | 0 to 3 | the literal text `a{,3}` | `a{0,3}` |
 | `\x41B` | `\x41` then `B` | `\x` takes every following hex digit | `\u0041B` |
 | `{m,n}` above 255 | accepted | error | 255 or below |
-| named groups `(?P<n>…)`, scoped flags `(?i:…)`, inline flags other than a leading `(?i)`, `\N{…}` | accepted | error | plain groups, one leading `(?i)` |
+| named groups `(?P<n>…)`, scoped flags `(?i:…)`, inline flags other than a leading `(?i)`, `\N{…}`, atomic groups `(?>…)` and possessive quantifiers `a++` (Python 3.11+; Python 3.10 rejects them too) | accepted | error | plain groups, one leading `(?i)` |
 | `[[:alpha:]]`, `\y`, `\m`, `\M` | not `re` syntax: `\y` is an error, `[[:alpha:]]` silently means another set | accepted | PostgreSQL only |
 
 The locale is a deployment requirement: PostgreSQL must run with a UTF-8 locale and collation (not `C`).

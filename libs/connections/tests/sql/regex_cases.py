@@ -75,6 +75,7 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
     ('iregex_ignores_case', match(IRX, r'^JOHN'), {1, 2, 3}),
     ('iregex_ignores_case_outside_ascii', match(IRX, r'^шЛЮЗ$'), {4}),
     ('regex_leading_inline_ignorecase', match(RX, r'(?i)^john$'), {1}),
+    ('iregex_with_leading_inline_ignorecase', match(IRX, r'(?i)^JOHN$'), {1}),
     ('escaped_metacharacters_are_literal', match(RX, r'C\.S\.A'), {5}),
     ('quote_in_pattern', match(RX, "it's"), {5}),
 ]
