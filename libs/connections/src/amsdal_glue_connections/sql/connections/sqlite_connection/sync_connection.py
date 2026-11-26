@@ -55,6 +55,7 @@ from amsdal_glue_connections._sql_core import SqlGenerator
 from amsdal_glue_connections.sql.connections.base_view_introspection import SchemaAssemblyMixin
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import bind_params
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import convert_sqlite_datetime
+from amsdal_glue_connections.sql.connections.sqlite_connection.base import regexp
 from amsdal_glue_connections.sql.connections.sqlite_connection.base import SqliteConnectionMixin
 from amsdal_glue_connections.sql.parsers.conditions import try_parse_conditions
 from amsdal_glue_connections.sql.parsers.default import parse_sqlite_default
@@ -651,6 +652,7 @@ class SqliteConnection(SqliteSchemaAssemblyMixin, SqliteConnectionMixin, Connect
 
         self._db_path = Path(db_path)
         self._connection = sqlite3.connect(db_path, check_same_thread=check_same_thread, **kwargs)
+        self._connection.create_function('REGEXP', 2, regexp, deterministic=True)
         self._connection.isolation_level = None  # disable implicit transaction opening
         # The registry views are TEMPORARY, so they belong to the connection just opened.
         self._schema_views_ready = False

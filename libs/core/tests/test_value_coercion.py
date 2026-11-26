@@ -324,7 +324,7 @@ def test_array_non_list_value_raises():
 )
 @pytest.mark.parametrize(
     'value',
-    [{'a': 1}, [1, 2, 3], 'emil', 1, 1.5, True],
+    [{'a': 1}, [1, 2, 3], 'john', 1, 1.5, True],
 )
 def test_json_value_passes_through_unchanged(json_type, value):
     v = Value(value, output_type=json_type)

@@ -34,7 +34,7 @@ def _compile(dialect: str, statement) -> str:
 
 @pytest.mark.parametrize('lookup', TEXT_MATCH_LOOKUPS, ids=[lookup.value for lookup in TEXT_MATCH_LOOKUPS])
 def test_postgres_text_match_casts_column_to_text(lookup) -> None:
-    sql = _compile('postgres', query(cond(ref('payload'), lookup, Value('Emil'))))
+    sql = _compile('postgres', query(cond(ref('payload'), lookup, Value('John'))))
 
     assert '::text' in sql, sql
     assert 'LIKE' in sql, sql
@@ -49,7 +49,7 @@ def test_postgres_eq_keeps_bare_column() -> None:
 
 def test_sqlite_contains_still_uses_glob() -> None:
     """The SQLite case-sensitivity lowering must survive the cast."""
-    sql = _compile('sqlite', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('Emil'))))
+    sql = _compile('sqlite', query(cond(ref('payload'), FieldLookup.CONTAINS, Value('John'))))
 
     assert 'glob(' in sql, sql
 
@@ -57,7 +57,7 @@ def test_sqlite_contains_still_uses_glob() -> None:
 @pytest.mark.parametrize('lookup', [FieldLookup.REGEX, FieldLookup.IREGEX], ids=['REGEX', 'IREGEX'])
 def test_postgres_regex_casts_column_to_text(lookup) -> None:
     """`~`/`~*` have no jsonb operator either -- same failure mode as LIKE."""
-    sql = _compile('postgres', query(cond(ref('payload'), lookup, Value('^Emil'))))
+    sql = _compile('postgres', query(cond(ref('payload'), lookup, Value('^John'))))
 
     assert '::text' in sql, sql
     assert '~' in sql, sql
@@ -67,10 +67,10 @@ def test_postgres_regex_casts_column_to_text(lookup) -> None:
 def test_postgres_nested_text_match_uses_text_extraction(lookup) -> None:
     """A nested field must switch to `->>` (unquoted text), NOT `(col->'k')::text`.
 
-    `(payload->'name')::text` is the QUOTED JSON serialization (`"Emil"`), so STARTSWITH/ENDSWITH
+    `(payload->'name')::text` is the QUOTED JSON serialization (`"John"`), so STARTSWITH/ENDSWITH
     would silently miss every row on Postgres while matching on SQLite's unquoted `->>`.
     """
-    sql = _compile('postgres', query(cond(ref('payload', 'name'), lookup, Value('Emil'))))
+    sql = _compile('postgres', query(cond(ref('payload', 'name'), lookup, Value('John'))))
 
     assert "->>'name'" in sql, sql
     assert "->'name')::text" not in sql, sql

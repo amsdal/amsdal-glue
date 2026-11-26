@@ -863,7 +863,7 @@ fn extract_condition(ob: &Bound<PyAny>) -> PyResult<Comparison> {
 /// * a bare column is cast (`payload::text`) -- the match runs over the serialized JSON text, and
 ///   on a text column the cast is a no-op;
 /// * a nested reference switches its last hop to the `->>` text extraction. Casting the `->` chain
-///   instead would compare the QUOTED serialization (`"Emil"`), so `STARTSWITH`/`ENDSWITH` could
+///   instead would compare the QUOTED serialization (`"John"`), so `STARTSWITH`/`ENDSWITH` could
 ///   never match the first or last character on Postgres while SQLite's unquoted native
 ///   extraction matches -- a silent cross-engine divergence.
 ///

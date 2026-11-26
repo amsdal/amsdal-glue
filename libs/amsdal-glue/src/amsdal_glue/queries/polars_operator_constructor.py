@@ -59,11 +59,8 @@ def polars_operator_constructor(  # noqa: C901, PLR0912
             right_stmt = f"LIKE '%{right_stmt.lower()}'"
         case FieldLookup.ISNULL:
             right_stmt = 'IS NULL' if getattr(right, 'value', True) else 'IS NOT NULL'
-        case FieldLookup.REGEX:
-            right_stmt = f'REGEXP {right_stmt}'
-        case FieldLookup.IREGEX:
-            left_stmt = f'LOWER({left_stmt})'
-            right_stmt = f'REGEXP {right_stmt.lower()}'
+        # REGEX / IREGEX are not supported: `repr()` of the pattern is not an SQL literal (a backslash comes
+        # out doubled, a `'` turns the literal into a double-quoted identifier), so they fall through to the error.
         case _:
             msg = f'{lookup} is not supported in the cross-database Polars executor'
             raise NotImplementedError(msg)
