@@ -103,7 +103,8 @@ EXPECTED_LITE: dict[str, tuple[str, list]] = {
         ['%oo'],
     ),
     'REGEX': ('SELECT * FROM "users" WHERE CAST("users"."age" AS text) REGEXP ?', ['^foo']),
-    # Uses REGEXP '(?i)' || ? (POSIX inline flag) instead of LOWER(...) REGEXP.
+    # Uses REGEXP '(?i)' || ? (the inline flag of Python `re`, which the connection's REGEXP function runs)
+    # instead of LOWER(...) REGEXP.
     'IREGEX': ('SELECT * FROM "users" WHERE CAST("users"."age" AS text) REGEXP \'(?i)\' || ?', ['^foo']),
 }
 

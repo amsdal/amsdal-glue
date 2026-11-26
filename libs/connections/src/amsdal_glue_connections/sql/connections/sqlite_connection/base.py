@@ -48,6 +48,19 @@ def convert_sqlite_datetime(val: bytes) -> _dt.datetime:
 
 
 sqlite3.register_adapter(_dt.datetime, adapt_sqlite_datetime)
+
+
+def regexp(pattern: str | None, value: Any) -> bool | None:
+    """The `REGEXP` function every SQLite connection registers: SQLite only parses `X REGEXP Y` into the call
+    `regexp(Y, X)`, the application has to provide it. Same as Django's `_sqlite_regexp`: the pattern is Python
+    `re` syntax, a NULL pattern or value gives NULL, any other value is matched as `str(value)`. `iregex` is
+    rendered as `REGEXP '(?i)' || ?`, so it relies on the inline flag of Python `re`.
+    """
+    if pattern is None or value is None:
+        return None
+    return re.search(pattern, str(value)) is not None
+
+
 # A Python ``list`` reaches the driver as a native list (the generator maps it to a SQL array), which
 # sqlite3 cannot bind, so serialise it to JSON text. A ``dict`` needs no adapter: it is JSON by
 # construction, so it arrives as a ``JsonValue`` marker and is bound by :func:`bind_params`. Minified

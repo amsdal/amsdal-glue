@@ -14,7 +14,7 @@ from tests.sql.json_output_type_cases import CASES
 from tests.sql.json_output_type_cases import NON_ASCII_ROWS
 from tests.sql.json_output_type_cases import NON_ASCII_TABLE
 from tests.sql.json_output_type_cases import NON_ASCII_TEXT_MATCH_CASES
-from tests.sql.json_output_type_cases import PG_REGEX_CASES
+from tests.sql.json_output_type_cases import REGEX_CASES
 from tests.sql.json_output_type_cases import register_and_seed
 from tests.sql.json_output_type_cases import ROWS
 from tests.sql.json_output_type_cases import SCALAR_CASES
@@ -51,8 +51,8 @@ def test_json_output_type_scalar_column(database_connection, statement, expected
 
 @pytest.mark.parametrize(
     ('statement', 'expected'),
-    [(statement, expected) for _, statement, expected in PG_REGEX_CASES],
-    ids=[case_id for case_id, _, _ in PG_REGEX_CASES],
+    [(statement, expected) for _, statement, expected in REGEX_CASES],
+    ids=[case_id for case_id, _, _ in REGEX_CASES],
 )
 def test_json_regex_lookups(database_connection, statement, expected) -> None:
     register_and_seed(database_connection, TABLE, ROWS)

@@ -251,10 +251,10 @@ CASES: list[tuple[str, QueryStatement, set[int]]] = [
     ('nested_name_istartswith_z', query(cond(ref('payload', 'name'), FieldLookup.ISTARTSWITH, Value('z'))), {4}),
 ]
 
-# Regex lookups executable on Postgres only: the SQLite connection registers no REGEXP function.
-# Same jsonb-vs-text failure mode as LIKE: without a text cast (whole column) or a `->>` extraction
-# (nested field), Postgres errors with `operator does not exist: jsonb ~ unknown`.
-PG_REGEX_CASES: list[tuple[str, QueryStatement, set[int]]] = [
+# Regex lookups on a JSON column, shared by both engines (SQLite runs them through the REGEXP function the
+# connection registers). Same jsonb-vs-text failure mode as LIKE: without a text cast (whole column) or a `->>`
+# extraction (nested field), Postgres errors with `operator does not exist: jsonb ~ unknown`.
+REGEX_CASES: list[tuple[str, QueryStatement, set[int]]] = [
     ('regex_whole_column_emil', query(cond(ref('payload'), FieldLookup.REGEX, Value('Emil'))), {3}),
     ('regex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.REGEX, Value('^Emil$'))), {3}),
     ('iregex_nested_name_anchored', query(cond(ref('payload', 'name'), FieldLookup.IREGEX, Value('^emil$'))), {3}),
